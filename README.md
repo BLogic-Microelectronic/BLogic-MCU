@@ -1,1 +1,1 @@
-# Teknofest-ip-Tasar-m-
+# Yongatek-Teknofest MCU Tasarımı
