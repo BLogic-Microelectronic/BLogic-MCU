@@ -1,0 +1,4 @@
+build/
+obj_dir/
+*.vvp
+*.sim
