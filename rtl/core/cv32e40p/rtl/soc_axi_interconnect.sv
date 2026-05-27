@@ -1,115 +1,237 @@
-`include "axi/typedef.svh"
-`include "axi/assign.svh"
+// ============================================================
+// BLogic MCU - AXI Adres Yönlendirici (Manual Crossbar)
+// ============================================================
+// PULP xbar yerine Verilator uyumlu basit yönlendirici.
+//
+// Instruction port → doğrudan Instruction SRAM'e
+// Data port → adres decode ile Data SRAM veya Peripherals'a
+//
+// ÖNEMLİ: OBI bridge AW ve W'yi aynı cycle'da sunar.
+// Bu yüzden W kanalı combinational decode ile yönlendirilmeli,
+// registered state ile DEĞİL. Aksi halde deadlock oluşur.
+// ============================================================
 
-module soc_axi_interconnect #(
-    parameter int unsigned AXI_ADDR_WIDTH = 32,
-    parameter int unsigned AXI_DATA_WIDTH = 32,
-    parameter int unsigned AXI_ID_WIDTH   = 4,
-    parameter int unsigned AXI_USER_WIDTH = 1
-)(
+module soc_axi_interconnect (
     input  logic clk_i,
     input  logic rst_ni,
 
-    // ============================================================
-    // MASTER PORTLARI (CPU'dan Crossbar'a gelen istekler)
-    // ============================================================
-    // M0: İşlemci Komut (Instruction) Arayüzü — sadece okuma yapar
     AXI_BUS.Slave  cpu_instr_slv,
-    // M1: İşlemci Veri (Data) Arayüzü — okuma + yazma yapar
     AXI_BUS.Slave  cpu_data_slv,
 
-    // ============================================================
-    // SLAVE PORTLARI (Crossbar'dan hedef modüllere gidenler)
-    // ============================================================
-    // S0: Boot ROM       — 0x0000_0000 .. 0x0000_03FF (1 KB)
     AXI_BUS.Master boot_rom_mst,
-    // S1: Instruction SRAM — 0x0001_0000 .. 0x0001_1FFF (8 KB)
     AXI_BUS.Master instr_sram_mst,
-    // S2: Data SRAM      — 0x0002_0000 .. 0x0002_1FFF (8 KB)
     AXI_BUS.Master data_sram_mst,
-    // S3: AI SRAM        — 0x0003_0000 .. 0x0003_77FF (30 KB)
     AXI_BUS.Master ai_sram_mst,
-    // S4: Çevre Birimleri — 0x4000_0000 .. 0x4000_FFFF (64 KB, AXI-Lite bridge'e)
     AXI_BUS.Master periph_mst
 );
 
     // ============================================================
-    // Crossbar konfigürasyon sabitleri
+    // INSTRUCTION PATH: Direkt Instruction SRAM'e
     // ============================================================
-    localparam int unsigned NUM_MASTERS   = 2;  // CPU Instr + CPU Data
-    localparam int unsigned NUM_SLAVES    = 5;  // ROM + 3×SRAM + Periph
-    localparam int unsigned NUM_RULES     = 5;  // Her slave için bir adres kuralı
+    assign instr_sram_mst.aw_id     = cpu_instr_slv.aw_id;
+    assign instr_sram_mst.aw_addr   = cpu_instr_slv.aw_addr;
+    assign instr_sram_mst.aw_len    = cpu_instr_slv.aw_len;
+    assign instr_sram_mst.aw_size   = cpu_instr_slv.aw_size;
+    assign instr_sram_mst.aw_burst  = cpu_instr_slv.aw_burst;
+    assign instr_sram_mst.aw_lock   = cpu_instr_slv.aw_lock;
+    assign instr_sram_mst.aw_cache  = cpu_instr_slv.aw_cache;
+    assign instr_sram_mst.aw_prot   = cpu_instr_slv.aw_prot;
+    assign instr_sram_mst.aw_qos    = cpu_instr_slv.aw_qos;
+    assign instr_sram_mst.aw_region = cpu_instr_slv.aw_region;
+    assign instr_sram_mst.aw_atop   = cpu_instr_slv.aw_atop;
+    assign instr_sram_mst.aw_user   = cpu_instr_slv.aw_user;
+    assign instr_sram_mst.aw_valid  = cpu_instr_slv.aw_valid;
+    assign cpu_instr_slv.aw_ready   = instr_sram_mst.aw_ready;
 
-    // NOT: Crossbar, master tarafında ID genişliğini otomatik genişletir:
-    //   mst_id_width = AXI_ID_WIDTH + $clog2(NUM_MASTERS)
-    //                = 4 + 1 = 5 bit
-    // Slave modülleriniz (SRAM wrapper, UART vb.) bu genişliği desteklemeli!
+    assign instr_sram_mst.w_data    = cpu_instr_slv.w_data;
+    assign instr_sram_mst.w_strb    = cpu_instr_slv.w_strb;
+    assign instr_sram_mst.w_last    = cpu_instr_slv.w_last;
+    assign instr_sram_mst.w_user    = cpu_instr_slv.w_user;
+    assign instr_sram_mst.w_valid   = cpu_instr_slv.w_valid;
+    assign cpu_instr_slv.w_ready    = instr_sram_mst.w_ready;
 
-    // ============================================================
-    // PULP xbar_cfg_t yapılandırma struct'ı
-    // ============================================================
-    localparam axi_pkg::xbar_cfg_t XbarCfg = '{
-        NoSlvPorts:         NUM_MASTERS,        // Crossbar'a bağlanan master sayısı
-        NoMstPorts:         NUM_SLAVES,          // Crossbar'dan çıkan slave sayısı
-        MaxMstTrans:        4,                   // Master başına eşzamanlı transaction
-        MaxSlvTrans:        4,                   // Slave başına eşzamanlı transaction
-        FallThrough:        1'b0,                // FIFO cut-through kapalı (timing için)
-        LatencyMode:        axi_pkg::CUT_ALL_AX, // AW/AR kanallarında pipeline register
-        PipelineStages:     1,                   // 1 aşama pipeline (fmax için)
-        AxiIdWidthSlvPorts: AXI_ID_WIDTH,        // Giriş tarafı ID genişliği
-        AxiIdUsedSlvPorts:  AXI_ID_WIDTH,
-        UniqueIds:          1'b0,                // Farklı master'lar aynı ID kullanabilir
-        AxiAddrWidth:       AXI_ADDR_WIDTH,
-        AxiDataWidth:       AXI_DATA_WIDTH,
-        NoAddrRules:        NUM_RULES            // Adres kuralı sayısı
-    };
+    assign cpu_instr_slv.b_id       = instr_sram_mst.b_id;
+    assign cpu_instr_slv.b_resp     = instr_sram_mst.b_resp;
+    assign cpu_instr_slv.b_user     = instr_sram_mst.b_user;
+    assign cpu_instr_slv.b_valid    = instr_sram_mst.b_valid;
+    assign instr_sram_mst.b_ready   = cpu_instr_slv.b_ready;
 
-    // ============================================================
-    // Adres haritası (Memory Map)
-    // ============================================================
-    typedef axi_pkg::xbar_rule_32_t rule_t;
+    assign instr_sram_mst.ar_id     = cpu_instr_slv.ar_id;
+    assign instr_sram_mst.ar_addr   = cpu_instr_slv.ar_addr;
+    assign instr_sram_mst.ar_len    = cpu_instr_slv.ar_len;
+    assign instr_sram_mst.ar_size   = cpu_instr_slv.ar_size;
+    assign instr_sram_mst.ar_burst  = cpu_instr_slv.ar_burst;
+    assign instr_sram_mst.ar_lock   = cpu_instr_slv.ar_lock;
+    assign instr_sram_mst.ar_cache  = cpu_instr_slv.ar_cache;
+    assign instr_sram_mst.ar_prot   = cpu_instr_slv.ar_prot;
+    assign instr_sram_mst.ar_qos    = cpu_instr_slv.ar_qos;
+    assign instr_sram_mst.ar_region = cpu_instr_slv.ar_region;
+    assign instr_sram_mst.ar_user   = cpu_instr_slv.ar_user;
+    assign instr_sram_mst.ar_valid  = cpu_instr_slv.ar_valid;
+    assign cpu_instr_slv.ar_ready   = instr_sram_mst.ar_ready;
 
-    rule_t [NUM_RULES-1:0] addr_map;
-
-    assign addr_map = '{
-        // S0: Boot ROM — 1 KB
-        '{idx: 32'd0, start_addr: 32'h0000_0000, end_addr: 32'h0000_0400},
-
-        // S1: Instruction SRAM — 8 KB
-        '{idx: 32'd1, start_addr: 32'h0001_0000, end_addr: 32'h0001_2000},
-
-        // S2: Data SRAM — 8 KB
-        '{idx: 32'd2, start_addr: 32'h0002_0000, end_addr: 32'h0002_2000},
-
-        // S3: AI SRAM — 30 KB (30 × 1024 = 30720 = 0x7800)
-        '{idx: 32'd3, start_addr: 32'h0003_0000, end_addr: 32'h0003_7800},
-
-        // S4: Çevre Birimleri — 64 KB blok
-        '{idx: 32'd4, start_addr: 32'h4000_0000, end_addr: 32'h4001_0000}
-    };
+    assign cpu_instr_slv.r_id       = instr_sram_mst.r_id;
+    assign cpu_instr_slv.r_data     = instr_sram_mst.r_data;
+    assign cpu_instr_slv.r_resp     = instr_sram_mst.r_resp;
+    assign cpu_instr_slv.r_last     = instr_sram_mst.r_last;
+    assign cpu_instr_slv.r_user     = instr_sram_mst.r_user;
+    assign cpu_instr_slv.r_valid    = instr_sram_mst.r_valid;
+    assign instr_sram_mst.r_ready   = cpu_instr_slv.r_ready;
 
     // ============================================================
-    // PULP AXI Crossbar — Interface Wrapper
+    // DATA PATH: Adres decode
     // ============================================================
-    // axi_xbar_intf kullanıyoruz çünkü portlarımız AXI_BUS interface.
-    // (axi_xbar'ın kendisi req_t/resp_t struct ile çalışır, interface ile değil)
+    wire aw_to_periph = (cpu_data_slv.aw_addr[31:28] == 4'h4);
+    wire ar_to_periph = (cpu_data_slv.ar_addr[31:28] == 4'h4);
 
-    axi_xbar_intf #(
-        .AXI_USER_WIDTH ( AXI_USER_WIDTH ),
-        .Cfg            ( XbarCfg ),
-        .ATOPS          ( 1'b0 ),               // Atomik operasyon desteği kapalı
-        .Connectivity   ( {NUM_MASTERS * NUM_SLAVES{1'b1}} ), // Tam bağlantı
-        .rule_t         ( rule_t )
-    ) i_axi_xbar (
-        .clk_i                  ( clk_i  ),
-        .rst_ni                 ( rst_ni ),
-        .test_i                 ( 1'b0   ),
-        .slv_ports              ( '{cpu_instr_slv, cpu_data_slv} ),
-        .mst_ports              ( '{boot_rom_mst, instr_sram_mst, data_sram_mst,
-                                    ai_sram_mst, periph_mst} ),
-        .addr_map_i             ( addr_map ),
-        .en_default_mst_port_i  ( '0 ),
-        .default_mst_port_i     ( '0 )
-    );
+    // Response mux için registered state
+    logic wr_was_periph, rd_was_periph;
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+            wr_was_periph <= 1'b0;
+            rd_was_periph <= 1'b0;
+        end else begin
+            if (cpu_data_slv.aw_valid && cpu_data_slv.aw_ready)
+                wr_was_periph <= aw_to_periph;
+            if (cpu_data_slv.ar_valid && cpu_data_slv.ar_ready)
+                rd_was_periph <= ar_to_periph;
+        end
+    end
+
+    // --- AW kanal (combinational decode) ---
+    assign data_sram_mst.aw_id     = cpu_data_slv.aw_id;
+    assign data_sram_mst.aw_addr   = cpu_data_slv.aw_addr;
+    assign data_sram_mst.aw_len    = cpu_data_slv.aw_len;
+    assign data_sram_mst.aw_size   = cpu_data_slv.aw_size;
+    assign data_sram_mst.aw_burst  = cpu_data_slv.aw_burst;
+    assign data_sram_mst.aw_lock   = cpu_data_slv.aw_lock;
+    assign data_sram_mst.aw_cache  = cpu_data_slv.aw_cache;
+    assign data_sram_mst.aw_prot   = cpu_data_slv.aw_prot;
+    assign data_sram_mst.aw_qos    = cpu_data_slv.aw_qos;
+    assign data_sram_mst.aw_region = cpu_data_slv.aw_region;
+    assign data_sram_mst.aw_atop   = cpu_data_slv.aw_atop;
+    assign data_sram_mst.aw_user   = cpu_data_slv.aw_user;
+    assign data_sram_mst.aw_valid  = cpu_data_slv.aw_valid && !aw_to_periph;
+
+    assign periph_mst.aw_id        = cpu_data_slv.aw_id;
+    assign periph_mst.aw_addr      = cpu_data_slv.aw_addr;
+    assign periph_mst.aw_len       = cpu_data_slv.aw_len;
+    assign periph_mst.aw_size      = cpu_data_slv.aw_size;
+    assign periph_mst.aw_burst     = cpu_data_slv.aw_burst;
+    assign periph_mst.aw_lock      = cpu_data_slv.aw_lock;
+    assign periph_mst.aw_cache     = cpu_data_slv.aw_cache;
+    assign periph_mst.aw_prot      = cpu_data_slv.aw_prot;
+    assign periph_mst.aw_qos       = cpu_data_slv.aw_qos;
+    assign periph_mst.aw_region    = cpu_data_slv.aw_region;
+    assign periph_mst.aw_atop      = cpu_data_slv.aw_atop;
+    assign periph_mst.aw_user      = cpu_data_slv.aw_user;
+    assign periph_mst.aw_valid     = cpu_data_slv.aw_valid && aw_to_periph;
+
+    assign cpu_data_slv.aw_ready   = aw_to_periph ? periph_mst.aw_ready
+                                                   : data_sram_mst.aw_ready;
+
+    // --- W kanal (combinational decode — BUG FIX) ---
+    assign data_sram_mst.w_data    = cpu_data_slv.w_data;
+    assign data_sram_mst.w_strb    = cpu_data_slv.w_strb;
+    assign data_sram_mst.w_last    = cpu_data_slv.w_last;
+    assign data_sram_mst.w_user    = cpu_data_slv.w_user;
+    assign data_sram_mst.w_valid   = cpu_data_slv.w_valid && !aw_to_periph;
+
+    assign periph_mst.w_data       = cpu_data_slv.w_data;
+    assign periph_mst.w_strb       = cpu_data_slv.w_strb;
+    assign periph_mst.w_last       = cpu_data_slv.w_last;
+    assign periph_mst.w_user       = cpu_data_slv.w_user;
+    assign periph_mst.w_valid      = cpu_data_slv.w_valid && aw_to_periph;
+
+    assign cpu_data_slv.w_ready    = aw_to_periph ? periph_mst.w_ready
+                                                   : data_sram_mst.w_ready;
+
+    // --- B kanal (registered decode — response mux) ---
+    assign cpu_data_slv.b_id       = wr_was_periph ? periph_mst.b_id   : data_sram_mst.b_id;
+    assign cpu_data_slv.b_resp     = wr_was_periph ? periph_mst.b_resp : data_sram_mst.b_resp;
+    assign cpu_data_slv.b_user     = wr_was_periph ? periph_mst.b_user : data_sram_mst.b_user;
+    assign cpu_data_slv.b_valid    = wr_was_periph ? periph_mst.b_valid: data_sram_mst.b_valid;
+    assign data_sram_mst.b_ready   = cpu_data_slv.b_ready && !wr_was_periph;
+    assign periph_mst.b_ready      = cpu_data_slv.b_ready &&  wr_was_periph;
+
+    // --- AR kanal (combinational decode) ---
+    assign data_sram_mst.ar_id     = cpu_data_slv.ar_id;
+    assign data_sram_mst.ar_addr   = cpu_data_slv.ar_addr;
+    assign data_sram_mst.ar_len    = cpu_data_slv.ar_len;
+    assign data_sram_mst.ar_size   = cpu_data_slv.ar_size;
+    assign data_sram_mst.ar_burst  = cpu_data_slv.ar_burst;
+    assign data_sram_mst.ar_lock   = cpu_data_slv.ar_lock;
+    assign data_sram_mst.ar_cache  = cpu_data_slv.ar_cache;
+    assign data_sram_mst.ar_prot   = cpu_data_slv.ar_prot;
+    assign data_sram_mst.ar_qos    = cpu_data_slv.ar_qos;
+    assign data_sram_mst.ar_region = cpu_data_slv.ar_region;
+    assign data_sram_mst.ar_user   = cpu_data_slv.ar_user;
+    assign data_sram_mst.ar_valid  = cpu_data_slv.ar_valid && !ar_to_periph;
+
+    assign periph_mst.ar_id        = cpu_data_slv.ar_id;
+    assign periph_mst.ar_addr      = cpu_data_slv.ar_addr;
+    assign periph_mst.ar_len       = cpu_data_slv.ar_len;
+    assign periph_mst.ar_size      = cpu_data_slv.ar_size;
+    assign periph_mst.ar_burst     = cpu_data_slv.ar_burst;
+    assign periph_mst.ar_lock      = cpu_data_slv.ar_lock;
+    assign periph_mst.ar_cache     = cpu_data_slv.ar_cache;
+    assign periph_mst.ar_prot      = cpu_data_slv.ar_prot;
+    assign periph_mst.ar_qos       = cpu_data_slv.ar_qos;
+    assign periph_mst.ar_region    = cpu_data_slv.ar_region;
+    assign periph_mst.ar_user      = cpu_data_slv.ar_user;
+    assign periph_mst.ar_valid     = cpu_data_slv.ar_valid && ar_to_periph;
+
+    assign cpu_data_slv.ar_ready   = ar_to_periph ? periph_mst.ar_ready
+                                                   : data_sram_mst.ar_ready;
+
+    // --- R kanal (registered decode — response mux) ---
+    assign cpu_data_slv.r_id       = rd_was_periph ? periph_mst.r_id   : data_sram_mst.r_id;
+    assign cpu_data_slv.r_data     = rd_was_periph ? periph_mst.r_data : data_sram_mst.r_data;
+    assign cpu_data_slv.r_resp     = rd_was_periph ? periph_mst.r_resp : data_sram_mst.r_resp;
+    assign cpu_data_slv.r_last     = rd_was_periph ? periph_mst.r_last : data_sram_mst.r_last;
+    assign cpu_data_slv.r_user     = rd_was_periph ? periph_mst.r_user : data_sram_mst.r_user;
+    assign cpu_data_slv.r_valid    = rd_was_periph ? periph_mst.r_valid: data_sram_mst.r_valid;
+    assign data_sram_mst.r_ready   = cpu_data_slv.r_ready && !rd_was_periph;
+    assign periph_mst.r_ready      = cpu_data_slv.r_ready &&  rd_was_periph;
+
+    // ============================================================
+    // KULLANILMAYAN PORTLAR: Tie-off
+    // ============================================================
+    assign boot_rom_mst.aw_valid = 1'b0; assign boot_rom_mst.w_valid = 1'b0;
+    assign boot_rom_mst.b_ready  = 1'b1; assign boot_rom_mst.ar_valid = 1'b0;
+    assign boot_rom_mst.r_ready  = 1'b1;
+    assign boot_rom_mst.aw_addr = '0; assign boot_rom_mst.aw_id = '0;
+    assign boot_rom_mst.aw_len = '0; assign boot_rom_mst.aw_size = '0;
+    assign boot_rom_mst.aw_burst = '0; assign boot_rom_mst.aw_lock = '0;
+    assign boot_rom_mst.aw_cache = '0; assign boot_rom_mst.aw_prot = '0;
+    assign boot_rom_mst.aw_qos = '0; assign boot_rom_mst.aw_region = '0;
+    assign boot_rom_mst.aw_atop = '0; assign boot_rom_mst.aw_user = '0;
+    assign boot_rom_mst.w_data = '0; assign boot_rom_mst.w_strb = '0;
+    assign boot_rom_mst.w_last = '0; assign boot_rom_mst.w_user = '0;
+    assign boot_rom_mst.ar_addr = '0; assign boot_rom_mst.ar_id = '0;
+    assign boot_rom_mst.ar_len = '0; assign boot_rom_mst.ar_size = '0;
+    assign boot_rom_mst.ar_burst = '0; assign boot_rom_mst.ar_lock = '0;
+    assign boot_rom_mst.ar_cache = '0; assign boot_rom_mst.ar_prot = '0;
+    assign boot_rom_mst.ar_qos = '0; assign boot_rom_mst.ar_region = '0;
+    assign boot_rom_mst.ar_user = '0;
+
+    assign ai_sram_mst.aw_valid = 1'b0; assign ai_sram_mst.w_valid = 1'b0;
+    assign ai_sram_mst.b_ready  = 1'b1; assign ai_sram_mst.ar_valid = 1'b0;
+    assign ai_sram_mst.r_ready  = 1'b1;
+    assign ai_sram_mst.aw_addr = '0; assign ai_sram_mst.aw_id = '0;
+    assign ai_sram_mst.aw_len = '0; assign ai_sram_mst.aw_size = '0;
+    assign ai_sram_mst.aw_burst = '0; assign ai_sram_mst.aw_lock = '0;
+    assign ai_sram_mst.aw_cache = '0; assign ai_sram_mst.aw_prot = '0;
+    assign ai_sram_mst.aw_qos = '0; assign ai_sram_mst.aw_region = '0;
+    assign ai_sram_mst.aw_atop = '0; assign ai_sram_mst.aw_user = '0;
+    assign ai_sram_mst.w_data = '0; assign ai_sram_mst.w_strb = '0;
+    assign ai_sram_mst.w_last = '0; assign ai_sram_mst.w_user = '0;
+    assign ai_sram_mst.ar_addr = '0; assign ai_sram_mst.ar_id = '0;
+    assign ai_sram_mst.ar_len = '0; assign ai_sram_mst.ar_size = '0;
+    assign ai_sram_mst.ar_burst = '0; assign ai_sram_mst.ar_lock = '0;
+    assign ai_sram_mst.ar_cache = '0; assign ai_sram_mst.ar_prot = '0;
+    assign ai_sram_mst.ar_qos = '0; assign ai_sram_mst.ar_region = '0;
+    assign ai_sram_mst.ar_user = '0;
 
 endmodule
+

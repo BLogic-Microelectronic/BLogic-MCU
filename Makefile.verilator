@@ -1,0 +1,114 @@
+# =============================================================================
+# BLogic MCU - Verilator Simülasyon Makefile
+# TEKNOFEST 2026 Çip Tasarım Yarışması
+# =============================================================================
+
+# Araçlar
+VERILATOR    = verilator
+RV_GCC       = riscv32-unknown-elf-gcc
+RV_OBJCOPY   = riscv32-unknown-elf-objcopy
+RV_OBJDUMP   = riscv32-unknown-elf-objdump
+PYTHON       = python3
+
+# Dizinler
+BUILD_DIR    = build
+OBJ_DIR      = obj_dir
+RTL_DIR      = rtl
+VERIF_DIR    = verif
+SW_DIR       = sw
+
+# Dosyalar
+SOC_FILES    = soc_files.f
+SIM_MAIN     = $(VERIF_DIR)/tb/sim_main.cpp
+TOP_MODULE   = soc_top
+SIM_EXE      = $(OBJ_DIR)/blogic_sim
+
+# RISC-V derleme ayarları
+RV_ARCH      = rv32imc
+RV_ABI       = ilp32
+RV_CFLAGS    = -march=$(RV_ARCH) -mabi=$(RV_ABI) -nostdlib -O2
+LINKER_SCRIPT = $(SW_DIR)/common/link.ld
+STARTUP      = $(SW_DIR)/common/crt0.S
+
+# Verilator flags
+VERILATOR_FLAGS = \
+    --cc --timing \
+    -Wno-fatal \
+    -Wno-TIMESCALEMOD \
+    -Wno-WIDTHEXPAND \
+    -Wno-WIDTHTRUNC \
+    -Wno-MODDUP \
+    -Wno-CASEINCOMPLETE \
+    -Wno-UNSIGNED \
+    -DVERILATOR \
+    --top-module $(TOP_MODULE)
+
+# VCD trace açmak için: make sim TRACE=1
+ifdef TRACE
+VERILATOR_FLAGS += --trace
+endif
+
+# ============ Hedefler ============
+
+.PHONY: all sim clean sw verilate help
+
+all: sim
+
+help:
+	@echo "═══════════════════════════════════════════"
+	@echo " BLogic MCU - Build Hedefleri"
+	@echo "═══════════════════════════════════════════"
+	@echo "  make sw        - Yazılımı derle (test.hex)"
+	@echo "  make verilate  - Verilator ile RTL derle"
+	@echo "  make sim       - Tam simülasyon (sw + RTL)"
+	@echo "  make sim TRACE=1 - VCD trace ile simülasyon"
+	@echo "  make clean     - Temizle"
+	@echo "═══════════════════════════════════════════"
+
+# ---- Yazılım derleme ----
+sw: $(BUILD_DIR)/test_mem.hex
+
+$(BUILD_DIR)/test.elf: $(STARTUP) $(SW_DIR)/tests/uart_hello.c $(LINKER_SCRIPT)
+	@mkdir -p $(BUILD_DIR)
+	$(RV_GCC) $(RV_CFLAGS) -T $(LINKER_SCRIPT) $(STARTUP) $(SW_DIR)/tests/uart_hello.c -o $@
+	@echo "[SW] ELF oluşturuldu: $@"
+
+$(BUILD_DIR)/test.bin: $(BUILD_DIR)/test.elf
+	$(RV_OBJCOPY) -O binary $< $@
+	@echo "[SW] Binary oluşturuldu: $@"
+
+$(BUILD_DIR)/test.disasm: $(BUILD_DIR)/test.elf
+	$(RV_OBJDUMP) -d $< > $@
+	@echo "[SW] Disassembly: $@"
+
+$(BUILD_DIR)/test_mem.hex: $(BUILD_DIR)/test.bin
+	$(PYTHON) scripts/elf2hex.py $< $@
+	@echo "[SW] Verilog hex oluşturuldu: $@"
+
+# ---- Verilator derleme ----
+verilate: $(SIM_EXE)
+
+$(SIM_EXE): $(SOC_FILES) $(SIM_MAIN)
+	@echo "[VLT] Verilator çalıştırılıyor..."
+	$(VERILATOR) $(VERILATOR_FLAGS) \
+		-f $(SOC_FILES) \
+		--exe $(SIM_MAIN) \
+		-o blogic_sim
+	@echo "[VLT] C++ derleniyor..."
+	make -C $(OBJ_DIR) -f V$(TOP_MODULE).mk blogic_sim -j$$(nproc)
+	@echo "[VLT] Simülasyon binary'si hazır: $(SIM_EXE)"
+
+# ---- Simülasyon ----
+sim: $(BUILD_DIR)/test_mem.hex $(SIM_EXE)
+	@echo ""
+	@echo "═══ Simülasyon Başlatılıyor ═══"
+	@cp $(BUILD_DIR)/test_mem.hex $(OBJ_DIR)/test.hex 2>/dev/null || true
+	cd $(OBJ_DIR) && ./blogic_sim
+
+# ---- Temizlik ----
+clean:
+	rm -rf $(OBJ_DIR)
+	rm -f $(BUILD_DIR)/test.elf $(BUILD_DIR)/test.bin
+	rm -f $(BUILD_DIR)/test.disasm $(BUILD_DIR)/test_mem.hex
+	rm -f sim_trace.vcd
+	@echo "[CLEAN] Temizlendi."

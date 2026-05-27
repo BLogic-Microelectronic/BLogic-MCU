@@ -59,7 +59,7 @@ module obi_to_axi #(
             wdata_q <= '0;
             be_q    <= '0;
             we_q    <= 1'b0;
-        end else if (obi_req_i && obi_gnt_o) begin
+        end else if (obi_req_i && (obi_gnt_o || state_q == IDLE)) begin
             // Grant verdiğimiz anda request bilgilerini yakala
             addr_q  <= obi_addr_i;
             wdata_q <= obi_wdata_i;

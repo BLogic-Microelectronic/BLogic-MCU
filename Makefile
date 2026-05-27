@@ -36,7 +36,8 @@ build/test.elf: sw/common/crt0.S $(TEST) sw/common/link.ld
 	$(CC) $(CFLAGS) $(LDFLAGS) sw/common/crt0.S $(TEST) -o $@
 
 build/test.hex: build/test.elf
-	$(OBJCOPY) -O verilog $< $@
+	$(OBJCOPY) -O binary $< build/test.bin
+	python3 -c "data=open('build/test.bin','rb').read(); open('build/test.hex','w').write('\n'.join([f'{int.from_bytes(data[i:i+4], \"little\"):08X}' for i in range(0, len(data), 4)]))"
 
 build/test.disasm: build/test.elf
 	$(OBJDUMP) -d $< > $@
