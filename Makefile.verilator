@@ -26,9 +26,12 @@ SIM_EXE      = $(OBJ_DIR)/blogic_sim
 # RISC-V derleme ayarları
 RV_ARCH      = rv32imc
 RV_ABI       = ilp32
-RV_CFLAGS    = -march=$(RV_ARCH) -mabi=$(RV_ABI) -nostdlib -O2
+RV_CFLAGS    = -march=$(RV_ARCH) -mabi=$(RV_ABI) -nostdlib -O2 $(EXTRA_CFLAGS)
 LINKER_SCRIPT = $(SW_DIR)/common/link.ld
 STARTUP      = $(SW_DIR)/common/crt0.S
+
+# Firmware C dosyası (terminalden değiştirilebilir)
+FW_SRC       ?= $(SW_DIR)/tests/uart_hello.c
 
 # Verilator flags
 VERILATOR_FLAGS = \
@@ -43,9 +46,14 @@ VERILATOR_FLAGS = \
     -DVERILATOR \
     --top-module $(TOP_MODULE)
 
-# VCD trace açmak için: make sim TRACE=1
+# VCD trace: make sim TRACE=1
 ifdef TRACE
 VERILATOR_FLAGS += --trace
+endif
+
+# Coverage: make sim COVERAGE=1
+ifdef COVERAGE
+VERILATOR_FLAGS += --coverage
 endif
 
 # ============ Hedefler ============
@@ -58,57 +66,63 @@ help:
 	@echo "═══════════════════════════════════════════"
 	@echo " BLogic MCU - Build Hedefleri"
 	@echo "═══════════════════════════════════════════"
-	@echo "  make sw        - Yazılımı derle (test.hex)"
-	@echo "  make verilate  - Verilator ile RTL derle"
-	@echo "  make sim       - Tam simülasyon (sw + RTL)"
-	@echo "  make sim TRACE=1 - VCD trace ile simülasyon"
-	@echo "  make clean     - Temizle"
+	@echo "  make -f Makefile.verilator sw                  - Yazılımı derle"
+	@echo "  make -f Makefile.verilator verilate            - Verilator ile RTL derle"
+	@echo "  make -f Makefile.verilator sim                 - Tam simülasyon"
+	@echo "  make -f Makefile.verilator sim TRACE=1         - VCD trace ile"
+	@echo "  make -f Makefile.verilator sim COVERAGE=1      - Coverage ile"
+	@echo "  make -f Makefile.verilator sim FW_SRC=sw/tests/gpio_test.c"
+	@echo "  make -f Makefile.verilator clean               - Temizle"
 	@echo "═══════════════════════════════════════════"
 
 # ---- Yazılım derleme ----
-sw: $(BUILD_DIR)/test_mem.hex
+sw: $(BUILD_DIR)/instr_mem.hex $(BUILD_DIR)/data_mem.hex
 
-$(BUILD_DIR)/test.elf: $(STARTUP) $(SW_DIR)/tests/uart_hello.c $(LINKER_SCRIPT)
+$(BUILD_DIR)/test.elf: $(STARTUP) $(FW_SRC) $(LINKER_SCRIPT)
 	@mkdir -p $(BUILD_DIR)
-	$(RV_GCC) $(RV_CFLAGS) -T $(LINKER_SCRIPT) $(STARTUP) $(SW_DIR)/tests/uart_hello.c -o $@
-	@echo "[SW] ELF oluşturuldu: $@"
-
-$(BUILD_DIR)/test.bin: $(BUILD_DIR)/test.elf
-	$(RV_OBJCOPY) -O binary $< $@
-	@echo "[SW] Binary oluşturuldu: $@"
+	$(RV_GCC) $(RV_CFLAGS) -T $(LINKER_SCRIPT) $(STARTUP) $(FW_SRC) -o $@
+	@echo "[SW] ELF olusturuldu: $@"
 
 $(BUILD_DIR)/test.disasm: $(BUILD_DIR)/test.elf
 	$(RV_OBJDUMP) -d $< > $@
 	@echo "[SW] Disassembly: $@"
 
-$(BUILD_DIR)/test_mem.hex: $(BUILD_DIR)/test.bin
-	$(PYTHON) scripts/elf2hex.py $< $@
-	@echo "[SW] Verilog hex oluşturuldu: $@"
+# Instruction hex: sadece .text (kod)
+$(BUILD_DIR)/instr_mem.hex: $(BUILD_DIR)/test.elf
+	$(RV_OBJCOPY) -O binary -j .text.init -j .text $< $(BUILD_DIR)/instr.bin
+	$(PYTHON) scripts/elf2hex.py $(BUILD_DIR)/instr.bin $@
+	@echo "[SW] Instr hex: $@"
+
+# Data hex: .rodata (stringler) + .data (init degiskenler)
+$(BUILD_DIR)/data_mem.hex: $(BUILD_DIR)/test.elf
+	$(RV_OBJCOPY) -O binary -j .rodata -j .data $< $(BUILD_DIR)/data.bin 2>/dev/null || printf '' > $(BUILD_DIR)/data.bin
+	$(PYTHON) scripts/elf2hex.py $(BUILD_DIR)/data.bin $@
+	@echo "[SW] Data hex: $@"
 
 # ---- Verilator derleme ----
 verilate: $(SIM_EXE)
 
 $(SIM_EXE): $(SOC_FILES) $(SIM_MAIN)
-	@echo "[VLT] Verilator çalıştırılıyor..."
+	@echo "[VLT] Verilator calistiriliyor..."
 	$(VERILATOR) $(VERILATOR_FLAGS) \
 		-f $(SOC_FILES) \
 		--exe $(SIM_MAIN) \
 		-o blogic_sim
 	@echo "[VLT] C++ derleniyor..."
 	make -C $(OBJ_DIR) -f V$(TOP_MODULE).mk blogic_sim -j$$(nproc)
-	@echo "[VLT] Simülasyon binary'si hazır: $(SIM_EXE)"
+	@echo "[VLT] Simulasyon binary'si hazir: $(SIM_EXE)"
 
 # ---- Simülasyon ----
-sim: $(BUILD_DIR)/test_mem.hex $(SIM_EXE)
+sim: $(BUILD_DIR)/instr_mem.hex $(BUILD_DIR)/data_mem.hex $(SIM_EXE)
 	@echo ""
-	@echo "═══ Simülasyon Başlatılıyor ═══"
-	@cp $(BUILD_DIR)/test_mem.hex $(OBJ_DIR)/test.hex 2>/dev/null || true
+	@echo "═══ Simulasyon Baslatiliyor ═══"
+	cp $(BUILD_DIR)/instr_mem.hex $(OBJ_DIR)/firmware.hex
+	cp $(BUILD_DIR)/data_mem.hex  $(OBJ_DIR)/data_mem.hex
 	cd $(OBJ_DIR) && ./blogic_sim
 
 # ---- Temizlik ----
 clean:
 	rm -rf $(OBJ_DIR)
-	rm -f $(BUILD_DIR)/test.elf $(BUILD_DIR)/test.bin
-	rm -f $(BUILD_DIR)/test.disasm $(BUILD_DIR)/test_mem.hex
+	rm -rf $(BUILD_DIR)
 	rm -f sim_trace.vcd
 	@echo "[CLEAN] Temizlendi."

@@ -124,4 +124,13 @@ static inline void uart_puts(UART_TypeDef *uart, const char *s)
     }
 }
 
+
+/* UART'tan bir byte al (Donanım el sıkışmalı polling modu) */
+static inline char uart_getc(UART_TypeDef *uart)
+{
+    while (!(uart->CFG & UART_CFG_RX_READY)); /* Donanıma veri gelene kadar bekle */
+    char c = (char)(uart->RDR & 0xFF);        /* Alınan veriyi oku */
+    return c;
+}
+
 #endif /* BLOGIC_MCU_H */

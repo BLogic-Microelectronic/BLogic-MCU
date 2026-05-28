@@ -81,8 +81,13 @@ module soc_axi_interconnect (
     // ============================================================
     // DATA PATH: Adres decode
     // ============================================================
-    wire aw_to_periph = (cpu_data_slv.aw_addr[31:28] == 4'h4);
-    wire ar_to_periph = (cpu_data_slv.ar_addr[31:28] == 4'h4);
+    // BLogic Fixed: Local wires and right-shift to bypass Verilator selection limit
+    logic [31:0] cpu_aw_addr_local;
+    logic [31:0] cpu_ar_addr_local;
+    assign cpu_aw_addr_local = cpu_data_slv.aw_addr;
+    assign cpu_ar_addr_local = cpu_data_slv.ar_addr;
+    wire aw_to_periph = ((cpu_aw_addr_local >> 28) == 4'h4);
+    wire ar_to_periph = ((cpu_ar_addr_local >> 28) == 4'h4);
 
     // Response mux için registered state
     logic wr_was_periph, rd_was_periph;
@@ -92,9 +97,7 @@ module soc_axi_interconnect (
             rd_was_periph <= 1'b0;
         end else begin
             if (cpu_data_slv.aw_valid && cpu_data_slv.aw_ready)
-                wr_was_periph <= aw_to_periph;
             if (cpu_data_slv.ar_valid && cpu_data_slv.ar_ready)
-                rd_was_periph <= ar_to_periph;
         end
     end
 
@@ -111,7 +114,6 @@ module soc_axi_interconnect (
     assign data_sram_mst.aw_region = cpu_data_slv.aw_region;
     assign data_sram_mst.aw_atop   = cpu_data_slv.aw_atop;
     assign data_sram_mst.aw_user   = cpu_data_slv.aw_user;
-    assign data_sram_mst.aw_valid  = cpu_data_slv.aw_valid && !aw_to_periph;
 
     assign periph_mst.aw_id        = cpu_data_slv.aw_id;
     assign periph_mst.aw_addr      = cpu_data_slv.aw_addr;
@@ -125,9 +127,7 @@ module soc_axi_interconnect (
     assign periph_mst.aw_region    = cpu_data_slv.aw_region;
     assign periph_mst.aw_atop      = cpu_data_slv.aw_atop;
     assign periph_mst.aw_user      = cpu_data_slv.aw_user;
-    assign periph_mst.aw_valid     = cpu_data_slv.aw_valid && aw_to_periph;
 
-    assign cpu_data_slv.aw_ready   = aw_to_periph ? periph_mst.aw_ready
                                                    : data_sram_mst.aw_ready;
 
     // --- W kanal (combinational decode — BUG FIX) ---
@@ -135,15 +135,12 @@ module soc_axi_interconnect (
     assign data_sram_mst.w_strb    = cpu_data_slv.w_strb;
     assign data_sram_mst.w_last    = cpu_data_slv.w_last;
     assign data_sram_mst.w_user    = cpu_data_slv.w_user;
-    assign data_sram_mst.w_valid   = cpu_data_slv.w_valid && !aw_to_periph;
 
     assign periph_mst.w_data       = cpu_data_slv.w_data;
     assign periph_mst.w_strb       = cpu_data_slv.w_strb;
     assign periph_mst.w_last       = cpu_data_slv.w_last;
     assign periph_mst.w_user       = cpu_data_slv.w_user;
-    assign periph_mst.w_valid      = cpu_data_slv.w_valid && aw_to_periph;
 
-    assign cpu_data_slv.w_ready    = aw_to_periph ? periph_mst.w_ready
                                                    : data_sram_mst.w_ready;
 
     // --- B kanal (registered decode — response mux) ---
@@ -166,7 +163,6 @@ module soc_axi_interconnect (
     assign data_sram_mst.ar_qos    = cpu_data_slv.ar_qos;
     assign data_sram_mst.ar_region = cpu_data_slv.ar_region;
     assign data_sram_mst.ar_user   = cpu_data_slv.ar_user;
-    assign data_sram_mst.ar_valid  = cpu_data_slv.ar_valid && !ar_to_periph;
 
     assign periph_mst.ar_id        = cpu_data_slv.ar_id;
     assign periph_mst.ar_addr      = cpu_data_slv.ar_addr;
@@ -179,9 +175,7 @@ module soc_axi_interconnect (
     assign periph_mst.ar_qos       = cpu_data_slv.ar_qos;
     assign periph_mst.ar_region    = cpu_data_slv.ar_region;
     assign periph_mst.ar_user      = cpu_data_slv.ar_user;
-    assign periph_mst.ar_valid     = cpu_data_slv.ar_valid && ar_to_periph;
 
-    assign cpu_data_slv.ar_ready   = ar_to_periph ? periph_mst.ar_ready
                                                    : data_sram_mst.ar_ready;
 
     // --- R kanal (registered decode — response mux) ---

@@ -1,13 +1,9 @@
 /* BLogic MCU - Linker Script
  * Memory map'e göre bölümlerin yerleşimi.
- * 
- * Boot akışı:
- *   1. İşlemci reset → boot_addr_i = 0x00020000 (Boot ROM)
- *   2. Bootloader QSPI'dan programı okur → INST SRAM'e yazar
- *   3. Jump → 0x00000000 (Instruction SRAM)
  *
- * Simülasyonda bootloader bypass edilip kod doğrudan
- * INST SRAM'e yükleneceği için ENTRY _start 0x00000000'dadır.
+ * FIX: .rodata DATA_RAM'e taşındı.
+ * Sebep: Data portu Instruction SRAM'e erişemiyor,
+ * string sabitleri Data SRAM'de olmalı.
  */
 
 OUTPUT_ARCH("riscv")
@@ -25,10 +21,14 @@ SECTIONS
     .text : {
         *(.text.init)    /* crt0.S başlangıç kodu - en başta olmalı */
         *(.text*)        /* Diğer tüm fonksiyonlar */
-        *(.rodata*)      /* Salt okunur veriler (string sabitleri vb.) */
     } > INST_RAM
 
     /* === VERİ BÖLÜMLERİ (Data SRAM) === */
+
+    /* Salt okunur veriler (string sabitleri vb.) */
+    .rodata : {
+        *(.rodata*)
+    } > DATA_RAM
 
     /* Başlangıç değeri olan global değişkenler */
     .data : {
@@ -48,3 +48,4 @@ SECTIONS
     /* Stack: Data SRAM'in en üstünden aşağı doğru büyür */
     _stack_top = ORIGIN(DATA_RAM) + LENGTH(DATA_RAM);
 }
+
