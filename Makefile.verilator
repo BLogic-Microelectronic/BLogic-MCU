@@ -44,7 +44,7 @@ VERILATOR_FLAGS = \
     -Wno-CASEINCOMPLETE \
     -Wno-UNSIGNED \
     -DVERILATOR \
-    --top-module $(TOP_MODULE)
+    --top-module $(TOP_MODULE) -public-flat-rw
 
 # VCD trace: make sim TRACE=1
 ifdef TRACE

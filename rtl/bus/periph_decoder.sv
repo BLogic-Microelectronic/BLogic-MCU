@@ -3,26 +3,21 @@
 // ============================================================
 // BLogic MCU - Çevre Birimi Adres Çözücü (Peripheral Decoder)
 // ============================================================
-// Köprüden (Bridge) gelen AXI-Lite sinyallerini adres bitlerinden
-// UART, GPIO ve Timer'a yönlendirir.
-//
-// Adres haritası (0x4000_xxxx bölgesi):
-//   0x4000_0000 .. 0x4000_00FF → UART_0
-//   0x4000_0100 .. 0x4000_01FF → GPIO
-//   0x4000_0200 .. 0x4000_02FF → Timer
-//
-// Adres decode: bits [11:8] ile seçim yapılır:
-//   0x0 → UART
-//   0x1 → GPIO
-//   0x2 → Timer
-//   >= 0x3 → GEÇERSİZ ADRES (Yapay DECERR Yanıtı Üretilir)
+// Adres haritası (0x4000_xxxx, bits[11:8] ile seçim):
+//   0x0 → UART_0    (0x4000_0000)
+//   0x1 → GPIO      (0x4000_0100)
+//   0x2 → Timer     (0x4000_0200)
+//   0x3 → UART_1    (0x4000_0300) — ileride
+//   0x4 → I2C       (0x4000_0400) — ileride
+//   0x5 → QSPI      (0x4000_0500) — YENİ
+//   0x6 → AI_ACC    (0x4000_0600) — ileride
 // ============================================================
 
 module periph_decoder (
     input  logic        clk_i,
     input  logic        rst_ni,
 
-    // Giriş: Köprüden (Bridge) gelen Saf AXI4-Lite Hattı
+    // Giriş: Köprüden gelen AXI4-Lite
     input  logic [31:0] s_awaddr,
     input  logic        s_awvalid,
     output logic        s_awready,
@@ -41,33 +36,42 @@ module periph_decoder (
     output logic        s_rvalid,
     input  logic        s_rready,
 
-    // Çıkış 0: UART_0 (0x4000_0000)
+    // UART_0 (0x0)
     output logic [31:0] uart_awaddr,  output logic uart_awvalid, input  logic uart_awready,
-    output logic [31:0] uart_wdata,   output logic uart_wvalid,  input  logic uart_wready,
+    output logic [31:0] uart_wdata,   output logic [3:0] uart_wstrb, output logic uart_wvalid,  input  logic uart_wready,
     input  logic [ 1:0] uart_bresp,   input  logic uart_bvalid,  output logic uart_bready,
     output logic [31:0] uart_araddr,  output logic uart_arvalid, input  logic uart_arready,
-    input  logic [31:0] uart_rdata,   input  logic uart_rvalid,  output logic uart_rready,
+    input  logic [31:0] uart_rdata,   input  logic [1:0] uart_rresp, input  logic uart_rvalid,  output logic uart_rready,
 
-    // Çıkış 1: GPIO (0x4000_0100)
+    // GPIO (0x1)
     output logic [31:0] gpio_awaddr,  output logic gpio_awvalid, input  logic gpio_awready,
-    output logic [31:0] gpio_wdata,   output logic gpio_wvalid,  input  logic gpio_wready,
+    output logic [31:0] gpio_wdata,   output logic [3:0] gpio_wstrb, output logic gpio_wvalid,  input  logic gpio_wready,
     input  logic [ 1:0] gpio_bresp,   input  logic gpio_bvalid,  output logic gpio_bready,
     output logic [31:0] gpio_araddr,  output logic gpio_arvalid, input  logic gpio_arready,
-    input  logic [31:0] gpio_rdata,   input  logic gpio_rvalid,  output logic gpio_rready,
+    input  logic [31:0] gpio_rdata,   input  logic [1:0] gpio_rresp, input  logic gpio_rvalid,  output logic gpio_rready,
 
-    // Çıkış 2: Timer (0x4000_0200)
+    // Timer (0x2)
     output logic [31:0] timer_awaddr, output logic timer_awvalid, input  logic timer_awready,
-    output logic [31:0] timer_wdata,  output logic timer_wvalid,  input  logic timer_wready,
+    output logic [31:0] timer_wdata,  output logic [3:0] timer_wstrb, output logic timer_wvalid,  input  logic timer_wready,
     input  logic [ 1:0] timer_bresp,  input  logic timer_bvalid,  output logic timer_bready,
     output logic [31:0] timer_araddr, output logic timer_arvalid, input  logic timer_arready,
-    input  logic [31:0] timer_rdata,  input  logic timer_rvalid,  output logic timer_rready
+    input  logic [31:0] timer_rdata,  input  logic [1:0] timer_rresp, input  logic timer_rvalid,  output logic timer_rready,
+
+    // QSPI (0x5)
+    output logic [31:0] qspi_awaddr,  output logic qspi_awvalid, input  logic qspi_awready,
+    output logic [31:0] qspi_wdata,   output logic [3:0] qspi_wstrb, output logic qspi_wvalid,  input  logic qspi_wready,
+    input  logic [ 1:0] qspi_bresp,   input  logic qspi_bvalid,  output logic qspi_bready,
+    output logic [31:0] qspi_araddr,  output logic qspi_arvalid, input  logic qspi_arready,
+    input  logic [31:0] qspi_rdata,   input  logic [1:0] qspi_rresp, input  logic qspi_rvalid,  output logic qspi_rready
 );
 
-    // --- Adres Seçim Mantığı ---
     wire [3:0] aw_sel = s_awaddr[11:8];
     wire [3:0] ar_sel = s_araddr[11:8];
 
-    // Response Kanalları İçin Geçmiş Bilgisi ve Hata Takip Register'ları
+    // Geçerli adres mi?
+    wire aw_valid_addr = (aw_sel == 4'h0) || (aw_sel == 4'h1) || (aw_sel == 4'h2) || (aw_sel == 4'h5);
+    wire ar_valid_addr = (ar_sel == 4'h0) || (ar_sel == 4'h1) || (ar_sel == 4'h2) || (ar_sel == 4'h5);
+
     logic [3:0] wr_sel_q, rd_sel_q;
     logic       err_aw_pending, err_ar_pending;
 
@@ -78,88 +82,102 @@ module periph_decoder (
             err_aw_pending <= 1'b0;
             err_ar_pending <= 1'b0;
         end else begin
-            // --- Yazma Hatası Üretim ve Takip Mekanizması ---
             if (s_awvalid && s_awready) begin
                 wr_sel_q <= aw_sel;
-                if (aw_sel > 4'h2) err_aw_pending <= 1'b1; // Harita dışı adres
+                if (!aw_valid_addr) err_aw_pending <= 1'b1;
             end else if (s_bvalid && s_bready) begin
-                err_aw_pending <= 1'b0; // Yanıt el sıkışınca temizle
+                err_aw_pending <= 1'b0;
             end
-
-            // --- Okuma Hatası Üretim ve Takip Mekanizması ---
             if (s_arvalid && s_arready) begin
                 rd_sel_q <= ar_sel;
-                if (ar_sel > 4'h2) err_ar_pending <= 1'b1; // Harita dışı adres
+                if (!ar_valid_addr) err_ar_pending <= 1'b1;
             end else if (s_rvalid && s_rready) begin
-                err_ar_pending <= 1'b0; // Yanıt el sıkışınca temizle
+                err_ar_pending <= 1'b0;
             end
         end
     end
 
-    // --- Adres ve Veri Broadcast (Hepsine aynı veri hatları gider) ---
-    assign uart_awaddr  = s_awaddr;  assign gpio_awaddr  = s_awaddr;  assign timer_awaddr = s_awaddr;
-    assign uart_wdata   = s_wdata;   assign gpio_wdata   = s_wdata;   assign timer_wdata  = s_wdata;
-    assign uart_wstrb   = s_wstrb;   assign gpio_wstrb   = s_wstrb;   assign timer_wstrb  = s_wstrb;
-    assign uart_araddr  = s_araddr;  assign gpio_araddr  = s_araddr;  assign timer_araddr = s_araddr;
+    // Broadcast
+    assign uart_awaddr  = s_awaddr; assign gpio_awaddr  = s_awaddr;
+    assign timer_awaddr = s_awaddr; assign qspi_awaddr  = s_awaddr;
+    assign uart_wdata   = s_wdata;  assign gpio_wdata   = s_wdata;
+    assign timer_wdata  = s_wdata;  assign qspi_wdata   = s_wdata;
+    assign uart_wstrb   = s_wstrb;  assign gpio_wstrb   = s_wstrb;
+    assign timer_wstrb  = s_wstrb;  assign qspi_wstrb   = s_wstrb;
+    assign uart_araddr  = s_araddr; assign gpio_araddr  = s_araddr;
+    assign timer_araddr = s_araddr; assign qspi_araddr  = s_araddr;
 
-    // --- AW / W / AR Valid Decode (Sadece geçerli modüllere valid gider) ---
+    // AW valid
     assign uart_awvalid  = s_awvalid && (aw_sel == 4'h0);
     assign gpio_awvalid  = s_awvalid && (aw_sel == 4'h1);
     assign timer_awvalid = s_awvalid && (aw_sel == 4'h2);
+    assign qspi_awvalid  = s_awvalid && (aw_sel == 4'h5);
 
+    // W valid
     assign uart_wvalid   = s_wvalid && (aw_sel == 4'h0);
     assign gpio_wvalid   = s_wvalid && (aw_sel == 4'h1);
     assign timer_wvalid  = s_wvalid && (aw_sel == 4'h2);
+    assign qspi_wvalid   = s_wvalid && (aw_sel == 4'h5);
 
+    // AR valid
     assign uart_arvalid  = s_arvalid && (ar_sel == 4'h0);
     assign gpio_arvalid  = s_arvalid && (ar_sel == 4'h1);
     assign timer_arvalid = s_arvalid && (ar_sel == 4'h2);
+    assign qspi_arvalid  = s_arvalid && (ar_sel == 4'h5);
 
-    // --- AW / W / AR Ready Mux (Hata durumunda işlemci kilitlenmesin diye 1'b1 verilir) ---
+    // AW ready
     assign s_awready = (aw_sel == 4'h0) ? uart_awready :
                        (aw_sel == 4'h1) ? gpio_awready :
-                       (aw_sel == 4'h2) ? timer_awready : 1'b1; // Geçersiz adreste isteği yut
+                       (aw_sel == 4'h2) ? timer_awready :
+                       (aw_sel == 4'h5) ? qspi_awready : 1'b1;
 
+    // W ready
     assign s_wready  = (aw_sel == 4'h0) ? uart_wready :
                        (aw_sel == 4'h1) ? gpio_wready :
-                       (aw_sel == 4'h2) ? timer_wready : 1'b1; // Geçersiz adreste veriyi yut
+                       (aw_sel == 4'h2) ? timer_wready :
+                       (aw_sel == 4'h5) ? qspi_wready : 1'b1;
 
+    // AR ready
     assign s_arready = (ar_sel == 4'h0) ? uart_arready :
                        (ar_sel == 4'h1) ? gpio_arready :
-                       (ar_sel == 4'h2) ? timer_arready : 1'b1; // Geçersiz adreste isteği yut
+                       (ar_sel == 4'h2) ? timer_arready :
+                       (ar_sel == 4'h5) ? qspi_arready : 1'b1;
 
-    // ============================================================
-    // B RESPONSE MUX (Yazma Yanıt Kanalı)
-    // ============================================================
+    // B response mux
     assign s_bresp  = (wr_sel_q == 4'h0) ? uart_bresp :
                       (wr_sel_q == 4'h1) ? gpio_bresp :
-                      (wr_sel_q == 4'h2) ? timer_bresp : 2'b11; // 2'b11 = DECERR
+                      (wr_sel_q == 4'h2) ? timer_bresp :
+                      (wr_sel_q == 4'h5) ? qspi_bresp : 2'b11;
 
     assign s_bvalid = (wr_sel_q == 4'h0) ? uart_bvalid :
                       (wr_sel_q == 4'h1) ? gpio_bvalid :
-                      (wr_sel_q == 4'h2) ? timer_bvalid : err_aw_pending;
+                      (wr_sel_q == 4'h2) ? timer_bvalid :
+                      (wr_sel_q == 4'h5) ? qspi_bvalid : err_aw_pending;
 
     assign uart_bready  = s_bready && (wr_sel_q == 4'h0);
     assign gpio_bready  = s_bready && (wr_sel_q == 4'h1);
     assign timer_bready = s_bready && (wr_sel_q == 4'h2);
+    assign qspi_bready  = s_bready && (wr_sel_q == 4'h5);
 
-    // ============================================================
-    // R RESPONSE MUX (Okuma Yanıt Kanalı)
-    // ============================================================
+    // R response mux
     assign s_rdata  = (rd_sel_q == 4'h0) ? uart_rdata :
                       (rd_sel_q == 4'h1) ? gpio_rdata :
-                      (rd_sel_q == 4'h2) ? timer_rdata : 32'hDEADBEEF; // Sahte Veri
+                      (rd_sel_q == 4'h2) ? timer_rdata :
+                      (rd_sel_q == 4'h5) ? qspi_rdata : 32'hDEADBEEF;
 
     assign s_rresp  = (rd_sel_q == 4'h0) ? uart_rresp :
                       (rd_sel_q == 4'h1) ? gpio_rresp :
-                      (rd_sel_q == 4'h2) ? timer_rresp : 2'b11; // 2'b11 = DECERR
+                      (rd_sel_q == 4'h2) ? timer_rresp :
+                      (rd_sel_q == 4'h5) ? qspi_rresp : 2'b11;
 
     assign s_rvalid = (rd_sel_q == 4'h0) ? uart_rvalid :
                       (rd_sel_q == 4'h1) ? gpio_rvalid :
-                      (rd_sel_q == 4'h2) ? timer_rvalid : err_ar_pending;
+                      (rd_sel_q == 4'h2) ? timer_rvalid :
+                      (rd_sel_q == 4'h5) ? qspi_rvalid : err_ar_pending;
 
     assign uart_rready  = s_rready && (rd_sel_q == 4'h0);
     assign gpio_rready  = s_rready && (rd_sel_q == 4'h1);
     assign timer_rready = s_rready && (rd_sel_q == 4'h2);
+    assign qspi_rready  = s_rready && (rd_sel_q == 4'h5);
 
 endmodule

@@ -15,6 +15,7 @@ rtl/core/cv32e40p/rtl/vendor/pulp_platform_fpnew/src/fpnew_pkg.sv
 rtl/core/cv32e40p/rtl/include/cv32e40p_pkg.sv
 rtl/core/cv32e40p/rtl/include/cv32e40p_apu_core_pkg.sv
 rtl/core/cv32e40p/rtl/include/cv32e40p_fpu_pkg.sv
+rtl/core/cv32e40p/bhv/cv32e40p_sim_clock_gate.sv
 
 # 3. INTERFACE (ARAYÜZ) TANIMLARI
 rtl/bus/axi/src/axi_intf.sv
@@ -59,6 +60,7 @@ rtl/core/cv32e40p/rtl/cv32e40p_prefetch_controller.sv
 rtl/core/cv32e40p/rtl/cv32e40p_register_file_ff.sv
 rtl/core/cv32e40p/rtl/cv32e40p_register_file_latch.sv
 rtl/core/cv32e40p/rtl/cv32e40p_sleep_unit.sv
+rtl/core/cv32e40p/rtl/cv32e40p_core.sv
 rtl/core/cv32e40p/rtl/cv32e40p_top.sv
 
 # 6. BELLEK YÖNETİMİ MODÜLLERİ (Core altında kalanlar)
@@ -81,3 +83,5 @@ rtl/peripherals/timer_axil.sv
 
 # 9. EN ÜST SEVİYE TOP-LEVEL MODÜL (rtl/ kök dizinine taşınan)
 rtl/soc_top.sv
+rtl/peripherals/qspi_master_axil.sv
+rtl/peripherals/qspi_master_axil.sv

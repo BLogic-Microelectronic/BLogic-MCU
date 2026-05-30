@@ -9,8 +9,15 @@ module soc_top (
     // Dış Dünya
     input  logic        uart_rxd_i,
     output logic        uart_txd_o,
-    input  logic [15:0] gpio_in_i,
-    output logic [15:0] gpio_out_o
+    input  logic [31:0] gpio_in_i,
+    output logic [31:0] gpio_out_o,
+
+    // QSPI Flash Pinleri
+    output logic        qspi_sclk_o,
+    output logic        qspi_cs_no,
+    output logic [ 3:0] qspi_io_o,
+    input  logic [ 3:0] qspi_io_i,
+    output logic [ 3:0] qspi_io_oe
 );
  
     // ============================================================
@@ -31,6 +38,12 @@ module soc_top (
     logic        data_req, data_gnt, data_rvalid, data_we;
     logic [ 3:0] data_be;
     logic [31:0] data_addr, data_wdata, data_rdata;
+
+    // Kesme (interrupt) sinyalleri
+    logic        timer_irq;
+ 
+    logic [31:0] irq_vector;
+    assign irq_vector = {15'd0, timer_irq, 16'd0};
  
     // ============================================================
     // 3. İŞLEMCİ ÇEKİRDEĞİ (CV32E40P)
@@ -48,7 +61,7 @@ module soc_top (
         .data_rvalid_i(data_rvalid), .data_we_o(data_we),
         .data_be_o(data_be), .data_addr_o(data_addr),
         .data_wdata_o(data_wdata), .data_rdata_i(data_rdata),
-        .irq_i(32'd0), .irq_ack_o(), .irq_id_o(),
+        .irq_i(irq_vector), .irq_ack_o(), .irq_id_o(),
         .debug_req_i(1'b0), .fetch_enable_i(1'b1), .core_sleep_o()
     );
  
@@ -85,11 +98,8 @@ module soc_top (
     );
  
     // ============================================================
-    // 6. AXI4 → AXI4-Lite KÖPRÜSÜ (Blok diyagramdaki mor bridge)
+    // 6. AXI4 → AXI4-Lite KÖPRÜSÜ
     // ============================================================
-    // periph_bus [Full AXI4] portunu alır ve kilitlenmesiz (combinational) 
-    // olarak ara 'lite_*' AXI4-Lite arayüzüne düşürür.
- 
     logic [31:0] lite_awaddr,  lite_araddr,  lite_wdata,  lite_rdata;
     logic [ 3:0] lite_wstrb;
     logic        lite_awvalid, lite_awready, lite_wvalid, lite_wready;
@@ -99,71 +109,43 @@ module soc_top (
     logic        lite_rvalid,  lite_rready;
  
     axi4_to_axilite_bridge i_axi_lite_bridge (
-        .clk_i        ( clk_i ),
-        .rst_ni       ( rst_ni ),
-        
-        // Slave Tarafı: Interconnect periph_bus (Full AXI4) bağlantısı
-        .s_awid       ( periph_bus.aw_id      ),
-        .s_awaddr     ( periph_bus.aw_addr    ),
-        .s_awlen      ( periph_bus.aw_len     ),
-        .s_awsize     ( periph_bus.aw_size    ),
-        .s_awburst    ( periph_bus.aw_burst   ),
-        .s_awlock     ( periph_bus.aw_lock    ),
-        .s_awcache    ( periph_bus.aw_cache   ),
-        .s_awprot     ( periph_bus.aw_prot    ),
-        .s_awqos      ( periph_bus.aw_qos     ),
-        .s_awregion   ( periph_bus.aw_region  ),
-        .s_awatop     ( periph_bus.aw_atop    ),
-        .s_awuser     ( periph_bus.aw_user    ),
-        .s_awvalid    ( periph_bus.aw_valid   ),
-        .s_awready    ( periph_bus.aw_ready   ),
-        .s_wdata      ( periph_bus.w_data     ),
-        .s_wstrb      ( periph_bus.w_strb     ),
-        .s_wlast      ( periph_bus.w_last     ),
-        .s_wuser      ( periph_bus.w_user     ),
-        .s_wvalid     ( periph_bus.w_valid    ),
-        .s_wready     ( periph_bus.w_ready    ),
-        .s_bid        ( periph_bus.b_id       ),
-        .s_bresp      ( periph_bus.b_resp     ),
-        .s_buser      ( periph_bus.b_user     ),
-        .s_bvalid     ( periph_bus.b_valid    ),
-        .s_bready     ( periph_bus.b_ready    ),
-        .s_arid       ( periph_bus.ar_id      ),
-        .s_araddr     ( periph_bus.ar_addr    ),
-        .s_arlen      ( periph_bus.ar_len     ),
-        .s_arsize     ( periph_bus.ar_size    ),
-        .s_arburst    ( periph_bus.ar_burst   ),
-        .s_arlock     ( periph_bus.ar_lock    ),
-        .s_arcache    ( periph_bus.ar_cache   ),
-        .s_arprot     ( periph_bus.ar_prot    ),
-        .s_arqos      ( periph_bus.ar_qos     ),
-        .s_arregion   ( periph_bus.ar_region  ),
-        .s_aruser     ( periph_bus.ar_user    ),
-        .s_arvalid    ( periph_bus.ar_valid   ),
-        .s_arready    ( periph_bus.ar_ready   ),
-        .s_rid        ( periph_bus.r_id       ),
-        .s_rdata      ( periph_bus.r_data     ),
-        .s_rresp      ( periph_bus.r_resp     ),
-        .s_rlast      ( periph_bus.r_last     ),
-        .s_ruser      ( periph_bus.r_user     ),
-        .s_rvalid     ( periph_bus.r_valid    ),
-        .s_rready     ( periph_bus.r_ready    ),
-        
-        // Master Tarafı: Çıkan AXI4-Lite sinyalleri
-        .m_awaddr     ( lite_awaddr  ), .m_awvalid ( lite_awvalid ), .m_awready ( lite_awready ),
-        .m_wdata      ( lite_wdata   ), .m_wstrb   ( lite_wstrb   ),
-        .m_wvalid     ( lite_wvalid  ), .m_wready  ( lite_wready  ),
-        .m_bresp      ( lite_bresp   ), .m_bvalid  ( lite_bvalid  ), .m_bready  ( lite_bready  ),
-        .m_araddr     ( lite_araddr  ), .m_arvalid ( lite_arvalid ), .m_arready ( lite_arready ),
-        .m_rdata      ( lite_rdata   ), .m_rresp   ( lite_rresp   ),
-        .m_rvalid     ( lite_rvalid  ), .m_rready  ( lite_rready  )
+        .clk_i(clk_i), .rst_ni(rst_ni),
+        .s_awid(periph_bus.aw_id), .s_awaddr(periph_bus.aw_addr),
+        .s_awlen(periph_bus.aw_len), .s_awsize(periph_bus.aw_size),
+        .s_awburst(periph_bus.aw_burst), .s_awlock(periph_bus.aw_lock),
+        .s_awcache(periph_bus.aw_cache), .s_awprot(periph_bus.aw_prot),
+        .s_awqos(periph_bus.aw_qos), .s_awregion(periph_bus.aw_region),
+        .s_awatop(periph_bus.aw_atop), .s_awuser(periph_bus.aw_user),
+        .s_awvalid(periph_bus.aw_valid), .s_awready(periph_bus.aw_ready),
+        .s_wdata(periph_bus.w_data), .s_wstrb(periph_bus.w_strb),
+        .s_wlast(periph_bus.w_last), .s_wuser(periph_bus.w_user),
+        .s_wvalid(periph_bus.w_valid), .s_wready(periph_bus.w_ready),
+        .s_bid(periph_bus.b_id), .s_bresp(periph_bus.b_resp),
+        .s_buser(periph_bus.b_user), .s_bvalid(periph_bus.b_valid),
+        .s_bready(periph_bus.b_ready),
+        .s_arid(periph_bus.ar_id), .s_araddr(periph_bus.ar_addr),
+        .s_arlen(periph_bus.ar_len), .s_arsize(periph_bus.ar_size),
+        .s_arburst(periph_bus.ar_burst), .s_arlock(periph_bus.ar_lock),
+        .s_arcache(periph_bus.ar_cache), .s_arprot(periph_bus.ar_prot),
+        .s_arqos(periph_bus.ar_qos), .s_arregion(periph_bus.ar_region),
+        .s_aruser(periph_bus.ar_user),
+        .s_arvalid(periph_bus.ar_valid), .s_arready(periph_bus.ar_ready),
+        .s_rid(periph_bus.r_id), .s_rdata(periph_bus.r_data),
+        .s_rresp(periph_bus.r_resp), .s_rlast(periph_bus.r_last),
+        .s_ruser(periph_bus.r_user),
+        .s_rvalid(periph_bus.r_valid), .s_rready(periph_bus.r_ready),
+        .m_awaddr(lite_awaddr), .m_awvalid(lite_awvalid), .m_awready(lite_awready),
+        .m_wdata(lite_wdata), .m_wstrb(lite_wstrb),
+        .m_wvalid(lite_wvalid), .m_wready(lite_wready),
+        .m_bresp(lite_bresp), .m_bvalid(lite_bvalid), .m_bready(lite_bready),
+        .m_araddr(lite_araddr), .m_arvalid(lite_arvalid), .m_arready(lite_arready),
+        .m_rdata(lite_rdata), .m_rresp(lite_rresp),
+        .m_rvalid(lite_rvalid), .m_rready(lite_rready)
     );
  
     // ============================================================
-    // 7. ÇEVRE BİRİMİ ADRES ÇÖZÜCÜ (Peripheral Decoder)
+    // 7. ÇEVRE BİRİMİ ADRES ÇÖZÜCÜ
     // ============================================================
-    // lite_* [AXI-Lite] → Safe Decoder → UART + GPIO + Timer
- 
     logic [31:0] uart_awaddr,  uart_araddr,  uart_wdata,  uart_rdata;
     logic [3:0]  uart_wstrb;
     logic        uart_awvalid, uart_awready, uart_wvalid, uart_wready;
@@ -184,36 +166,47 @@ module soc_top (
     logic [1:0]  timer_bresp,   timer_rresp;
     logic        timer_bvalid,  timer_bready,  timer_arvalid, timer_arready;
     logic        timer_rvalid,  timer_rready;
+
+    logic [31:0] qspi_awaddr,  qspi_araddr,  qspi_wdata,  qspi_rdata;
+    logic [3:0]  qspi_wstrb;
+    logic        qspi_awvalid, qspi_awready, qspi_wvalid, qspi_wready;
+    logic [1:0]  qspi_bresp,   qspi_rresp;
+    logic        qspi_bvalid,  qspi_bready,  qspi_arvalid, qspi_arready;
+    logic        qspi_rvalid,  qspi_rready;
  
     periph_decoder i_periph_decoder (
         .clk_i(clk_i), .rst_ni(rst_ni),
-        // Giriş: bridge'den gelen temiz AXI-Lite arayüzü
-        .s_awaddr  (lite_awaddr),  .s_awvalid (lite_awvalid), .s_awready (lite_awready),
-        .s_wdata   (lite_wdata),   .s_wstrb   (lite_wstrb),
-        .s_wvalid  (lite_wvalid),  .s_wready  (lite_wready),
-        .s_bresp   (lite_bresp),   .s_bvalid  (lite_bvalid),  .s_bready  (lite_bready),
-        .s_araddr  (lite_araddr),  .s_arvalid (lite_arvalid), .s_arready (lite_arready),
-        .s_rdata   (lite_rdata),   .s_rresp   (lite_rresp),
-        .s_rvalid  (lite_rvalid),  .s_rready  (lite_rready),
-        
+        .s_awaddr(lite_awaddr), .s_awvalid(lite_awvalid), .s_awready(lite_awready),
+        .s_wdata(lite_wdata), .s_wstrb(lite_wstrb),
+        .s_wvalid(lite_wvalid), .s_wready(lite_wready),
+        .s_bresp(lite_bresp), .s_bvalid(lite_bvalid), .s_bready(lite_bready),
+        .s_araddr(lite_araddr), .s_arvalid(lite_arvalid), .s_arready(lite_arready),
+        .s_rdata(lite_rdata), .s_rresp(lite_rresp),
+        .s_rvalid(lite_rvalid), .s_rready(lite_rready),
         // UART
-        .uart_awaddr,  .uart_awvalid,  .uart_awready,
-        .uart_wdata,   .uart_wstrb,    .uart_wvalid,  .uart_wready,
-        .uart_bresp,   .uart_bvalid,   .uart_bready,
-        .uart_araddr,  .uart_arvalid,  .uart_arready,
-        .uart_rdata,   .uart_rresp,    .uart_rvalid,  .uart_rready,
+        .uart_awaddr, .uart_awvalid, .uart_awready,
+        .uart_wdata, .uart_wstrb, .uart_wvalid, .uart_wready,
+        .uart_bresp, .uart_bvalid, .uart_bready,
+        .uart_araddr, .uart_arvalid, .uart_arready,
+        .uart_rdata, .uart_rresp, .uart_rvalid, .uart_rready,
         // GPIO
-        .gpio_awaddr,  .gpio_awvalid,  .gpio_awready,
-        .gpio_wdata,   .gpio_wstrb,    .gpio_wvalid,  .gpio_wready,
-        .gpio_bresp,   .gpio_bvalid,   .gpio_bready,
-        .gpio_araddr,  .gpio_arvalid,  .gpio_arready,
-        .gpio_rdata,   .gpio_rresp,    .gpio_rvalid,  .gpio_rready,
+        .gpio_awaddr, .gpio_awvalid, .gpio_awready,
+        .gpio_wdata, .gpio_wstrb, .gpio_wvalid, .gpio_wready,
+        .gpio_bresp, .gpio_bvalid, .gpio_bready,
+        .gpio_araddr, .gpio_arvalid, .gpio_arready,
+        .gpio_rdata, .gpio_rresp, .gpio_rvalid, .gpio_rready,
         // Timer
         .timer_awaddr, .timer_awvalid, .timer_awready,
-        .timer_wdata,  .timer_wstrb,   .timer_wvalid, .timer_wready,
-        .timer_bresp,  .timer_bvalid,  .timer_bready,
+        .timer_wdata, .timer_wstrb, .timer_wvalid, .timer_wready,
+        .timer_bresp, .timer_bvalid, .timer_bready,
         .timer_araddr, .timer_arvalid, .timer_arready,
-        .timer_rdata,  .timer_rresp,   .timer_rvalid, .timer_rready
+        .timer_rdata, .timer_rresp, .timer_rvalid, .timer_rready,
+        // QSPI
+        .qspi_awaddr, .qspi_awvalid, .qspi_awready,
+        .qspi_wdata, .qspi_wstrb, .qspi_wvalid, .qspi_wready,
+        .qspi_bresp, .qspi_bvalid, .qspi_bready,
+        .qspi_araddr, .qspi_arvalid, .qspi_arready,
+        .qspi_rdata, .qspi_rresp, .qspi_rvalid, .qspi_rready
     );
  
     // ============================================================
@@ -258,16 +251,32 @@ module soc_top (
         .s_axi_araddr(timer_araddr), .s_axi_arvalid(timer_arvalid), .s_axi_arready(timer_arready),
         .s_axi_rdata(timer_rdata), .s_axi_rresp(timer_rresp),
         .s_axi_rvalid(timer_rvalid), .s_axi_rready(timer_rready),
-        .timer_irq_o()
+        .timer_irq_o(timer_irq)
+    );
+
+    // ============================================================
+    // 11. QSPI MASTER (0x4000_0500)
+    // ============================================================
+    qspi_master_axil i_qspi (
+        .clk_i(clk_i), .rst_ni(rst_ni),
+        .s_axi_awaddr(qspi_awaddr), .s_axi_awvalid(qspi_awvalid), .s_axi_awready(qspi_awready),
+        .s_axi_wdata(qspi_wdata), .s_axi_wstrb(qspi_wstrb),
+        .s_axi_wvalid(qspi_wvalid), .s_axi_wready(qspi_wready),
+        .s_axi_bresp(qspi_bresp), .s_axi_bvalid(qspi_bvalid), .s_axi_bready(qspi_bready),
+        .s_axi_araddr(qspi_araddr), .s_axi_arvalid(qspi_arvalid), .s_axi_arready(qspi_arready),
+        .s_axi_rdata(qspi_rdata), .s_axi_rresp(qspi_rresp),
+        .s_axi_rvalid(qspi_rvalid), .s_axi_rready(qspi_rready),
+        .sclk_o(qspi_sclk_o), .cs_no(qspi_cs_no),
+        .io_o(qspi_io_o), .io_i(qspi_io_i), .io_oe(qspi_io_oe)
     );
  
     // ============================================================
-    // 11. BELLEK MODÜLLERİ
+    // 12. BELLEK MODÜLLERİ
     // ============================================================
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(1024),  .INIT_FILE("data_mem.hex"))
         i_boot_rom  (.clk_i(clk_i), .rst_ni(rst_ni), .slv(boot_rom_bus));
  
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192),  .INIT_FILE("data_mem.hex"))
+    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192),  .INIT_FILE("firmware.hex"))
         i_instr_sram(.clk_i(clk_i), .rst_ni(rst_ni), .slv(instr_sram_bus));
  
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192),  .INIT_FILE("data_mem.hex"))

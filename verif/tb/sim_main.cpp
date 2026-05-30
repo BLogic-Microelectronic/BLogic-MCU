@@ -1,5 +1,6 @@
 #include <verilated.h>
 #include "Vsoc_top.h"
+#include "Vsoc_top___024root.h"
 #include <cstdio>
 #include <iostream>
 #include <string>
@@ -70,10 +71,40 @@ int main(int argc, char** argv) {
 
     std::cout << "[SIM] Reset released. Mode Target = " << golden_string;
 
+    static bool last_sclk = false;
+    static int flash_bit_cnt = 0;
     while (cyc < max_cycles) {
         top->clk_i = 1;
-        top->uart_rxd_i = top->uart_txd_o; // Donanımsal Hat Kısadevre Tel Loopback!
+        top->uart_rxd_i = top->uart_txd_o;
+        
+        // QSPI Donanimsal Flash Modeli Baglantisi
+        if (top->qspi_cs_no == 0) {
+            bool current_sclk = top->qspi_sclk_o;
+            if (!last_sclk && current_sclk) {
+                flash_bit_cnt++;
+            }
+            last_sclk = current_sclk;
+            if (flash_bit_cnt >= 32) {
+                int data_bit_idx = 7 - ((flash_bit_cnt - 32) % 8);
+                bool miso = (0xAA >> data_bit_idx) & 1;
+                top->qspi_io_i = (miso << 1); // MISO bacağını io_i[1] konumuna sür
+            } else {
+                top->qspi_io_i = 0;
+            }
+        } else {
+            last_sclk = false;
+            flash_bit_cnt = 0;
+            top->qspi_io_i = 0;
+        }
+        
         top->eval();
+        static uint32_t last_printed_pc = 0;
+        uint32_t current_pc = top->rootp->soc_top__DOT__i_cpu__DOT__core_i__DOT__pc_id;
+        // Sadece PC değiştiğinde ve geçerli kod bölgesindeyse logla
+        if (current_pc != last_printed_pc && current_pc >= 0x10000 && current_pc < 0x20000) {
+            printf("RTL_PC: 0x%08X\n", current_pc);
+            last_printed_pc = current_pc;
+        }
 
         if (uart_decoder.tick(top->uart_txd_o)) {
             uint8_t c = uart_decoder.byte();
@@ -98,6 +129,20 @@ int main(int argc, char** argv) {
         return 0;
     } else {
         std::cout << ">>> [FAIL] TEST BASARISIZ <<<" << std::endl;
+        printf("\n[DIAG] --- KOK HATA TESHIS RAPORU ---\n");
+        printf("[DIAG] Son Karakter Sayisi : %zu\n", rx_buf.size());
+        printf("[DIAG] Islemci Durumu      : Real-time PC (pc_id) = 0x%08X\n", top->rootp->soc_top__DOT__i_cpu__DOT__core_i__DOT__pc_id);
+        printf("[DIAG] QSPI Pin Durumlari  : CS_N = %d | SCLK = %d | IO_OE = 0x%X\n", top->qspi_cs_no, top->qspi_sclk_o, top->qspi_io_oe);
+        printf("[DIAG] QSPI FSM ve Bayrak  : SPI_STATE = %d | BUSY = %d | DONE = %d\n", 
+            top->rootp->soc_top__DOT__i_qspi__DOT__spi_state,
+            top->rootp->soc_top__DOT__i_qspi__DOT__sta_busy,
+            top->rootp->soc_top__DOT__i_qspi__DOT__sta_done);
+        printf("[DIAG] QSPI FIFO Pointer   : TX_WR = %d | TX_RD = %d | RX_WR = %d | RX_RD = %d\n",
+            top->rootp->soc_top__DOT__i_qspi__DOT__tx_wr_ptr,
+            top->rootp->soc_top__DOT__i_qspi__DOT__tx_rd_ptr,
+            top->rootp->soc_top__DOT__i_qspi__DOT__rx_wr_ptr,
+            top->rootp->soc_top__DOT__i_qspi__DOT__rx_rd_ptr);
+        printf("[DIAG] ---------------------------------\n");
         delete top;
         return 1;
     }

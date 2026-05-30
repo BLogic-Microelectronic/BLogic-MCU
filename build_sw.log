@@ -1,0 +1,14 @@
+riscv32-unknown-elf-gcc -march=rv32imc -mabi=ilp32 -nostdlib -O2 -DCPB_VAL=54 -T sw/common/link.ld sw/common/crt0.S sw/tests/qspi_test.c -o build/test.elf
+[SW] ELF olusturuldu: build/test.elf
+riscv32-unknown-elf-objcopy -O binary -j .text.init -j .text build/test.elf build/instr.bin
+python3 scripts/elf2hex.py build/instr.bin build/instr_mem.hex
+Girdi: build/instr.bin (194 bytes)
+Çıktı: build/instr_mem.hex (49 words)
+Tamamlandı!
+[SW] Instr hex: build/instr_mem.hex
+riscv32-unknown-elf-objcopy -O binary -j .rodata -j .data build/test.elf build/data.bin 2>/dev/null || printf '' > build/data.bin
+python3 scripts/elf2hex.py build/data.bin build/data_mem.hex
+Girdi: build/data.bin (50 bytes)
+Çıktı: build/data_mem.hex (13 words)
+Tamamlandı!
+[SW] Data hex: build/data_mem.hex

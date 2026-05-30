@@ -1,0 +1,6 @@
+BLogic MCU -- YZ Hizlandirici Golden Vektor Raporu
+============================================================
+       yes |   [15, 40, 112, 107] |    unknown
+        no |    [124, 30, 67, 39] |        yes
+   unknown |    [49, -65, 51, 45] |    unknown
+   silence |    [20, -10, 68, 26] |    unknown

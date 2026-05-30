@@ -16,13 +16,13 @@ typedef signed short       int16_t;
 typedef signed char        int8_t;
 
 /* --- Çevre Birimi Taban Adresleri (Adres Haritanızla Birebir Uyumlu) --- */
-#define GPIO_BASE       0x40000000U
-#define TIMER_BASE      0x40010000U
-#define UART0_BASE      0x40020000U   /* Genel kullanım UART */
-#define UART1_BASE      0x40030000U   /* YZ veri akışı (stream) UART */
-#define I2C_BASE        0x40040000U
-#define QSPI_BASE       0x40050000U
-#define AI_ACC_BASE     0x40060000U   /* YZ Hızlandırıcı CSR */
+#define UART0_BASE      0x40000000U   /* Genel kullanım UART (0x4000_0000) */
+#define GPIO_BASE       0x40000100U   /* GPIO (0x4000_0100) */
+#define TIMER_BASE      0x40000200U   /* Timer (0x4000_0200) */
+#define UART1_BASE      0x40000300U   /* Stream UART (0x4000_0300) */
+#define I2C_BASE        0x40000400U   /* I2C (0x4000_0400) */
+#define QSPI_BASE       0x40000500U   /* QSPI Master (0x4000_0500) */
+#define AI_ACC_BASE     0x40000600U   /* YZ Hizlandirici CSR (0x4000_0600) */
 
 /* ============================================================
  * GPIO Yazmaçları (0x4000_0000)
