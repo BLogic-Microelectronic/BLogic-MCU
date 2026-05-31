@@ -276,10 +276,10 @@ module soc_top (
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(1024),  .INIT_FILE("data_mem.hex"))
         i_boot_rom  (.clk_i(clk_i), .rst_ni(rst_ni), .slv(boot_rom_bus));
  
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192),  .INIT_FILE("firmware.hex"))
+    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192), .INIT_FILE("firmware.hex"))
         i_instr_sram(.clk_i(clk_i), .rst_ni(rst_ni), .slv(instr_sram_bus));
  
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192),  .INIT_FILE("data_mem.hex"))
+    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192), .INIT_FILE("data_mem.hex"))
         i_data_sram (.clk_i(clk_i), .rst_ni(rst_ni), .slv(data_sram_bus));
  
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(30720), .INIT_FILE("data_mem.hex"))

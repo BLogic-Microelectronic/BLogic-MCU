@@ -1,0 +1,5 @@
+In file included from /home/potato/blogic-mcu/verif/arch_tests/riscv-arch-test/tests/rv32i/I/I-add-00.S:26:
+/home/potato/blogic-mcu/verif/arch_tests/riscv-arch-test/tests/env/riscv_arch_test.h:6:10: fatal error: rvtest_config.h: No such file or directory
+    6 | #include "rvtest_config.h"
+      |          ^~~~~~~~~~~~~~~~~
+compilation terminated.

@@ -1,0 +1,4 @@
+/opt/riscv/riscv32-unknown-elf/bin/ld: /home/potato/blogic-mcu/verif/arch_tests/work/I-add-00/test.elf section `.data' will not fit in region `DATA_RAM'
+/opt/riscv/riscv32-unknown-elf/bin/ld: region `DATA_RAM' overflowed by 65288 bytes
+/opt/riscv/riscv32-unknown-elf/bin/ld: warning: cannot find entry symbol _start; defaulting to 00010040
+collect2: error: ld returned 1 exit status
