@@ -85,3 +85,4 @@ rtl/peripherals/timer_axil.sv
 rtl/soc_top.sv
 rtl/peripherals/qspi_master_axil.sv
 rtl/peripherals/qspi_master_axil.sv
+verif/sva/axi_lite_protocol_checker.sv
