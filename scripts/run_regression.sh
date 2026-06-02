@@ -1,11 +1,14 @@
 #!/bin/bash
 # ============================================================
-# BLogic MCU - Tam Otonom Regression Test Suite (No Emojis)
+# BLogic MCU - Tam Otonom Regression Test Suite
 # TEKNOFEST 2026 Cip Tasarim Yarismasi
+# ============================================================
+# Protocol checker raporlari dahil.
 # ============================================================
 set -e
 cd "$(dirname "$0")/.."
 PASS=0; FAIL=0; TOTAL=0
+PROTO_PASS=0; PROTO_FAIL=0; PROTO_TOTAL=0
 
 run_test() {
     local name="$1" cpb_fw="$2" cpb_sim="$3" fw_file="${4:-sw/tests/uart_hello.c}"
@@ -32,19 +35,47 @@ run_test() {
     ./blogic_sim +CPB=$cpb_sim > run_mcu.log 2>&1 || true
     
     echo "--- MCU CANLI UART CIKTISI ---"
-    grep -a -v "RTL_PC:" run_mcu.log | grep -a -v -E "TEST SONUCU|TEST BASARILI|TEST BASARISIZ|\[DIAG\]" || true
+    grep -a -v "RTL_PC:" run_mcu.log | grep -a -v -E "TEST SONUCU|\[DIAG\]" || true
     echo "------------------------------"
     
+    # --- Fonksiyonel sonuc ---
     if grep -a -q "TEST BASARILI" run_mcu.log; then
         PASS=$((PASS+1))
-        echo " -> DOGRULAMA: BASARILI"
+        echo " -> FONKSIYONEL: BASARILI"
     else
         FAIL=$((FAIL+1))
-        echo " -> DOGRULAMA: HATALI"
+        echo " -> FONKSIYONEL: HATALI"
         echo "--- SIMULASYON SONU DETAYLARI (HATA ANALIZI) ---"
         grep -a "\[DIAG\]" run_mcu.log || true
         echo "------------------------------------------------"
     fi
+
+    # --- Protocol checker sonucu ---
+    if grep -a -q "Protocol Check Raporu" run_mcu.log; then
+        local p_fail=$(grep -a -c "PROTOKOL IHLALI" run_mcu.log 2>/dev/null || true)
+        local p_pass=$(grep -a -c "PROTOKOL UYUMLU" run_mcu.log 2>/dev/null || true)
+        PROTO_TOTAL=$((PROTO_TOTAL + p_pass + p_fail))
+        PROTO_PASS=$((PROTO_PASS + p_pass))
+        PROTO_FAIL=$((PROTO_FAIL + p_fail))
+
+        if [ "$p_fail" -gt 0 ]; then
+            echo " -> PROTOKOL : IHLAL TESPIT EDILDI ($p_fail arayuz)"
+            echo "--- PROTOKOL IHLAL DETAYLARI ---"
+            grep -a -E "FAIL|PROTOKOL IHLALI" run_mcu.log || true
+            echo "--------------------------------"
+        else
+            echo " -> PROTOKOL : UYUMLU ($p_pass arayuz kontrol edildi)"
+        fi
+        echo "--- Arayuz Detay ---"
+        grep -a -E "===.*Raporu|Kontrol|PASS|FAIL|PROTOKOL" run_mcu.log || true
+        echo "--------------------"
+        echo "--- Arayuz Detay ---"
+        grep -a -E "===.*Raporu|Kontrol|PASS|FAIL|PROTOKOL" run_mcu.log || true
+        echo "--------------------"
+    else
+        echo " -> PROTOKOL : (checker bagli degil veya simulasyon erken bitti)"
+    fi
+
     cd ..
 }
 
@@ -77,21 +108,25 @@ spike_lockstep_test() {
 
 echo "------------------------------------------------------"
 echo " BLogic MCU -- Regression Test Suite"
+echo " Protocol Checker: Aktif"
 echo "------------------------------------------------------"
 
+# Verilator binary yoksa derle
 if [ ! -f obj_dir/blogic_sim ]; then
-    make -f Makefile.verilator clean verilate > /dev/null 2>&1
+    echo ">>> Verilator binary bulunamadi, derleniyor..."
+    make -f Makefile.verilator clean verilate 2>&1 | tail -3
 fi
 
-# 1. ve 2. UART Hiz Dogrulama Testleri
+# 1. UART 115200
 run_test "UART TX 115200 Baud Hiz Dogrulamasi" 54 432 "sw/tests/uart_hello.c"
-run_test "UART TX 9600 Baud Hiz Dogrulamasi"   651 5208 "sw/tests/uart_hello.c"
 
-# 3. Spike Lockstep Islemci Dogrulama Testi
+# 2. UART 9600
+run_test "UART TX 9600 Baud Hiz Dogrulamasi" 651 5208 "sw/tests/uart_hello.c"
+
+# 3. Spike Lockstep
 spike_lockstep_test
 
-# 4. QSPI Flash Donanim Testi Oncesi Altyapiyi Garantiye Alma
-# Klasör silinmisse yeniden olustur ve flash verisini dinamik olarak yaz
+# 4. QSPI Flash
 mkdir -p obj_dir
 cat << 'EOF' > obj_dir/flash.hex
 AA
@@ -99,17 +134,25 @@ BB
 CC
 DD
 EOF
-
-# 4. QSPI Flash Donanim Testini Kos
 run_test "QSPI Flash Adresleme ve Okuma Donanim Testi" 54 432 "sw/tests/qspi_test.c"
 
+# ============================================================
+# SONUC RAPORU
+# ============================================================
 echo ""
 echo "======================================================"
 echo " REGRESSION SONUCU"
 echo "------------------------------------------------------"
-printf " Toplam Test: %-2d | BASARILI: %-2d | BASARISIZ: %-2d\n" $TOTAL $PASS $FAIL
+printf " Fonksiyonel : %-2d / %-2d BASARILI\n" $PASS $TOTAL
+if [ $PROTO_TOTAL -gt 0 ]; then
+    printf " Protokol    : %-2d / %-2d UYUMLU\n" $PROTO_PASS $PROTO_TOTAL
+else
+    echo " Protokol    : (checker bagli degil)"
+fi
+echo "------------------------------------------------------"
+printf " Toplam Test : %-2d | BASARILI: %-2d | BASARISIZ: %-2d\n" $TOTAL $PASS $FAIL
 echo "======================================================"
-if [ $FAIL -eq 0 ]; then
+if [ $FAIL -eq 0 ] && [ $PROTO_FAIL -eq 0 ]; then
     echo " >>> TUM ADIMLAR BASARILI <<<"
 else
     echo " >>> SISTEMDE BASARISIZ TEST VAR <<<"

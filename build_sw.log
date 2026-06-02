@@ -1,3 +1,4 @@
+make[1]: Entering directory '/home/potato/blogic-mcu'
 riscv32-unknown-elf-gcc -march=rv32imc -mabi=ilp32 -nostdlib -O2 -DCPB_VAL=54 -T sw/common/link.ld sw/common/crt0.S sw/tests/qspi_test.c -o build/test.elf
 [SW] ELF olusturuldu: build/test.elf
 riscv32-unknown-elf-objcopy -O binary -j .text.init -j .text build/test.elf build/instr.bin
@@ -12,3 +13,4 @@ Girdi: build/data.bin (50 bytes)
 Çıktı: build/data_mem.hex (13 words)
 Tamamlandı!
 [SW] Data hex: build/data_mem.hex
+make[1]: Leaving directory '/home/potato/blogic-mcu'

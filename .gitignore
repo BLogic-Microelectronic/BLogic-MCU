@@ -1,4 +1,35 @@
+# ============================================================
+# BLogic MCU — .gitignore
+# ============================================================
+
+# Derleme ciktilari
 build/
 obj_dir/
+obj_dir_uvm/
+
+# Log dosyalari (nerede olursa olsun)
+*.log
+*.vcd
+*.fst
+
+# Verilator
 *.vvp
 *.sim
+
+# Gecici dosyalar
+*.hex
+*.bin
+*.elf
+*.o
+*.d
+
+# Coverage
+*.cov
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+

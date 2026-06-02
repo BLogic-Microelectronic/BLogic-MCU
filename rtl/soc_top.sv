@@ -284,5 +284,67 @@ module soc_top (
  
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(30720), .INIT_FILE("data_mem.hex"))
         i_ai_sram   (.clk_i(clk_i), .rst_ni(rst_ni), .slv(ai_sram_bus));
+
+// ============================================================
+    // 13. PROTOCOL CHECKER'LAR (Doğrulama — Sentez'de çıkarılır)
+    // ============================================================
+    // synthesis translate_off
+    // verilator lint_off UNUSED
+    // verilator lint_off UNDRIVEN
  
+    soc_protocol_bind i_protocol_checkers (
+        .clk       (clk_i),
+        .rst_n     (rst_ni),
+ 
+        // Periph bus (AXI-Lite köprü çıkışı)
+        .lite_awaddr  (lite_awaddr),   .lite_awvalid (lite_awvalid),  .lite_awready (lite_awready),
+        .lite_wdata   (lite_wdata),    .lite_wstrb   (lite_wstrb),
+        .lite_wvalid  (lite_wvalid),   .lite_wready  (lite_wready),
+        .lite_bresp   (lite_bresp),    .lite_bvalid  (lite_bvalid),   .lite_bready  (lite_bready),
+        .lite_araddr  (lite_araddr),   .lite_arvalid (lite_arvalid),  .lite_arready (lite_arready),
+        .lite_rdata   (lite_rdata),    .lite_rresp   (lite_rresp),
+        .lite_rvalid  (lite_rvalid),   .lite_rready  (lite_rready),
+ 
+        // UART_0
+        .uart_awaddr  (uart_awaddr),   .uart_awvalid (uart_awvalid),  .uart_awready (uart_awready),
+        .uart_wdata   (uart_wdata),    .uart_wstrb   (uart_wstrb),
+        .uart_wvalid  (uart_wvalid),   .uart_wready  (uart_wready),
+        .uart_bresp   (uart_bresp),    .uart_bvalid  (uart_bvalid),   .uart_bready  (uart_bready),
+        .uart_araddr  (uart_araddr),   .uart_arvalid (uart_arvalid),  .uart_arready (uart_arready),
+        .uart_rdata   (uart_rdata),    .uart_rresp   (uart_rresp),
+        .uart_rvalid  (uart_rvalid),   .uart_rready  (uart_rready),
+ 
+        // GPIO
+        .gpio_awaddr  (gpio_awaddr),   .gpio_awvalid (gpio_awvalid),  .gpio_awready (gpio_awready),
+        .gpio_wdata   (gpio_wdata),    .gpio_wstrb   (gpio_wstrb),
+        .gpio_wvalid  (gpio_wvalid),   .gpio_wready  (gpio_wready),
+        .gpio_bresp   (gpio_bresp),    .gpio_bvalid  (gpio_bvalid),   .gpio_bready  (gpio_bready),
+        .gpio_araddr  (gpio_araddr),   .gpio_arvalid (gpio_arvalid),  .gpio_arready (gpio_arready),
+        .gpio_rdata   (gpio_rdata),    .gpio_rresp   (gpio_rresp),
+        .gpio_rvalid  (gpio_rvalid),   .gpio_rready  (gpio_rready),
+ 
+        // Timer
+        .timer_awaddr (timer_awaddr),  .timer_awvalid(timer_awvalid), .timer_awready(timer_awready),
+        .timer_wdata  (timer_wdata),   .timer_wstrb  (timer_wstrb),
+        .timer_wvalid (timer_wvalid),  .timer_wready (timer_wready),
+        .timer_bresp  (timer_bresp),   .timer_bvalid (timer_bvalid),  .timer_bready (timer_bready),
+        .timer_araddr (timer_araddr),  .timer_arvalid(timer_arvalid), .timer_arready(timer_arready),
+        .timer_rdata  (timer_rdata),   .timer_rresp  (timer_rresp),
+        .timer_rvalid (timer_rvalid),  .timer_rready (timer_rready),
+ 
+        // QSPI
+        .qspi_awaddr  (qspi_awaddr),  .qspi_awvalid (qspi_awvalid), .qspi_awready (qspi_awready),
+        .qspi_wdata   (qspi_wdata),   .qspi_wstrb   (qspi_wstrb),
+        .qspi_wvalid  (qspi_wvalid),  .qspi_wready  (qspi_wready),
+        .qspi_bresp   (qspi_bresp),   .qspi_bvalid  (qspi_bvalid),  .qspi_bready  (qspi_bready),
+        .qspi_araddr  (qspi_araddr),  .qspi_arvalid (qspi_arvalid), .qspi_arready (qspi_arready),
+        .qspi_rdata   (qspi_rdata),   .qspi_rresp   (qspi_rresp),
+        .qspi_rvalid  (qspi_rvalid),  .qspi_rready  (qspi_rready)
+    );
+ 
+    // verilator lint_on UNUSED
+    // verilator lint_on UNDRIVEN
+    // synthesis translate_on
+ 
+
 endmodule

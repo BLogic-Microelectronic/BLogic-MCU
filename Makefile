@@ -1,85 +1,164 @@
 # ================================================================
-# BLogic MCU - Ana Makefile
+# BLogic MCU — Ana Makefile
+# TEKNOFEST 2026 Çip Tasarım Yarışması
 # ================================================================
 # Kullanım:
-#   make compile      → Firmware derle (.elf, .hex, .disasm)
-#   make sim_build    → Verilator ile RTL derle
-#   make sim_run      → Simülasyonu koştur
-#   make sim          → sim_build + sim_run
-#   make clean        → Temizle
+#   make compile                   → Firmware derle
+#   make sim                       → Tam simülasyon (compile + verilate + run)
+#   make sim TRACE=1               → VCD trace ile
+#   make sim COVERAGE=1            → Coverage ile
+#   make sim FW_SRC=sw/tests/gpio_led_test.c  → Farklı test
+#   make regression                → Tüm testleri koş + PASS/FAIL raporu
+#   make clean                     → Temizle
 # ================================================================
 
-# --- Toolchain ---
-RISCV_PREFIX = riscv32-unknown-elf-
-CC      = $(RISCV_PREFIX)gcc
-OBJCOPY = $(RISCV_PREFIX)objcopy
-OBJDUMP = $(RISCV_PREFIX)objdump
+# --- Araçlar ---
+VERILATOR    = verilator
+RV_PREFIX    = riscv32-unknown-elf-
+CC           = $(RV_PREFIX)gcc
+OBJCOPY      = $(RV_PREFIX)objcopy
+OBJDUMP      = $(RV_PREFIX)objdump
+PYTHON       = python3
 
-CFLAGS  = -march=rv32imc -mabi=ilp32 -nostdlib -O2
-LDFLAGS = -T sw/common/link.ld
+# --- Dizinler ---
+BUILD_DIR    = build
+OBJ_DIR      = obj_dir
 
-# --- Test programı (değiştirilebilir) ---
-TEST ?= sw/tests/uart_hello.c
+# --- Dosyalar ---
+SOC_FILES    = soc_files.f
+SIM_MAIN     = verif/tb/sim_main.cpp
+TOP_MODULE   = soc_top
+SIM_EXE      = $(OBJ_DIR)/blogic_sim
 
-# --- RTL kaynak dosyaları ---
-RTL_TOP = rtl/core/cv32e40p/rtl/soc_top.sv
+# --- RISC-V derleme ---
+RV_ARCH      = rv32imc
+RV_ABI       = ilp32
+CFLAGS       = -march=$(RV_ARCH) -mabi=$(RV_ABI) -nostdlib -O2
+LDFLAGS      = -T sw/common/link.ld
+STARTUP      = sw/common/crt0.S
+
+# --- Firmware kaynak (değiştirilebilir) ---
+FW_SRC       ?= sw/tests/uart_hello.c
+
+# --- Verilator flags ---
+VERILATOR_FLAGS = \
+    --cc --timing \
+    -Wno-fatal \
+    -Wno-TIMESCALEMOD \
+    -Wno-WIDTHEXPAND \
+    -Wno-WIDTHTRUNC \
+    -Wno-MODDUP \
+    -Wno-CASEINCOMPLETE \
+    -Wno-UNSIGNED \
+    -Wno-UNUSEDSIGNAL \
+    -DVERILATOR \
+    --top-module $(TOP_MODULE)
+
+ifdef TRACE
+VERILATOR_FLAGS += --trace
+endif
+
+ifdef COVERAGE
+VERILATOR_FLAGS += --coverage
+endif
 
 # ================================================================
 # 1. FIRMWARE DERLEME
 # ================================================================
 .PHONY: compile
-compile: build/test.elf build/test.hex build/test.disasm
-	@echo ">>> Derleme tamamlandı"
+compile: $(BUILD_DIR)/firmware.hex $(BUILD_DIR)/data_mem.hex $(BUILD_DIR)/test.disasm
+	@echo ">>> Firmware derleme tamam"
 
-build/test.elf: sw/common/crt0.S $(TEST) sw/common/link.ld
-	@mkdir -p build
-	$(CC) $(CFLAGS) $(LDFLAGS) sw/common/crt0.S $(TEST) -o $@
+$(BUILD_DIR)/test.elf: $(STARTUP) $(FW_SRC) sw/common/link.ld
+	@mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(STARTUP) $(FW_SRC) -o $@
 
-build/test.hex: build/test.elf
-	$(OBJCOPY) -O binary $< build/test.bin
-	python3 -c "data=open('build/test.bin','rb').read(); open('build/test.hex','w').write('\n'.join([f'{int.from_bytes(data[i:i+4], \"little\"):08X}' for i in range(0, len(data), 4)]))"
-
-build/test.disasm: build/test.elf
+$(BUILD_DIR)/test.disasm: $(BUILD_DIR)/test.elf
 	$(OBJDUMP) -d $< > $@
 
-# ================================================================
-# 2. VERILATOR SİMÜLASYON
-# ================================================================
-.PHONY: sim_build sim_run sim
+$(BUILD_DIR)/firmware.hex: $(BUILD_DIR)/test.elf
+	$(OBJCOPY) -O binary -j .text.init -j .text $< $(BUILD_DIR)/instr.bin
+	$(PYTHON) scripts/elf2hex.py $(BUILD_DIR)/instr.bin $@
 
-sim_build:
+$(BUILD_DIR)/data_mem.hex: $(BUILD_DIR)/test.elf
+	$(OBJCOPY) -O binary -j .rodata -j .data $< $(BUILD_DIR)/data.bin 2>/dev/null || printf '' > $(BUILD_DIR)/data.bin
+	$(PYTHON) scripts/elf2hex.py $(BUILD_DIR)/data.bin $@
+
+# ================================================================
+# 2. VERILATOR DERLEME
+# ================================================================
+.PHONY: verilate
+verilate: $(SIM_EXE)
+
+$(SIM_EXE): $(SOC_FILES) $(SIM_MAIN)
 	@echo ">>> Verilator RTL derleme..."
-	verilator --cc --exe --trace \
-		-Wall -Wno-fatal \
-		--top-module soc_top \
-		-I rtl/core/cv32e40p/rtl \
-		-I rtl/core/cv32e40p/rtl/include \
-		-I rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src \
-		-I rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include \
-		-I rtl/bus/axi/src \
-		-I rtl/bus/axi/include \
-		-I rtl/peripherals/verilog-uart/rtl \
-		$(RTL_TOP) \
-		verif/tb/sim_main.cpp
-	make -C obj_dir -f Vsoc_top.mk -j$$(nproc)
-
-sim_run: build/test.hex
-	@echo ">>> Simülasyon koşturuluyor..."
-	./obj_dir/Vsoc_top
-	@echo ">>> VCD dosyası: sim_output.vcd"
-
-sim: sim_build sim_run
+	$(VERILATOR) $(VERILATOR_FLAGS) \
+		-f $(SOC_FILES) \
+		--exe $(SIM_MAIN) \
+		-o blogic_sim
+	@echo ">>> C++ derleniyor..."
+	make -C $(OBJ_DIR) -f V$(TOP_MODULE).mk blogic_sim -j$$(nproc)
+	@echo ">>> Binary hazır: $(SIM_EXE)"
 
 # ================================================================
-# 3. SPIKE ISS
+# 3. SİMÜLASYON (compile + verilate + run)
+# ================================================================
+.PHONY: sim sim_run
+sim: compile $(SIM_EXE) sim_run
+
+sim_run:
+	@echo ""
+	@echo "═══════════════════════════════════════"
+	@echo " BLogic MCU Simülasyon"
+	@echo " Test: $(FW_SRC)"
+	@echo "═══════════════════════════════════════"
+	cp $(BUILD_DIR)/firmware.hex $(OBJ_DIR)/firmware.hex
+	cp $(BUILD_DIR)/data_mem.hex $(OBJ_DIR)/data_mem.hex
+	cd $(OBJ_DIR) && ./blogic_sim 2>&1 | tee ../$(BUILD_DIR)/sim.log
+	@echo ""
+	@echo "--- Protocol Check Özeti ---"
+	@grep -E "(PASS|FAIL|WARN|PROTOKOL)" $(BUILD_DIR)/sim.log || echo "(checker çıktısı yok — simülasyon sonu beklenmedi mi?)"
+	@echo ""
+
+# ================================================================
+# 4. REGRESSION — scripts/run_regression.sh ile tüm testleri koş
+# ================================================================
+.PHONY: regression
+regression: $(SIM_EXE)
+	bash scripts/run_regression.sh
+
+# ================================================================
+# 5. SPIKE ISS
 # ================================================================
 .PHONY: spike
-spike: build/test.elf
-	spike --isa=rv32imc build/test.elf
+spike: $(BUILD_DIR)/test.elf
+	spike --isa=rv32imc -m0x10000:0x2000,0x20000:0x2000 $<
 
 # ================================================================
-# TEMİZLİK
+# 6. TEMİZLİK
 # ================================================================
 .PHONY: clean
 clean:
-	rm -rf build/* obj_dir/ sim_output.vcd
+	rm -rf $(BUILD_DIR) $(OBJ_DIR) sim_trace.vcd sim_output.vcd
+	@echo ">>> Temizlendi"
+
+# ================================================================
+# 7. YARDIM
+# ================================================================
+.PHONY: help
+help:
+	@echo "═══════════════════════════════════════════════"
+	@echo " BLogic MCU — Build Hedefleri"
+	@echo "═══════════════════════════════════════════════"
+	@echo "  make compile            Firmware derle"
+	@echo "  make verilate           Sadece RTL derle"
+	@echo "  make sim                Tam simülasyon"
+	@echo "  make sim TRACE=1        VCD trace ile"
+	@echo "  make sim COVERAGE=1     Coverage ile"
+	@echo "  make regression         Tüm testleri koş"
+	@echo "  make spike              Spike ISS ile koş"
+	@echo "  make clean              Temizle"
+	@echo ""
+	@echo " Firmware değiştir:"
+	@echo "  make sim FW_SRC=sw/tests/gpio_led_test.c"
+	@echo "═══════════════════════════════════════════════"

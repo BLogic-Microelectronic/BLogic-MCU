@@ -1,14 +1,14 @@
 # ==============================================================================
-# BLogic MCU - Verilator / Sentez Dosya Listesi (soc_files.f)
-# Jüri Uyumlu Modüler Klasör Hiyerarşisi Düzeni
+# BLogic MCU — Verilator / Sentez Dosya Listesi (soc_files.f)
+# TEKNOFEST 2026 Çip Tasarım Yarışması
 # ==============================================================================
 
-# 1. INCLUDE ADRESLERI (Derleyici Arama Yolları)
+# 1. INCLUDE ADRESLERI
 +incdir+rtl/core/cv32e40p/rtl/include
 +incdir+rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include
 +incdir+rtl/bus/axi/include
 
-# 2. PAKETLER VE GLOBAL TANIMLAR (Her şeyden önce derlenmelidir)
+# 2. PAKETLER VE GLOBAL TANIMLAR (ilk derlenmelidir)
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/cf_math_pkg.sv
 rtl/bus/axi/src/axi_pkg.sv
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_fpnew/src/fpnew_pkg.sv
@@ -17,7 +17,7 @@ rtl/core/cv32e40p/rtl/include/cv32e40p_apu_core_pkg.sv
 rtl/core/cv32e40p/rtl/include/cv32e40p_fpu_pkg.sv
 rtl/core/cv32e40p/bhv/cv32e40p_sim_clock_gate.sv
 
-# 3. INTERFACE (ARAYÜZ) TANIMLARI
+# 3. INTERFACE TANIMLARI
 rtl/bus/axi/src/axi_intf.sv
 
 # 4. VENDOR / KÜTÜPHANE MODÜLLERİ (PULP Common Cells)
@@ -34,7 +34,7 @@ rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/fall_through_registe
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/addr_decode.sv
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/onehot_to_bin.sv
 
-# 5. GERÇEK İŞLEMCİ ÇEKİRDEĞİ DOSYALARI (rtl/core/cv32e40p/rtl/ içinde korunanlar)
+# 5. İŞLEMCİ ÇEKİRDEĞİ
 rtl/core/cv32e40p/rtl/cv32e40p_aligner.sv
 rtl/core/cv32e40p/rtl/cv32e40p_alu.sv
 rtl/core/cv32e40p/rtl/cv32e40p_alu_div.sv
@@ -63,26 +63,29 @@ rtl/core/cv32e40p/rtl/cv32e40p_sleep_unit.sv
 rtl/core/cv32e40p/rtl/cv32e40p_core.sv
 rtl/core/cv32e40p/rtl/cv32e40p_top.sv
 
-# 6. BELLEK YÖNETİMİ MODÜLLERİ (Core altında kalanlar)
+# 6. BELLEK MODÜLLERİ
 rtl/core/cv32e40p/rtl/axi_sram_wrapper.sv
 rtl/core/cv32e40p/rtl/axi_slave_tieoff.sv
 
-# 7. VERİYOLU / STRÜKTÜR MODÜLLERİ (rtl/bus/ altına taşınanlar)
+# 7. VERİYOLU MODÜLLERİ
 rtl/bus/obi_to_axi.sv
 rtl/bus/soc_axi_interconnect.sv
 rtl/bus/axi4_to_axilite_bridge.sv
 rtl/bus/periph_decoder.sv
 
-# 8. ÇEVRE BİRİMLERİ (rtl/peripherals/ altına taşınanlar)
+# 8. ÇEVRE BİRİMLERİ
 rtl/peripherals/uart_axil.sv
 rtl/peripherals/uart.v
 rtl/peripherals/uart_rx.v
 rtl/peripherals/uart_tx.v
 rtl/peripherals/gpio_axil.sv
 rtl/peripherals/timer_axil.sv
+rtl/peripherals/qspi_master_axil.sv
 
-# 9. EN ÜST SEVİYE TOP-LEVEL MODÜL (rtl/ kök dizinine taşınan)
-rtl/soc_top.sv
-rtl/peripherals/qspi_master_axil.sv
-rtl/peripherals/qspi_master_axil.sv
+# 9. PROTOCOL CHECKER'LAR (doğrulama — sentezde dahil edilmez)
 verif/sva/axi_lite_protocol_checker.sv
+verif/sva/axi4_protocol_checker.sv
+verif/sva/soc_protocol_bind.sv
+
+# 10. EN ÜST SEVİYE
+rtl/soc_top.sv

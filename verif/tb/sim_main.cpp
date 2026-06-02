@@ -148,6 +148,7 @@ int main(int argc, char** argv) {
 
     if (match) {
         std::cout << ">>> [PASS] TEST BASARILI <<<" << std::endl;
+        top->final();
         delete top;
         return 0;
     } else {
@@ -164,6 +165,7 @@ int main(int argc, char** argv) {
             top->rootp->soc_top__DOT__i_qspi__DOT__sta_busy,
             top->rootp->soc_top__DOT__i_qspi__DOT__sta_done);
         printf("[DIAG] ---------------------------------\n");
+        top->final();
         delete top;
         return 1;
     }

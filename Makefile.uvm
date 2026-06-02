@@ -1,0 +1,145 @@
+# ================================================================
+# BLogic MCU — UVM Testbench Makefile (Verilator)
+# TEKNOFEST 2026 Cip Tasarim Yarismasi
+# ================================================================
+# Kullanim:
+#   make -f Makefile.uvm directed    GPIO directed test
+#   make -f Makefile.uvm random      GPIO random test
+#   make -f Makefile.uvm all         Tum UVM testleri kos
+#   make -f Makefile.uvm clean       Temizle
+# ================================================================
+
+VERILATOR  = verilator
+TOP_MODULE = uvm_pkg
+
+# UVM Kutuphanesi (clone: git clone https://github.com/verilator/uvm verif/uvm-lib)
+UVM_HOME   = verif/uvm-lib/src
+UVM_PKG    = $(UVM_HOME)/uvm_pkg.sv
+
+# Kaynak dosyalar
+SV_SOURCES = verif/uvm/axi_lite_if.sv \
+             verif/uvm/axi_lite_uvm_pkg.sv \
+             rtl/peripherals/gpio_axil.sv \
+             verif/uvm/tb_top.sv
+
+# Dizinler
+OBJ_DIR    = obj_dir_uvm
+LOG_DIR    = build/uvm_logs
+COV_DIR    = $(LOG_DIR)/coverage
+
+# Test isimleri
+UVM_TESTNAME  ?= gpio_directed_test
+ALL_TESTS     = gpio_directed_test gpio_random_test
+
+# Verilator flags
+VERILATOR_FLAGS = \
+    --main --binary --build --cc \
+    --timing \
+    --Mdir $(OBJ_DIR) \
+    --coverage \
+    -j $$(nproc) \
+    --timescale 1ns/1ns
+
+# UVM kutuphanesi cok sayida uyari uretir — bunlari sustur
+DISABLED_WARNINGS = \
+    -Wno-DECLFILENAME -Wno-CONSTRAINTIGN -Wno-MISINDENT \
+    -Wno-VARHIDDEN -Wno-WIDTHTRUNC -Wno-CASTCONST \
+    -Wno-WIDTHEXPAND -Wno-UNDRIVEN -Wno-UNUSEDSIGNAL \
+    -Wno-UNUSEDPARAM -Wno-SYMRSVDWORD -Wno-ZERODLY \
+    -Wno-CASEINCOMPLETE -Wno-SIDEEFFECT -Wno-fatal \
+    -Wno-REALCVT -Wno-MODDUP -Wno-TIMESCALEMOD \
+    -Wno-UNSIGNED
+
+INCDIRS = +incdir+"$(UVM_HOME)" \
+          +incdir+verif/uvm \
+          +incdir+rtl/peripherals
+
+DEFINES = +define+UVM_NO_DPI \
+          +define+UVM_REPORT_DISABLE_FILE_LINE
+
+# ================================================================
+# HEDEFLER
+# ================================================================
+.PHONY: all directed random compile run_one run_all clean help
+
+help:
+	@echo "============================================="
+	@echo " BLogic MCU — UVM Testbench (Verilator)"
+	@echo "============================================="
+	@echo "  make -f Makefile.uvm compile    Derle"
+	@echo "  make -f Makefile.uvm directed   Directed test"
+	@echo "  make -f Makefile.uvm random     Random test"
+	@echo "  make -f Makefile.uvm all        Tum testler"
+	@echo "  make -f Makefile.uvm clean      Temizle"
+	@echo "============================================="
+
+# --- Derleme ---
+compile: $(OBJ_DIR)/V$(TOP_MODULE)
+
+$(OBJ_DIR)/V$(TOP_MODULE): $(SV_SOURCES)
+	@echo ""
+	@echo ">>> UVM Verilator derleme..."
+	@mkdir -p $(LOG_DIR)
+	$(VERILATOR) $(VERILATOR_FLAGS) $(DISABLED_WARNINGS) \
+		$(DEFINES) $(INCDIRS) \
+		$(UVM_PKG) $(SV_SOURCES) \
+		2>&1 | tee $(LOG_DIR)/compile.log
+	@echo ">>> Derleme tamam: $(OBJ_DIR)/V$(TOP_MODULE)"
+
+# --- Tek test kos ---
+run_one: $(OBJ_DIR)/V$(TOP_MODULE)
+	@echo ""
+	@echo ">>> UVM Test: $(UVM_TESTNAME)"
+	@mkdir -p $(COV_DIR)
+	./$(OBJ_DIR)/V$(TOP_MODULE) \
+		+UVM_TESTNAME="$(UVM_TESTNAME)" \
+		+UVM_VERBOSITY=UVM_MEDIUM \
+		+verilator+coverage+file+$(COV_DIR)/$(UVM_TESTNAME).cov \
+		2>&1 | tee $(LOG_DIR)/$(UVM_TESTNAME).log
+	@echo ""
+	@echo "--- UVM Rapor Ozeti ---"
+	@grep -E "UVM_ERROR|UVM_FATAL|PROTO_RPT|SB_RPT|COV_RPT|SCOREBOARD|PROTOKOL" \
+		$(LOG_DIR)/$(UVM_TESTNAME).log || true
+	@echo ""
+
+# --- Tum testleri kos ---
+run_all: $(OBJ_DIR)/V$(TOP_MODULE)
+	@echo ""
+	@echo ">>> Tum UVM testleri kosuluyor..."
+	@mkdir -p $(COV_DIR)
+	@pass=0; fail=0; \
+	for testname in $(ALL_TESTS); do \
+		echo ""; \
+		echo "=== UVM Test: $$testname ==="; \
+		./$(OBJ_DIR)/V$(TOP_MODULE) \
+			+UVM_TESTNAME="$$testname" \
+			+UVM_VERBOSITY=UVM_MEDIUM \
+			+verilator+coverage+file+$(COV_DIR)/$$testname.cov \
+			2>&1 | tee $(LOG_DIR)/$$testname.log; \
+		if grep -q "UVM_ERROR :    0" $(LOG_DIR)/$$testname.log && \
+		   grep -q "UVM_FATAL :    0" $(LOG_DIR)/$$testname.log; then \
+			echo ">>> $$testname: PASS"; \
+			pass=$$((pass + 1)); \
+		else \
+			echo ">>> $$testname: FAIL"; \
+			fail=$$((fail + 1)); \
+		fi; \
+	done; \
+	echo ""; \
+	echo "============================================"; \
+	echo " UVM Regression: $$pass PASS, $$fail FAIL"; \
+	echo "============================================"
+
+# --- Kisa yollar ---
+directed: UVM_TESTNAME=gpio_directed_test
+directed: run_one
+
+random: UVM_TESTNAME=gpio_random_test
+random: run_one
+
+all: clean compile run_all
+
+# --- Temizlik ---
+clean:
+	rm -rf $(OBJ_DIR) $(LOG_DIR)
+	@echo ">>> UVM temizlendi"
