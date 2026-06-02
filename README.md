@@ -24,7 +24,7 @@ BLogic MCU is a 32-bit RISC-V based System-on-Chip (SoC) designed for the TEKNOF
 
 ## System Architecture
 
-![SoC Architecture](docs/soc_architecture.png)
+![SoC Architecture](images/soc_architecture.png)
 
 ### Memory Map
 
@@ -98,7 +98,7 @@ blogic-mcu/
 
 ### Platform: Digilent Genesys 2 (XC7K325T)
 
-![Genesys 2 Board](docs/genesys2_board.jpg)
+![Genesys 2 Board](images/genesys2_board.jpg)
 
 ### FPGA Resource Utilization
 
@@ -122,7 +122,7 @@ MMCM locked signal gates the system reset — SoC stays in reset until the clock
 
 ### FPGA Demo: Calculator over UART
 
-![Calculator Demo](docs/fpga_calc_demo.jpg)
+![Calculator Demo](images/fpga_calc_demo.jpg)
 
 Interactive calculator running on the FPGA. User sends two digits via UART (115200 baud), the CPU computes the sum and sends the result back.
 
@@ -132,7 +132,7 @@ Interactive calculator running on the FPGA. User sends two digits via UART (1152
 
 ### Regression Test Suite (4/4 PASS)
 
-![Regression Results](docs/regression_results.jpg)
+![Regression Results](images/regression_results.jpg)
 
 | # | Test | Status |
 |---|---|---|
@@ -143,7 +143,7 @@ Interactive calculator running on the FPGA. User sends two digits via UART (1152
 
 ### ISA Compliance Test (31/31 PASS)
 
-![ISA Compliance](docs/isa_compliance_test.jpg)
+![ISA Compliance](images/isa_compliance_test.jpg)
 
 RV32IMC instruction set compliance verified with 31 directed tests covering arithmetic, logical, shift, comparison, branch, load/store, LUI/AUIPC, and multiply/divide operations.
 
