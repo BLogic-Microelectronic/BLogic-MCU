@@ -89,3 +89,5 @@ verif/sva/soc_protocol_bind.sv
 
 # 10. EN ÜST SEVİYE
 rtl/soc_top.sv
+rtl/ai_accelerator/ai_accelerator.sv
+rtl/ai_accelerator/ai_sram_arbiter.sv

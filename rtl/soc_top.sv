@@ -1,11 +1,11 @@
 `timescale 1ns / 1ps
 `include "axi/typedef.svh"
 `include "axi/assign.svh"
- 
+
 module soc_top (
     input  logic        clk_i,
     input  logic        rst_ni,
- 
+
     // Dış Dünya
     input  logic        uart_rxd_i,
     output logic        uart_txd_o,
@@ -19,32 +19,38 @@ module soc_top (
     input  logic [ 3:0] qspi_io_i,
     output logic [ 3:0] qspi_io_oe
 );
- 
+
     // ============================================================
     // 1. AXI BUS ARAYÜZLERİ
     // ============================================================
+    // cpu_to_ai_sram_bus: crossbar'dan çıkıp arbiter'a giren yol (CPU tarafı)
+    // ai_sram_bus      : arbiter'dan çıkıp SRAM'e giren MUXLU yol
     AXI_BUS #(
         .AXI_ADDR_WIDTH(32), .AXI_DATA_WIDTH(32),
         .AXI_ID_WIDTH(4),    .AXI_USER_WIDTH(1)
     ) cpu_instr_bus(), cpu_data_bus(), boot_rom_bus(), instr_sram_bus(),
-      data_sram_bus(), ai_sram_bus(), periph_bus();
- 
+      data_sram_bus(), cpu_to_ai_sram_bus(), ai_sram_bus(), periph_bus();
+
     // ============================================================
     // 2. İŞLEMCİ OBI SİNYALLERİ
     // ============================================================
     logic        instr_req, instr_gnt, instr_rvalid;
     logic [31:0] instr_addr, instr_rdata;
- 
+
     logic        data_req, data_gnt, data_rvalid, data_we;
     logic [ 3:0] data_be;
     logic [31:0] data_addr, data_wdata, data_rdata;
 
-    // Kesme (interrupt) sinyalleri
+    // Kesme sinyalleri: timer bit 16, AI bit 17
     logic        timer_irq;
- 
+    logic        ai_irq;
+
     logic [31:0] irq_vector;
-    assign irq_vector = {15'd0, timer_irq, 16'd0};
- 
+    assign irq_vector = {14'd0, ai_irq, timer_irq, 16'd0};
+
+    // AI accelerator durumu (arbiter için bus ownership sinyali)
+    logic        ai_busy;
+
     // ============================================================
     // 3. İŞLEMCİ ÇEKİRDEĞİ (CV32E40P)
     // ============================================================
@@ -64,7 +70,7 @@ module soc_top (
         .irq_i(irq_vector), .irq_ack_o(), .irq_id_o(),
         .debug_req_i(1'b0), .fetch_enable_i(1'b1), .core_sleep_o()
     );
- 
+
     // ============================================================
     // 4. OBI → AXI KÖPRÜLERİ
     // ============================================================
@@ -76,7 +82,7 @@ module soc_top (
         .obi_rvalid_o(instr_rvalid), .obi_rdata_o(instr_rdata),
         .axi_mst(cpu_instr_bus)
     );
- 
+
     obi_to_axi #(.AXI_ID(1)) i_obi_axi_data (
         .clk_i(clk_i), .rst_ni(rst_ni),
         .obi_req_i(data_req), .obi_gnt_o(data_gnt),
@@ -85,18 +91,19 @@ module soc_top (
         .obi_rvalid_o(data_rvalid), .obi_rdata_o(data_rdata),
         .axi_mst(cpu_data_bus)
     );
- 
+
     // ============================================================
     // 5. AXI CROSSBAR
     // ============================================================
+    // ai_sram_mst → cpu_to_ai_sram_bus (sonra arbiter'a girer)
     soc_axi_interconnect i_crossbar (
         .clk_i(clk_i), .rst_ni(rst_ni),
         .cpu_instr_slv(cpu_instr_bus), .cpu_data_slv(cpu_data_bus),
         .boot_rom_mst(boot_rom_bus), .instr_sram_mst(instr_sram_bus),
-        .data_sram_mst(data_sram_bus), .ai_sram_mst(ai_sram_bus),
+        .data_sram_mst(data_sram_bus), .ai_sram_mst(cpu_to_ai_sram_bus),
         .periph_mst(periph_bus)
     );
- 
+
     // ============================================================
     // 6. AXI4 → AXI4-Lite KÖPRÜSÜ
     // ============================================================
@@ -107,7 +114,7 @@ module soc_top (
     logic        lite_bvalid,  lite_bready;
     logic        lite_arvalid, lite_arready;
     logic        lite_rvalid,  lite_rready;
- 
+
     axi4_to_axilite_bridge i_axi_lite_bridge (
         .clk_i(clk_i), .rst_ni(rst_ni),
         .s_awid(periph_bus.aw_id), .s_awaddr(periph_bus.aw_addr),
@@ -142,7 +149,7 @@ module soc_top (
         .m_rdata(lite_rdata), .m_rresp(lite_rresp),
         .m_rvalid(lite_rvalid), .m_rready(lite_rready)
     );
- 
+
     // ============================================================
     // 7. ÇEVRE BİRİMİ ADRES ÇÖZÜCÜ
     // ============================================================
@@ -152,14 +159,14 @@ module soc_top (
     logic [1:0]  uart_bresp,   uart_rresp;
     logic        uart_bvalid,  uart_bready,  uart_arvalid, uart_arready;
     logic        uart_rvalid,  uart_rready;
- 
+
     logic [31:0] gpio_awaddr,  gpio_araddr,  gpio_wdata,  gpio_rdata;
     logic [3:0]  gpio_wstrb;
     logic        gpio_awvalid, gpio_awready, gpio_wvalid, gpio_wready;
     logic [1:0]  gpio_bresp,   gpio_rresp;
     logic        gpio_bvalid,  gpio_bready,  gpio_arvalid, gpio_arready;
     logic        gpio_rvalid,  gpio_rready;
- 
+
     logic [31:0] timer_awaddr,  timer_araddr,  timer_wdata,  timer_rdata;
     logic [3:0]  timer_wstrb;
     logic        timer_awvalid, timer_awready, timer_wvalid, timer_wready;
@@ -173,7 +180,15 @@ module soc_top (
     logic [1:0]  qspi_bresp,   qspi_rresp;
     logic        qspi_bvalid,  qspi_bready,  qspi_arvalid, qspi_arready;
     logic        qspi_rvalid,  qspi_rready;
- 
+
+    // AI accelerator CSR (decoder 0x6) — YENİ
+    logic [31:0] ai_awaddr,  ai_araddr,  ai_wdata,  ai_rdata;
+    logic [3:0]  ai_wstrb;
+    logic        ai_awvalid, ai_awready, ai_wvalid, ai_wready;
+    logic [1:0]  ai_bresp,   ai_rresp;
+    logic        ai_bvalid,  ai_bready,  ai_arvalid, ai_arready;
+    logic        ai_rvalid,  ai_rready;
+
     periph_decoder i_periph_decoder (
         .clk_i(clk_i), .rst_ni(rst_ni),
         .s_awaddr(lite_awaddr), .s_awvalid(lite_awvalid), .s_awready(lite_awready),
@@ -206,9 +221,15 @@ module soc_top (
         .qspi_wdata, .qspi_wstrb, .qspi_wvalid, .qspi_wready,
         .qspi_bresp, .qspi_bvalid, .qspi_bready,
         .qspi_araddr, .qspi_arvalid, .qspi_arready,
-        .qspi_rdata, .qspi_rresp, .qspi_rvalid, .qspi_rready
+        .qspi_rdata, .qspi_rresp, .qspi_rvalid, .qspi_rready,
+        // AI Accelerator CSR — YENİ
+        .ai_awaddr, .ai_awvalid, .ai_awready,
+        .ai_wdata, .ai_wstrb, .ai_wvalid, .ai_wready,
+        .ai_bresp, .ai_bvalid, .ai_bready,
+        .ai_araddr, .ai_arvalid, .ai_arready,
+        .ai_rdata, .ai_rresp, .ai_rvalid, .ai_rready
     );
- 
+
     // ============================================================
     // 8. UART_0 (0x4000_0000)
     // ============================================================
@@ -223,7 +244,7 @@ module soc_top (
         .s_axi_rvalid(uart_rvalid), .s_axi_rready(uart_rready),
         .rxd_i(uart_rxd_i), .txd_o(uart_txd_o)
     );
- 
+
     // ============================================================
     // 9. GPIO (0x4000_0100)
     // ============================================================
@@ -238,7 +259,7 @@ module soc_top (
         .s_axi_rvalid(gpio_rvalid), .s_axi_rready(gpio_rready),
         .gpio_in_i(gpio_in_i), .gpio_out_o(gpio_out_o)
     );
- 
+
     // ============================================================
     // 10. TIMER (0x4000_0200)
     // ============================================================
@@ -269,33 +290,117 @@ module soc_top (
         .sclk_o(qspi_sclk_o), .cs_no(qspi_cs_no),
         .io_o(qspi_io_o), .io_i(qspi_io_i), .io_oe(qspi_io_oe)
     );
- 
+
     // ============================================================
-    // 12. BELLEK MODÜLLERİ
+    // 12. AI ACCELERATOR (CSR 0x4000_0600) — YENİ
+    // ============================================================
+    // Master discrete sinyaller (arbiter'a gidecek)
+    logic [ 3:0] ai_m_awid;
+    logic [31:0] ai_m_awaddr;
+    logic [ 7:0] ai_m_awlen;
+    logic [ 2:0] ai_m_awsize;
+    logic [ 1:0] ai_m_awburst;
+    logic        ai_m_awvalid, ai_m_awready;
+    logic [31:0] ai_m_wdata;
+    logic [ 3:0] ai_m_wstrb;
+    logic        ai_m_wlast, ai_m_wvalid, ai_m_wready;
+    logic [ 3:0] ai_m_bid;
+    logic [ 1:0] ai_m_bresp;
+    logic        ai_m_bvalid, ai_m_bready;
+    logic [ 3:0] ai_m_arid;
+    logic [31:0] ai_m_araddr;
+    logic [ 7:0] ai_m_arlen;
+    logic [ 2:0] ai_m_arsize;
+    logic [ 1:0] ai_m_arburst;
+    logic        ai_m_arvalid, ai_m_arready;
+    logic [ 3:0] ai_m_rid;
+    logic [31:0] ai_m_rdata;
+    logic [ 1:0] ai_m_rresp;
+    logic        ai_m_rlast, ai_m_rvalid, ai_m_rready;
+
+    ai_accelerator i_ai_accel (
+        .clk_i(clk_i), .rst_ni(rst_ni),
+        // AXI4-Lite Slave (CSR)
+        .s_axi_awaddr(ai_awaddr), .s_axi_awvalid(ai_awvalid), .s_axi_awready(ai_awready),
+        .s_axi_wdata(ai_wdata), .s_axi_wstrb(ai_wstrb),
+        .s_axi_wvalid(ai_wvalid), .s_axi_wready(ai_wready),
+        .s_axi_bresp(ai_bresp), .s_axi_bvalid(ai_bvalid), .s_axi_bready(ai_bready),
+        .s_axi_araddr(ai_araddr), .s_axi_arvalid(ai_arvalid), .s_axi_arready(ai_arready),
+        .s_axi_rdata(ai_rdata), .s_axi_rresp(ai_rresp),
+        .s_axi_rvalid(ai_rvalid), .s_axi_rready(ai_rready),
+        // AXI4 Master (AI SRAM)
+        .m_axi_awid(ai_m_awid), .m_axi_awaddr(ai_m_awaddr), .m_axi_awlen(ai_m_awlen),
+        .m_axi_awsize(ai_m_awsize), .m_axi_awburst(ai_m_awburst),
+        .m_axi_awvalid(ai_m_awvalid), .m_axi_awready(ai_m_awready),
+        .m_axi_wdata(ai_m_wdata), .m_axi_wstrb(ai_m_wstrb), .m_axi_wlast(ai_m_wlast),
+        .m_axi_wvalid(ai_m_wvalid), .m_axi_wready(ai_m_wready),
+        .m_axi_bid(ai_m_bid), .m_axi_bresp(ai_m_bresp),
+        .m_axi_bvalid(ai_m_bvalid), .m_axi_bready(ai_m_bready),
+        .m_axi_arid(ai_m_arid), .m_axi_araddr(ai_m_araddr), .m_axi_arlen(ai_m_arlen),
+        .m_axi_arsize(ai_m_arsize), .m_axi_arburst(ai_m_arburst),
+        .m_axi_arvalid(ai_m_arvalid), .m_axi_arready(ai_m_arready),
+        .m_axi_rid(ai_m_rid), .m_axi_rdata(ai_m_rdata), .m_axi_rresp(ai_m_rresp),
+        .m_axi_rlast(ai_m_rlast), .m_axi_rvalid(ai_m_rvalid), .m_axi_rready(ai_m_rready),
+        // Status + IRQ
+        .busy_o(ai_busy),
+        .irq_o(ai_irq)
+    );
+
+    // ============================================================
+    // 13. AI SRAM ARBITER — YENİ
+    // ============================================================
+    // Crossbar (CPU yolu) ile AI accelerator master'ı 2:1 muxlayıp
+    // tek bir bus üzerinden i_ai_sram'e bağlar. ai_busy=1 iken AI sahip,
+    // 0 iken CPU sahip.
+    ai_sram_arbiter i_ai_arb (
+        .clk_i(clk_i), .rst_ni(rst_ni),
+        .ai_active(ai_busy),
+        .cpu(cpu_to_ai_sram_bus),
+
+        .ai_awid(ai_m_awid), .ai_awaddr(ai_m_awaddr), .ai_awlen(ai_m_awlen),
+        .ai_awsize(ai_m_awsize), .ai_awburst(ai_m_awburst),
+        .ai_awvalid(ai_m_awvalid), .ai_awready(ai_m_awready),
+        .ai_wdata(ai_m_wdata), .ai_wstrb(ai_m_wstrb), .ai_wlast(ai_m_wlast),
+        .ai_wvalid(ai_m_wvalid), .ai_wready(ai_m_wready),
+        .ai_bid(ai_m_bid), .ai_bresp(ai_m_bresp),
+        .ai_bvalid(ai_m_bvalid), .ai_bready(ai_m_bready),
+        .ai_arid(ai_m_arid), .ai_araddr(ai_m_araddr), .ai_arlen(ai_m_arlen),
+        .ai_arsize(ai_m_arsize), .ai_arburst(ai_m_arburst),
+        .ai_arvalid(ai_m_arvalid), .ai_arready(ai_m_arready),
+        .ai_rid(ai_m_rid), .ai_rdata(ai_m_rdata), .ai_rresp(ai_m_rresp),
+        .ai_rlast(ai_m_rlast), .ai_rvalid(ai_m_rvalid), .ai_rready(ai_m_rready),
+
+        .sram(ai_sram_bus)
+    );
+
+    // ============================================================
+    // 14. BELLEK MODÜLLERİ
     // ============================================================
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(1024),  .INIT_FILE("data_mem.hex"))
         i_boot_rom  (.clk_i(clk_i), .rst_ni(rst_ni), .slv(boot_rom_bus));
- 
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192), .INIT_FILE("firmware.hex"))
+
+    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192),  .INIT_FILE("firmware.hex"))
         i_instr_sram(.clk_i(clk_i), .rst_ni(rst_ni), .slv(instr_sram_bus));
- 
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192), .INIT_FILE("data_mem.hex"))
+
+    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192),  .INIT_FILE("data_mem.hex"))
         i_data_sram (.clk_i(clk_i), .rst_ni(rst_ni), .slv(data_sram_bus));
- 
+
+    // ai_sram artık arbiter çıkışına bağlı
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(30720), .INIT_FILE("data_mem.hex"))
         i_ai_sram   (.clk_i(clk_i), .rst_ni(rst_ni), .slv(ai_sram_bus));
 
-// ============================================================
-    // 13. PROTOCOL CHECKER'LAR (Doğrulama — Sentez'de çıkarılır)
     // ============================================================
+    // 15. PROTOCOL CHECKER'LAR (Doğrulama — Sentez'de çıkarılır)
+    // ============================================================
+    // NOT: AI accelerator için ai_accel_checker_bind.sv ayrı bind ediliyor.
     // synthesis translate_off
     // verilator lint_off UNUSED
     // verilator lint_off UNDRIVEN
- 
+
     soc_protocol_bind i_protocol_checkers (
         .clk       (clk_i),
         .rst_n     (rst_ni),
- 
+
         // Periph bus (AXI-Lite köprü çıkışı)
         .lite_awaddr  (lite_awaddr),   .lite_awvalid (lite_awvalid),  .lite_awready (lite_awready),
         .lite_wdata   (lite_wdata),    .lite_wstrb   (lite_wstrb),
@@ -304,7 +409,7 @@ module soc_top (
         .lite_araddr  (lite_araddr),   .lite_arvalid (lite_arvalid),  .lite_arready (lite_arready),
         .lite_rdata   (lite_rdata),    .lite_rresp   (lite_rresp),
         .lite_rvalid  (lite_rvalid),   .lite_rready  (lite_rready),
- 
+
         // UART_0
         .uart_awaddr  (uart_awaddr),   .uart_awvalid (uart_awvalid),  .uart_awready (uart_awready),
         .uart_wdata   (uart_wdata),    .uart_wstrb   (uart_wstrb),
@@ -313,7 +418,7 @@ module soc_top (
         .uart_araddr  (uart_araddr),   .uart_arvalid (uart_arvalid),  .uart_arready (uart_arready),
         .uart_rdata   (uart_rdata),    .uart_rresp   (uart_rresp),
         .uart_rvalid  (uart_rvalid),   .uart_rready  (uart_rready),
- 
+
         // GPIO
         .gpio_awaddr  (gpio_awaddr),   .gpio_awvalid (gpio_awvalid),  .gpio_awready (gpio_awready),
         .gpio_wdata   (gpio_wdata),    .gpio_wstrb   (gpio_wstrb),
@@ -322,7 +427,7 @@ module soc_top (
         .gpio_araddr  (gpio_araddr),   .gpio_arvalid (gpio_arvalid),  .gpio_arready (gpio_arready),
         .gpio_rdata   (gpio_rdata),    .gpio_rresp   (gpio_rresp),
         .gpio_rvalid  (gpio_rvalid),   .gpio_rready  (gpio_rready),
- 
+
         // Timer
         .timer_awaddr (timer_awaddr),  .timer_awvalid(timer_awvalid), .timer_awready(timer_awready),
         .timer_wdata  (timer_wdata),   .timer_wstrb  (timer_wstrb),
@@ -331,7 +436,7 @@ module soc_top (
         .timer_araddr (timer_araddr),  .timer_arvalid(timer_arvalid), .timer_arready(timer_arready),
         .timer_rdata  (timer_rdata),   .timer_rresp  (timer_rresp),
         .timer_rvalid (timer_rvalid),  .timer_rready (timer_rready),
- 
+
         // QSPI
         .qspi_awaddr  (qspi_awaddr),  .qspi_awvalid (qspi_awvalid), .qspi_awready (qspi_awready),
         .qspi_wdata   (qspi_wdata),   .qspi_wstrb   (qspi_wstrb),
@@ -341,10 +446,10 @@ module soc_top (
         .qspi_rdata   (qspi_rdata),   .qspi_rresp   (qspi_rresp),
         .qspi_rvalid  (qspi_rvalid),  .qspi_rready  (qspi_rready)
     );
- 
+
     // verilator lint_on UNUSED
     // verilator lint_on UNDRIVEN
     // synthesis translate_on
- 
+
 
 endmodule
