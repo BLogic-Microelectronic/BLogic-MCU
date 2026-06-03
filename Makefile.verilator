@@ -1,39 +1,37 @@
 # =============================================================================
-# BLogic MCU - Verilator Simülasyon Makefile
-# TEKNOFEST 2026 Çip Tasarım Yarışması
+# BLogic MCU - Verilator Simulasyon Makefile
 # =============================================================================
 
-# Araçlar
 VERILATOR    = verilator
 RV_GCC       = riscv32-unknown-elf-gcc
 RV_OBJCOPY   = riscv32-unknown-elf-objcopy
 RV_OBJDUMP   = riscv32-unknown-elf-objdump
 PYTHON       = python3
 
-# Dizinler
 BUILD_DIR    = build
 OBJ_DIR      = obj_dir
 RTL_DIR      = rtl
 VERIF_DIR    = verif
 SW_DIR       = sw
 
-# Dosyalar
+LOG_ROOT     = $(CURDIR)/logs
+LOG_BUILD    = $(LOG_ROOT)/build
+
 SOC_FILES    = soc_files.f
 SIM_MAIN     = $(VERIF_DIR)/tb/sim_main.cpp
 TOP_MODULE   = soc_top
 SIM_EXE      = $(OBJ_DIR)/blogic_sim
 
-# RISC-V derleme ayarları
 RV_ARCH      = rv32imc
 RV_ABI       = ilp32
 RV_CFLAGS    = -march=$(RV_ARCH) -mabi=$(RV_ABI) -nostdlib -O2 $(EXTRA_CFLAGS)
 LINKER_SCRIPT = $(SW_DIR)/common/link.ld
 STARTUP      = $(SW_DIR)/common/crt0.S
 
-# Firmware C dosyası (terminalden değiştirilebilir)
 FW_SRC       ?= $(SW_DIR)/tests/uart_hello.c
+TEST_NAME    := $(basename $(notdir $(FW_SRC)))
+SIM_LOG_DIR  := $(LOG_ROOT)/sim/$(TEST_NAME)
 
-# Verilator flags
 VERILATOR_FLAGS = \
     --cc --timing \
     -Wno-fatal \
@@ -46,19 +44,15 @@ VERILATOR_FLAGS = \
     -DVERILATOR \
     --top-module $(TOP_MODULE) -public-flat-rw
 
-# VCD trace: make sim TRACE=1
 ifdef TRACE
 VERILATOR_FLAGS += --trace
 endif
 
-# Coverage: make sim COVERAGE=1
 ifdef COVERAGE
 VERILATOR_FLAGS += --coverage
 endif
 
-# ============ Hedefler ============
-
-.PHONY: all sim clean sw verilate help
+.PHONY: all sim clean sw verilate help logs-prep logs-clean
 
 all: sim
 
@@ -66,63 +60,62 @@ help:
 	@echo "═══════════════════════════════════════════"
 	@echo " BLogic MCU - Build Hedefleri"
 	@echo "═══════════════════════════════════════════"
-	@echo "  make -f Makefile.verilator sw                  - Yazılımı derle"
-	@echo "  make -f Makefile.verilator verilate            - Verilator ile RTL derle"
-	@echo "  make -f Makefile.verilator sim                 - Tam simülasyon"
-	@echo "  make -f Makefile.verilator sim TRACE=1         - VCD trace ile"
-	@echo "  make -f Makefile.verilator sim COVERAGE=1      - Coverage ile"
-	@echo "  make -f Makefile.verilator sim FW_SRC=sw/tests/gpio_test.c"
-	@echo "  make -f Makefile.verilator clean               - Temizle"
-	@echo "═══════════════════════════════════════════"
+	@echo "  sw       - Yazilimi derle"
+	@echo "  verilate - Verilator ile RTL derle"
+	@echo "  sim      - Tam simulasyon"
+	@echo "  sim TRACE=1 / COVERAGE=1"
+	@echo "  sim FW_SRC=sw/tests/gpio_led_test.c"
+	@echo "  clean / logs-clean"
+	@echo " Loglar: logs/  (yapi icin logs/README.md)"
 
-# ---- Yazılım derleme ----
-sw: $(BUILD_DIR)/instr_mem.hex $(BUILD_DIR)/data_mem.hex
+logs-prep:
+	@mkdir -p $(LOG_BUILD) $(SIM_LOG_DIR)
 
-$(BUILD_DIR)/test.elf: $(STARTUP) $(FW_SRC) $(LINKER_SCRIPT)
+sw: logs-prep $(BUILD_DIR)/instr_mem.hex $(BUILD_DIR)/data_mem.hex
+
+$(BUILD_DIR)/test.elf: $(STARTUP) $(FW_SRC) $(LINKER_SCRIPT) | logs-prep
 	@mkdir -p $(BUILD_DIR)
-	$(RV_GCC) $(RV_CFLAGS) -T $(LINKER_SCRIPT) $(STARTUP) $(FW_SRC) -o $@
-	@echo "[SW] ELF olusturuldu: $@"
+	@echo "[SW] gcc ($(TEST_NAME)) -> $@"
+	@$(RV_GCC) $(RV_CFLAGS) -T $(LINKER_SCRIPT) $(STARTUP) $(FW_SRC) -o $@ \
+	    2>&1 | tee $(LOG_BUILD)/sw_build.log
 
 $(BUILD_DIR)/test.disasm: $(BUILD_DIR)/test.elf
-	$(RV_OBJDUMP) -d $< > $@
-	@echo "[SW] Disassembly: $@"
+	@$(RV_OBJDUMP) -d $< > $@
 
-# Instruction hex: sadece .text (kod)
 $(BUILD_DIR)/instr_mem.hex: $(BUILD_DIR)/test.elf
-	$(RV_OBJCOPY) -O binary -j .text.init -j .text $< $(BUILD_DIR)/instr.bin
-	$(PYTHON) scripts/elf2hex.py $(BUILD_DIR)/instr.bin $@
-	@echo "[SW] Instr hex: $@"
+	@$(RV_OBJCOPY) -O binary -j .text.init -j .text $< $(BUILD_DIR)/instr.bin
+	@$(PYTHON) scripts/elf2hex.py $(BUILD_DIR)/instr.bin $@ 2>&1 | tee -a $(LOG_BUILD)/sw_build.log
 
-# Data hex: .rodata (stringler) + .data (init degiskenler)
 $(BUILD_DIR)/data_mem.hex: $(BUILD_DIR)/test.elf
-	$(RV_OBJCOPY) -O binary -j .rodata -j .data $< $(BUILD_DIR)/data.bin 2>/dev/null || printf '' > $(BUILD_DIR)/data.bin
-	$(PYTHON) scripts/elf2hex.py $(BUILD_DIR)/data.bin $@
-	@echo "[SW] Data hex: $@"
+	@$(RV_OBJCOPY) -O binary -j .rodata -j .data $< $(BUILD_DIR)/data.bin 2>/dev/null \
+	    || printf '' > $(BUILD_DIR)/data.bin
+	@$(PYTHON) scripts/elf2hex.py $(BUILD_DIR)/data.bin $@ 2>&1 | tee -a $(LOG_BUILD)/sw_build.log
 
-# ---- Verilator derleme ----
 verilate: $(SIM_EXE)
 
-$(SIM_EXE): $(SOC_FILES) $(SIM_MAIN)
-	@echo "[VLT] Verilator calistiriliyor..."
-	$(VERILATOR) $(VERILATOR_FLAGS) \
-		-f $(SOC_FILES) \
-		--exe $(SIM_MAIN) \
-		-o blogic_sim
+$(SIM_EXE): $(SOC_FILES) $(SIM_MAIN) | logs-prep
+	@echo "[VLT] Verilator -> $(LOG_BUILD)/verilator_build.log"
+	@$(VERILATOR) $(VERILATOR_FLAGS) -f $(SOC_FILES) --exe $(SIM_MAIN) -o blogic_sim \
+	    2>&1 | tee $(LOG_BUILD)/verilator_build.log
 	@echo "[VLT] C++ derleniyor..."
-	make -C $(OBJ_DIR) -f V$(TOP_MODULE).mk blogic_sim -j$$(nproc)
-	@echo "[VLT] Simulasyon binary'si hazir: $(SIM_EXE)"
+	@make -C $(OBJ_DIR) -f V$(TOP_MODULE).mk blogic_sim -j$$(nproc) \
+	    2>&1 | tee -a $(LOG_BUILD)/verilator_build.log
 
-# ---- Simülasyon ----
 sim: $(BUILD_DIR)/instr_mem.hex $(BUILD_DIR)/data_mem.hex $(SIM_EXE)
+	@mkdir -p $(SIM_LOG_DIR)
 	@echo ""
-	@echo "═══ Simulasyon Baslatiliyor ═══"
-	cp $(BUILD_DIR)/instr_mem.hex $(OBJ_DIR)/firmware.hex
-	cp $(BUILD_DIR)/data_mem.hex  $(OBJ_DIR)/data_mem.hex
-	cd $(OBJ_DIR) && ./blogic_sim
+	@echo "═══ Sim: $(TEST_NAME) (logs: $(SIM_LOG_DIR)) ═══"
+	@cp $(BUILD_DIR)/instr_mem.hex $(OBJ_DIR)/firmware.hex
+	@cp $(BUILD_DIR)/data_mem.hex  $(OBJ_DIR)/data_mem.hex
+	@cd $(OBJ_DIR) && ./blogic_sim +CPB=432 +TEST_NAME=$(TEST_NAME) +LOGDIR=$(SIM_LOG_DIR) \
+	    2>&1 | tee $(SIM_LOG_DIR)/stdout.log
+	@echo ""
+	@echo "[SIM] Karar:" && grep "^result=" $(SIM_LOG_DIR)/result.log
 
-# ---- Temizlik ----
 clean:
-	rm -rf $(OBJ_DIR)
-	rm -rf $(BUILD_DIR)
-	rm -f sim_trace.vcd
-	@echo "[CLEAN] Temizlendi."
+	rm -rf $(OBJ_DIR) $(BUILD_DIR)
+	@echo "[CLEAN] obj_dir/ ve build/ silindi (loglar duruyor)"
+
+logs-clean:
+	rm -rf $(LOG_ROOT)
+	@echo "[CLEAN] logs/ silindi"

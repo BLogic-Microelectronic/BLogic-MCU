@@ -1,54 +1,160 @@
 #!/usr/bin/env python3
+"""
+Spike vs CV32E40P RTL instruction trace karsilastirici.
+
+Kullanim:
+    compare_traces.py <spike_log> <rtl_log> [--show N] [--strict]
+
+Spike `-l --log-commits` ile cagrilmali. Iki satir cikar her komut icin:
+    core   0: 0x00010000 (0x00012117) auipc sp, 0x12        <- disasm
+    core   0: 3 0x00010000 (0x00012117) x2 0x00022000      <- commit (bunu kullaniriz)
+
+RTL trace formati (sim_main file-based logging):
+    RTL_PC: 0x00010000
+
+Sadece Instruction SRAM araligi [0x10000, 0x20000) kiyaslanir — Spike'in
+0x1000 bootloader'i ve user-code disindaki yerler hizalama disinda kalir.
+"""
+
 import sys
+import re
+import argparse
+from dataclasses import dataclass
+from typing import List, Optional
 
-def parse_spike(spike_log):
-    pcs = []
+HEX = r"[0-9a-fA-F]+"
+
+# Spike commit satiri: "core 0: 3 0xPC (0xINSN) [tail...]"
+SPIKE_COMMIT_RE = re.compile(
+    rf"^core\s+\d+:\s+\d+\s+0x({HEX})\s+\(0x({HEX})\)(.*)$"
+)
+SPIKE_REG_RE = re.compile(rf"\bx(\d+)\s+0x({HEX})")
+SPIKE_MEM_RE = re.compile(rf"\bmem\s+0x({HEX})(?:\s+0x({HEX}))?")
+
+RTL_RE = re.compile(rf"^RTL_PC:\s+0x({HEX})")
+
+INST_SRAM_LO = 0x10000
+INST_SRAM_HI = 0x20000
+
+
+@dataclass
+class Retire:
+    pc: int
+    insn: int
+    rd: Optional[int] = None
+    rdval: Optional[int] = None
+    mem_addr: Optional[int] = None
+    mem_data: Optional[int] = None
+    raw: str = ""
+
+
+def parse_spike(path, lo=INST_SRAM_LO, hi=INST_SRAM_HI):
+    out = []
+    with open(path, 'r', errors='replace') as f:
+        for line in f:
+            m = SPIKE_COMMIT_RE.match(line)
+            if not m:
+                continue
+            pc = int(m.group(1), 16)
+            if pc < lo or pc >= hi:
+                continue
+            insn = int(m.group(2), 16)
+            tail = m.group(3)
+            r = Retire(pc=pc, insn=insn, raw=line.rstrip())
+            reg = SPIKE_REG_RE.search(tail)
+            if reg:
+                r.rd, r.rdval = int(reg.group(1)), int(reg.group(2), 16)
+            mem = SPIKE_MEM_RE.search(tail)
+            if mem:
+                r.mem_addr = int(mem.group(1), 16)
+                if mem.group(2):
+                    r.mem_data = int(mem.group(2), 16)
+            out.append(r)
+    return out
+
+
+def parse_rtl(path):
+    out = []
+    with open(path, 'r', errors='replace') as f:
+        for line in f:
+            m = RTL_RE.search(line.strip())
+            if m:
+                out.append(int(m.group(1), 16))
+    return out
+
+
+def fmt_spike(r):
+    s = f"pc=0x{r.pc:08x} insn=0x{r.insn:08x}"
+    if r.rd is not None:
+        s += f" x{r.rd}=0x{r.rdval:08x}"
+    if r.mem_addr is not None:
+        s += f" mem[0x{r.mem_addr:08x}]"
+        if r.mem_data is not None:
+            s += f"=0x{r.mem_data:08x}"
+    return s
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("spike_log")
+    ap.add_argument("rtl_log")
+    ap.add_argument("--show", type=int, default=0,
+                    help="ilk N kaydi her iki kaynaktan bas ve cik")
+    ap.add_argument("--strict", action="store_true",
+                    help="rd ve mem yazimlarini da kiyasla (RTL rd henuz yok)")
+    args = ap.parse_args()
+
     try:
-        with open(spike_log, 'r') as f:
-            for line in f:
-                if line.startswith("core") and "0x0001" in line and not ": 3 " in line:
-                    parts = line.split()
-                    if len(parts) > 2 and parts[2].startswith("0x"):
-                        pcs.append(int(parts[2], 16))
+        spike = parse_spike(args.spike_log)
     except FileNotFoundError:
-        print(f"Hata: {spike_log} bulunamadı.")
-    return pcs
-
-def parse_rtl(rtl_log):
-    pcs = []
+        print(f"[FAIL] Spike log yok: {args.spike_log}")
+        return 1
     try:
-        with open(rtl_log, 'r') as f:
-            for line in f:
-                if "RTL_PC:" in line:
-                    parts = line.split()
-                    if len(parts) > 1:
-                        pcs.append(int(parts[1], 16))
+        rtl = parse_rtl(args.rtl_log)
     except FileNotFoundError:
-        print(f"Hata: {rtl_log} bulunamadı.")
-    return pcs
+        print(f"[FAIL] RTL log yok: {args.rtl_log}")
+        return 1
 
-spike_pcs = parse_spike("spike_trace.log")
-rtl_pcs = parse_rtl("obj_dir/rtl_sim.log")
+    print(f"[LOCKSTEP] Spike kayit: {len(spike)}, RTL kayit: {len(rtl)}")
 
-if not spike_pcs or not rtl_pcs:
-    print("❌ [LOCKSTEP FAIL] İz dosyaları boş veya okunamadı!")
-    sys.exit(1)
+    if args.show:
+        n = min(args.show, max(len(spike), len(rtl)))
+        print(f"\n== Spike (ilk {min(n, len(spike))}) ==")
+        for r in spike[:n]:
+            print(f"  {fmt_spike(r)}")
+        print(f"\n== RTL (ilk {min(n, len(rtl))}) ==")
+        for pc in rtl[:n]:
+            print(f"  pc=0x{pc:08x}")
+        return 0
 
-print(f"[LOCKSTEP] Spike Adım Sayısı: {len(spike_pcs)}, RTL Adım Sayısı: {len(rtl_pcs)}")
+    if not spike:
+        print("[FAIL] Spike log'undan kayit cikmadi.")
+        print("       Spike `-l --log-commits` ile mi kosturuluyor?")
+        print("       Beklenen satir formati: 'core 0: 3 0xPC (0xINSN) ...'")
+        return 1
+    if not rtl:
+        print("[FAIL] RTL log'undan tek 'RTL_PC: 0x...' satiri yok.")
+        return 1
 
-mismatch = False
-max_steps = min(len(spike_pcs), len(rtl_pcs))
+    n = min(len(spike), len(rtl))
+    for i in range(n):
+        s, r_pc = spike[i], rtl[i]
+        if s.pc != r_pc:
+            print(f"[FAIL] {i+1}. komutta uyusmazlik")
+            print(f"  Spike : 0x{s.pc:08x} (insn 0x{s.insn:08x})")
+            print(f"  RTL   : 0x{r_pc:08x}")
+            lo = max(0, i - 2); hi = min(n, i + 3)
+            print(f"  --- pencere [{lo}..{hi-1}] ---")
+            for j in range(lo, hi):
+                marker = "  >>" if j == i else "    "
+                print(f"  {marker} #{j}: spike=0x{spike[j].pc:08x}  rtl=0x{rtl[j]:08x}")
+            return 1
 
-for i in range(max_steps):
-    if spike_pcs[i] != rtl_pcs[i]:
-        print(f"❌ [MISMATCH] {i+1}. adımda kilitlenme (Divergence)!")
-        print(f"  → Spike PC : 0x{spike_pcs[i]:08X}")
-        print(f"  → RTL PC   : 0x{rtl_pcs[i]:08X}")
-        mismatch = True
-        break
+    print(f"[PASS] {n} komutluk PC dizisi eslesti")
+    if len(spike) != len(rtl):
+        print(f"[UYARI] iz uzunluklari farkli (spike={len(spike)} rtl={len(rtl)}); ilk {n} kiyaslandi")
+    return 0
 
-if not mismatch:
-    print("✓ [LOCKSTEP PASS] RTL ve Spike ISS buyruk izleri başarıyla eşleşti!")
-    sys.exit(0)
-else:
-    sys.exit(1)
+
+if __name__ == "__main__":
+    sys.exit(main())

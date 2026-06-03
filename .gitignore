@@ -2,34 +2,44 @@
 # BLogic MCU — .gitignore
 # ============================================================
 
-# Derleme ciktilari
+# === Derleme cikti dizinleri ===
 build/
 obj_dir/
 obj_dir_uvm/
 
-# Log dosyalari (nerede olursa olsun)
+# === Yeni: tum log/iz/sim cikti'lari TEK kok altinda ===
+logs/
+
+# === Eski / dagilmis log dosyalari ===
 *.log
 *.vcd
 *.fst
+verilator_log.txt
+spike_trace.log
+build_sw.log
 
-# Verilator
+# === Verilator ek ciktilari ===
 *.vvp
 *.sim
 
-# Gecici dosyalar
+# === Derleme ara dosyalari ===
 *.hex
 *.bin
 *.elf
 *.o
 *.d
 
-# Coverage
+# === Coverage ham cikti'lari ===
 *.cov
+coverage.dat
+coverage_html/
 
-# Editor
+# === Editor / IDE ===
 *.swp
 *.swo
 *~
 .vscode/
 .idea/
 
+# === Istisna: AI golden vector'lari REPO'DA KALSIN ===
+!sw/ai_model/golden_vectors/*.hex
