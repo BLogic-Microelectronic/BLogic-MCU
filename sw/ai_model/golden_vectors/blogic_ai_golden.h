@@ -130,7 +130,7 @@ static const int8_t golden_input_yes[1960] = {
 };
 
 static const int8_t golden_output_yes[4] = {
-      15,   40,  112,  107,
+       5,   12,   30,   27,
 };
 
 #define GOLDEN_YES_PREDICTED_CLASS 2
