@@ -1,75 +1,68 @@
-# Vivado build artifacts
-teknotest/vivado_proj/
-**/xsim.dir/
-*.jou
-*.wdb
-*.pb
-vivado*.log
+# ============================================================
+# BLogic MCU - .gitignore
+# ============================================================
 
-# Build intermediates (kaynak .S/.c'den uretilebilir)
-sw/bootloader/bootloader.elf
-sw/bootloader/bootloader.bin
-sw/bootloader/bootloader.o
-teknotest/sw/build/*.elf
-teknotest/sw/build/*.bin
-teknotest/sw/build/*.o
-teknotest/sw/build/*.dis
-teknotest/sw/build/*.map
-teknotest/sw/build/*.readelf
-
-# Verilator build
+# --- Verilator build dizinleri ---
 obj_dir/
+obj_dir_ai/
 obj_dir_uvm/
+obj_dir_boot/
 
-# === Yeni: tum log/iz/sim cikti'lari TEK kok altinda ===
+# --- Genel build / log / venv ---
+build/
 logs/
+venv/
+.venv/
+__pycache__/
+*.pyc
 
-# === Eski / dagilmis log dosyalari ===
+# --- Verilator log / trace / waveform ---
 *.log
 *.vcd
 *.fst
+*.vvp
+*.sim
 verilator_log.txt
+verilate.log
 spike_trace.log
 build_sw.log
 
-# === Verilator ek ciktilari ===
-*.vvp
-*.sim
-
-# === Derleme ara dosyalari ===
+# --- Derleme ara dosyalari ---
 *.hex
 *.bin
 *.elf
 *.o
 *.d
 
-# === Coverage ham cikti'lari ===
+# --- Coverage ---
 *.cov
 coverage.dat
 coverage_html/
 
-# === Editor / IDE ===
+# --- Yedek / eski dosyalar ---
+*.bak
+*.bak2
+*.old
+
+# --- Editor / IDE ---
 *.swp
 *.swo
 *~
 .vscode/
 .idea/
 
-# === Istisna: AI golden vector'lari REPO'DA KALSIN ===
-!sw/ai_model/golden_vectors/*.hex
-.venv/
-*.bak
+# ============================================================
+# Istisnalar - bunlar repo'da KALSIN (asagi takip edilen hex'ler)
+# ============================================================
 
-# --- BLogic build artifacts (eklendi) ---
-obj_dir/
-obj_dir_ai/
-obj_dir_uvm/
-build/
-logs/
-venv/
-*.bak
-*.bak2
-*.old
-__pycache__/
-*.pyc
-verilate.log
+# AI golden vector'lari (standalone TB + SoC test icin)
+!sw/ai_model/golden_vectors/*.hex
+
+# Boot icin gerekli hex'ler
+!bootrom.hex
+!flash.hex
+!sw/bootloader/bootrom.hex
+
+# TEKNOFEST resmi paket icerikleri
+!teknotest/**/*.hex
+!teknotest/**/*.mem
