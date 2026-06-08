@@ -859,3 +859,4 @@ module ai_accelerator #(
     assign irq_o = status_done;
 
 endmodule
+endmodule
