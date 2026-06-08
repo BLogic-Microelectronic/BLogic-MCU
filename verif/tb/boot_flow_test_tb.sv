@@ -14,7 +14,7 @@ module boot_flow_test_tb;
     soc_top #(.BOOT_ADDR(32'h0000_0000)) dut (
         .clk_i(clk), .rst_ni(resetn),
         .uart_rxd_i(uart_rx), .uart_txd_o(uart_tx),
-        .qspi_sclk_o(qspi_sclk), .qspi_csn_o(qspi_cs_n),
+        .qspi_sclk_o(qspi_sclk), .qspi_cs_no(qspi_cs_n),
         .qspi_io_o(qspi_io_o), .qspi_io_oe(qspi_io_oe),
         .qspi_io_i(qspi_io_i),
         .gpio_in_i('0)
@@ -64,5 +64,5 @@ module boot_flow_test_tb;
         $finish;
     end
 
-    initial #100_000_000 begin $error("TIMEOUT"); $finish; end
+    initial #3_000_000 begin $error("TIMEOUT"); $finish; end
 endmodule

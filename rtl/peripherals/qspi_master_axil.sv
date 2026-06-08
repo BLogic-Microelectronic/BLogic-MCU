@@ -219,6 +219,8 @@ module qspi_master_axil (
                 SPI_IDLE: begin
                     sta_busy <= 1'b0;
                     if (cmd_start) begin
+                        cmd_start     <= 1'b0;            // BUGFIX: one-shot clear (runaway transactions)
+                        $display("[%0t QSPI] IDLE->CS_ASSERT instr=%02x adr=%06x", $time, ccr_instr, qspi_adr);
                         spi_state     <= SPI_CS_ASSERT;
                         sta_busy      <= 1'b1;
                         sta_done      <= 1'b0;
@@ -377,6 +379,7 @@ module qspi_master_axil (
                 SPI_DONE: begin
                     sta_done  <= 1'b1;
                     sta_busy  <= 1'b0;
+                    $display("[%0t QSPI] DONE", $time);
                     spi_state <= SPI_IDLE;
                 end
 
@@ -442,7 +445,10 @@ module qspi_master_axil (
                         ccr_data_len  <= s_axi_wdata[23:16];
                         ccr_prescaler <= s_axi_wdata[30:25];
                         if (s_axi_wdata[31]) cmd_clr_sta <= 1'b1;
-                        else if (!sta_busy)  cmd_start   <= 1'b1;
+                        else if (!sta_busy) begin
+                            cmd_start   <= 1'b1;
+                            $display("[%0t QSPI] CCR write ccr=%08x adr=%06x", $time, s_axi_wdata, qspi_adr);
+                        end
                     end
                     ADDR_ADR: qspi_adr <= s_axi_wdata[23:0];
                     ADDR_DR: begin

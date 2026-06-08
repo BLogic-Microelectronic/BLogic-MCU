@@ -34,6 +34,7 @@ module axi_sram_wrapper #(
         // Hex dosyası varsa yükle
         if (INIT_FILE != "") begin
             $readmemh(INIT_FILE, mem);
+            $display("[SRAM_INIT %m] %s yuklendi, mem[0]=%08x mem[1]=%08x", INIT_FILE, mem[0], mem[1]);
         end
     end
 
