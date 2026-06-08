@@ -1,9 +1,23 @@
-# ============================================================
-# BLogic MCU — .gitignore
-# ============================================================
+# Vivado build artifacts
+teknotest/vivado_proj/
+**/xsim.dir/
+*.jou
+*.wdb
+*.pb
+vivado*.log
 
-# === Derleme cikti dizinleri ===
-build/
+# Build intermediates (kaynak .S/.c'den uretilebilir)
+sw/bootloader/bootloader.elf
+sw/bootloader/bootloader.bin
+sw/bootloader/bootloader.o
+teknotest/sw/build/*.elf
+teknotest/sw/build/*.bin
+teknotest/sw/build/*.o
+teknotest/sw/build/*.dis
+teknotest/sw/build/*.map
+teknotest/sw/build/*.readelf
+
+# Verilator build
 obj_dir/
 obj_dir_uvm/
 
@@ -58,3 +72,4 @@ venv/
 *.old
 __pycache__/
 *.pyc
+verilate.log

@@ -61,7 +61,8 @@ module uart_axil (
 
     // Yazma FSM'inden flag kontrol sinyalleri
     logic        wr_cfg_hit;  // CFG register'ına yazma yapıldı mı?
-    logic [31:0] wr_cfg_data; // CFG'ye yazılan veri
+    logic [31:0] wr_cfg_data;
+    logic        wr_tdr_hit; // CFG'ye yazılan veri
 
     // =========================================================
     // 2. AXI-LITE YAZMA (WRITE) FSM
@@ -85,8 +86,10 @@ module uart_axil (
             uart_tdr      <= 8'd0;
             wr_cfg_hit    <= 1'b0;
             wr_cfg_data   <= 32'd0;
+            wr_tdr_hit    <= 1'b0;
         end else begin
             wr_cfg_hit <= 1'b0;
+            wr_tdr_hit <= 1'b0;
 
             // Adres + Veri Yakalama
             if (s_axi_awvalid && s_axi_wvalid && aw_en) begin
@@ -104,7 +107,7 @@ module uart_axil (
                 case (write_addr)
                     ADDR_CPB: uart_cpb <= s_axi_wdata;
                     ADDR_STP: uart_stp <= s_axi_wdata[1:0];
-                    ADDR_TDR: uart_tdr <= s_axi_wdata[7:0];
+                    ADDR_TDR: begin uart_tdr <= s_axi_wdata[7:0]; wr_tdr_hit <= 1'b1; end
                     ADDR_CFG: begin
                         wr_cfg_hit  <= 1'b1;
                         wr_cfg_data <= s_axi_wdata;
@@ -190,7 +193,7 @@ module uart_axil (
         end
     end
 
-    assign tx_start = (cfg_tx_en && !prev_tx_en);
+    assign tx_start = wr_tdr_hit;
 
     // =========================================================
     // 5. UART ÇEKİRDEK BAĞLANTILARI (Alex Forencich Gerçek Portları)
