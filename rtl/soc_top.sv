@@ -386,7 +386,7 @@ module soc_top (
         i_data_sram (.clk_i(clk_i), .rst_ni(rst_ni), .slv(data_sram_bus));
 
     // ai_sram artık arbiter çıkışına bağlı
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(30720), .INIT_FILE("data_mem.hex"))
+    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(30720), .INIT_FILE("ai_sram_init.hex"))
         i_ai_sram   (.clk_i(clk_i), .rst_ni(rst_ni), .slv(ai_sram_bus));
 
     // ============================================================

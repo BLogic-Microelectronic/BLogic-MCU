@@ -109,6 +109,27 @@ module ai_accelerator #(
 );
 
     // =========================================================
+    // TFLite QUANTIZATION PARAMETRELERI (extract_weights.py ciktisi)
+    // =========================================================
+    // micro_speech_quantized.tflite modelinden cikarildi.
+    // Yeniden uretmek icin: python3 extract_weights.py
+    // ---------------------------------------------------------
+    localparam logic signed [ 7:0] INPUT_ZP    = -8'sd128;
+    localparam logic signed [ 7:0] CONV_OUT_ZP = -8'sd128;
+    localparam logic signed [ 7:0] FC_OUT_ZP   =  8'sd14;
+
+    // Per-channel CONV requant (8 filtre)
+    localparam logic signed [31:0] M_CONV_Q31 [0:7] = '{
+        32'h628A49AF, 32'h5A64A4B7, 32'h7741C64F, 32'h452319CA,
+        32'h594FD417, 32'h4CA163E2, 32'h7FEC0835, 32'h68B36BE8
+    };
+    localparam int SHIFT_CONV [0:7] = '{41, 43, 41, 41, 41, 41, 41, 41};
+
+    // Per-tensor FC requant
+    localparam logic signed [31:0] M_FC_Q31 = 32'h732B0C78;
+    localparam int                 SHIFT_FC = 42;
+
+    // =========================================================
     // SABİTLER — Bellek haritası ve model parametreleri
     // =========================================================
     localparam logic [31:0] AI_SRAM_BASE   = 32'h0003_0000;
@@ -174,7 +195,7 @@ module ai_accelerator #(
     // =========================================================
     // MAC BİRİMİ (combinational + acc register)
     // =========================================================
-    logic signed [ 7:0] mac_a;
+    logic signed [15:0] mac_a;   // input - input_zp 9-bit sigabilmesi icin
     logic signed [ 7:0] mac_b;
     logic signed [31:0] mac_acc;
     logic               mac_clear;
@@ -189,28 +210,34 @@ module ai_accelerator #(
             mac_acc <= mac_acc + ($signed(mac_a) * $signed(mac_b));
     end
 
-    // Requant fonksiyonu: INT32 → INT8 (ReLU + shift + saturate)
-    function automatic logic signed [7:0] requant_relu(
-        input logic signed [31:0] v,
-        input int                 shift
+    // =========================================================
+    // TFLite requant: (acc * M_q31 + round) >>> right_shift + out_zp, sat
+    // do_relu=1 ise alt saturasyon out_zp (TFLite fused ReLU), aksi -128
+    // =========================================================
+    function automatic logic signed [7:0] tflite_requant(
+        input logic signed [31:0] acc,
+        input logic signed [31:0] M_q31,
+        input int                 right_shift,
+        input logic signed [ 7:0] out_zp,
+        input logic               do_relu
     );
-        logic signed [31:0] relu_v;
-        logic signed [31:0] shifted;
-        relu_v  = (v < 0) ? 32'sd0 : v;
-        shifted = relu_v >>> shift;
-        if (shifted >  32'sd127)  return  8'sd127;
-        else                      return shifted[7:0];
-    endfunction
+        logic signed [63:0] prod;
+        logic signed [63:0] half;
+        logic signed [63:0] rounded64;
+        logic signed [31:0] biased;
+        logic signed [31:0] zp_ext;
+        logic signed [31:0] act_min;
 
-    function automatic logic signed [7:0] requant_no_relu(
-        input logic signed [31:0] v,
-        input int                 shift
-    );
-        logic signed [31:0] shifted;
-        shifted = v >>> shift;
-        if      (shifted >  32'sd127)  return  8'sd127;
-        else if (shifted < -32'sd128)  return -8'sd128;
-        else                           return shifted[7:0];
+        zp_ext    = {{24{out_zp[7]}}, out_zp};
+        prod      = $signed(acc) * $signed(M_q31);
+        half      = 64'sd1 <<< (right_shift - 1);
+        rounded64 = (prod + half) >>> right_shift;
+        biased    = rounded64[31:0] + zp_ext;
+
+        act_min = do_relu ? zp_ext : -32'sd128;
+        if      (biased >  32'sd127)  return  8'sd127;
+        else if (biased <  act_min)   return act_min[7:0];
+        else                          return biased[7:0];
     endfunction
 
     // =========================================================
@@ -228,6 +255,7 @@ module ai_accelerator #(
         // --- Conv2D compute (yerel bellekten) ---
         ST_CONV_INIT,      // (f,r,c) için acc=bias[f], (kh,kw)=0
         ST_CONV_MAC,       // 1 MAC / cycle (yerel bellek erişimleri)
+        ST_CONV_DRAIN,     // pipeline drain (last MAC product)
         ST_CONV_STORE,     // acc → requant → conv_out_mem[r,c,f]
         // --- Conv çıkışını AI SRAM'e yaz ---
         ST_WCONV_ISSUE,
@@ -240,6 +268,7 @@ module ai_accelerator #(
         ST_FC_FETCH_W,     // FC ağırlık byte oku
         ST_FC_FETCH_W_WAIT,
         ST_FC_MAC,
+        ST_FC_DRAIN,       // pipeline drain (last MAC product)
         ST_FC_STORE,       // 4000 MAC bitince fc_out_mem[out_idx]
         // --- Argmax + sonuç yaz ---
         ST_ARGMAX,
@@ -376,7 +405,7 @@ module ai_accelerator #(
     );
         int byte_idx;
         if (ir < 0 || ir >= INPUT_H || ic < 0 || ic >= INPUT_W)
-            return 8'sd0;            // SAME padding: dış kenar = 0
+            return INPUT_ZP;   // SAME padding: input_zp (TFLite kurali)
         byte_idx = ir * INPUT_W + ic;
         return get_byte_from_word(
             input_mem[byte_idx >> 2],
@@ -579,7 +608,8 @@ module ai_accelerator #(
                     ic = (c_idx * STRIDE) + kw_idx - PAD_LEFT;
                     input_pix  = read_input_pixel(ir, ic);
                     weight_pix = read_conv_weight(f_idx, kh_idx, kw_idx);
-                    mac_a  <= input_pix;
+                    // TFLite: (input - input_zp) * weight, weight_zp=0
+                    mac_a  <= 16'($signed(input_pix) - $signed(INPUT_ZP));
                     mac_b  <= weight_pix;
                     mac_en <= 1'b1;
 
@@ -589,7 +619,7 @@ module ai_accelerator #(
                         if (kh_idx == KERNEL_H - 1) begin
                             kh_idx <= '0;
                             // Pencere bitti → STORE'a (bias eklenip yazılacak)
-                            state <= ST_CONV_STORE;
+                            state <= ST_CONV_DRAIN;
                         end else begin
                             kh_idx <= kh_idx + 1;
                         end
@@ -598,13 +628,24 @@ module ai_accelerator #(
                     end
                 end
 
+                ST_CONV_DRAIN: begin
+                    // last conv MAC product (kh=9,kw=7) lands THIS cycle;
+                    // mac_en is still 1 from prev cycle, default <=0 clears
+                    // it, so STORE sees all 80 products (none dropped).
+                    state <= ST_CONV_STORE;
+                end
+
                 ST_CONV_STORE: begin
                     // mac_en'in son MAC'i acc'a yazması için 1 cycle bekledik
                     // (state geçişi cycle aldı; acc artık güncel)
                     // Bias ekle, ReLU+shift+sat, yerel conv_out_mem'e yaz
-                    result_byte = requant_relu(
+                    // Per-channel requant + fused ReLU (TFLite: act_min = out_zp)
+                    result_byte = tflite_requant(
                         mac_acc + conv_bias_mem[f_idx],
-                        CONV_SHIFT
+                        M_CONV_Q31[f_idx],
+                        SHIFT_CONV[f_idx],
+                        CONV_OUT_ZP,
+                        1'b1
                     );
                     write_conv_out_byte(r_idx, c_idx, f_idx, result_byte);
 
@@ -702,23 +743,34 @@ module ai_accelerator #(
                     // conv_out_mem yerelden, fc_w son okunan word'ten byte çek
                     conv_out_pix = read_conv_out_byte(in_idx);
                     fc_w_pix     = get_byte_from_word(mem_rdata, in_idx[1:0]);
-                    mac_a  <= conv_out_pix;
+                    // TFLite: (conv_out - conv_out_zp) * fc_w, fc_w_zp=0
+                    mac_a  <= 16'($signed(conv_out_pix) - $signed(CONV_OUT_ZP));
                     mac_b  <= fc_w_pix;
                     mac_en <= 1'b1;
 
                     if (in_idx == FC_IN - 1) begin
-                        state <= ST_FC_STORE;
+                        state <= ST_FC_DRAIN;
                     end else begin
                         in_idx <= in_idx + 1;
                         state  <= ST_FC_FETCH_W;
                     end
                 end
 
+                ST_FC_DRAIN: begin
+                    // last FC MAC product (in_idx=3999) lands THIS cycle;
+                    // default mac_en<=0 then clears it, STORE sees all 4000.
+                    state <= ST_FC_STORE;
+                end
+
                 ST_FC_STORE: begin
                     // Son MAC'in acc'a yansıması için 1 cycle bekledik
-                    fc_out_mem[out_idx] <= requant_no_relu(
+                    // Per-tensor requant, ReLU yok (softmax girisi)
+                    fc_out_mem[out_idx] <= tflite_requant(
                         mac_acc + fc_bias_mem[out_idx],
-                        FC_SHIFT
+                        M_FC_Q31,
+                        SHIFT_FC,
+                        FC_OUT_ZP,
+                        1'b0
                     );
                     if (out_idx == FC_OUT - 1) begin
                         state <= ST_ARGMAX;

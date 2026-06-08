@@ -107,6 +107,7 @@ sim: $(BUILD_DIR)/instr_mem.hex $(BUILD_DIR)/data_mem.hex $(SIM_EXE)
 	@echo "═══ Sim: $(TEST_NAME) (logs: $(SIM_LOG_DIR)) ═══"
 	@cp $(BUILD_DIR)/instr_mem.hex $(OBJ_DIR)/firmware.hex
 	@cp $(BUILD_DIR)/data_mem.hex  $(OBJ_DIR)/data_mem.hex
+	@if [ -f sw/ai_model/golden_vectors/ai_sram_init.hex ]; then cp sw/ai_model/golden_vectors/ai_sram_init.hex $(OBJ_DIR)/ai_sram_init.hex; fi
 	@cd $(OBJ_DIR) && ./blogic_sim +CPB=432 +TEST_NAME=$(TEST_NAME) +LOGDIR=$(SIM_LOG_DIR) \
 	    2>&1 | tee $(SIM_LOG_DIR)/stdout.log
 	@echo ""

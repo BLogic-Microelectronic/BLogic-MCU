@@ -43,3 +43,18 @@ coverage_html/
 
 # === Istisna: AI golden vector'lari REPO'DA KALSIN ===
 !sw/ai_model/golden_vectors/*.hex
+.venv/
+*.bak
+
+# --- BLogic build artifacts (eklendi) ---
+obj_dir/
+obj_dir_ai/
+obj_dir_uvm/
+build/
+logs/
+venv/
+*.bak
+*.bak2
+*.old
+__pycache__/
+*.pyc

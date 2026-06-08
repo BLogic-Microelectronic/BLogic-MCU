@@ -504,8 +504,8 @@ module ai_accel_tb;
   // bu değeri bulamazsak ya yol yanlış ya da $readmemh sessiz hata
   // verdi. Erken yakala.
   task automatic verify_preload_spot_checks();
-    logic [31:0] expected_first_conv_w  = 32'hFF0CC8EF;
-    logic [31:0] expected_first_fc_w    = 32'hD2DE2523;
+    logic [31:0] expected_first_conv_w  = 32'h095C1EFA;
+    logic [31:0] expected_first_fc_w    = 32'h0AFDF9FF;
     logic [31:0] got;
     int          spot_err = 0;
 
