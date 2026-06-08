@@ -2,7 +2,9 @@
 `include "axi/typedef.svh"
 `include "axi/assign.svh"
 
-module soc_top (
+module soc_top #(
+    parameter logic [31:0] BOOT_ADDR = 32'h0000_0000
+)(
     input  logic        clk_i,
     input  logic        rst_ni,
 
@@ -57,7 +59,7 @@ module soc_top (
     cv32e40p_top #(.COREV_PULP(0), .FPU(0)) i_cpu (
         .clk_i(clk_i), .rst_ni(rst_ni),
         .pulp_clock_en_i(1'b1), .scan_cg_en_i(1'b0),
-        .boot_addr_i(32'h0001_0000), .mtvec_addr_i(32'h0001_0000),
+        .boot_addr_i(BOOT_ADDR), .mtvec_addr_i(32'h0001_0000),
         .dm_halt_addr_i(32'h0001_0000), .hart_id_i(32'd0),
         .dm_exception_addr_i(32'h0001_0000),
         .instr_req_o(instr_req), .instr_gnt_i(instr_gnt),
@@ -376,7 +378,7 @@ module soc_top (
     // ============================================================
     // 14. BELLEK MODÜLLERİ
     // ============================================================
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(1024),  .INIT_FILE("data_mem.hex"))
+    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(1024),  .INIT_FILE("bootrom.hex"))
         i_boot_rom  (.clk_i(clk_i), .rst_ni(rst_ni), .slv(boot_rom_bus));
 
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192),  .INIT_FILE("firmware.hex"))

@@ -1,45 +1,22 @@
-# ============================================================
-# BLogic MCU — .gitignore
-# ============================================================
+# Vivado build artifacts
+teknotest/vivado_proj/
+**/xsim.dir/
+*.jou
+*.wdb
+*.pb
+vivado*.log
 
-# === Derleme cikti dizinleri ===
-build/
+# Build intermediates (kaynak .S/.c'den uretilebilir)
+sw/bootloader/bootloader.elf
+sw/bootloader/bootloader.bin
+sw/bootloader/bootloader.o
+teknotest/sw/build/*.elf
+teknotest/sw/build/*.bin
+teknotest/sw/build/*.o
+teknotest/sw/build/*.dis
+teknotest/sw/build/*.map
+teknotest/sw/build/*.readelf
+
+# Verilator build
 obj_dir/
-obj_dir_uvm/
-
-# === Yeni: tum log/iz/sim cikti'lari TEK kok altinda ===
-logs/
-
-# === Eski / dagilmis log dosyalari ===
-*.log
-*.vcd
-*.fst
-verilator_log.txt
-spike_trace.log
-build_sw.log
-
-# === Verilator ek ciktilari ===
-*.vvp
-*.sim
-
-# === Derleme ara dosyalari ===
-*.hex
-*.bin
-*.elf
-*.o
-*.d
-
-# === Coverage ham cikti'lari ===
-*.cov
-coverage.dat
-coverage_html/
-
-# === Editor / IDE ===
-*.swp
-*.swo
-*~
-.vscode/
-.idea/
-
-# === Istisna: AI golden vector'lari REPO'DA KALSIN ===
-!sw/ai_model/golden_vectors/*.hex
+verilate.log
