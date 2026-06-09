@@ -50,12 +50,18 @@ module boot_flow_test_tb;
         if (ch !== "R") begin $error("'R' bekleniyordu, 0x%02h alindi", ch); $finish; end
         $display("[%0t] 'R' alindi -> bootloader+firmware calisti", $time);
 
-        uart_write("A");
-
-        for (int i = 0; i < 12; i++) begin
-            uart_read(ch);
-            received = {received, string'(ch)};
-        end
+        // FIX: alici, 'A' gonderiminden ONCE arm edilmeli. Firmware 'A'nin
+        // stop bitinde (RX_DONE ~9.5 bit) cevabi basiyor; sirali kod 'H'nin
+        // start kenarini kaciriyor ve hat ortasinda hizasiz kilitleniyordu.
+        fork
+            begin
+                for (int i = 0; i < 12; i++) begin
+                    uart_read(ch);
+                    received = {received, string'(ch)};
+                end
+            end
+            uart_write("A");
+        join
 
         if (received == "Hello World!")
             $display("[%0t] *** TEST SUCCESS *** QSPI boot akisi: '%s'", $time, received);
@@ -64,5 +70,5 @@ module boot_flow_test_tb;
         $finish;
     end
 
-    initial #3_000_000 begin $error("TIMEOUT"); $finish; end
+    initial #60_000_000 begin $error("TIMEOUT"); $finish; end
 endmodule

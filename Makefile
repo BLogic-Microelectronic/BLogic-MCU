@@ -11,6 +11,12 @@
 #   make sim COVERAGE=1                   → Coverage ile
 #   make sim FW_SRC=sw/tests/gpio_led_test.c
 #   make regression                       → Tum testleri kos
+#   make boot                             → QSPI boot akisi testi (Min #2)
+#   make ai                               → AI accel standalone TB (Min #4)
+#   make soc-ai                           → SoC seviyesi AI C testi
+#   make arch-test [ARCH_EXT=I]           → riscv-arch-test
+#   make uvm                              → UVM GPIO testleri
+#   make test-all                         → regression+boot+ai+soc-ai+arch-test
 #   make spike                            → Spike ISS ile elf kos
 #   make clean / logs-clean / help
 # ================================================================
@@ -20,7 +26,11 @@ FW_SRC ?= sw/tests/uart_hello.c
 # Opsiyonel flag'leri Makefile.verilator'a ilet
 PASSTHROUGH = $(if $(TRACE),TRACE=1) $(if $(COVERAGE),COVERAGE=1)
 
-.PHONY: compile verilate sim regression spike clean logs-clean help
+BOOT_DIR  = obj_dir_boot
+AI_DIR    = obj_dir_ai
+ARCH_EXT ?= I
+
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -34,6 +44,73 @@ sim:
 regression:
 	bash scripts/run_regression.sh
 
+# --- QSPI boot akisi (Min Kriter #2): her seferinde temiz build ---
+boot:
+	rm -rf $(BOOT_DIR)
+	verilator --binary --timing --top-module boot_flow_test_tb \
+	    -Mdir $(BOOT_DIR) -o boot_flow_test_sim \
+	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
+	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
+	    -f soc_files.f verif/models/spi_flash_model.sv verif/tb/boot_flow_test_tb.sv
+	cp bootrom.hex flash.hex $(BOOT_DIR)/
+	echo "00000000" > $(BOOT_DIR)/firmware.hex
+	echo "00000000" > $(BOOT_DIR)/data_mem.hex
+	echo "00000000" > $(BOOT_DIR)/ai_sram_init.hex
+	cd $(BOOT_DIR) && ./boot_flow_test_sim 2>&1 | tee boot_run.log
+	@grep -aq "TEST SUCCESS" $(BOOT_DIR)/boot_run.log \
+	    && echo "[BOOT] PASS" || { echo "[BOOT] FAIL"; exit 1; }
+
+# --- AI accelerator standalone TB (Min Kriter #4, 4 senaryo) ---
+ai:
+	@test -f sw/ai_model/golden_vectors/weights_conv.hex \
+	    || { echo "[AI] golden_vectors eksik — once: python3 sw/ai_model/tiny_conv_reference.py"; exit 1; }
+	rm -rf $(AI_DIR)
+	verilator --binary -j 0 -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-CASEINCOMPLETE \
+	    --top-module ai_accel_tb -Mdir $(AI_DIR) -o ai_accel_tb_sim \
+	    verif/tb/ai_accel_tb.sv rtl/ai_accelerator/ai_accelerator.sv
+	./$(AI_DIR)/ai_accel_tb_sim 2>&1 | tee $(AI_DIR)/ai_run.log
+	@grep -aq "ADIM E] PASS" $(AI_DIR)/ai_run.log \
+	    && echo "[AI] PASS (4/4 senaryo)" || { echo "[AI] FAIL"; exit 1; }
+
+# --- SoC seviyesi AI C testi (ai_sram_init.hex preload ile) ---
+soc-ai:
+	rm -rf build
+	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_micro_speech_test.c $(PASSTHROUGH)
+	@grep -q "^result=PASS" logs/sim/ai_micro_speech_test/result.log \
+	    && echo "[SOC-AI] PASS" || { echo "[SOC-AI] FAIL"; exit 1; }
+
+# --- riscv-arch-test (ISA uyumluluk) ---
+arch-test:
+	@test -d verif/arch_tests/riscv-arch-test \
+	    || { echo "[ARCH] riscv-arch-test repo eksik:"; \
+	         echo "  git clone --depth 1 https://github.com/riscv-non-isa/riscv-arch-test verif/arch_tests/riscv-arch-test"; \
+	         exit 1; }
+	bash verif/arch_tests/run_arch_test.sh $(ARCH_EXT)
+
+# --- UVM GPIO testleri ---
+uvm:
+	$(MAKE) -f Makefile.uvm all
+
+# --- Hepsi: ilk hatada durmaz, sonda ozet basar ---
+test-all:
+	@overall=0; \
+	r=PASS; $(MAKE) regression || { r=FAIL; overall=1; }; \
+	b=PASS; $(MAKE) boot       || { b=FAIL; overall=1; }; \
+	a=PASS; $(MAKE) ai         || { a=FAIL; overall=1; }; \
+	s=PASS; $(MAKE) soc-ai     || { s=FAIL; overall=1; }; \
+	c=PASS; $(MAKE) arch-test  || { c=FAIL; overall=1; }; \
+	echo ""; \
+	echo "====================================================="; \
+	echo " TEST-ALL OZETI"; \
+	echo "-----------------------------------------------------"; \
+	echo "  regression (UARTx2+lockstep+QSPI) : $$r"; \
+	echo "  boot       (QSPI boot akisi)      : $$b"; \
+	echo "  ai         (standalone 4 senaryo) : $$a"; \
+	echo "  soc-ai     (SoC AI C testi)       : $$s"; \
+	echo "  arch-test  (riscv-arch-test $(ARCH_EXT))   : $$c"; \
+	echo "====================================================="; \
+	exit $$overall
+
 spike: compile
 	spike --isa=rv32imc -m0x10000:0x2000,0x20000:0x2000 build/test.elf
 
@@ -44,4 +121,13 @@ logs-clean:
 	$(MAKE) -f Makefile.verilator logs-clean
 
 help:
+	@echo "=== Test hedefleri (ana Makefile) ==="
+	@echo "  make regression  - 4'lu fonksiyonel + protokol regresyonu"
+	@echo "  make boot        - QSPI boot akisi (boot_flow_test_tb)"
+	@echo "  make ai          - AI accel standalone TB (4 senaryo)"
+	@echo "  make soc-ai      - SoC seviyesi AI C testi"
+	@echo "  make arch-test   - riscv-arch-test (ARCH_EXT=I varsayilan)"
+	@echo "  make uvm         - UVM GPIO testleri"
+	@echo "  make test-all    - regression+boot+ai+soc-ai+arch-test"
+	@echo ""
 	$(MAKE) -f Makefile.verilator help

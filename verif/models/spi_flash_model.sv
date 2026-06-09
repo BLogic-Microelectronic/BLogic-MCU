@@ -34,7 +34,7 @@ module spi_flash_model #(
             in_bit_cnt  <= in_bit_cnt + 1;
             if (in_bit_cnt == 31) begin
                 in_data_phase <= 1;
-                read_addr     <= {cmd_addr_sr[22:0], mosi};
+                read_addr     <= cmd_addr_sr[23:0]; // FIX: adres zaten 32-bit kayitta tam, mosi 33. fazla bit
                 out_bit_cnt   <= 0;
                 if (cmd_addr_sr[31:24] != 8'h03)
                     $display("[FLASH] uyari: desteksiz cmd 0x%02h", cmd_addr_sr[31:24]);

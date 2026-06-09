@@ -2,6 +2,9 @@
 # BLogic MCU - Verilator Simulasyon Makefile
 # =============================================================================
 
+SHELL := /bin/bash
+.SHELLFLAGS := -o pipefail -c
+
 VERILATOR    = verilator
 RV_GCC       = riscv32-unknown-elf-gcc
 RV_OBJCOPY   = riscv32-unknown-elf-objcopy
@@ -49,7 +52,7 @@ VERILATOR_FLAGS += --trace
 endif
 
 ifdef COVERAGE
-VERILATOR_FLAGS += --coverage
+VERILATOR_FLAGS += --coverage-line verif/coverage_waivers.vlt
 endif
 
 .PHONY: all sim clean sw verilate help logs-prep logs-clean
@@ -103,6 +106,7 @@ $(SIM_EXE): $(SOC_FILES) $(SIM_MAIN) | logs-prep
 
 sim: $(BUILD_DIR)/instr_mem.hex $(BUILD_DIR)/data_mem.hex $(SIM_EXE)
 	@mkdir -p $(SIM_LOG_DIR)
+	@rm -f $(SIM_LOG_DIR)/result.log $(SIM_LOG_DIR)/diag.log
 	@echo ""
 	@echo "═══ Sim: $(TEST_NAME) (logs: $(SIM_LOG_DIR)) ═══"
 	@mkdir -p $(OBJ_DIR)

@@ -6,7 +6,7 @@
     .globl   _start
 
 _start:
-    li      t0, 0x40010000      # QSPI base
+    li      t0, 0x40000500      # QSPI base (0x4000_0500)
     li      t1, 0x00010000      # Instr SRAM (dest)
     li      t2, 0x00000000      # Flash src offset
     li      t3, 2048            # 2048 word = 8KB

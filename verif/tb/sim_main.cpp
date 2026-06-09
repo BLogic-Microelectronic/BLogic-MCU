@@ -14,6 +14,7 @@
 // ============================================================
 
 #include <verilated.h>
+#include <verilated_cov.h>
 #include "Vsoc_top.h"
 #include "Vsoc_top___024root.h"
 #include <cstdio>
@@ -221,6 +222,10 @@ int main(int argc, char** argv) {
               << std::endl;
 
     top->final();
+#if VM_COVERAGE
+    Verilated::threadContextp()->coveragep()->write((log_dir + "/coverage.dat").c_str());
+    std::cout << "[COV] " << log_dir << "/coverage.dat yazildi" << std::endl;
+#endif
     delete top;
     return match ? 0 : 1;
 }
