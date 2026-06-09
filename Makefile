@@ -30,7 +30,7 @@ BOOT_DIR  = obj_dir_boot
 AI_DIR    = obj_dir_ai
 ARCH_EXT ?= I
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -86,6 +86,10 @@ arch-test:
 	         echo "  git clone --depth 1 https://github.com/riscv-non-isa/riscv-arch-test verif/arch_tests/riscv-arch-test"; \
 	         exit 1; }
 	bash verif/arch_tests/run_arch_test.sh $(ARCH_EXT)
+
+# --- Line coverage: test seti + birlesik rapor ---
+coverage:
+	bash scripts/run_coverage.sh
 
 # --- UVM GPIO testleri ---
 uvm:

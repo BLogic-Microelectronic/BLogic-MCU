@@ -455,7 +455,7 @@ package axi_lite_uvm_pkg;
             if (txn.rw) begin
                 // WRITE: ODR register'a yazildi
                 if (txn.addr[4:0] == 5'h04) begin
-                    gpio_odr_model = txn.data;
+                    gpio_odr_model = {16'h0, txn.data[15:0]}; // RTL spec: ODR[15:0], ust 16 bit etkisiz
                     `uvm_info("SB", $sformatf("ODR modeli guncellendi: 0x%08h", gpio_odr_model), UVM_HIGH)
                 end
                 // Yazma yaniti OKAY olmali
