@@ -111,6 +111,25 @@ qspi-modes:
 	@grep -aq "TEST SUCCESS" $(MODES_DIR)/modes_run.log \
 	    && echo "[QSPI-MODES] PASS" || { echo "[QSPI-MODES] FAIL"; exit 1; }
 
+# --- I2C sistem testi: CPU -> AXI -> decoder 0x4 -> i2c_master + echo slave ---
+I2C_DIR = obj_dir_i2c_sys
+i2c-sys:
+	rm -rf build
+	$(MAKE) -f Makefile.verilator sw FW_SRC=sw/tests/i2c_system_test.c
+	rm -rf $(I2C_DIR)
+	verilator --binary --timing --top-module i2c_system_tb \
+	    -Mdir $(I2C_DIR) -o i2c_sys_sim \
+	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
+	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
+	    -f soc_files.f verif/models/i2c_slave_model.sv verif/tb/i2c_system_tb.sv
+	cp build/instr_mem.hex $(I2C_DIR)/firmware.hex
+	cp build/data_mem.hex  $(I2C_DIR)/data_mem.hex
+	cp bootrom.hex $(I2C_DIR)/
+	echo "00000000" > $(I2C_DIR)/ai_sram_init.hex
+	cd $(I2C_DIR) && ./i2c_sys_sim 2>&1 | tee i2c_run.log
+	@grep -aq "TEST SUCCESS" $(I2C_DIR)/i2c_run.log \
+	    && echo "[I2C-SYS] PASS" || { echo "[I2C-SYS] FAIL"; exit 1; }
+
 # --- UVM GPIO testleri ---
 uvm:
 	$(MAKE) -f Makefile.uvm all
@@ -121,6 +140,7 @@ test-all:
 	r=PASS; $(MAKE) regression || { r=FAIL; overall=1; }; \
 	b=PASS; $(MAKE) boot       || { b=FAIL; overall=1; }; \
 	q=PASS; $(MAKE) qspi-modes || { q=FAIL; overall=1; }; \
+	i2=PASS; $(MAKE) i2c-sys   || { i2=FAIL; overall=1; }; \
 	a=PASS; $(MAKE) ai         || { a=FAIL; overall=1; }; \
 	s=PASS; $(MAKE) soc-ai     || { s=FAIL; overall=1; }; \
 	c=PASS; $(MAKE) arch-test  || { c=FAIL; overall=1; }; \
@@ -132,6 +152,7 @@ test-all:
 	echo "  regression (UARTx2+lockstep+QSPI) : $$r"; \
 	echo "  boot       (QSPI boot akisi)      : $$b"; \
 	echo "  qspi-modes (x1/x2/x4 + 4B adres)   : $$q"; \
+	echo "  i2c-sys    (NBY/ADR+TX/RX echo)    : $$i2"; \
 	echo "  ai         (standalone 4 senaryo) : $$a"; \
 	echo "  soc-ai     (SoC AI C testi)       : $$s"; \
 	echo "  arch-test  (riscv-arch-test $(ARCH_EXT))   : $$c"; \
@@ -157,7 +178,8 @@ help:
 	@echo "  make arch-test   - riscv-arch-test (ARCH_EXT=I varsayilan)"
 	@echo "  make uvm         - UVM GPIO testleri"
 	@echo "  make qspi-modes  - QSPI x1/x2/x4 veri fazi + 4-bayt adres testi"
+	@echo "  make i2c-sys     - I2C sistem testi (echo slave: TX/RX/latch/NACK)"
 	@echo "  make coverage    - line coverage raporu (logs/coverage/)"
-	@echo "  make test-all    - tum suitler (regression+boot+qspi-modes+ai+soc-ai+arch-test+uvm)"
+	@echo "  make test-all    - tum suitler (regression+boot+qspi-modes+i2c-sys+ai+soc-ai+arch-test+uvm)"
 	@echo ""
 	$(MAKE) -f Makefile.verilator help

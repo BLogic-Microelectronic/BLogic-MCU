@@ -8,6 +8,7 @@ obj_dir_ai/
 obj_dir_uvm/
 obj_dir_boot/
 obj_dir_qspi_modes/
+obj_dir_arch/
 
 # --- Genel build / log / venv ---
 build/

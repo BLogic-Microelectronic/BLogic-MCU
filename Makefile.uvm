@@ -10,9 +10,10 @@
 # ================================================================
 
 VERILATOR  = verilator
+UVM_JOBS  ?= 2   # WSL OOM korumasi: 5.8GB RAM'de -j12 cokerten paralellik
 TOP_MODULE = uvm_pkg
 
-# UVM Kutuphanesi (clone: git clone https://github.com/verilator/uvm verif/uvm-lib)
+# UVM Kutuphanesi — yerinde vendor edilmistir, clone GEREKMEZ (bkz. verif/uvm-lib/KAYNAK.md)
 UVM_HOME   = verif/uvm-lib/src
 UVM_PKG    = $(UVM_HOME)/uvm_pkg.sv
 
@@ -37,7 +38,7 @@ VERILATOR_FLAGS = \
     --timing \
     --Mdir $(OBJ_DIR) \
     --coverage \
-    -j $$(nproc) \
+    -j $(UVM_JOBS) \
     --timescale 1ns/1ns
 
 # UVM kutuphanesi cok sayida uyari uretir — bunlari sustur

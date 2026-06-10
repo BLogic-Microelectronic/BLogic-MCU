@@ -37,7 +37,7 @@ for EXT in ${FILT}; do
         mkdir -p "${TW}"
 
         if ! ${GCC} -march=${MARCH} -mabi=ilp32 -nostdlib -nostartfiles \
-                    -DTEST_FLEN=0 -DXLEN=32 -DUDB_MXLEN=32 -DTEST_CASE_1=True -static \
+                    -DTEST_FLEN=0 -DXLEN=32 -DUDB_MXLEN=32 -DTEST_CASE_1=True -static -Wl,--no-check-sections \
                     -T "${TGT}/link.ld" ${INC} "${TS}" "${TGT}/htif.S" -o "${TW}/test.elf" \
                     2>"${TW}/compile.log"; then
             echo -e "  [${RED}FAIL${NC}] ${TN} — derleme hatasi"
@@ -50,7 +50,7 @@ for EXT in ${FILT}; do
 
         WC=$(${OBJCOPY} -O binary -j .text.init -j .text "${TW}/test.elf" "${TW}/i.bin" \
                 2>/dev/null && wc -c < "${TW}/i.bin")
-        if [ "${WC:-0}" -gt 65536 ]; then
+        if [ "${WC:-0}" -gt 983040 ]; then
             echo -e "  [${YLW}SKIP${NC}] ${TN} — ${WC}B, 8KB'a sigmiyor"
             S=$((S+1))
             { echo "result=SKIP_TOO_LARGE"; echo "test_name=${TN}"; echo "text_bytes=${WC}"; } > "${TW}/result.log"
@@ -63,7 +63,7 @@ for EXT in ${FILT}; do
             || printf '' > "${TW}/d.bin"
         ${PY} "${PROJ}/scripts/elf2hex.py" "${TW}/d.bin" "${TW}/dm.hex" >/dev/null 2>&1
 
-        cp "${TW}/fw.hex" "${PROJ}/obj_dir_arch/firmware.hex"
+        { echo "@00004000"; cat "${TW}/fw.hex"; } > "${PROJ}/obj_dir_arch/firmware.hex"   # 1MB arch SRAM: 0x10000 -> word 0x4000 (alias yok)
         cp "${TW}/dm.hex" "${PROJ}/obj_dir_arch/data_mem.hex"
         cd "${PROJ}/obj_dir_arch"
         timeout 30 ./blogic_sim +CPB=432 +MAX_CYCLES=2000000 "+TEST_NAME=${TN}" "+LOGDIR=${TW}" \

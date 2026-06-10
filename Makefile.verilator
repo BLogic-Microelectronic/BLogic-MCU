@@ -130,4 +130,4 @@ logs-clean:
 # Sartname SoC konfigurasyonu (8 KB) DEGISMEZ; yalnizca CORE testleri bu binary ile kosar.
 verilate-arch:
 	@$(MAKE) -f Makefile.verilator verilate OBJ_DIR=obj_dir_arch \
-	    VLT_EXTRA="-GINSTR_SRAM_BYTES=65536 -GDATA_SRAM_BYTES=65536"
+	    VLT_EXTRA="-GINSTR_SRAM_BYTES=1048576 -GDATA_SRAM_BYTES=65536"
