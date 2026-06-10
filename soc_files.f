@@ -80,6 +80,7 @@ rtl/peripherals/uart_rx.v
 rtl/peripherals/uart_tx.v
 rtl/peripherals/gpio_axil.sv
 rtl/peripherals/timer_axil.sv
+rtl/peripherals/i2c_master_axil.sv
 rtl/peripherals/qspi_master_axil.sv
 
 # 9. PROTOCOL CHECKER'LAR (doğrulama — sentezde dahil edilmez)

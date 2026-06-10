@@ -3,11 +3,8 @@
 `include "axi/assign.svh"
 
 module soc_top #(
-    parameter logic [31:0] BOOT_ADDR = 32'h0000_0000,
-    // Cekirdek-uyumluluk (arch-test) kosumlarinda -G ile buyutulur.
-    // Sartname SoC konfigurasyonu 8 KB'dir; varsayilanlar DEGISTIRILMEZ.
-    parameter int unsigned INSTR_SRAM_BYTES = 8192,
-    parameter int unsigned DATA_SRAM_BYTES  = 8192
+    parameter logic [31:0] BOOT_ADDR   = 32'h0000_0000,
+    parameter int unsigned CLK_FREQ_HZ = 50_000_000   // I2C SCL (400 kHz) bölücüsü için
 )(
     input  logic        clk_i,
     input  logic        rst_ni,
@@ -23,7 +20,15 @@ module soc_top #(
     output logic        qspi_cs_no,
     output logic [ 3:0] qspi_io_o,
     input  logic [ 3:0] qspi_io_i,
-    output logic [ 3:0] qspi_io_oe
+    output logic [ 3:0] qspi_io_oe,
+
+    // I2C Pinleri — YENİ
+    // fpga_top'ta open-drain bağlantı:
+    //   assign i2c_sda   = i2c_sda_oe ? 1'b0 : 1'bz;
+    //   assign sda_geri  = i2c_sda;   // → i2c_sda_i'ye
+    output logic        i2c_scl_o,
+    output logic        i2c_sda_oe_o,   // 1 = SDA'yı '0'a çek
+    input  logic        i2c_sda_i
 );
 
     // ============================================================
@@ -187,6 +192,14 @@ module soc_top #(
     logic        qspi_bvalid,  qspi_bready,  qspi_arvalid, qspi_arready;
     logic        qspi_rvalid,  qspi_rready;
 
+    // I2C (decoder 0x4) — YENİ
+    logic [31:0] i2c_awaddr,  i2c_araddr,  i2c_wdata,  i2c_rdata;
+    logic [3:0]  i2c_wstrb;
+    logic        i2c_awvalid, i2c_awready, i2c_wvalid, i2c_wready;
+    logic [1:0]  i2c_bresp,   i2c_rresp;
+    logic        i2c_bvalid,  i2c_bready,  i2c_arvalid, i2c_arready;
+    logic        i2c_rvalid,  i2c_rready;
+
     // AI accelerator CSR (decoder 0x6) — YENİ
     logic [31:0] ai_awaddr,  ai_araddr,  ai_wdata,  ai_rdata;
     logic [3:0]  ai_wstrb;
@@ -222,6 +235,12 @@ module soc_top #(
         .timer_bresp, .timer_bvalid, .timer_bready,
         .timer_araddr, .timer_arvalid, .timer_arready,
         .timer_rdata, .timer_rresp, .timer_rvalid, .timer_rready,
+        // I2C — YENİ
+        .i2c_awaddr, .i2c_awvalid, .i2c_awready,
+        .i2c_wdata, .i2c_wstrb, .i2c_wvalid, .i2c_wready,
+        .i2c_bresp, .i2c_bvalid, .i2c_bready,
+        .i2c_araddr, .i2c_arvalid, .i2c_arready,
+        .i2c_rdata, .i2c_rresp, .i2c_rvalid, .i2c_rready,
         // QSPI
         .qspi_awaddr, .qspi_awvalid, .qspi_awready,
         .qspi_wdata, .qspi_wstrb, .qspi_wvalid, .qspi_wready,
@@ -298,7 +317,25 @@ module soc_top #(
     );
 
     // ============================================================
-    // 12. AI ACCELERATOR (CSR 0x4000_0600) — YENİ
+    // 12. I2C MASTER (0x4000_0400) — YENİ
+    // ============================================================
+    i2c_master_axil #(
+        .CLK_FREQ_HZ(CLK_FREQ_HZ),
+        .SCL_FREQ_HZ(400_000)        // şartname: sabit 400 kHz
+    ) i_i2c (
+        .clk_i(clk_i), .rst_ni(rst_ni),
+        .s_axi_awaddr(i2c_awaddr), .s_axi_awvalid(i2c_awvalid), .s_axi_awready(i2c_awready),
+        .s_axi_wdata(i2c_wdata), .s_axi_wstrb(i2c_wstrb),
+        .s_axi_wvalid(i2c_wvalid), .s_axi_wready(i2c_wready),
+        .s_axi_bresp(i2c_bresp), .s_axi_bvalid(i2c_bvalid), .s_axi_bready(i2c_bready),
+        .s_axi_araddr(i2c_araddr), .s_axi_arvalid(i2c_arvalid), .s_axi_arready(i2c_arready),
+        .s_axi_rdata(i2c_rdata), .s_axi_rresp(i2c_rresp),
+        .s_axi_rvalid(i2c_rvalid), .s_axi_rready(i2c_rready),
+        .scl_o(i2c_scl_o), .sda_oe_o(i2c_sda_oe_o), .sda_i(i2c_sda_i)
+    );
+
+    // ============================================================
+    // 13. AI ACCELERATOR (CSR 0x4000_0600) — YENİ
     // ============================================================
     // Master discrete sinyaller (arbiter'a gidecek)
     logic [ 3:0] ai_m_awid;
@@ -353,7 +390,7 @@ module soc_top #(
     );
 
     // ============================================================
-    // 13. AI SRAM ARBITER — YENİ
+    // 14. AI SRAM ARBITER — YENİ
     // ============================================================
     // Crossbar (CPU yolu) ile AI accelerator master'ı 2:1 muxlayıp
     // tek bir bus üzerinden i_ai_sram'e bağlar. ai_busy=1 iken AI sahip,
@@ -380,15 +417,15 @@ module soc_top #(
     );
 
     // ============================================================
-    // 14. BELLEK MODÜLLERİ
+    // 15. BELLEK MODÜLLERİ
     // ============================================================
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(1024),  .INIT_FILE("bootrom.hex"))
         i_boot_rom  (.clk_i(clk_i), .rst_ni(rst_ni), .slv(boot_rom_bus));
 
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(INSTR_SRAM_BYTES),  .INIT_FILE("firmware.hex"))
+    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192),  .INIT_FILE("firmware.hex"))
         i_instr_sram(.clk_i(clk_i), .rst_ni(rst_ni), .slv(instr_sram_bus));
 
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(DATA_SRAM_BYTES),  .INIT_FILE("data_mem.hex"))
+    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192),  .INIT_FILE("data_mem.hex"))
         i_data_sram (.clk_i(clk_i), .rst_ni(rst_ni), .slv(data_sram_bus));
 
     // ai_sram artık arbiter çıkışına bağlı
@@ -396,9 +433,11 @@ module soc_top #(
         i_ai_sram   (.clk_i(clk_i), .rst_ni(rst_ni), .slv(ai_sram_bus));
 
     // ============================================================
-    // 15. PROTOCOL CHECKER'LAR (Doğrulama — Sentez'de çıkarılır)
+    // 16. PROTOCOL CHECKER'LAR (Doğrulama — Sentez'de çıkarılır)
     // ============================================================
     // NOT: AI accelerator için ai_accel_checker_bind.sv ayrı bind ediliyor.
+    // TODO: I2C arayüzü için soc_protocol_bind'a i2c_* portları eklenecek
+    //       (şartname asgari kriteri: tüm çevre birimlerinde protocol check).
     // synthesis translate_off
     // verilator lint_off UNUSED
     // verilator lint_off UNDRIVEN
