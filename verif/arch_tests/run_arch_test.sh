@@ -2,7 +2,7 @@
 # riscv-arch-test runner — ciktilar logs/arch_test/ altinda
 set -euo pipefail
 PROJ="$(cd "$(dirname "$0")/../.." && pwd)"
-REPO="${PROJ}/verif/arch_tests/riscv-arch-test"
+REPO="${PROJ}/verif/arch_tests/suite"   # vendor edilmis alt kume (env + rv32i_m/I,M)
 TGT="${PROJ}/verif/arch_tests/target/blogic"
 LOG_ROOT="${PROJ}/logs/arch_test"
 GCC=riscv32-unknown-elf-gcc
@@ -10,7 +10,7 @@ OBJCOPY=riscv32-unknown-elf-objcopy
 PY=python3
 SIM="${PROJ}/obj_dir/blogic_sim"
 MARCH="rv32imc_zicsr_zifencei"
-INC="-I${REPO}/tests/env -I${TGT}"
+INC="-I${REPO}/env -I${TGT}"
 FILT="${1:-I}"; TFILT="${2:-}"
 RED='\033[0;31m'; GRN='\033[0;32m'; YLW='\033[1;33m'; NC='\033[0m'
 
@@ -19,12 +19,14 @@ echo -e "${YLW}  Cikti: ${LOG_ROOT}${NC}"
 mkdir -p "${LOG_ROOT}"
 
 [ -x "${SIM}" ] || { cd "${PROJ}"; make -f Makefile.verilator verilate; }
+echo 00000000 > "${PROJ}/obj_dir/bootrom.hex"   # zero-ROM: PC=0 illegal->trap->mtvec(0x10000); resmi teknotest akisiyla ayni mekanizma
+[ -f "${PROJ}/obj_dir/ai_sram_init.hex" ] || echo 00000000 > "${PROJ}/obj_dir/ai_sram_init.hex"
 
 if [[ "${FILT}" == *"-"* ]]; then TFILT="${FILT}"; FILT="I"; fi
 P=0; F=0; S=0; T=0; FL=""
 
 for EXT in ${FILT}; do
-    SD="${REPO}/tests/rv32i/${EXT}"
+    SD="${REPO}/rv32i_m/${EXT}/src"
     [ -d "${SD}" ] || { echo -e "${YLW}[!] ${SD} yok${NC}"; continue; }
     echo -e "\n${YLW}── RV32${EXT} ──${NC}"
     for TS in "${SD}"/*.S; do
@@ -36,7 +38,7 @@ for EXT in ${FILT}; do
 
         if ! ${GCC} -march=${MARCH} -mabi=ilp32 -nostdlib -nostartfiles \
                     -DTEST_FLEN=0 -DXLEN=32 -DUDB_MXLEN=32 -static \
-                    -T "${TGT}/link.ld" ${INC} "${TS}" -o "${TW}/test.elf" \
+                    -T "${TGT}/link.ld" ${INC} "${TS}" "${TGT}/htif.S" -o "${TW}/test.elf" \
                     2>"${TW}/compile.log"; then
             echo -e "  [${RED}FAIL${NC}] ${TN} — derleme hatasi"
             head -2 "${TW}/compile.log" | sed 's/^/    /'
@@ -64,13 +66,13 @@ for EXT in ${FILT}; do
         cp "${TW}/fw.hex" "${PROJ}/obj_dir/firmware.hex"
         cp "${TW}/dm.hex" "${PROJ}/obj_dir/data_mem.hex"
         cd "${PROJ}/obj_dir"
-        timeout 30 ./blogic_sim +CPB=432 "+TEST_NAME=${TN}" "+LOGDIR=${TW}" \
+        timeout 30 ./blogic_sim +CPB=432 +MAX_CYCLES=500000 "+TEST_NAME=${TN}" "+LOGDIR=${TW}" \
             >"${TW}/sim.log" 2>&1 || true
         cd "${PROJ}"
 
         # GECICI PASS kriteri: RTL_PC sayisi > 10
         # TODO: gercek signature compare
-        PC=$(grep -c "RTL_PC:" "${TW}/rtl_trace.log" 2>/dev/null || echo 0)
+        PC=$(awk '/RTL_PC:/{n++} END{print n+0}' "${TW}/rtl_trace.log" 2>/dev/null || echo 0)
         {
             echo "test_name=${TN}"
             echo "text_bytes=${WC}"
@@ -99,4 +101,5 @@ SUMMARY="${LOG_ROOT}/summary.txt"
     echo "================================================"
 } | tee "${SUMMARY}"
 
+[ "${T}" -eq 0 ] && { echo "HATA: hic test bulunamadi (verif/arch_tests/suite eksik mi?)"; exit 1; }
 exit ${F}

@@ -92,6 +92,7 @@ int main(int argc, char** argv) {
         std::string arg = argv[i];
         if      (arg.rfind("+CPB=", 0)       == 0) CPB = std::stoi(arg.substr(5));
         else if (arg == "+TEST=LOOPBACK")          golden_string = "LOOPBACK SUCCESS\n";
+        else if (arg.rfind("+MAX_CYCLES=", 0) == 0) max_cycles = std::stoull(arg.substr(12));
         else if (arg.rfind("+LOGDIR=", 0)    == 0) log_dir = arg.substr(8);
         else if (arg.rfind("+TEST_NAME=", 0) == 0) test_name = arg.substr(11);
     }
