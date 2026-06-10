@@ -21,13 +21,18 @@ module boot_flow_test_tb;
         // NOT: soc_top'un diger port'larini buraya ekle (Berkin'in mevcut wrapper'inden bak)
     );
 
-    wire flash_mosi = qspi_io_oe[0] ? qspi_io_o[0] : 1'b1;
-    wire flash_miso;
+    // Flash model v2: 4-lane arayuz (x1 boot yolu davranissal olarak birebir)
+    wire [3:0] flash_out, flash_oe;
     spi_flash_model #(.INIT_FILE("flash.hex")) flash (
         .sclk(qspi_sclk), .cs_n(qspi_cs_n),
-        .mosi(flash_mosi), .miso(flash_miso)
+        .io_in (qspi_io_o & qspi_io_oe),
+        .io_out(flash_out), .io_oe_out(flash_oe)
     );
-    assign qspi_io_i = {2'b00, flash_miso, 1'b0};
+    genvar gi;
+    generate for (gi = 0; gi < 4; gi++) begin : g_io
+        assign qspi_io_i[gi] = qspi_io_oe[gi] ? qspi_io_o[gi]
+                              : flash_oe[gi]  ? flash_out[gi] : 1'b1;
+    end endgenerate
 
     localparam int BIT_NS = 8680;
     task uart_read(output logic [7:0] d);

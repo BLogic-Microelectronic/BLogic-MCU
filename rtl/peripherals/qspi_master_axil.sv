@@ -12,6 +12,8 @@
 //   0x08  QSPI_DR   — Data Register (RW, FIFO arkasında)
 //   0x0C  QSPI_STA  — Status Register (RO)
 //   0x10  QSPI_FCR  — FIFO Control Register (RW)
+//                       [2] = 4-bayt adres modu (yarismaci tanimli, sticky)
+// Veri fazi x1/x2/x4 destekler (CCR[9:8]); CMD/ADDR/DUMMY daima x1 (1-1-N).
 // ============================================================
 
 module qspi_master_axil (
@@ -63,7 +65,13 @@ module qspi_master_axil (
     logic [ 4:0] ccr_dummy;
     logic [ 7:0] ccr_data_len;
     logic [ 5:0] ccr_prescaler;
-    logic [23:0] qspi_adr;
+    logic [31:0] qspi_adr;
+    logic        cfg_addr4b;   // FCR[2] (yarismaci tanimli): 1 = 4-bayt adres fazi
+    // Veri fazinda SCLK basina kaydirilan bit sayisi (CMD/ADDR/DUMMY daima x1)
+    wire  [2:0]  lane_w  = (ccr_data_mode == 2'b11) ? 3'd4 :
+                           (ccr_data_mode == 2'b10) ? 3'd2 : 3'd1;
+    // Adres fazi icin MSB-hizali efektif adres (3B modda ust bayta kaydirilir)
+    wire  [31:0] adr_eff = cfg_addr4b ? qspi_adr : {qspi_adr[23:0], 8'h00};
 
     // =========================================================
     // 3. FIFO — TEK BLOKTA YÖNETİLEN POINTER'LAR
@@ -117,15 +125,42 @@ module qspi_master_axil (
     assign cs_no  = (spi_state == SPI_IDLE || spi_state == SPI_DONE);
 
     // SPI I/O
-    assign io_o[0] = shift_out[bit_cnt];
-    assign io_o[1] = 1'b1;
-    assign io_o[2] = 1'b1;
-    assign io_o[3] = 1'b1;
-    assign io_oe[0] = (spi_state == SPI_SEND_CMD || spi_state == SPI_SEND_ADDR ||
-                       spi_state == SPI_DATA_TX  || spi_state == SPI_DUMMY);
-    assign io_oe[1] = 1'b0;
-    assign io_oe[2] = 1'b1;
-    assign io_oe[3] = 1'b1;
+    // Lane suruculeri: veri fazinda mod'a gore x1/x2/x4; diger fazlar x1.
+    // Quad eslesme standart: nibble MSB -> IO3 ... LSB -> IO0. Dual: MSB -> IO1.
+    always_comb begin
+        io_o[0] = shift_out[bit_cnt];
+        io_o[1] = 1'b1;
+        io_o[2] = 1'b1;   // WP#   (quad veri fazi disinda tieoff)
+        io_o[3] = 1'b1;   // HOLD# (quad veri fazi disinda tieoff)
+        if (spi_state == SPI_DATA_TX && ccr_data_mode == 2'b10) begin
+            io_o[0] = shift_out[bit_cnt-3'd1];
+            io_o[1] = shift_out[bit_cnt];
+        end else if (spi_state == SPI_DATA_TX && ccr_data_mode == 2'b11) begin
+            io_o[0] = shift_out[bit_cnt-3'd3];
+            io_o[1] = shift_out[bit_cnt-3'd2];
+            io_o[2] = shift_out[bit_cnt-3'd1];
+            io_o[3] = shift_out[bit_cnt];
+        end
+    end
+    always_comb begin
+        io_oe[0] = (spi_state == SPI_SEND_CMD || spi_state == SPI_SEND_ADDR ||
+                    spi_state == SPI_DATA_TX  || spi_state == SPI_DUMMY);
+        io_oe[1] = 1'b0;
+        io_oe[2] = 1'b1;
+        io_oe[3] = 1'b1;
+        if (ccr_data_mode == 2'b10) begin
+            if (spi_state == SPI_DATA_TX)      io_oe[1] = 1'b1;
+            else if (spi_state == SPI_DATA_RX) io_oe[0] = 1'b0;
+            if (spi_state == SPI_DUMMY)        io_oe[0] = 1'b0; // bus turnaround
+        end else if (ccr_data_mode == 2'b11) begin
+            if (spi_state == SPI_DATA_TX) begin
+                io_oe[1] = 1'b1;  // io_o[3:2] veri mux'tan surulur
+            end else if (spi_state == SPI_DATA_RX) begin
+                io_oe[0] = 1'b0; io_oe[2] = 1'b0; io_oe[3] = 1'b0;
+            end
+            if (spi_state == SPI_DUMMY) io_oe[0] = 1'b0; // bus turnaround
+        end
+    end
 
     // =========================================================
     // 5. AXI YAZMA/OKUMA — Komut sinyalleri (pulse)
@@ -248,7 +283,7 @@ module qspi_master_axil (
                                 spi_state <= SPI_SEND_ADDR;
                                 bit_cnt   <= 3'd7;
                                 addr_byte <= 2'd0;
-                                shift_out <= qspi_adr[23:16];
+                                shift_out <= adr_eff[31:24];
                             end
                         end else
                             bit_cnt <= bit_cnt - 1;
@@ -258,7 +293,7 @@ module qspi_master_axil (
                 SPI_SEND_ADDR: begin
                     if (sclk_rising) begin
                         if (bit_cnt == 0) begin
-                            if (addr_byte == 2'd2) begin
+                            if (addr_byte == (cfg_addr4b ? 2'd3 : 2'd2)) begin
                                 if (ccr_dummy > 0) begin
                                     spi_state <= SPI_DUMMY;
                                     dummy_cnt <= ccr_dummy;
@@ -277,8 +312,9 @@ module qspi_master_axil (
                                 addr_byte <= addr_byte + 1;
                                 bit_cnt   <= 3'd7;
                                 case (addr_byte)
-                                    2'd0: shift_out <= qspi_adr[15:8];
-                                    2'd1: shift_out <= qspi_adr[7:0];
+                                    2'd0: shift_out <= adr_eff[23:16];
+                                    2'd1: shift_out <= adr_eff[15:8];
+                                    2'd2: shift_out <= adr_eff[7:0];
                                     default: shift_out <= '0;
                                 endcase
                             end
@@ -307,11 +343,16 @@ module qspi_master_axil (
                 end
 
                 SPI_DATA_RX: begin
-                    if (sclk_falling)
-                        shift_in <= {shift_in[6:0], io_i[1]};
+                    if (sclk_falling) begin
+                        case (ccr_data_mode)
+                            2'b10:   shift_in <= {shift_in[5:0], io_i[1], io_i[0]};
+                            2'b11:   shift_in <= {shift_in[3:0], io_i[3], io_i[2], io_i[1], io_i[0]};
+                            default: shift_in <= {shift_in[6:0], io_i[1]};
+                        endcase
+                    end
 
                     if (sclk_rising) begin
-                        if (bit_cnt == 0) begin
+                        if (bit_cnt < lane_w) begin
                             case (rx_byte_pos)
                                 2'd0: rx_word_acc[ 7: 0] <= shift_in;
                                 2'd1: rx_word_acc[15: 8] <= shift_in;
@@ -343,13 +384,13 @@ module qspi_master_axil (
                                 shift_in      <= '0;
                             end
                         end else
-                            bit_cnt <= bit_cnt - 1;
+                            bit_cnt <= bit_cnt - lane_w;
                     end
                 end
 
                 SPI_DATA_TX: begin
                     if (sclk_rising) begin
-                        if (bit_cnt == 0) begin
+                        if (bit_cnt < lane_w) begin
                             if (data_byte_cnt >= {1'b0, ccr_data_len})
                                 spi_state <= SPI_CS_DEASSERT;
                             else begin
@@ -370,7 +411,7 @@ module qspi_master_axil (
                                 tx_byte_pos <= tx_byte_pos + 1;
                             end
                         end else
-                            bit_cnt <= bit_cnt - 1;
+                            bit_cnt <= bit_cnt - lane_w;
                     end
                 end
 
@@ -415,6 +456,7 @@ module qspi_master_axil (
             cmd_tx_data   <= '0;
             cmd_rx_flush  <= 1'b0;
             cmd_tx_flush  <= 1'b0;
+            cfg_addr4b    <= 1'b0;
         end else begin
             // Pulse sinyallerini varsayılan olarak temizle
             cmd_start    <= 1'b0;
@@ -447,10 +489,10 @@ module qspi_master_axil (
                         if (s_axi_wdata[31]) cmd_clr_sta <= 1'b1;
                         else if (!sta_busy) begin
                             cmd_start   <= 1'b1;
-                            $display("[%0t QSPI] CCR write ccr=%08x adr=%06x", $time, s_axi_wdata, qspi_adr);
+                            $display("[%0t QSPI] CCR write ccr=%08x adr=%08x", $time, s_axi_wdata, qspi_adr);
                         end
                     end
-                    ADDR_ADR: qspi_adr <= s_axi_wdata[23:0];
+                    ADDR_ADR: qspi_adr <= s_axi_wdata;
                     ADDR_DR: begin
                         cmd_tx_push <= 1'b1;
                         cmd_tx_data <= s_axi_wdata;
@@ -458,6 +500,7 @@ module qspi_master_axil (
                     ADDR_FCR: begin
                         if (s_axi_wdata[0]) cmd_rx_flush <= 1'b1;
                         if (s_axi_wdata[1]) cmd_tx_flush <= 1'b1;
+                        cfg_addr4b <= s_axi_wdata[2];   // yarismaci tanimli: 4B adres modu
                     end
                     default: ;
                 endcase
@@ -498,7 +541,7 @@ module qspi_master_axil (
                     ADDR_CCR: s_axi_rdata <= {1'b0, ccr_prescaler, 1'b0,
                                                ccr_data_len, ccr_dummy, ccr_dir,
                                                ccr_data_mode, ccr_instr};
-                    ADDR_ADR: s_axi_rdata <= {8'd0, qspi_adr};
+                    ADDR_ADR: s_axi_rdata <= qspi_adr;
                     ADDR_DR: begin
                         s_axi_rdata <= rx_empty ? 32'h0 : rx_fifo[rx_rd_ptr[FIFO_AW-1:0]];
                         if (!rx_empty) cmd_rx_pop <= 1'b1;
@@ -507,7 +550,7 @@ module qspi_master_axil (
                                                tx_empty, tx_full,
                                                rx_empty, rx_full,
                                                2'd0, sta_busy, sta_done};
-                    ADDR_FCR: s_axi_rdata <= 32'd0;
+                    ADDR_FCR: s_axi_rdata <= {29'd0, cfg_addr4b, 2'b00};
                     default:  s_axi_rdata <= 32'd0;
                 endcase
             end else if (s_axi_rvalid && s_axi_rready)

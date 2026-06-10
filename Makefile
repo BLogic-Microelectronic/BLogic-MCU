@@ -30,7 +30,7 @@ BOOT_DIR  = obj_dir_boot
 AI_DIR    = obj_dir_ai
 ARCH_EXT ?= I
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage qspi-modes
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -91,6 +91,26 @@ arch-test:
 coverage:
 	bash scripts/run_coverage.sh
 
+# --- QSPI mod testi: x1/x2/x4 veri fazi + 4-bayt adresleme ---
+MODES_DIR = obj_dir_qspi_modes
+qspi-modes:
+	rm -rf build
+	$(MAKE) -f Makefile.verilator sw FW_SRC=sw/tests/qspi_modes_test.c
+	rm -rf $(MODES_DIR)
+	verilator --binary --timing --top-module qspi_modes_tb \
+	    -Mdir $(MODES_DIR) -o qspi_modes_sim \
+	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
+	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
+	    -f soc_files.f verif/models/spi_flash_model.sv verif/tb/qspi_modes_tb.sv
+	cp build/instr_mem.hex $(MODES_DIR)/firmware.hex
+	cp build/data_mem.hex  $(MODES_DIR)/data_mem.hex
+	cp bootrom.hex $(MODES_DIR)/
+	echo "00000000" > $(MODES_DIR)/ai_sram_init.hex
+	python3 -c "print(chr(10).join(format(i%256,'02x') for i in range(8192)))" > $(MODES_DIR)/flash.hex
+	cd $(MODES_DIR) && ./qspi_modes_sim 2>&1 | tee modes_run.log
+	@grep -aq "TEST SUCCESS" $(MODES_DIR)/modes_run.log \
+	    && echo "[QSPI-MODES] PASS" || { echo "[QSPI-MODES] FAIL"; exit 1; }
+
 # --- UVM GPIO testleri ---
 uvm:
 	$(MAKE) -f Makefile.uvm all
@@ -100,18 +120,22 @@ test-all:
 	@overall=0; \
 	r=PASS; $(MAKE) regression || { r=FAIL; overall=1; }; \
 	b=PASS; $(MAKE) boot       || { b=FAIL; overall=1; }; \
+	q=PASS; $(MAKE) qspi-modes || { q=FAIL; overall=1; }; \
 	a=PASS; $(MAKE) ai         || { a=FAIL; overall=1; }; \
 	s=PASS; $(MAKE) soc-ai     || { s=FAIL; overall=1; }; \
 	c=PASS; $(MAKE) arch-test  || { c=FAIL; overall=1; }; \
+	u=PASS; $(MAKE) uvm        || { u=FAIL; overall=1; }; \
 	echo ""; \
 	echo "====================================================="; \
 	echo " TEST-ALL OZETI"; \
 	echo "-----------------------------------------------------"; \
 	echo "  regression (UARTx2+lockstep+QSPI) : $$r"; \
 	echo "  boot       (QSPI boot akisi)      : $$b"; \
+	echo "  qspi-modes (x1/x2/x4 + 4B adres)   : $$q"; \
 	echo "  ai         (standalone 4 senaryo) : $$a"; \
 	echo "  soc-ai     (SoC AI C testi)       : $$s"; \
 	echo "  arch-test  (riscv-arch-test $(ARCH_EXT))   : $$c"; \
+	echo "  uvm        (GPIO directed+random)  : $$u"; \
 	echo "====================================================="; \
 	exit $$overall
 
@@ -132,6 +156,8 @@ help:
 	@echo "  make soc-ai      - SoC seviyesi AI C testi"
 	@echo "  make arch-test   - riscv-arch-test (ARCH_EXT=I varsayilan)"
 	@echo "  make uvm         - UVM GPIO testleri"
-	@echo "  make test-all    - regression+boot+ai+soc-ai+arch-test"
+	@echo "  make qspi-modes  - QSPI x1/x2/x4 veri fazi + 4-bayt adres testi"
+	@echo "  make coverage    - line coverage raporu (logs/coverage/)"
+	@echo "  make test-all    - tum suitler (regression+boot+qspi-modes+ai+soc-ai+arch-test+uvm)"
 	@echo ""
 	$(MAKE) -f Makefile.verilator help
