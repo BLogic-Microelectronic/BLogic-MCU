@@ -9,6 +9,7 @@ obj_dir_uvm/
 obj_dir_boot/
 obj_dir_qspi_modes/
 obj_dir_arch/
+obj_dir_i2c_sys/
 
 # --- Genel build / log / venv ---
 build/
