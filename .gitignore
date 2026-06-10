@@ -67,3 +67,4 @@ coverage_html/
 # TEKNOFEST resmi paket icerikleri
 !teknotest/**/*.hex
 !teknotest/**/*.mem
+verif/arch_tests/riscv-arch-test/

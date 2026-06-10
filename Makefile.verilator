@@ -98,7 +98,7 @@ verilate: $(SIM_EXE)
 
 $(SIM_EXE): $(SOC_FILES) $(SIM_MAIN) | logs-prep
 	@echo "[VLT] Verilator -> $(LOG_BUILD)/verilator_build.log"
-	@$(VERILATOR) $(VERILATOR_FLAGS) -f $(SOC_FILES) --exe $(SIM_MAIN) -o blogic_sim \
+	@$(VERILATOR) $(VERILATOR_FLAGS) $(VLT_EXTRA) --Mdir $(OBJ_DIR) -f $(SOC_FILES) --exe $(SIM_MAIN) -o blogic_sim \
 	    2>&1 | tee $(LOG_BUILD)/verilator_build.log
 	@echo "[VLT] C++ derleniyor..."
 	@make -C $(OBJ_DIR) -f V$(TOP_MODULE).mk blogic_sim -j$$(nproc) \
@@ -125,3 +125,9 @@ clean:
 logs-clean:
 	rm -rf $(LOG_ROOT)
 	@echo "[CLEAN] logs/ silindi"
+
+# --- Cekirdek-uyumluluk (riscv-arch-test) icin 64 KB instr/data bellekli sim ---
+# Sartname SoC konfigurasyonu (8 KB) DEGISMEZ; yalnizca CORE testleri bu binary ile kosar.
+verilate-arch:
+	@$(MAKE) -f Makefile.verilator verilate OBJ_DIR=obj_dir_arch \
+	    VLT_EXTRA="-GINSTR_SRAM_BYTES=65536 -GDATA_SRAM_BYTES=65536"

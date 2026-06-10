@@ -3,7 +3,11 @@
 `include "axi/assign.svh"
 
 module soc_top #(
-    parameter logic [31:0] BOOT_ADDR = 32'h0000_0000
+    parameter logic [31:0] BOOT_ADDR = 32'h0000_0000,
+    // Cekirdek-uyumluluk (arch-test) kosumlarinda -G ile buyutulur.
+    // Sartname SoC konfigurasyonu 8 KB'dir; varsayilanlar DEGISTIRILMEZ.
+    parameter int unsigned INSTR_SRAM_BYTES = 8192,
+    parameter int unsigned DATA_SRAM_BYTES  = 8192
 )(
     input  logic        clk_i,
     input  logic        rst_ni,
@@ -381,10 +385,10 @@ module soc_top #(
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(1024),  .INIT_FILE("bootrom.hex"))
         i_boot_rom  (.clk_i(clk_i), .rst_ni(rst_ni), .slv(boot_rom_bus));
 
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192),  .INIT_FILE("firmware.hex"))
+    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(INSTR_SRAM_BYTES),  .INIT_FILE("firmware.hex"))
         i_instr_sram(.clk_i(clk_i), .rst_ni(rst_ni), .slv(instr_sram_bus));
 
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(8192),  .INIT_FILE("data_mem.hex"))
+    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(DATA_SRAM_BYTES),  .INIT_FILE("data_mem.hex"))
         i_data_sram (.clk_i(clk_i), .rst_ni(rst_ni), .slv(data_sram_bus));
 
     // ai_sram artık arbiter çıkışına bağlı
