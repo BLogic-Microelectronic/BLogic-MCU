@@ -24,7 +24,7 @@ import os
 import sys
 
 # --- Konfigurasyon -----------------------------------------------
-TEST_SCENARIO = "yes"   # SoC'nin onyukleyecegi test inputu
+TEST_SCENARIO = "yes_real"   # SoC on-yukleme: gercek ses ozniteligi (EK-3)
 
 GOLDEN_DIR = "sw/ai_model/golden_vectors"
 OUT_FILE   = os.path.join(GOLDEN_DIR, "ai_sram_init.hex")
@@ -82,7 +82,8 @@ with open(OUT_FILE, 'w') as f:
         f.write(f"{w:08X}\n")
 
 # Beklenen argmax
-expected_argmax = {"silence": 0, "unknown": 1, "yes": 2, "no": 3}[TEST_SCENARIO]
+expected_argmax = {"silence": 0, "unknown": 1, "yes": 2, "no": 3,
+                   "yes_real": 2, "no_real": 3}[TEST_SCENARIO]
 
 print()
 print(f"Yazildi: {OUT_FILE}")

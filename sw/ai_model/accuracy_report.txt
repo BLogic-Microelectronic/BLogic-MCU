@@ -1,0 +1,61 @@
+==================================================================
+EK-1 %10 DOGRULUK PENCERESI - NIHAI RAPOR (RTL sonuclu)
+==================================================================
+Ornek sayisi N=40 | SW referansi: bkz. uretim bolumu altta
+
+  i | ornek          | etiket  | SW fc_out            | SW | RTL | esles
+------------------------------------------------------------------
+  0 | yes_real       | yes     | [-50, -5, 121, -4]   |  2 |   2 | OK
+  1 | no_real        | no      | [-61, 37, -13, 68]   |  3 |   3 | OK
+  2 | syn_yes        | -       | [-128, 97, 112, 87]  |  2 |   2 | OK
+  3 | syn_no         | -       | [-128, 111, 70, 127] |  3 |   3 | OK
+  4 | syn_unknown    | -       | [-128, 90, 86, 82]   |  1 |   1 | OK
+  5 | syn_silence    | -       | [14, 14, 14, 14]     |  0 |   0 | OK
+  6 | yes_noise4     | -       | [-51, -4, 122, -5]   |  2 |   2 | OK
+  7 | no_noise4      | -       | [-61, 38, -12, 67]   |  3 |   3 | OK
+  8 | yes_noise8     | -       | [-49, -4, 121, -5]   |  2 |   2 | OK
+  9 | no_noise8      | -       | [-61, 36, -11, 65]   |  3 |   3 | OK
+ 10 | yes_noise16    | -       | [-52, -3, 122, -4]   |  2 |   2 | OK
+ 11 | no_noise16     | -       | [-68, 36, -6, 69]    |  3 |   3 | OK
+ 12 | yes_tshift+1   | -       | [-63, 5, 127, 3]     |  2 |   2 | OK
+ 13 | no_tshift+1    | -       | [-75, 40, -9, 78]    |  3 |   3 | OK
+ 14 | yes_fshift+1   | -       | [-128, 127, 127, 74] |  1 |   1 | OK
+ 15 | no_fshift+1    | -       | [-128, 127, 72, 127] |  1 |   1 | OK
+ 16 | yes_tshift-1   | -       | [-45, -10, 116, -6]  |  2 |   2 | OK
+ 17 | no_tshift-1    | -       | [-50, 34, -21, 69]   |  3 |   3 | OK
+ 18 | yes_fshift-1   | -       | [-128, 116, 127, 87] |  2 |   2 | OK
+ 19 | no_fshift-1    | -       | [-128, 127, 70, 127] |  1 |   1 | OK
+ 20 | mix_yes25      | -       | [-48, 22, 12, 56]    |  3 |   3 | OK
+ 21 | mix_yes50      | -       | [-41, 9, 50, 37]     |  2 |   2 | OK
+ 22 | mix_yes75      | -       | [-43, 0, 89, 14]     |  2 |   2 | OK
+ 23 | yes_scale05    | -       | [-116, 29, 90, 45]   |  2 |   2 | OK
+ 24 | no_scale05     | -       | [-128, 50, 39, 82]   |  3 |   3 | OK
+ 25 | yes_scale15    | -       | [-63, -3, 127, 0]    |  2 |   2 | OK
+ 26 | no_scale15     | -       | [-64, 38, -21, 73]   |  3 |   3 | OK
+ 27 | gauss0         | -       | [-128, 81, 79, 114]  |  3 |   3 | OK
+ 28 | gauss1         | -       | [-128, 74, 85, 96]   |  3 |   3 | OK
+ 29 | gauss2         | -       | [-128, 77, 87, 102]  |  3 |   3 | OK
+ 30 | gauss3         | -       | [-113, 35, 60, 37]   |  2 |   2 | OK
+ 31 | gauss4         | -       | [-106, 40, 50, 47]   |  2 |   2 | OK
+ 32 | uniform0       | -       | [-128, 88, 118, 125] |  3 |   3 | OK
+ 33 | uniform1       | -       | [-128, 110, 114, 92] |  2 |   2 | OK
+ 34 | uniform2       | -       | [-128, 89, 90, 67]   |  2 |   2 | OK
+ 35 | const_m128     | -       | [14, 14, 14, 14]     |  0 |   0 | OK
+ 36 | const_0        | -       | [-128, 76, 77, 114]  |  3 |   3 | OK
+ 37 | const_127      | -       | [-128, 127, 127, 127] |  1 |   1 | OK
+ 38 | checker        | -       | [127, -85, -75, -14] |  0 |   0 | OK
+ 39 | ramp           | -       | [-128, 79, 36, 40]   |  1 |   1 | OK
+------------------------------------------------------------------
+SW-RTL sinif eslesmesi : 40/40
+Etiketli gercek ornekler (2 adet): SW dogruluk 2/2, RTL dogruluk 2/2
+Matematiksel sinir     : |acc_SW - acc_RTL| <= uyumsuzluk orani = 0.0 puan
+SONUC: fark = 0.0 puan <= 10 puan -> EK-1 penceresi SAGLANDI (her test kumesinde)
+
+--- uretim bolumu ---
+SW referansi          : GERCEK TFLite interpreter (sw/ai_model/micro_speech_quantized.tflite), FC logitleri (softmax oncesi) karsilastirildi
+Ornek uretimi         : seed=2026, N=40 (2 gercek ses + 4 sentetik + 34 turetilmis)
+TFLite FC logit vs kosim: birebir 40/40, max |fark| = 0 LSB, argmax uyumu 40/40
+TFLite Softmax cikisi : argmax uyumu 40/40 (softmax monotonik -> karar esdeger; RTL logit-argmax uygular)
+Etiketli gercek kume  : SW dogruluk 2/2 (yes_real, no_real)
+RTL sutunu            : make ai kosun, sonra:
+  python3 sw/ai_model/run_accuracy_window.py --ingest-rtl obj_dir_ai/ai_run.log

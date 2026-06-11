@@ -1,7 +1,14 @@
 /* Otomatik uretildi — extract_weights_v2.py */
 #ifndef QUANT_PARAMS_H
 #define QUANT_PARAMS_H
-#include <stdint.h>
+#ifdef __riscv
+/* yalin metal: toolchain'de newlib basligi yok; ilp32 */
+# ifndef BLOGIC_MCU_H
+typedef signed int int32_t;
+# endif
+#else
+# include <stdint.h>
+#endif
 
 #define INPUT_ZP    (-128)
 #define CONV_OUT_ZP (-128)

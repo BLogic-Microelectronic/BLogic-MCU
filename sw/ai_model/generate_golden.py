@@ -169,6 +169,22 @@ for name in CLASS_NAMES:
 # ============================================================
 # Dogrulama
 # ============================================================
+# ============================================================
+# golden_summary.txt (rapor; TB tarafindan okunmaz)
+# ============================================================
+with open(os.path.join(OUTDIR, "golden_summary.txt"), "w") as f:
+    f.write("BLogic MCU -- YZ Hizlandirici Golden Vektor Raporu (gercek TFLite requant)\n")
+    f.write("Kaynak: micro_speech_quantized.tflite (extract_weights.py + generate_golden.py)\n")
+    f.write("Sinif sirasi: [" + ", ".join(CLASS_NAMES) + "]\n")
+    f.write("=" * 60 + "\n")
+    f.write(f"{'Senaryo':>10s} | {'FC_out':>24s} | argmax | {'Sinif':>8s}\n")
+    for _name in CLASS_NAMES:
+        _inp, _co, _fc, _sm = found[_name]
+        _am = int(np.argmax(_sm))
+        _fs = "[" + ", ".join(str(int(_v)) for _v in _fc) + "]"
+        f.write(f"{_name:>10s} | {_fs:>24s} | {_am:6d} | {CLASS_NAMES[_am]:>8s}\n")
+print("golden_summary.txt yazildi.")
+
 print("\n=== Satir sayisi dogrulamasi ===")
 expected_lines = {
     "input_silence.hex":     490, "input_unknown.hex":     490,

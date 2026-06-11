@@ -6,6 +6,10 @@
 //     0x3B DOR    : 3B adres, dummy=8, veri x2 (IO1:IO0)
 //     0x6B QOR    : 3B adres, dummy=8, veri x4 (IO3:IO0)
 //     0x13 READ4B : 4B adres, dummy=0, veri x1 (IO1)
+//   FLASH_SIZE disi adresler: adres-essiz deterministik veri
+//     hi_byte = a[7:0]^a[15:8]^a[23:16]^a[31:24]^0xC3
+//   (4B adreslemenin ust baytinin telde tasindigini kanitlamak icin;
+//    alias'lanan okuma memory[] rampasina duser ve yakalanir)
 //   Zamanlama sozlesmesi (v1'den korunur): girisler posedge sclk'de
 //   orneklenir, cikis kombinasyonel surulur (master falling'de ornekler).
 // ============================================================
@@ -96,7 +100,15 @@ module spi_flash_model #(
     end
 
     // Cikis surme: kombinasyonel; quad nibble MSB once, IO3=MSB
-    wire [7:0] cur_byte = memory[read_addr[AB-1:0]];
+    // FLASH_SIZE icinde: yuklu memory[] (mevcut davranis, boot dahil).
+    // Disinda (orn. 16MB+ siniri otesi): adres-essiz formul. Ust bayti
+    // dusuren/stuck-0 yapan bir RTL hatasi adresi memory[] bolgesine
+    // alias'lar -> beklenen formul verisi yerine rampa gelir -> FAIL.
+    wire [7:0] hi_byte  = read_addr[7:0] ^ read_addr[15:8]
+                        ^ read_addr[23:16] ^ read_addr[31:24] ^ 8'hC3;
+    wire [7:0] cur_byte = (read_addr < FLASH_SIZE)
+                        ? memory[read_addr[AB-1:0]]
+                        : hi_byte;
     always_comb begin
         io_out    = 4'b1111;
         io_oe_out = 4'b0000;

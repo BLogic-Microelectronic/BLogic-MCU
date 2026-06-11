@@ -2,7 +2,7 @@
 
 int main(void) {
     // 115200 Baud ayarla
-    UART0->CPB = 54;
+    UART0->CPB = 434;
 
     // Adım 1: TX üzerinden bir karakter gönder ('B')
     char tx_char = 'B';

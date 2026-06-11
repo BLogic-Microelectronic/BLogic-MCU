@@ -2,9 +2,9 @@
 
 int main(void) {
     /* TEŞHİS DOĞRULTUSUNDA GÜNCELLENDİ:
-       Alex Forencich UART çekirdeği için 115200 Baud prescale değeri = 54 */
+       EK-2: CPB = clk/baud -> 50MHz/115200 = 434 (donanim prescale = 434>>3 = 54) */
     #ifndef CPB_VAL
-#define CPB_VAL 54
+#define CPB_VAL 434
 #endif
     UART0->CPB = CPB_VAL;
 

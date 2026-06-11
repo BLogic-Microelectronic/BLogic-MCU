@@ -1,5 +1,18 @@
 `timescale 1ns / 1ps
 
+// ============================================================
+// EK-2 CPB semantigi (Sartname):
+//   UART baud = clk / UART_CPB  ->  yazilim CPB = clk/baud yazar.
+//   Forencich uart_tx/uart_rx cekirdekleri 8x ornekleme prescale
+//   (= clk/(baud*8)) bekledigi icin prescale portlarina
+//   uart_cpb[18:3] (yani CPB/8, asagi yuvarlama) baglanir.
+//   Ornek @50MHz: 115200 -> CPB=434 (presc 54), 1Mbps -> CPB=50 (presc 6),
+//                 9600   -> CPB=5208 (presc 651).
+// EK-2 UART_STP[1:0] (stop-bit): "00"=1, "01"=1.5, "1X"=2 stop.
+// Cekirdek sabit 1 stop uretir; 0.5/1 bitlik ek sure asagidaki
+// 4b bolumundeki wrapper sayaci ile (hat '1' tutulup TX_DONE
+// geciktirilerek ve yeni TDR baslatmasi bekletilerek) saglanir.
+// ============================================================
 module uart_axil (
     input  logic        clk_i,
     input  logic        rst_ni,
@@ -59,6 +72,16 @@ module uart_axil (
     logic prev_tx_busy;
     logic tx_start;
 
+    // EK-2 STP stop-bit uzatma sinyalleri (bolum 4b)
+    logic [15:0] stp_presc;
+    logic [19:0] stp_ext_cnt;
+    logic        stp_extending;
+    logic        tx_pending;
+    logic        tx_pending_fire;
+    logic        tx_done_set;
+    logic        stp_ext_load;
+    logic        stp_hold;
+
     // Yazma FSM'inden flag kontrol sinyalleri
     logic        wr_cfg_hit;  // CFG register'ına yazma yapıldı mı?
     logic [31:0] wr_cfg_data;
@@ -80,8 +103,8 @@ module uart_axil (
             aw_en         <= 1'b1;
             write_addr    <= 5'd0;
             
-            // 50MHz / (115200 * 8) ≈ 54
-            uart_cpb      <= 32'd54; 
+            // EK-2: CPB = clk/baud -> 50MHz/115200 = 434 (donanim prescale = CPB>>3 = 54)
+            uart_cpb      <= 32'd434;
             uart_stp      <= 2'b00;
             uart_tdr      <= 8'd0;
             wr_cfg_hit    <= 1'b0;
@@ -173,8 +196,8 @@ module uart_axil (
             prev_tx_en   <= cfg_tx_en;
             prev_tx_busy <= tx_busy;
 
-            // --- TX DONE: tx_busy düşen kenarı ---
-            if (prev_tx_busy && !tx_busy) begin
+            // --- TX DONE: stop suresi tamamlandi (1 stop + STP uzatmasi) ---
+            if (tx_done_set) begin
                 cfg_tx_done <= 1'b1;
             end
 
@@ -193,7 +216,63 @@ module uart_axil (
         end
     end
 
-    assign tx_start = wr_tdr_hit;
+    // =========================================================
+    // 4b. EK-2 STOP-BIT UZATMA (UART_STP[1:0])
+    // =========================================================
+    //   "00" -> 1   stop (cekirdek varsayilani, ek sure yok)
+    //   "01" -> 1.5 stop (+ yarim bit = presc*4 clk)
+    //   "1X" -> 2   stop (+ tam   bit = presc*8 clk)
+    // Cekirdek busy dusunce (1 stop biti tam bitti) sayac yuklenir;
+    // sayac calisirken hat zaten '1' kalir (stop seviyesi devam eder),
+    // TX_DONE sayac bitince kurulur, uzatmada gelen TDR yazisi
+    // tutulup (tx_pending) sayac sonunda baslatilir. Boylece stop
+    // suresi yazilim davranisindan bagimsiz olarak DONANIMDA garanti.
+    assign stp_presc    = uart_cpb[18:3];
+    assign stp_ext_load = prev_tx_busy && !tx_busy && (uart_stp != 2'b00);
+    assign stp_hold     = stp_extending || stp_ext_load;
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+            stp_ext_cnt     <= 20'd0;
+            stp_extending   <= 1'b0;
+            tx_pending      <= 1'b0;
+            tx_pending_fire <= 1'b0;
+            tx_done_set     <= 1'b0;
+        end else begin
+            tx_done_set     <= 1'b0;
+            tx_pending_fire <= 1'b0;
+
+            // Uzatma penceresinde gelen TDR istegini tut
+            if (wr_tdr_hit && stp_hold)
+                tx_pending <= 1'b1;
+
+            if (stp_ext_load) begin
+                // Cekirdegin 1 stop biti bitti -> ek sureyi baslat
+                stp_extending <= 1'b1;
+                if (uart_stp[1])
+                    stp_ext_cnt <= {1'b0, stp_presc, 3'b000};   // "1X": +1 bit
+                else
+                    stp_ext_cnt <= {2'b00, stp_presc, 2'b00};   // "01": +0.5 bit
+            end else if (stp_extending) begin
+                if (stp_ext_cnt > 20'd1) begin
+                    stp_ext_cnt <= stp_ext_cnt - 20'd1;
+                end else begin
+                    stp_extending <= 1'b0;
+                    stp_ext_cnt   <= 20'd0;
+                    tx_done_set   <= 1'b1;
+                    if (tx_pending) begin
+                        tx_pending      <= 1'b0;
+                        tx_pending_fire <= 1'b1;
+                    end
+                end
+            end else if (prev_tx_busy && !tx_busy) begin
+                tx_done_set <= 1'b1;   // "00": 1 stop, hemen done
+            end
+        end
+    end
+
+    // Yeni cerceve ancak stop suresi (uzatma dahil) dolunca baslayabilir
+    assign tx_start = (wr_tdr_hit && !stp_hold) || tx_pending_fire;
 
     // =========================================================
     // 5. UART ÇEKİRDEK BAĞLANTILARI (Alex Forencich Gerçek Portları)
@@ -206,7 +285,7 @@ module uart_axil (
         .s_axis_tready (                  ), // AXI-Stream Ready (Kullanılmıyor)
         .txd           ( txd_o            ),
         .busy          ( tx_busy          ),
-        .prescale      ( uart_cpb[15:0]   )
+        .prescale      ( uart_cpb[18:3]   )  // EK-2: prescale = CPB/8
     );
 
     uart_rx i_uart_rx (
@@ -219,7 +298,7 @@ module uart_axil (
         .busy          (                  ), 
         .overrun_error (                  ),
         .frame_error   (                  ),
-        .prescale      ( uart_cpb[15:0]   )
+        .prescale      ( uart_cpb[18:3]   )  // EK-2: prescale = CPB/8
     );
 
 endmodule

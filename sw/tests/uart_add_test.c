@@ -21,7 +21,7 @@ void uart_put_int(uint32_t num) {
 
 int main(void) {
     // UART0 başlatma (115200 Baud hızı ayarı)
-    UART0->CPB = 54;
+    UART0->CPB = 434;
     
     // Test edilecek toplama işlemi verileri
     int sayi1 = 584;

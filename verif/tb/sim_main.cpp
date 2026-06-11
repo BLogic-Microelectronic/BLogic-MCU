@@ -87,6 +87,7 @@ int main(int argc, char** argv) {
     std::string log_dir = "../logs/sim/default";
     std::string test_name = "default";
     uint64_t max_cycles = 10000000;
+    std::vector<int> sweep_cpbs;   // +SWEEP= ile dolan EK-2 cok-baud CPB listesi
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -95,6 +96,17 @@ int main(int argc, char** argv) {
         else if (arg.rfind("+MAX_CYCLES=", 0) == 0) max_cycles = std::stoull(arg.substr(12));
         else if (arg.rfind("+LOGDIR=", 0)    == 0) log_dir = arg.substr(8);
         else if (arg.rfind("+TEST_NAME=", 0) == 0) test_name = arg.substr(11);
+        else if (arg.rfind("+SWEEP=", 0)     == 0) {
+            // EK-2 cok-baud kaniti: +SWEEP=434,50,5208 (virgul ayrili CPB listesi)
+            std::string lst = arg.substr(7);
+            size_t p = 0;
+            while (p <= lst.size()) {
+                size_t q = lst.find(',', p);
+                if (q == std::string::npos) q = lst.size();
+                if (q > p) sweep_cpbs.push_back(std::stoi(lst.substr(p, q - p)));
+                p = q + 1;
+            }
+        }
     }
 
     mkdir_p(log_dir);
@@ -103,11 +115,26 @@ int main(int argc, char** argv) {
     std::ofstream diag_log     (log_dir + "/diag.log");
     std::ofstream result_log   (log_dir + "/result.log");
 
+    // --- EK-2 baud sweep modu ---
+    // Firmware her fazda UART0->CPB'yi yeniden programlar ve "BAUD-OK\n" basar.
+    // Alici faz k'da sweep_cpbs[k] ile dinler; marker yakalaninca k+1'e gecer.
+    size_t sweep_done  = 0;   // tamamlanan faz sayisi
+    size_t search_from = 0;   // rx_buf icinde bir sonraki aramanin baslangici
+    if (!sweep_cpbs.empty()) {
+        golden_string = "BAUD-OK\n";
+        CPB = sweep_cpbs[0];
+    }
+
     std::cout << "[SIM] start  test=" << test_name
               << "  cpb=" << CPB
               << "  logdir=" << log_dir << std::endl;
 
-    UartBitDecoder uart_decoder(CPB);
+    UartBitDecoder* uart_decoder = new UartBitDecoder(CPB);
+    if (!sweep_cpbs.empty()) {
+        std::cout << "[SIM] SWEEP modu: " << sweep_cpbs.size() << " faz, CPB listesi:";
+        for (size_t i = 0; i < sweep_cpbs.size(); ++i) std::cout << " " << sweep_cpbs[i];
+        std::cout << std::endl;
+    }
     std::vector<uint8_t> rx_buf;
     uint64_t cyc = 0;
     std::string t_start_iso = iso_now();
@@ -154,12 +181,26 @@ int main(int argc, char** argv) {
             last_printed_pc = current_pc;
         }
 
-        if (uart_decoder.tick(top->uart_txd_o)) {
-            uint8_t c = uart_decoder.byte();
+        if (uart_decoder->tick(top->uart_txd_o)) {
+            uint8_t c = uart_decoder->byte();
             rx_buf.push_back(c);
             uart_log.put((char)c);
             std::string buf_str(rx_buf.begin(), rx_buf.end());
-            if (buf_str.find(golden_string) != std::string::npos) break;
+            if (sweep_cpbs.empty()) {
+                if (buf_str.find(golden_string) != std::string::npos) break;
+            } else {
+                size_t pos = buf_str.find(golden_string, search_from);
+                if (pos != std::string::npos) {
+                    search_from = pos + golden_string.size();
+                    sweep_done++;
+                    std::cout << "[SIM] SWEEP faz " << sweep_done << "/" << sweep_cpbs.size()
+                              << " OK (alici CPB=" << sweep_cpbs[sweep_done - 1]
+                              << ", cycle=" << cyc << ")" << std::endl;
+                    if (sweep_done == sweep_cpbs.size()) break;
+                    delete uart_decoder;
+                    uart_decoder = new UartBitDecoder(sweep_cpbs[sweep_done]);
+                }
+            }
         }
 
         top->clk_i = 0; top->eval();
@@ -173,7 +214,9 @@ int main(int argc, char** argv) {
     long wall_s = (long)(time(nullptr) - t_start_s);
 
     std::string full_output(rx_buf.begin(), rx_buf.end());
-    bool match = (full_output.find(golden_string) != std::string::npos);
+    bool match = sweep_cpbs.empty()
+        ? (full_output.find(golden_string) != std::string::npos)
+        : (sweep_done == sweep_cpbs.size());
     const char* result = match ? "PASS" : "FAIL";
 
     result_log << "test_name="     << test_name        << "\n"
@@ -185,6 +228,13 @@ int main(int argc, char** argv) {
                << "cpb="           << CPB              << "\n"
                << "started_at="    << t_start_iso      << "\n"
                << "finished_at="   << t_end_iso        << "\n";
+    if (!sweep_cpbs.empty()) {
+        result_log << "sweep_cpbs=";
+        for (size_t i = 0; i < sweep_cpbs.size(); ++i)
+            result_log << (i ? "," : "") << sweep_cpbs[i];
+        result_log << "\n"
+                   << "sweep_phases_done=" << sweep_done << "/" << sweep_cpbs.size() << "\n";
+    }
     result_log.flush();
 
     if (!match) {
@@ -227,6 +277,7 @@ int main(int argc, char** argv) {
     Verilated::threadContextp()->coveragep()->write((log_dir + "/coverage.dat").c_str());
     std::cout << "[COV] " << log_dir << "/coverage.dat yazildi" << std::endl;
 #endif
+    delete uart_decoder;
     delete top;
     return match ? 0 : 1;
 }

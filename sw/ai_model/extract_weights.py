@@ -192,7 +192,8 @@ with open(os.path.join(OUTDIR, "quant_params.hex"), 'w') as f:
 # ============================================================
 with open(os.path.join(OUTDIR, "quant_params.h"), 'w') as f:
     f.write("/* Otomatik uretildi — extract_weights_v2.py */\n")
-    f.write("#ifndef QUANT_PARAMS_H\n#define QUANT_PARAMS_H\n#include <stdint.h>\n\n")
+    f.write("#ifndef QUANT_PARAMS_H\n#define QUANT_PARAMS_H\n"
+            + "#ifdef __riscv\n/* yalin metal: toolchain'de newlib basligi yok; ilp32 */\n# ifndef BLOGIC_MCU_H\ntypedef signed int int32_t;\n# endif\n#else\n# include <stdint.h>\n#endif\n\n")
     f.write(f"#define INPUT_ZP    ({int(input_zp)})\n")
     f.write(f"#define CONV_OUT_ZP ({int(conv_out_zp)})\n")
     f.write(f"#define FC_OUT_ZP   ({int(fc_out_zp)})\n\n")

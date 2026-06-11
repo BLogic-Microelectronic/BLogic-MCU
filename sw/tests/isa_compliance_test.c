@@ -22,7 +22,7 @@ void uart_put_int(uint32_t n) {
 }
 
 int main(void) {
-    UART0->CPB = 54;
+    UART0->CPB = 434;
     uart_puts(UART0, "=== BLogic ISA Compliance Test ===\n");
 
     // ── RV32I: Aritmetik ──

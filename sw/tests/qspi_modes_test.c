@@ -1,5 +1,6 @@
 // QSPI sartname uyum testi: x1 (READ 0x03), x2 (DOR 0x3B), x4 (QOR 0x6B)
-// veri fazlari + 4-bayt adresleme (FCR[2] + READ4B 0x13).
+// veri fazlari + 4-bayt adresleme (FCR[2] + READ4B 0x13) +
+// 16MB-sinir-otesi ust-bayt kaniti (T5) ve 3B moda donus (T6).
 // Flash icerigi: rampa (byte[i] = i & 0xFF). Her okuma 4 bayt (len=3).
 #include "../drivers/blogic_mcu.h"
 
@@ -37,7 +38,7 @@ static int check(const char *name, uint32_t got, uint32_t exp) {
 
 int main(void) {
 #ifndef CPB_VAL
-#define CPB_VAL 54
+#define CPB_VAL 434
 #endif
     UART0->CPB = CPB_VAL;
     int fail = 0;
@@ -49,7 +50,15 @@ int main(void) {
     QSPI_FCR_REG = 0x4U;
     if ((QSPI_FCR_REG & 0x4U) == 0U) { uart_puts(UART0, "FAIL FCR[2] readback\n"); fail++; }
     fail += check("T4 4B  READ4B", qspi_rd_word(0x13U, 1U, 0U, 0x040U), 0x43424140U);
+    /* T5: 16MB sinirinin OTESI (ADR[31:24]=0xA5) -> ust baytin telde
+       gercekten tasindiginin kaniti. Model FLASH_SIZE disini adres-essiz
+       formulle (a0^a1^a2^a3^0xC3) urettiginden, ust bayti dusuren bir
+       hata adresi rampaya alias'lar ve veri uyusmazligi olarak yakalanir.
+       0xA5000040..43 -> 0x26,0x27,0x24,0x25 -> DR=0x25242726 */
+    fail += check("T5 4B  HI-ADDR", qspi_rd_word(0x13U, 1U, 0U, 0xA5000040U), 0x25242726U);
     QSPI_FCR_REG = 0x0U;
+    /* T6: FCR[2] temizlendikten sonra 3-bayt modun geri geldigi kaniti */
+    fail += check("T6 3B  RESTORE", qspi_rd_word(0x03U, 1U, 0U, 0x030U), 0x33323130U);
 
     if (fail == 0) uart_puts(UART0, "QSPI MODES OK\n");
     while (1) { __asm__ volatile("nop"); }

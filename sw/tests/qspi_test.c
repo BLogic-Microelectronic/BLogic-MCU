@@ -3,7 +3,7 @@
 
 int main(void) {
     // UART0 baslat
-    UART0->CPB = 54;
+    UART0->CPB = 434;
 
     // flash.hex dosyasinin ilk adresi 0xAA degerini iceriyor
     uint8_t f_data = qspi_get_flash_byte(0x000000);

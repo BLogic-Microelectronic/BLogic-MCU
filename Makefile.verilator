@@ -32,6 +32,8 @@ LINKER_SCRIPT = $(SW_DIR)/common/link.ld
 STARTUP      = $(SW_DIR)/common/crt0.S
 
 FW_SRC       ?= $(SW_DIR)/tests/uart_hello.c
+# Ek simulasyon plusarg'lari (orn. uart-baud hedefi: +SWEEP=434,50,5208)
+SIM_PLUSARGS ?=
 TEST_NAME    := $(basename $(notdir $(FW_SRC)))
 SIM_LOG_DIR  := $(LOG_ROOT)/sim/$(TEST_NAME)
 
@@ -113,7 +115,7 @@ sim: $(BUILD_DIR)/instr_mem.hex $(BUILD_DIR)/data_mem.hex $(SIM_EXE)
 	@cp $(BUILD_DIR)/instr_mem.hex $(OBJ_DIR)/firmware.hex
 	@cp $(BUILD_DIR)/data_mem.hex  $(OBJ_DIR)/data_mem.hex
 	@if [ -f sw/ai_model/golden_vectors/ai_sram_init.hex ]; then cp sw/ai_model/golden_vectors/ai_sram_init.hex $(OBJ_DIR)/ai_sram_init.hex; fi
-	@cd $(OBJ_DIR) && ./blogic_sim +CPB=432 +TEST_NAME=$(TEST_NAME) +LOGDIR=$(SIM_LOG_DIR) \
+	@cd $(OBJ_DIR) && ./blogic_sim +CPB=434 $(SIM_PLUSARGS) +TEST_NAME=$(TEST_NAME) +LOGDIR=$(SIM_LOG_DIR) \
 	    2>&1 | tee $(SIM_LOG_DIR)/stdout.log
 	@echo ""
 	@echo "[SIM] Karar:" && grep "^result=" $(SIM_LOG_DIR)/result.log

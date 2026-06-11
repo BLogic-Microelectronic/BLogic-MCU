@@ -4,7 +4,7 @@
 #include "../drivers/blogic_mcu.h"
 
 #ifndef CPB_VAL
-#define CPB_VAL 54
+#define CPB_VAL 434
 #endif
 
 #define CFG_TXEN  0x01U

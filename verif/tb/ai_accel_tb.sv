@@ -157,6 +157,22 @@ module ai_accel_tb;
   slv_state_t slv;
 
   logic [31:0] saved_awaddr, saved_araddr;
+  // -------------------------------------------------------------
+  // ADIM G - performans olcumu. Sartname penceresi: ilk veri
+  // okuma ani -> son veri yazma ani. perf_armed YALNIZ task'tan,
+  // zaman damgalari YALNIZ servis FF'inden yazilir (tek surucu).
+  // -------------------------------------------------------------
+  bit          perf_armed = 1'b0;
+  int unsigned perf_cyc;
+  int unsigned perf_t_start;
+  logic        perf_first_seen;
+  int unsigned perf_t_first, perf_t_last;
+
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) perf_cyc <= 0;
+    else        perf_cyc <= perf_cyc + 1;
+  end
+
   logic [ 3:0] saved_awid,   saved_arid;
 
   always_ff @(posedge clk or negedge rst_n) begin
@@ -173,7 +189,9 @@ module ai_accel_tb;
       m_rlast   <= 1'b0;
       m_rid     <= 4'd0;
       m_rdata   <= 32'd0;
+      perf_first_seen <= 1'b0;
     end else begin
+      if (!perf_armed) perf_first_seen <= 1'b0;
       m_awready <= 1'b0;
       m_wready  <= 1'b0;
       m_arready <= 1'b0;
@@ -182,6 +200,10 @@ module ai_accel_tb;
         S_IDLE: begin
           if (m_arvalid) begin
             saved_araddr <= m_araddr;
+            if (perf_armed && !perf_first_seen) begin
+              perf_first_seen <= 1'b1;
+              perf_t_first    <= perf_cyc;
+            end
             saved_arid   <= m_arid;
             m_arready    <= 1'b1;
             slv          <= S_R_DRIVE;
@@ -212,6 +234,7 @@ module ai_accel_tb;
             if (m_wstrb[1]) ai_mem[idx][15: 8] <= m_wdata[15: 8];
             if (m_wstrb[2]) ai_mem[idx][23:16] <= m_wdata[23:16];
             if (m_wstrb[3]) ai_mem[idx][31:24] <= m_wdata[31:24];
+            if (perf_armed) perf_t_last <= perf_cyc;
             m_wready <= 1'b1;
             slv      <= S_W_RESP;
           end
@@ -313,6 +336,11 @@ module ai_accel_tb;
                            ai_mem, base, base + 490 - 1);
       "silence": $readmemh("sw/ai_model/golden_vectors/input_silence.hex",
                            ai_mem, base, base + 490 - 1);
+      // EK-3 (Zorunlu): gercek 1 sn WAV kaynakli onislenmis oznitelikler
+      "yes_real": $readmemh("sw/ai_model/golden_vectors/input_yes_real.hex",
+                           ai_mem, base, base + 490 - 1);
+      "no_real":  $readmemh("sw/ai_model/golden_vectors/input_no_real.hex",
+                           ai_mem, base, base + 490 - 1);
       default:   $fatal(1, "[PRELOAD] bilinmeyen senaryo: %s", scenario);
     endcase
 
@@ -337,6 +365,8 @@ module ai_accel_tb;
       "no":      $readmemh("sw/ai_model/golden_vectors/output_no.hex",      tmp_mem);
       "unknown": $readmemh("sw/ai_model/golden_vectors/output_unknown.hex", tmp_mem);
       "silence": $readmemh("sw/ai_model/golden_vectors/output_silence.hex", tmp_mem);
+      "yes_real": $readmemh("sw/ai_model/golden_vectors/output_yes_real.hex", tmp_mem);
+      "no_real":  $readmemh("sw/ai_model/golden_vectors/output_no_real.hex",  tmp_mem);
       default:   $fatal(1, "[GOLDEN] bilinmeyen senaryo: %s", scenario);
     endcase
 
@@ -388,6 +418,10 @@ module ai_accel_tb;
     csr_write(5'h08, AI_SRAM_BASE);                  // DATA_ADDR = 0x30000
     csr_write(5'h0C, AI_SRAM_BASE + 32'h5A58);       // OUT_ADDR  = 0x35A58
 
+    // ADIM G: olcum penceresini kur
+    perf_t_start = perf_cyc;
+    perf_armed   = 1'b1;
+
     // START pulse'u
     $display("[%s] CTRL.START yazılıyor...", scenario);
     csr_write(5'h00, 32'h0000_0001);
@@ -422,6 +456,11 @@ module ai_accel_tb;
       local_errors++;
     end
     rtl_argmax = st[7:4];
+
+    // ADIM G: sartname penceresi raporu
+    perf_armed = 1'b0;
+    $display("[PERF-HW] %s: ilk-okuma -> son-yazma = %0d cycle | START -> olcum = %0d cycle",
+             scenario, perf_t_last - perf_t_first, perf_cyc - perf_t_start);
 
     // Belleğe yazılan RESULT word'ünü oku (cross-check)
     result_word = ai_mem[word_idx(AI_SRAM_BASE + 32'h5A58)];
@@ -477,6 +516,8 @@ module ai_accel_tb;
       "no":      $readmemh("sw/ai_model/golden_vectors/conv_out_no.hex",      golden_conv);
       "unknown": $readmemh("sw/ai_model/golden_vectors/conv_out_unknown.hex", golden_conv);
       "silence": $readmemh("sw/ai_model/golden_vectors/conv_out_silence.hex", golden_conv);
+      "yes_real": $readmemh("sw/ai_model/golden_vectors/conv_out_yes_real.hex", golden_conv);
+      "no_real":  $readmemh("sw/ai_model/golden_vectors/conv_out_no_real.hex",  golden_conv);
       default:   $fatal(1, "[CONVDIFF] bilinmeyen senaryo: %s", scenario);
     endcase
 
@@ -532,6 +573,105 @@ module ai_accel_tb;
   // =============================================================
   // Ana akış
   // =============================================================
+  // =============================================================
+  // ADIM F - %10 dogruluk penceresi: SW(tflite) vs RTL toplu kosu
+  // =============================================================
+  // run_accuracy_window.py 40 ornegi uretir; SW referans argmax'i
+  // acc_batch_expected.hex'teki word'lerden turetilir (4 INT8 bayt,
+  // output_*.hex ile ayni little-endian duzen). Dosyalar yoksa faz
+  // acik mesajla atlanir.
+  localparam int BATCH_N = 40;
+  localparam int BATCH_W = 490;
+
+  logic [31:0] batch_inputs   [0:BATCH_N*BATCH_W-1];
+  logic [31:0] batch_expected [0:BATCH_N-1];
+
+  function automatic int unsigned argmax_of_word(input logic [31:0] w);
+    logic signed [7:0] b [0:3];
+    int unsigned am;
+    logic signed [7:0] best;
+    b[0] = w[ 7: 0]; b[1] = w[15: 8]; b[2] = w[23:16]; b[3] = w[31:24];
+    am = 0; best = b[0];
+    for (int i = 1; i < 4; i++)
+      if ($signed(b[i]) > $signed(best)) begin best = b[i]; am = i; end
+    return am;
+  endfunction
+
+  task automatic run_accuracy_batch(output int batch_errors);
+    int fd_i, fd_e;
+    int unsigned in_base;
+    logic [31:0] st;
+    int unsigned sw_am, rtl_am;
+    int match_cnt;
+    bit irq_seen;
+
+    batch_errors = 0;
+    fd_i = $fopen("sw/ai_model/golden_vectors/acc_batch_inputs.hex", "r");
+    fd_e = $fopen("sw/ai_model/golden_vectors/acc_batch_expected.hex", "r");
+    if (fd_i == 0 || fd_e == 0) begin
+      if (fd_i != 0) $fclose(fd_i);
+      if (fd_e != 0) $fclose(fd_e);
+      $display("\n[BATCH] atlandi: acc_batch_*.hex yok - once python3 sw/ai_model/run_accuracy_window.py");
+      return;
+    end
+    $fclose(fd_i);
+    $fclose(fd_e);
+    $readmemh("sw/ai_model/golden_vectors/acc_batch_inputs.hex",   batch_inputs);
+    $readmemh("sw/ai_model/golden_vectors/acc_batch_expected.hex", batch_expected);
+
+    $display("\n[BATCH] ADIM F: %0d ornek, SW(tflite) referansina karsi RTL", BATCH_N);
+    in_base   = word_idx(AI_SRAM_BASE + 32'h0000);
+    match_cnt = 0;
+
+    for (int i = 0; i < BATCH_N; i++) begin
+      for (int k = 0; k < BATCH_W; k++)
+        ai_mem[in_base + k] = batch_inputs[i*BATCH_W + k];
+
+      csr_write(5'h08, AI_SRAM_BASE);                  // DATA_ADDR
+      csr_write(5'h0C, AI_SRAM_BASE + 32'h5A58);       // OUT_ADDR
+      csr_write(5'h00, 32'h0000_0001);                 // START
+
+      irq_seen = 1'b0;
+      fork
+        begin
+          wait (irq == 1'b1);
+          irq_seen = 1'b1;
+        end
+        begin
+          #10_000_000;   // 10 ms watchdog
+        end
+      join_any
+      disable fork;
+
+      if (!irq_seen) begin
+        $display("[BATCH-%0d] FAIL: IRQ timeout", i);
+        batch_errors++;
+        continue;
+      end
+
+      csr_read(5'h04, st);
+      rtl_am = st[7:4];
+      sw_am  = argmax_of_word(batch_expected[i]);
+
+      if (rtl_am == sw_am) begin
+        match_cnt++;
+        $display("[BATCH-%0d] sw=%0d rtl=%0d OK", i, sw_am, rtl_am);
+      end else begin
+        batch_errors++;
+        $display("[BATCH-%0d] sw=%0d rtl=%0d FARK", i, sw_am, rtl_am);
+      end
+
+      csr_write(5'h00, 32'h0000_0002);                 // DONE clear
+    end
+
+    $display("[BATCH] sinif eslesmesi: %0d/%0d", match_cnt, BATCH_N);
+    if (match_cnt == BATCH_N)
+      $display("[BATCH] PASS - |acc_SW - acc_RTL| = 0 puan <= 10 puan (EK-1 penceresi)");
+    else
+      $display("[BATCH] DIKKAT: %0d uyumsuz ornek; |acc farki| ust siniri %0d/%0d",
+               BATCH_N - match_cnt, BATCH_N - match_cnt, BATCH_N);
+  endtask
+
   int total_errors = 0;
 
   initial begin
@@ -559,18 +699,27 @@ module ai_accel_tb;
 
     // 4 senaryoyu sırayla koştur (Adım E)
     begin
-      string scen [0:3];
+      string scen [0:5];
       int e;
-      scen[0] = "yes"; scen[1] = "no"; scen[2] = "unknown"; scen[3] = "silence";
-      for (int s = 0; s < 4; s++) begin
+      // EK-3 (Zorunlu) gercek ses oznitelikleri once, sentetikler sonra
+      scen[0] = "yes_real"; scen[1] = "no_real";
+      scen[2] = "yes"; scen[3] = "no"; scen[4] = "unknown"; scen[5] = "silence";
+      for (int s = 0; s < 6; s++) begin
         run_scenario(scen[s], e);
         total_errors += e;
       end
     end
 
+    // ADIM F - dogruluk penceresi batch'i (dosyalar varsa)
+    begin
+      int be;
+      run_accuracy_batch(be);
+      total_errors += be;
+    end
+
     // Final
     if (total_errors == 0)
-      $display("\n[ADIM E] PASS — 4/4 senaryo argmax + conv_out tensor diff TEMIZ. Min #4 fazlasiyla kapandi.\n");
+      $display("\n[ADIM E] PASS - 6/6 senaryo (2 gercek ses oznitelik + 4 sentetik) argmax + conv_out tensor diff TEMIZ. Min #4 ve EK-3 zorunlu YZ testi kapandi.\n");
     else
       $display("\n[ADIM E] FAIL: toplam %0d hata\n", total_errors);
 
@@ -580,8 +729,9 @@ module ai_accel_tb;
 
   // Watchdog: tüm simülasyon en fazla 50 ms sürer (5M cycle @100MHz)
   initial begin
-    #50_000_000;
-    $display("[WATCHDOG] 50ms genel timeout, $finish");
+    // ADIM F batch (40 ornek x ~4.5ms) icin genisletildi: 50ms -> 250ms
+    #250_000_000;
+    $display("[WATCHDOG] 250ms genel timeout, $finish");
     $finish;
   end
 

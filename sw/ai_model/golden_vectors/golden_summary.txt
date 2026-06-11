@@ -1,7 +1,21 @@
-BLogic MCU -- YZ Hizlandirici Golden Vektor Raporu (RTL shift-only)
+BLogic MCU -- YZ Hizlandirici Golden Vektor Raporu (gercek TFLite requant)
+Kaynak: micro_speech_quantized.tflite (extract_weights.py + generate_golden.py)
+Sinif sirasi: [silence, unknown, yes, no]  (TFLite micro_speech kanonik sirasi)
 ============================================================
    Senaryo |                   FC_out | argmax |    Sinif
-       yes |          [5, 12, 30, 27] |      2 |  unknown
-        no |         [32, 10, 18, 11] |      0 |      yes
-   unknown |        [14, -13, 14, 13] |      0 |      yes
-   silence |            [6, 0, 18, 8] |      2 |  unknown
+   silence |         [14, 14, 14, 14] |      0 |  silence
+   unknown |       [-128, 90, 86, 82] |      1 |  unknown
+       yes |      [-128, 97, 112, 87] |      2 |      yes
+        no |     [-128, 111, 70, 127] |      3 |       no
+============================================================
+Capraz dogrulama: RTL tflite_requant formulunun bagimsiz Python
+kosimulasyonu, commit'li girdi ve agirliklarla conv_out 4x 4000/4000
+ve FC_out degerlerini birebir uretti; eski shift-only semantigi
+0/4000 verdi (vektorler kesin olarak gercek-model neslinden).
+silence senaryosundaki dortlu beraberlik [14,14,14,14] icin numpy,
+TB ve RTL argmax'lari ayni ilk-maksimum kuralini kullanir (-> 0).
+--- EK-3 gercek ses oznitelikleri ---
+Kaynak: tflite-micro micro_speech micro_features (1 sn mono WAV -> 49x40 oznitelik)
+      yes_real |       [-50, -5, 121, -4] |      2 |      yes
+       no_real |       [-61, 37, -13, 68] |      3 |       no
+Kodlama tespiti: int8 (dogrudan); kabul kosulu yes->2 ve no->3 saglandi.

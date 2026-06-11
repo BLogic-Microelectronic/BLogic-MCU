@@ -4,12 +4,13 @@
  * Adim 2.2: AI hizlandirici SoC seviyesi self-checking testi (polling).
  *
  * AI SRAM (`i_ai_sram` INIT_FILE="ai_sram_init.hex") onceden yuklenmis:
- *   - INPUT  @ 0x30000  = "yes" senaryosu (generate_ai_sram_init.py)
+ *   - INPUT  @ 0x30000  = "yes_real" senaryosu: gercek 1 sn WAV
+ *     kaynakli onislenmis oznitelik (EK-3; generate_ai_sram_init.py)
  *   - CONV_W/BIAS, FC_W/BIAS dogru offsetlerde
  *   Beklenen argmax = 2 (yes)
  *
  * Akis:
- *   1) UART_0 baud (CPB=54, alex_forencich uart icin 115200 @ 50MHz)
+ *   1) UART_0 baud (CPB=434 = clk/baud, EK-2; prescale=434>>3=54 -> 115200 @ 50MHz)
  *   2) Banner + STATUS sanity check
  *   3) DATA_ADDR/OUT_ADDR CSR yaz (default zaten dogru, MMIO yaz yolunu test)
  *   4) CTRL.START (bit 0)
@@ -69,11 +70,11 @@ static void uart_puth(UART_TypeDef *u, uint32_t v) {
  * -------------------------------------------------------------- */
 int main(void) {
     /* 1) UART0 baud */
-    UART0->CPB = 54;
+    UART0->CPB = 434;
 
     /* 2) Banner */
     uart_puts(UART0, "\n[AI] BLogic MCU - Micro Speech Test (polling)\n");
-    uart_puts(UART0, "[AI] Senaryo: yes  (beklenen argmax=2)\n");
+    uart_puts(UART0, "[AI] Senaryo: yes_real (gercek ses ozniteligi, beklenen argmax=2)\n");
 
     /* 2b) STATUS pre-start sanity (BUSY=0, DONE=0 beklenir) */
     uint32_t st0 = AI_ACC->STATUS;

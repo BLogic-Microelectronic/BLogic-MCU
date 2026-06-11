@@ -8,7 +8,7 @@ void uart_put_hex(uint32_t val) {
 }
 
 int main(void) {
-    UART0->CPB = 54;
+    UART0->CPB = 434;
 
     uart_puts(UART0, "=== GPIO LED Test ===\n");
 

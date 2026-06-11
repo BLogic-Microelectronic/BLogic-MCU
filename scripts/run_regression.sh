@@ -110,14 +110,14 @@ spike_lockstep_test() {
 
     rm -rf "$PROJ/build"
     make -f Makefile.verilator sw FW_SRC=sw/tests/minimal_test.c \
-        EXTRA_CFLAGS="-DCPB_VAL=54" \
+        EXTRA_CFLAGS="-DCPB_VAL=434" \
         >"$REG_DIR/${test_name}_build.log" 2>&1
 
     cp "$PROJ/build/instr_mem.hex" "$PROJ/obj_dir/firmware.hex"
     cp "$PROJ/build/data_mem.hex"  "$PROJ/obj_dir/data_mem.hex"
 
     cd "$PROJ/obj_dir"
-    ./blogic_sim +CPB=432 "+TEST_NAME=$test_name" "+LOGDIR=$logdir" \
+    ./blogic_sim +CPB=434 "+TEST_NAME=$test_name" "+LOGDIR=$logdir" \
         >"$logdir/stdout.log" 2>&1 || true
     cd "$PROJ"
 
@@ -137,8 +137,9 @@ spike_lockstep_test() {
 }
 
 # === Testler ===
-run_test "UART_TX_115200" 54 432 "sw/tests/uart_hello.c"
-run_test "UART_TX_9600"   651 5208 "sw/tests/uart_hello.c"
+run_test "UART_TX_115200" 434 434 "sw/tests/uart_hello.c"
+run_test "UART_TX_1M"     50   50   "sw/tests/uart_hello.c"
+run_test "UART_TX_9600"   5208 5208 "sw/tests/uart_hello.c"
 spike_lockstep_test
 
 mkdir -p "$PROJ/obj_dir"
@@ -148,7 +149,7 @@ BB
 CC
 DD
 FLASHEOF
-run_test "QSPI_Flash" 54 432 "sw/tests/qspi_test.c"
+run_test "QSPI_Flash" 434 434 "sw/tests/qspi_test.c"
 
 # === Ozet ===
 {
