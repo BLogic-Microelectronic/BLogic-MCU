@@ -82,6 +82,7 @@ rtl/peripherals/gpio_axil.sv
 rtl/peripherals/timer_axil.sv
 rtl/peripherals/i2c_master_axil.sv
 rtl/peripherals/qspi_master_axil.sv
+rtl/peripherals/uart_stream_axil.sv
 
 # 9. PROTOCOL CHECKER'LAR (doğrulama — sentezde dahil edilmez)
 verif/sva/axi_lite_protocol_checker.sv

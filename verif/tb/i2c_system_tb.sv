@@ -15,6 +15,7 @@ module i2c_system_tb;
     soc_top #(.BOOT_ADDR(32'h0001_0000)) dut (
         .clk_i(clk), .rst_ni(resetn),
         .uart_rxd_i(uart_rx), .uart_txd_o(uart_tx),
+        .uart1_rxd_i(1'b1), .uart1_txd_o(),
         .qspi_sclk_o(qspi_sclk), .qspi_cs_no(qspi_cs_n),
         .qspi_io_o(qspi_io_o), .qspi_io_oe(qspi_io_oe),
         .qspi_io_i(4'hF),

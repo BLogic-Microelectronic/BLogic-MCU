@@ -141,6 +141,7 @@ int main(int argc, char** argv) {
     time_t     t_start_s   = time(nullptr);
 
     top->clk_i = 0; top->rst_ni = 0; top->uart_rxd_i = 1;
+    top->uart1_rxd_i = 1;   // UART_1 (YZ stream) hatti bosta '1'
     top->gpio_in_i = 0; top->qspi_io_i = 0;
     top->eval();
     for (int i = 0; i < 20; i++) { top->clk_i = !top->clk_i; top->eval(); }

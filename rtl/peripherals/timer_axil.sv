@@ -57,8 +57,12 @@ module timer_axil (
     logic wr_clr_hit;
     logic wr_evc_hit;
  
-    // Timer interrupt: event oluştuğunda pulse
-    assign timer_irq_o = (tim_cnt == tim_are) && tim_ena;
+    // Timer interrupt: bekleyen event varken level-aktif.
+    // ISR, TIM_EVC[0]=1 yazarak (event clear) IRQ'yu düşürür — EK-2
+    // registerlarıyla birebir SW-temizlenebilir kesme semantiği.
+    // (Önceki hali tim_cnt==tim_are boyunca, yani büyük prescale'de
+    //  bir tam prescale periyodu yüksek kalıyordu ve SW temizleyemiyordu.)
+    assign timer_irq_o = (tim_evn != 32'd0);
  
     // =========================================================
     // 3. TIMER SAYAÇ MANTIĞI

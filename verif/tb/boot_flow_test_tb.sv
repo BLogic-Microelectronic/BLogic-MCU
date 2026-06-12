@@ -14,11 +14,11 @@ module boot_flow_test_tb;
     soc_top #(.BOOT_ADDR(32'h0000_0000)) dut (
         .clk_i(clk), .rst_ni(resetn),
         .uart_rxd_i(uart_rx), .uart_txd_o(uart_tx),
+        .uart1_rxd_i(1'b1), .uart1_txd_o(),
         .qspi_sclk_o(qspi_sclk), .qspi_cs_no(qspi_cs_n),
         .qspi_io_o(qspi_io_o), .qspi_io_oe(qspi_io_oe),
         .qspi_io_i(qspi_io_i),
         .gpio_in_i('0)
-        // NOT: soc_top'un diger port'larini buraya ekle (Berkin'in mevcut wrapper'inden bak)
     );
 
     // Flash model v2: 4-lane arayuz (x1 boot yolu davranissal olarak birebir)

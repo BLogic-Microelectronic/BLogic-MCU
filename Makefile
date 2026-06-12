@@ -32,7 +32,7 @@ BOOT_DIR  = obj_dir_boot
 AI_DIR    = obj_dir_ai
 ARCH_EXT ?= I
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage qspi-modes i2c-sys uart-baud uart-stp ai-acc soc-perf
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -69,6 +69,20 @@ uart-stp:
 	cd $(UARTSTP_DIR) && ./uart_stp_sim 2>&1 | tee uart_stp_run.log
 	@grep -aq "TEST SUCCESS" $(UARTSTP_DIR)/uart_stp_run.log \
 	    && echo "[UART-STP] PASS (stop 1 / 1.5 / 2)" || { echo "[UART-STP] FAIL"; exit 1; }
+
+# --- UART-stream (UART_1 / YZ veri akisi): DMA → AI SRAM dogrulamasi ---
+UARTSTRM_DIR = obj_dir_uart_stream
+uart-stream:
+	rm -rf $(UARTSTRM_DIR)
+	verilator --binary --timing --top-module uart_stream_tb \
+	    -Mdir $(UARTSTRM_DIR) -o uart_stream_sim \
+	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
+	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
+	    rtl/peripherals/uart_stream_axil.sv rtl/peripherals/uart_tx.v rtl/peripherals/uart_rx.v \
+	    verif/tb/uart_stream_tb.sv
+	cd $(UARTSTRM_DIR) && ./uart_stream_sim 2>&1 | tee uart_stream_run.log
+	@grep -aq "TEST SUCCESS" $(UARTSTRM_DIR)/uart_stream_run.log \
+	    && echo "[UART-STREAM] PASS (DMA A-E 5 senaryo)" || { echo "[UART-STREAM] FAIL"; exit 1; }
 
 # --- QSPI boot akisi (Min Kriter #2): her seferinde temiz build ---
 boot:
@@ -184,6 +198,7 @@ test-all:
 	r=PASS; $(MAKE) regression || { r=FAIL; overall=1; }; \
 	ub=PASS; $(MAKE) uart-baud || { ub=FAIL; overall=1; }; \
 	us=PASS; $(MAKE) uart-stp  || { us=FAIL; overall=1; }; \
+	ut=PASS; $(MAKE) uart-stream || { ut=FAIL; overall=1; }; \
 	b=PASS; $(MAKE) boot       || { b=FAIL; overall=1; }; \
 	q=PASS; $(MAKE) qspi-modes || { q=FAIL; overall=1; }; \
 	i2=PASS; $(MAKE) i2c-sys   || { i2=FAIL; overall=1; }; \
@@ -199,6 +214,7 @@ test-all:
 	echo "  regression (UARTx3+lockstep+QSPI) : $$r"; \
 	echo "  uart-baud  (115200/1Mbps/9600)     : $$ub"; \
 	echo "  uart-stp   (stop 1/1.5/2)          : $$us"; \
+	echo "  uart-stream (DMA → AI SRAM)        : $$ut"; \
 	echo "  boot       (QSPI boot akisi)      : $$b"; \
 	echo "  qspi-modes (x1/x2/x4 + 4B adres)   : $$q"; \
 	echo "  i2c-sys    (NBY/ADR+TX/RX echo)    : $$i2"; \
@@ -224,6 +240,7 @@ help:
 	@echo "  make regression  - 5'li fonksiyonel + protokol regresyonu (1 Mbps dahil)"
 	@echo "  make uart-baud   - EK-2 cok-baud kaniti (115200 -> 1 Mbps -> 9600)"
 	@echo "  make uart-stp    - EK-2 stop-bit 1/1.5/2 dogrulamasi (uart_axil TB)"
+	@echo "  make uart-stream - UART_1 YZ stream DMA → AI SRAM (uart_stream_axil TB)"
 	@echo "  make boot        - QSPI boot akisi (boot_flow_test_tb)"
 	@echo "  make ai          - AI accel standalone TB (4 senaryo)"
 	@echo "  make soc-ai      - SoC seviyesi AI C testi"

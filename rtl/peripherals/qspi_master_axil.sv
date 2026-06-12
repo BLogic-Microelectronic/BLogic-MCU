@@ -67,6 +67,15 @@ module qspi_master_axil (
     logic [ 5:0] ccr_prescaler;
     logic [31:0] qspi_adr;
     logic        cfg_addr4b;   // FCR[2] (yarismaci tanimli): 1 = 4-bayt adres fazi
+    // FCR[4:3] (yarismaci tanimli): adres fazi kontrolu
+    //   00 = OTOMATIK (veri fazi varsa adres gonderilir: READ/DOR/QOR/PP/QPP/
+    //                  READ_ID/RES — bootrom ve eski yazilimla geriye uyumlu)
+    //   01 = ZORLA    (veri fazi olmasa da adres gonder: SE)
+    //   10 = KAPAT    (veri fazi olsa da adres atlanir: RDID/RDSR1/RDSR2/RDCR/WRR)
+    logic [ 1:0] cfg_addr_mode;
+    wire addr_phase_en = (cfg_addr_mode == 2'b01) ? 1'b1 :
+                         (cfg_addr_mode == 2'b10) ? 1'b0 :
+                                                    (ccr_data_mode != 2'b00);
     // Veri fazinda SCLK basina kaydirilan bit sayisi (CMD/ADDR/DUMMY daima x1)
     wire  [2:0]  lane_w  = (ccr_data_mode == 2'b11) ? 3'd4 :
                            (ccr_data_mode == 2'b10) ? 3'd2 : 3'd1;
@@ -277,13 +286,30 @@ module qspi_master_axil (
                 SPI_SEND_CMD: begin
                     if (sclk_rising) begin
                         if (bit_cnt == 0) begin
-                            if (ccr_data_mode == 2'b00)
-                                spi_state <= SPI_CS_DEASSERT;
-                            else begin
+                            if (addr_phase_en) begin
                                 spi_state <= SPI_SEND_ADDR;
                                 bit_cnt   <= 3'd7;
                                 addr_byte <= 2'd0;
                                 shift_out <= adr_eff[31:24];
+                            end else if (ccr_data_mode == 2'b00) begin
+                                // komut-only (WREN/WRDI/CLSR/RESET)
+                                spi_state <= SPI_CS_DEASSERT;
+                            end else if (ccr_dummy > 0) begin
+                                // adressiz + dummy + veri (örn. RES x1 varyantı)
+                                spi_state <= SPI_DUMMY;
+                                dummy_cnt <= ccr_dummy;
+                            end else if (ccr_dir) begin
+                                // adressiz yazma (WRR: SR1/CR1)
+                                spi_state <= SPI_DATA_TX;
+                                bit_cnt   <= 3'd7;
+                                tx_current_word <= tx_fifo[tx_rd_ptr[FIFO_AW-1:0]];
+                                shift_out <= tx_fifo[tx_rd_ptr[FIFO_AW-1:0]][7:0];
+                                tx_byte_pos <= 2'd1;
+                            end else begin
+                                // adressiz okuma (RDID/RDSR1/RDSR2/RDCR/RES)
+                                spi_state <= SPI_DATA_RX;
+                                bit_cnt   <= 3'd7;
+                                shift_in  <= '0;
                             end
                         end else
                             bit_cnt <= bit_cnt - 1;
@@ -294,7 +320,10 @@ module qspi_master_axil (
                     if (sclk_rising) begin
                         if (bit_cnt == 0) begin
                             if (addr_byte == (cfg_addr4b ? 2'd3 : 2'd2)) begin
-                                if (ccr_dummy > 0) begin
+                                if (ccr_data_mode == 2'b00) begin
+                                    // adresli/verisiz komut (SE — addr_mode=ZORLA)
+                                    spi_state <= SPI_CS_DEASSERT;
+                                end else if (ccr_dummy > 0) begin
                                     spi_state <= SPI_DUMMY;
                                     dummy_cnt <= ccr_dummy;
                                 end else if (ccr_dir) begin
@@ -457,6 +486,7 @@ module qspi_master_axil (
             cmd_rx_flush  <= 1'b0;
             cmd_tx_flush  <= 1'b0;
             cfg_addr4b    <= 1'b0;
+            cfg_addr_mode <= 2'b00;
         end else begin
             // Pulse sinyallerini varsayılan olarak temizle
             cmd_start    <= 1'b0;
@@ -500,7 +530,8 @@ module qspi_master_axil (
                     ADDR_FCR: begin
                         if (s_axi_wdata[0]) cmd_rx_flush <= 1'b1;
                         if (s_axi_wdata[1]) cmd_tx_flush <= 1'b1;
-                        cfg_addr4b <= s_axi_wdata[2];   // yarismaci tanimli: 4B adres modu
+                        cfg_addr4b    <= s_axi_wdata[2];   // yarismaci tanimli: 4B adres modu
+                        cfg_addr_mode <= s_axi_wdata[4:3]; // yarismaci tanimli: adres fazi modu
                     end
                     default: ;
                 endcase
@@ -550,7 +581,7 @@ module qspi_master_axil (
                                                tx_empty, tx_full,
                                                rx_empty, rx_full,
                                                2'd0, sta_busy, sta_done};
-                    ADDR_FCR: s_axi_rdata <= {29'd0, cfg_addr4b, 2'b00};
+                    ADDR_FCR: s_axi_rdata <= {27'd0, cfg_addr_mode, cfg_addr4b, 2'b00};
                     default:  s_axi_rdata <= 32'd0;
                 endcase
             end else if (s_axi_rvalid && s_axi_rready)

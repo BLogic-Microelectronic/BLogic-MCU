@@ -1,11 +1,13 @@
 // ============================================================
-// AI Accelerator Protocol Checker Bind
+// AI Accelerator Protocol Checker Bind  —  [ARŞİV / KULLANILMIYOR]
 // ============================================================
-// Bu kodu ai_accelerator soc_top'a bağlandığında ekleyin.
-// Hem AXI-Lite CSR arayüzünü hem AXI4 master arayüzünü kontrol eder.
-//
-// ÖNKOŞUL: soc_top.sv'de ai_accelerator instantiate edilmiş olmalı.
-// Aşağıdaki sinyal isimlerini kendi instance'ınıza göre güncelleyin.
+// Bu snippet'in içeriği soc_protocol_bind.sv'ye TAŞINDI:
+//   - AI_CSR      → i_chk_ai_csr      (axi_lite_protocol_checker)
+//   - AI_AXI4_MST → i_chk_ai_master   (axi4_protocol_checker)
+// soc_top.sv → i_protocol_checkers instance'ı bu arayüzleri artık
+// port üzerinden bağlıyor (hiyerarşik referans gerekmez, Verilator
+// uyumlu). Bu dosya referans amaçlı tutuluyor; derleme listesinde
+// (soc_files.f) DEĞİLDİR ve eklenmemelidir.
 // ============================================================
 
     // --- AI Hızlandırıcı AXI-Lite Slave (CSR arayüzü) ---

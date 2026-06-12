@@ -16,6 +16,9 @@ module soc_top #(
     // Dış Dünya
     input  logic        uart_rxd_i,
     output logic        uart_txd_o,
+    // UART_1 / YZ stream (DMA) pinleri — YENİ
+    input  logic        uart1_rxd_i,
+    output logic        uart1_txd_o,
     input  logic [31:0] gpio_in_i,
     output logic [31:0] gpio_out_o,
 
@@ -56,15 +59,18 @@ module soc_top #(
     logic [ 3:0] data_be;
     logic [31:0] data_addr, data_wdata, data_rdata;
 
-    // Kesme sinyalleri: timer bit 16, AI bit 17
+    // Kesme sinyalleri: timer bit 16, AI bit 17, UART-stream DMA bit 18
     logic        timer_irq;
     logic        ai_irq;
+    logic        strm_irq;
 
     logic [31:0] irq_vector;
-    assign irq_vector = {14'd0, ai_irq, timer_irq, 16'd0};
+    assign irq_vector = {13'd0, strm_irq, ai_irq, timer_irq, 16'd0};
 
     // AI accelerator durumu (arbiter için bus ownership sinyali)
     logic        ai_busy;
+    // UART-stream DMA aktif (arbiter için bus ownership sinyali)
+    logic        strm_busy;
 
     // ============================================================
     // 3. İŞLEMCİ ÇEKİRDEĞİ (CV32E40P)
@@ -189,6 +195,14 @@ module soc_top #(
     logic        timer_bvalid,  timer_bready,  timer_arvalid, timer_arready;
     logic        timer_rvalid,  timer_rready;
 
+    // UART_1 / YZ stream (decoder 0x3) — YENİ
+    logic [31:0] uart1_awaddr,  uart1_araddr,  uart1_wdata,  uart1_rdata;
+    logic [3:0]  uart1_wstrb;
+    logic        uart1_awvalid, uart1_awready, uart1_wvalid, uart1_wready;
+    logic [1:0]  uart1_bresp,   uart1_rresp;
+    logic        uart1_bvalid,  uart1_bready,  uart1_arvalid, uart1_arready;
+    logic        uart1_rvalid,  uart1_rready;
+
     logic [31:0] qspi_awaddr,  qspi_araddr,  qspi_wdata,  qspi_rdata;
     logic [3:0]  qspi_wstrb;
     logic        qspi_awvalid, qspi_awready, qspi_wvalid, qspi_wready;
@@ -239,6 +253,12 @@ module soc_top #(
         .timer_bresp, .timer_bvalid, .timer_bready,
         .timer_araddr, .timer_arvalid, .timer_arready,
         .timer_rdata, .timer_rresp, .timer_rvalid, .timer_rready,
+        // UART_1 / YZ stream — YENİ
+        .uart1_awaddr, .uart1_awvalid, .uart1_awready,
+        .uart1_wdata, .uart1_wstrb, .uart1_wvalid, .uart1_wready,
+        .uart1_bresp, .uart1_bvalid, .uart1_bready,
+        .uart1_araddr, .uart1_arvalid, .uart1_arready,
+        .uart1_rdata, .uart1_rresp, .uart1_rvalid, .uart1_rready,
         // I2C — YENİ
         .i2c_awaddr, .i2c_awvalid, .i2c_awready,
         .i2c_wdata, .i2c_wstrb, .i2c_wvalid, .i2c_wready,
@@ -277,6 +297,11 @@ module soc_top #(
     // ============================================================
     // 9. GPIO (0x4000_0100)
     // ============================================================
+    // EK-2: 32 pin = 16 sabit giriş + 16 sabit çıkış. Top portlar
+    // 32-bit tutulur; geçerli alan [15:0], çıkışın üst 16 biti sabit 0.
+    logic [15:0] gpio_out16;
+    assign gpio_out_o = {16'd0, gpio_out16};
+
     gpio_axil i_gpio (
         .clk_i(clk_i), .rst_ni(rst_ni),
         .s_axi_awaddr(gpio_awaddr), .s_axi_awvalid(gpio_awvalid), .s_axi_awready(gpio_awready),
@@ -286,7 +311,7 @@ module soc_top #(
         .s_axi_araddr(gpio_araddr), .s_axi_arvalid(gpio_arvalid), .s_axi_arready(gpio_arready),
         .s_axi_rdata(gpio_rdata), .s_axi_rresp(gpio_rresp),
         .s_axi_rvalid(gpio_rvalid), .s_axi_rready(gpio_rready),
-        .gpio_in_i(gpio_in_i), .gpio_out_o(gpio_out_o)
+        .gpio_in_i(gpio_in_i[15:0]), .gpio_out_o(gpio_out16)
     );
 
     // ============================================================
@@ -394,6 +419,63 @@ module soc_top #(
     );
 
     // ============================================================
+    // 13b. UART_1 / YZ STREAM (0x4000_0300) + AI SRAM DMA — YENİ
+    // ============================================================
+    // RX baytlarını AI SRAM'e DMA ile yazar (kendi AXI4 master'ı arbiter'a).
+    logic [ 3:0] strm_m_awid;
+    logic [31:0] strm_m_awaddr;
+    logic [ 7:0] strm_m_awlen;
+    logic [ 2:0] strm_m_awsize;
+    logic [ 1:0] strm_m_awburst;
+    logic        strm_m_awvalid, strm_m_awready;
+    logic [31:0] strm_m_wdata;
+    logic [ 3:0] strm_m_wstrb;
+    logic        strm_m_wlast, strm_m_wvalid, strm_m_wready;
+    logic [ 3:0] strm_m_bid;
+    logic [ 1:0] strm_m_bresp;
+    logic        strm_m_bvalid, strm_m_bready;
+    // Okuma kanalı (stream okumaz; arbiter'a bağlanmaz, modülde tieoff)
+    logic [ 3:0] strm_m_arid;
+    logic [31:0] strm_m_araddr;
+    logic [ 7:0] strm_m_arlen;
+    logic [ 2:0] strm_m_arsize;
+    logic [ 1:0] strm_m_arburst;
+    logic        strm_m_arvalid;
+    logic [ 3:0] strm_m_rid;
+    logic [31:0] strm_m_rdata;
+    logic [ 1:0] strm_m_rresp;
+    logic        strm_m_rlast, strm_m_rvalid;
+
+    uart_stream_axil i_uart_1 (
+        .clk_i(clk_i), .rst_ni(rst_ni),
+        // AXI4-Lite Slave (CSR)
+        .s_axi_awaddr(uart1_awaddr), .s_axi_awvalid(uart1_awvalid), .s_axi_awready(uart1_awready),
+        .s_axi_wdata(uart1_wdata), .s_axi_wstrb(uart1_wstrb),
+        .s_axi_wvalid(uart1_wvalid), .s_axi_wready(uart1_wready),
+        .s_axi_bresp(uart1_bresp), .s_axi_bvalid(uart1_bvalid), .s_axi_bready(uart1_bready),
+        .s_axi_araddr(uart1_araddr), .s_axi_arvalid(uart1_arvalid), .s_axi_arready(uart1_arready),
+        .s_axi_rdata(uart1_rdata), .s_axi_rresp(uart1_rresp),
+        .s_axi_rvalid(uart1_rvalid), .s_axi_rready(uart1_rready),
+        // AXI4 Master (AI SRAM DMA)
+        .m_axi_awid(strm_m_awid), .m_axi_awaddr(strm_m_awaddr), .m_axi_awlen(strm_m_awlen),
+        .m_axi_awsize(strm_m_awsize), .m_axi_awburst(strm_m_awburst),
+        .m_axi_awvalid(strm_m_awvalid), .m_axi_awready(strm_m_awready),
+        .m_axi_wdata(strm_m_wdata), .m_axi_wstrb(strm_m_wstrb), .m_axi_wlast(strm_m_wlast),
+        .m_axi_wvalid(strm_m_wvalid), .m_axi_wready(strm_m_wready),
+        .m_axi_bid(strm_m_bid), .m_axi_bresp(strm_m_bresp),
+        .m_axi_bvalid(strm_m_bvalid), .m_axi_bready(strm_m_bready),
+        .m_axi_arid(strm_m_arid), .m_axi_araddr(strm_m_araddr), .m_axi_arlen(strm_m_arlen),
+        .m_axi_arsize(strm_m_arsize), .m_axi_arburst(strm_m_arburst),
+        .m_axi_arvalid(strm_m_arvalid), .m_axi_arready(1'b0),
+        .m_axi_rid(4'd0), .m_axi_rdata(32'd0), .m_axi_rresp(2'd0),
+        .m_axi_rlast(1'b0), .m_axi_rvalid(1'b0), .m_axi_rready(),
+        // Pinler + durum
+        .rxd_i(uart1_rxd_i), .txd_o(uart1_txd_o),
+        .stream_active_o(strm_busy),
+        .irq_o(strm_irq)
+    );
+
+    // ============================================================
     // 14. AI SRAM ARBITER — YENİ
     // ============================================================
     // Crossbar (CPU yolu) ile AI accelerator master'ı 2:1 muxlayıp
@@ -402,6 +484,7 @@ module soc_top #(
     ai_sram_arbiter i_ai_arb (
         .clk_i(clk_i), .rst_ni(rst_ni),
         .ai_active(ai_busy),
+        .strm_active(strm_busy),
         .cpu(cpu_to_ai_sram_bus),
 
         .ai_awid(ai_m_awid), .ai_awaddr(ai_m_awaddr), .ai_awlen(ai_m_awlen),
@@ -416,6 +499,15 @@ module soc_top #(
         .ai_arvalid(ai_m_arvalid), .ai_arready(ai_m_arready),
         .ai_rid(ai_m_rid), .ai_rdata(ai_m_rdata), .ai_rresp(ai_m_rresp),
         .ai_rlast(ai_m_rlast), .ai_rvalid(ai_m_rvalid), .ai_rready(ai_m_rready),
+
+        // UART-stream DMA master (yalnız yazma)
+        .strm_awid(strm_m_awid), .strm_awaddr(strm_m_awaddr), .strm_awlen(strm_m_awlen),
+        .strm_awsize(strm_m_awsize), .strm_awburst(strm_m_awburst),
+        .strm_awvalid(strm_m_awvalid), .strm_awready(strm_m_awready),
+        .strm_wdata(strm_m_wdata), .strm_wstrb(strm_m_wstrb), .strm_wlast(strm_m_wlast),
+        .strm_wvalid(strm_m_wvalid), .strm_wready(strm_m_wready),
+        .strm_bid(strm_m_bid), .strm_bresp(strm_m_bresp),
+        .strm_bvalid(strm_m_bvalid), .strm_bready(strm_m_bready),
 
         .sram(ai_sram_bus)
     );
@@ -439,9 +531,10 @@ module soc_top #(
     // ============================================================
     // 16. PROTOCOL CHECKER'LAR (Doğrulama — Sentez'de çıkarılır)
     // ============================================================
-    // NOT: AI accelerator için ai_accel_checker_bind.sv ayrı bind ediliyor.
-    // TODO: I2C arayüzü için soc_protocol_bind'a i2c_* portları eklenecek
-    //       (şartname asgari kriteri: tüm çevre birimlerinde protocol check).
+    // Şartname EK-3 (Zorunlu): tüm çevre birimleri + YZ hızlandırıcı
+    // arayüzleri protocol check ile izlenir. Kapsam: periph köprüsü,
+    // UART_0/1, GPIO, Timer, I2C, QSPI, AI CSR (AXI-Lite) ve
+    // AI + stream-DMA AXI4 master'ları.
     // synthesis translate_off
     // verilator lint_off UNUSED
     // verilator lint_off UNDRIVEN
@@ -493,7 +586,57 @@ module soc_top #(
         .qspi_bresp   (qspi_bresp),   .qspi_bvalid  (qspi_bvalid),  .qspi_bready  (qspi_bready),
         .qspi_araddr  (qspi_araddr),  .qspi_arvalid (qspi_arvalid), .qspi_arready (qspi_arready),
         .qspi_rdata   (qspi_rdata),   .qspi_rresp   (qspi_rresp),
-        .qspi_rvalid  (qspi_rvalid),  .qspi_rready  (qspi_rready)
+        .qspi_rvalid  (qspi_rvalid),  .qspi_rready  (qspi_rready),
+
+        // I2C
+        .i2c_awaddr   (i2c_awaddr),   .i2c_awvalid  (i2c_awvalid),  .i2c_awready  (i2c_awready),
+        .i2c_wdata    (i2c_wdata),    .i2c_wstrb    (i2c_wstrb),
+        .i2c_wvalid   (i2c_wvalid),   .i2c_wready   (i2c_wready),
+        .i2c_bresp    (i2c_bresp),    .i2c_bvalid   (i2c_bvalid),   .i2c_bready   (i2c_bready),
+        .i2c_araddr   (i2c_araddr),   .i2c_arvalid  (i2c_arvalid),  .i2c_arready  (i2c_arready),
+        .i2c_rdata    (i2c_rdata),    .i2c_rresp    (i2c_rresp),
+        .i2c_rvalid   (i2c_rvalid),   .i2c_rready   (i2c_rready),
+
+        // UART_1 / YZ stream (CSR)
+        .uart1_awaddr (uart1_awaddr), .uart1_awvalid(uart1_awvalid), .uart1_awready(uart1_awready),
+        .uart1_wdata  (uart1_wdata),  .uart1_wstrb  (uart1_wstrb),
+        .uart1_wvalid (uart1_wvalid), .uart1_wready (uart1_wready),
+        .uart1_bresp  (uart1_bresp),  .uart1_bvalid (uart1_bvalid),  .uart1_bready (uart1_bready),
+        .uart1_araddr (uart1_araddr), .uart1_arvalid(uart1_arvalid), .uart1_arready(uart1_arready),
+        .uart1_rdata  (uart1_rdata),  .uart1_rresp  (uart1_rresp),
+        .uart1_rvalid (uart1_rvalid), .uart1_rready (uart1_rready),
+
+        // AI Accelerator CSR
+        .ai_awaddr    (ai_awaddr),    .ai_awvalid   (ai_awvalid),   .ai_awready   (ai_awready),
+        .ai_wdata     (ai_wdata),     .ai_wstrb     (ai_wstrb),
+        .ai_wvalid    (ai_wvalid),    .ai_wready    (ai_wready),
+        .ai_bresp     (ai_bresp),     .ai_bvalid    (ai_bvalid),    .ai_bready    (ai_bready),
+        .ai_araddr    (ai_araddr),    .ai_arvalid   (ai_arvalid),   .ai_arready   (ai_arready),
+        .ai_rdata     (ai_rdata),     .ai_rresp     (ai_rresp),
+        .ai_rvalid    (ai_rvalid),    .ai_rready    (ai_rready),
+
+        // AI Accelerator AXI4 master (AI SRAM)
+        .aim_awid     (ai_m_awid),    .aim_awaddr   (ai_m_awaddr),  .aim_awlen    (ai_m_awlen),
+        .aim_awsize   (ai_m_awsize),  .aim_awburst  (ai_m_awburst),
+        .aim_awvalid  (ai_m_awvalid), .aim_awready  (ai_m_awready),
+        .aim_wdata    (ai_m_wdata),   .aim_wstrb    (ai_m_wstrb),   .aim_wlast    (ai_m_wlast),
+        .aim_wvalid   (ai_m_wvalid),  .aim_wready   (ai_m_wready),
+        .aim_bid      (ai_m_bid),     .aim_bresp    (ai_m_bresp),
+        .aim_bvalid   (ai_m_bvalid),  .aim_bready   (ai_m_bready),
+        .aim_arid     (ai_m_arid),    .aim_araddr   (ai_m_araddr),  .aim_arlen    (ai_m_arlen),
+        .aim_arsize   (ai_m_arsize),  .aim_arburst  (ai_m_arburst),
+        .aim_arvalid  (ai_m_arvalid), .aim_arready  (ai_m_arready),
+        .aim_rid      (ai_m_rid),     .aim_rdata    (ai_m_rdata),   .aim_rresp    (ai_m_rresp),
+        .aim_rlast    (ai_m_rlast),   .aim_rvalid   (ai_m_rvalid),  .aim_rready   (ai_m_rready),
+
+        // UART_1 stream DMA AXI4 master (yalnız yazma)
+        .stm_awid     (strm_m_awid),    .stm_awaddr  (strm_m_awaddr), .stm_awlen   (strm_m_awlen),
+        .stm_awsize   (strm_m_awsize),  .stm_awburst (strm_m_awburst),
+        .stm_awvalid  (strm_m_awvalid), .stm_awready (strm_m_awready),
+        .stm_wdata    (strm_m_wdata),   .stm_wstrb   (strm_m_wstrb),  .stm_wlast   (strm_m_wlast),
+        .stm_wvalid   (strm_m_wvalid),  .stm_wready  (strm_m_wready),
+        .stm_bid      (strm_m_bid),     .stm_bresp   (strm_m_bresp),
+        .stm_bvalid   (strm_m_bvalid),  .stm_bready  (strm_m_bready)
     );
 
     // verilator lint_on UNUSED

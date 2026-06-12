@@ -7,7 +7,7 @@
 //   0x0 → UART_0    (0x4000_0000)
 //   0x1 → GPIO      (0x4000_0100)
 //   0x2 → Timer     (0x4000_0200)
-//   0x3 → UART_1    (0x4000_0300) — ileride
+//   0x3 → UART_1    (0x4000_0300) — YZ stream UART (DMA)
 //   0x4 → I2C       (0x4000_0400) — YENİ
 //   0x5 → QSPI      (0x4000_0500)
 //   0x6 → AI_ACC    (0x4000_0600) — CSR erişimi (YENİ)
@@ -57,6 +57,13 @@ module periph_decoder (
     output logic [31:0] timer_araddr, output logic timer_arvalid, input  logic timer_arready,
     input  logic [31:0] timer_rdata,  input  logic [1:0] timer_rresp, input  logic timer_rvalid,  output logic timer_rready,
 
+    // UART_1 / YZ stream (0x3) — YENİ
+    output logic [31:0] uart1_awaddr, output logic uart1_awvalid, input  logic uart1_awready,
+    output logic [31:0] uart1_wdata,  output logic [3:0] uart1_wstrb, output logic uart1_wvalid,  input  logic uart1_wready,
+    input  logic [ 1:0] uart1_bresp,  input  logic uart1_bvalid,  output logic uart1_bready,
+    output logic [31:0] uart1_araddr, output logic uart1_arvalid, input  logic uart1_arready,
+    input  logic [31:0] uart1_rdata,  input  logic [1:0] uart1_rresp, input  logic uart1_rvalid,  output logic uart1_rready,
+
     // I2C (0x4) — YENİ
     output logic [31:0] i2c_awaddr,   output logic i2c_awvalid,  input  logic i2c_awready,
     output logic [31:0] i2c_wdata,    output logic [3:0] i2c_wstrb, output logic i2c_wvalid,   input  logic i2c_wready,
@@ -83,9 +90,9 @@ module periph_decoder (
     wire [3:0] ar_sel = s_araddr[11:8];
 
     wire aw_valid_addr = (aw_sel == 4'h0) || (aw_sel == 4'h1) || (aw_sel == 4'h2)
-                      || (aw_sel == 4'h4) || (aw_sel == 4'h5) || (aw_sel == 4'h6);
+                      || (aw_sel == 4'h3) || (aw_sel == 4'h4) || (aw_sel == 4'h5) || (aw_sel == 4'h6);
     wire ar_valid_addr = (ar_sel == 4'h0) || (ar_sel == 4'h1) || (ar_sel == 4'h2)
-                      || (ar_sel == 4'h4) || (ar_sel == 4'h5) || (ar_sel == 4'h6);
+                      || (ar_sel == 4'h3) || (ar_sel == 4'h4) || (ar_sel == 4'h5) || (ar_sel == 4'h6);
 
     logic [3:0] wr_sel_q, rd_sel_q;
     logic       err_aw_pending, err_ar_pending;
@@ -116,23 +123,28 @@ module periph_decoder (
     assign uart_awaddr  = s_awaddr; assign gpio_awaddr  = s_awaddr;
     assign timer_awaddr = s_awaddr; assign qspi_awaddr  = s_awaddr;
     assign ai_awaddr    = s_awaddr; assign i2c_awaddr   = s_awaddr;
+    assign uart1_awaddr = s_awaddr;
 
     assign uart_wdata   = s_wdata;  assign gpio_wdata   = s_wdata;
     assign timer_wdata  = s_wdata;  assign qspi_wdata   = s_wdata;
     assign ai_wdata     = s_wdata;  assign i2c_wdata    = s_wdata;
+    assign uart1_wdata  = s_wdata;
 
     assign uart_wstrb   = s_wstrb;  assign gpio_wstrb   = s_wstrb;
     assign timer_wstrb  = s_wstrb;  assign qspi_wstrb   = s_wstrb;
     assign ai_wstrb     = s_wstrb;  assign i2c_wstrb    = s_wstrb;
+    assign uart1_wstrb  = s_wstrb;
 
     assign uart_araddr  = s_araddr; assign gpio_araddr  = s_araddr;
     assign timer_araddr = s_araddr; assign qspi_araddr  = s_araddr;
     assign ai_araddr    = s_araddr; assign i2c_araddr   = s_araddr;
+    assign uart1_araddr = s_araddr;
 
     // AW valid
     assign uart_awvalid  = s_awvalid && (aw_sel == 4'h0);
     assign gpio_awvalid  = s_awvalid && (aw_sel == 4'h1);
     assign timer_awvalid = s_awvalid && (aw_sel == 4'h2);
+    assign uart1_awvalid = s_awvalid && (aw_sel == 4'h3);
     assign i2c_awvalid   = s_awvalid && (aw_sel == 4'h4);
     assign qspi_awvalid  = s_awvalid && (aw_sel == 4'h5);
     assign ai_awvalid    = s_awvalid && (aw_sel == 4'h6);
@@ -141,6 +153,7 @@ module periph_decoder (
     assign uart_wvalid   = s_wvalid && (aw_sel == 4'h0);
     assign gpio_wvalid   = s_wvalid && (aw_sel == 4'h1);
     assign timer_wvalid  = s_wvalid && (aw_sel == 4'h2);
+    assign uart1_wvalid  = s_wvalid && (aw_sel == 4'h3);
     assign i2c_wvalid    = s_wvalid && (aw_sel == 4'h4);
     assign qspi_wvalid   = s_wvalid && (aw_sel == 4'h5);
     assign ai_wvalid     = s_wvalid && (aw_sel == 4'h6);
@@ -149,6 +162,7 @@ module periph_decoder (
     assign uart_arvalid  = s_arvalid && (ar_sel == 4'h0);
     assign gpio_arvalid  = s_arvalid && (ar_sel == 4'h1);
     assign timer_arvalid = s_arvalid && (ar_sel == 4'h2);
+    assign uart1_arvalid = s_arvalid && (ar_sel == 4'h3);
     assign i2c_arvalid   = s_arvalid && (ar_sel == 4'h4);
     assign qspi_arvalid  = s_arvalid && (ar_sel == 4'h5);
     assign ai_arvalid    = s_arvalid && (ar_sel == 4'h6);
@@ -157,6 +171,7 @@ module periph_decoder (
     assign s_awready = (aw_sel == 4'h0) ? uart_awready  :
                        (aw_sel == 4'h1) ? gpio_awready  :
                        (aw_sel == 4'h2) ? timer_awready :
+                       (aw_sel == 4'h3) ? uart1_awready :
                        (aw_sel == 4'h4) ? i2c_awready   :
                        (aw_sel == 4'h5) ? qspi_awready  :
                        (aw_sel == 4'h6) ? ai_awready    : 1'b1;
@@ -165,6 +180,7 @@ module periph_decoder (
     assign s_wready  = (aw_sel == 4'h0) ? uart_wready  :
                        (aw_sel == 4'h1) ? gpio_wready  :
                        (aw_sel == 4'h2) ? timer_wready :
+                       (aw_sel == 4'h3) ? uart1_wready :
                        (aw_sel == 4'h4) ? i2c_wready   :
                        (aw_sel == 4'h5) ? qspi_wready  :
                        (aw_sel == 4'h6) ? ai_wready    : 1'b1;
@@ -173,6 +189,7 @@ module periph_decoder (
     assign s_arready = (ar_sel == 4'h0) ? uart_arready  :
                        (ar_sel == 4'h1) ? gpio_arready  :
                        (ar_sel == 4'h2) ? timer_arready :
+                       (ar_sel == 4'h3) ? uart1_arready :
                        (ar_sel == 4'h4) ? i2c_arready   :
                        (ar_sel == 4'h5) ? qspi_arready  :
                        (ar_sel == 4'h6) ? ai_arready    : 1'b1;
@@ -181,6 +198,7 @@ module periph_decoder (
     assign s_bresp  = (wr_sel_q == 4'h0) ? uart_bresp  :
                       (wr_sel_q == 4'h1) ? gpio_bresp  :
                       (wr_sel_q == 4'h2) ? timer_bresp :
+                      (wr_sel_q == 4'h3) ? uart1_bresp :
                       (wr_sel_q == 4'h4) ? i2c_bresp   :
                       (wr_sel_q == 4'h5) ? qspi_bresp  :
                       (wr_sel_q == 4'h6) ? ai_bresp    : 2'b11;
@@ -188,6 +206,7 @@ module periph_decoder (
     assign s_bvalid = (wr_sel_q == 4'h0) ? uart_bvalid  :
                       (wr_sel_q == 4'h1) ? gpio_bvalid  :
                       (wr_sel_q == 4'h2) ? timer_bvalid :
+                      (wr_sel_q == 4'h3) ? uart1_bvalid :
                       (wr_sel_q == 4'h4) ? i2c_bvalid   :
                       (wr_sel_q == 4'h5) ? qspi_bvalid  :
                       (wr_sel_q == 4'h6) ? ai_bvalid    : err_aw_pending;
@@ -195,6 +214,7 @@ module periph_decoder (
     assign uart_bready  = s_bready && (wr_sel_q == 4'h0);
     assign gpio_bready  = s_bready && (wr_sel_q == 4'h1);
     assign timer_bready = s_bready && (wr_sel_q == 4'h2);
+    assign uart1_bready = s_bready && (wr_sel_q == 4'h3);
     assign i2c_bready   = s_bready && (wr_sel_q == 4'h4);
     assign qspi_bready  = s_bready && (wr_sel_q == 4'h5);
     assign ai_bready    = s_bready && (wr_sel_q == 4'h6);
@@ -203,6 +223,7 @@ module periph_decoder (
     assign s_rdata  = (rd_sel_q == 4'h0) ? uart_rdata  :
                       (rd_sel_q == 4'h1) ? gpio_rdata  :
                       (rd_sel_q == 4'h2) ? timer_rdata :
+                      (rd_sel_q == 4'h3) ? uart1_rdata :
                       (rd_sel_q == 4'h4) ? i2c_rdata   :
                       (rd_sel_q == 4'h5) ? qspi_rdata  :
                       (rd_sel_q == 4'h6) ? ai_rdata    : 32'hDEADBEEF;
@@ -210,6 +231,7 @@ module periph_decoder (
     assign s_rresp  = (rd_sel_q == 4'h0) ? uart_rresp  :
                       (rd_sel_q == 4'h1) ? gpio_rresp  :
                       (rd_sel_q == 4'h2) ? timer_rresp :
+                      (rd_sel_q == 4'h3) ? uart1_rresp :
                       (rd_sel_q == 4'h4) ? i2c_rresp   :
                       (rd_sel_q == 4'h5) ? qspi_rresp  :
                       (rd_sel_q == 4'h6) ? ai_rresp    : 2'b11;
@@ -217,6 +239,7 @@ module periph_decoder (
     assign s_rvalid = (rd_sel_q == 4'h0) ? uart_rvalid  :
                       (rd_sel_q == 4'h1) ? gpio_rvalid  :
                       (rd_sel_q == 4'h2) ? timer_rvalid :
+                      (rd_sel_q == 4'h3) ? uart1_rvalid :
                       (rd_sel_q == 4'h4) ? i2c_rvalid   :
                       (rd_sel_q == 4'h5) ? qspi_rvalid  :
                       (rd_sel_q == 4'h6) ? ai_rvalid    : err_ar_pending;
@@ -224,6 +247,7 @@ module periph_decoder (
     assign uart_rready  = s_rready && (rd_sel_q == 4'h0);
     assign gpio_rready  = s_rready && (rd_sel_q == 4'h1);
     assign timer_rready = s_rready && (rd_sel_q == 4'h2);
+    assign uart1_rready = s_rready && (rd_sel_q == 4'h3);
     assign i2c_rready   = s_rready && (rd_sel_q == 4'h4);
     assign qspi_rready  = s_rready && (rd_sel_q == 4'h5);
     assign ai_rready    = s_rready && (rd_sel_q == 4'h6);

@@ -64,3 +64,4 @@ coverage_html/
 !teknotest/**/*.hex
 !teknotest/**/*.mem
 verif/arch_tests/riscv-arch-test/
+*Zone.Identifier*
