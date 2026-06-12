@@ -41,3 +41,16 @@ for F in ai_accelerator.sv ai_sram_arbiter.sv soc_top.sv soc_axi_interconnect.sv
 done
 echo ""
 echo "Annotated kaynaklar: logs/coverage/annotate/  ('%' onekli satir = kapsanmamis)"
+
+# izlenen kopya: repoya commit edilen ozet (DTR/juri referansi)
+SUM="$PROJ/verif/coverage_summary.txt"
+{
+    echo "BLogic MCU - line coverage ozeti (make coverage)"
+    echo "tarih     : $(date +%Y-%m-%d)"
+    echo "verilator : $(verilator --version 2>/dev/null | head -1)"
+    echo "testler   : $TESTS"
+    echo "olcum     : --coverage-line; CV32E40P vendor dosyalari verif/coverage_waivers.vlt ile haric"
+    echo "------------------------------------------------------------"
+    cat "$PROJ/logs/coverage/summary.txt"
+} > "$SUM"
+echo "Izlenen ozet guncellendi: verif/coverage_summary.txt"

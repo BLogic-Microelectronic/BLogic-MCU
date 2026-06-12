@@ -32,7 +32,7 @@ BOOT_DIR  = obj_dir_boot
 AI_DIR    = obj_dir_ai
 ARCH_EXT ?= I
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -92,7 +92,8 @@ boot:
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
 	    -f soc_files.f verif/models/spi_flash_model.sv verif/tb/boot_flow_test_tb.sv
-	cp bootrom.hex flash.hex $(BOOT_DIR)/
+	cp sw/bootloader/bootrom.hex $(BOOT_DIR)/
+	cp sw/bootloader/flash_helloworld.hex $(BOOT_DIR)/flash.hex
 	echo "00000000" > $(BOOT_DIR)/firmware.hex
 	echo "00000000" > $(BOOT_DIR)/data_mem.hex
 	echo "00000000" > $(BOOT_DIR)/ai_sram_init.hex
@@ -130,6 +131,13 @@ soc-ai:
 	@grep -q "^result=PASS" logs/sim/ai_micro_speech_test/result.log \
 	    && echo "[SOC-AI] PASS" || { echo "[SOC-AI] FAIL"; exit 1; }
 
+# --- A10: AI kesme (ISR) akisi testi - sartname entegrasyon halkasi ---
+soc-ai-irq:
+	rm -rf build
+	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_irq_test.c $(PASSTHROUGH)
+	@grep -q "^result=PASS" logs/sim/ai_irq_test/result.log \
+	    && echo "[SOC-AI-IRQ] PASS" || { echo "[SOC-AI-IRQ] FAIL"; exit 1; }
+
 # --- EK-1 hizlanma olcumu: HW vs SW referans (ayni SoC, ayni mcycle) ---
 soc-perf:
 	rm -rf build
@@ -162,7 +170,7 @@ qspi-modes:
 	    -f soc_files.f verif/models/spi_flash_model.sv verif/tb/qspi_modes_tb.sv
 	cp build/instr_mem.hex $(MODES_DIR)/firmware.hex
 	cp build/data_mem.hex  $(MODES_DIR)/data_mem.hex
-	cp bootrom.hex $(MODES_DIR)/
+	cp sw/bootloader/bootrom.hex $(MODES_DIR)/
 	echo "00000000" > $(MODES_DIR)/ai_sram_init.hex
 	python3 -c "print(chr(10).join(format(i%256,'02x') for i in range(8192)))" > $(MODES_DIR)/flash.hex
 	cd $(MODES_DIR) && ./qspi_modes_sim 2>&1 | tee modes_run.log
@@ -182,7 +190,7 @@ i2c-sys:
 	    -f soc_files.f verif/models/i2c_slave_model.sv verif/tb/i2c_system_tb.sv
 	cp build/instr_mem.hex $(I2C_DIR)/firmware.hex
 	cp build/data_mem.hex  $(I2C_DIR)/data_mem.hex
-	cp bootrom.hex $(I2C_DIR)/
+	cp sw/bootloader/bootrom.hex $(I2C_DIR)/
 	echo "00000000" > $(I2C_DIR)/ai_sram_init.hex
 	cd $(I2C_DIR) && ./i2c_sys_sim 2>&1 | tee i2c_run.log
 	@grep -aq "TEST SUCCESS" $(I2C_DIR)/i2c_run.log \
@@ -205,6 +213,7 @@ test-all:
 	a=PASS; $(MAKE) ai         || { a=FAIL; overall=1; }; \
 	s=PASS; $(MAKE) soc-ai     || { s=FAIL; overall=1; }; \
 	p=PASS; $(MAKE) soc-perf   || { p=FAIL; overall=1; }; \
+	ir=PASS; $(MAKE) soc-ai-irq || { ir=FAIL; overall=1; }; \
 	c=PASS; $(MAKE) arch-test  || { c=FAIL; overall=1; }; \
 	u=PASS; $(MAKE) uvm        || { u=FAIL; overall=1; }; \
 	echo ""; \
@@ -221,6 +230,7 @@ test-all:
 	echo "  ai         (standalone 4 senaryo) : $$a"; \
 	echo "  soc-ai     (SoC AI C testi)       : $$s"; \
 	echo "  soc-perf   (HW vs SW hizlanma)    : $$p"; \
+	echo "  soc-ai-irq (kesme/ISR akisi)      : $$ir"; \
 	echo "  arch-test  (riscv-arch-test $(ARCH_EXT))   : $$c"; \
 	echo "  uvm        (GPIO directed+random)  : $$u"; \
 	echo "====================================================="; \
@@ -249,6 +259,7 @@ help:
 	@echo "  make qspi-modes  - QSPI x1/x2/x4 veri fazi + 4-bayt adres testi"
 	@echo "  make i2c-sys     - I2C sistem testi (echo slave: TX/RX/latch/NACK)"
 	@echo "  make coverage    - line coverage raporu (logs/coverage/)"
+	@echo "  make soc-ai-irq  - AI kesme (ISR) akisi testi"
 	@echo "  make test-all    - tum suitler (regression+uart-baud+uart-stp+boot+qspi-modes+i2c-sys+ai+soc-ai+arch-test+uvm)"
 	@echo ""
 	$(MAKE) -f Makefile.verilator help

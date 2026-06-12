@@ -62,8 +62,7 @@ verif/arch_tests/riscv-arch-test/
 *:Zone.Identifier
 # --- istisnalar: repo icinde KALACAK dosyalar ---
 !sw/ai_model/golden_vectors/*.hex
-!bootrom.hex
-!flash.hex
 !sw/bootloader/bootrom.hex
+!sw/bootloader/flash_helloworld.hex
 !teknotest/**/*.hex
 !teknotest/**/*.mem
