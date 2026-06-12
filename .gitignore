@@ -53,15 +53,17 @@ coverage_html/
 # ============================================================
 
 # AI golden vector'lari (standalone TB + SoC test icin)
-!sw/ai_model/golden_vectors/*.hex
 
 # Boot icin gerekli hex'ler
+
+# TEKNOFEST resmi paket icerikleri
+verif/arch_tests/riscv-arch-test/
+*Zone.Identifier*
+*:Zone.Identifier
+# --- istisnalar: repo icinde KALACAK dosyalar ---
+!sw/ai_model/golden_vectors/*.hex
 !bootrom.hex
 !flash.hex
 !sw/bootloader/bootrom.hex
-
-# TEKNOFEST resmi paket icerikleri
 !teknotest/**/*.hex
 !teknotest/**/*.mem
-verif/arch_tests/riscv-arch-test/
-*Zone.Identifier*
