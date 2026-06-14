@@ -263,7 +263,9 @@ module qspi_master_axil (
                 SPI_IDLE: begin
                     sta_busy <= 1'b0;
                     if (cmd_start) begin
-                        cmd_start     <= 1'b0;            // BUGFIX: one-shot clear (runaway transactions)
+                        // cmd_start yazma FSM'inde tek-cycle pulse'tir (her cycle 0'lanir,
+                        // yalniz CCR-yazma cycle'inda 1 olur). Burada SURULMEZ -> Vivado xelab
+                        // "variable driven by invalid combination of procedural drivers" hatasi onlenir.
                         $display("[%0t QSPI] IDLE->CS_ASSERT instr=%02x adr=%06x", $time, ccr_instr, qspi_adr);
                         spi_state     <= SPI_CS_ASSERT;
                         sta_busy      <= 1'b1;
@@ -372,23 +374,30 @@ module qspi_master_axil (
                 end
 
                 SPI_DATA_RX: begin
-                    if (sclk_falling) begin
+                    // FPGA/gercek-flash DUZELTMESI: okuma verisini YUKSELEN kenarda
+                    // ornekle (SPI mode-0). Eski sürüm DUSEN kenarda ornekliyordu;
+                    // sim'de (sifir I/O gecikmesi) tutuyordu ama gercek flash'in tCO
+                    // gecikmesi yuzunden master bir onceki biti yakaliyordu -> tum
+                    // akis 1 bit kayiyordu (donanimda 0x00012117 -> 0x8080900B).
+                    // Ornekleme + bayt birlestirme ayni (yukselen) kenarda yapilir;
+                    // 'nsh' o kenarda olusan guncel kaydirma degeridir.
+                    if (sclk_rising) begin : rx_samp
+                        logic [7:0] nsh;
                         case (ccr_data_mode)
-                            2'b10:   shift_in <= {shift_in[5:0], io_i[1], io_i[0]};
-                            2'b11:   shift_in <= {shift_in[3:0], io_i[3], io_i[2], io_i[1], io_i[0]};
-                            default: shift_in <= {shift_in[6:0], io_i[1]};
+                            2'b10:   nsh = {shift_in[5:0], io_i[1], io_i[0]};
+                            2'b11:   nsh = {shift_in[3:0], io_i[3], io_i[2], io_i[1], io_i[0]};
+                            default: nsh = {shift_in[6:0], io_i[1]};
                         endcase
-                    end
+                        shift_in <= nsh;
 
-                    if (sclk_rising) begin
                         if (bit_cnt < lane_w) begin
                             case (rx_byte_pos)
-                                2'd0: rx_word_acc[ 7: 0] <= shift_in;
-                                2'd1: rx_word_acc[15: 8] <= shift_in;
-                                2'd2: rx_word_acc[23:16] <= shift_in;
+                                2'd0: rx_word_acc[ 7: 0] <= nsh;
+                                2'd1: rx_word_acc[15: 8] <= nsh;
+                                2'd2: rx_word_acc[23:16] <= nsh;
                                 2'd3: begin
                                     if (!rx_full) begin
-                                        rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= {shift_in, rx_word_acc[23:0]};
+                                        rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= {nsh, rx_word_acc[23:0]};
                                         rx_wr_ptr <= rx_wr_ptr + 1;
                                     end
                                 end
@@ -397,11 +406,11 @@ module qspi_master_axil (
 
                             if (data_byte_cnt >= {1'b0, ccr_data_len}) begin
                                 if (rx_byte_pos != 2'd3 && !rx_full) begin
-                                        // FIX: shift_in dahil partial word
+                                        // partial word (nsh = son bayt)
                                         case (rx_byte_pos)
-                                            2'd0: rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= {24'd0, shift_in};
-                                            2'd1: rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= {16'd0, shift_in, rx_word_acc[7:0]};
-                                            2'd2: rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= {8'd0, shift_in, rx_word_acc[15:0]};
+                                            2'd0: rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= {24'd0, nsh};
+                                            2'd1: rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= {16'd0, nsh, rx_word_acc[7:0]};
+                                            2'd2: rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= {8'd0, nsh, rx_word_acc[15:0]};
                                             default: rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= rx_word_acc;
                                         endcase
                                         rx_wr_ptr <= rx_wr_ptr + 1;

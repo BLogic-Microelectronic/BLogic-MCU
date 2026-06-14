@@ -31,7 +31,13 @@
 //     RESET komutu) göndermesi bu yüzden güvenlidir.
 // ============================================================
 
-module fpga_top (
+module fpga_top #(
+    // Boot kaynagi:
+    //   0x0000_0000 = Boot ROM -> QSPI flash (gercek/sartname config, M3)
+    //   0x0001_0000 = dogrudan Instruction SRAM'den (firmware.hex) baslat
+    //                 (FPGA bring-up / SRAM-boot, M2). build TCL generic ile verir.
+    parameter logic [31:0] BOOT_ADDR = 32'h0000_0000
+) (
     // 200 MHz LVDS sistem saati
     input  logic       sysclk_p,
     input  logic       sysclk_n,
@@ -132,7 +138,16 @@ module fpga_top (
                       3'b000,                             // [15:13]
                       btnu, btnr, btnl, btnd, btnc,       // [12:8]
                       sw};                                // [7:0]
-    assign led = gpio_out[7:0];
+    // === TESHIS LED'leri (FPGA bring-up gorunurlugu) ========================
+    // CPU'ya BAGIMSIZ donanim durumu; nerede kirildigini tek bakista gosterir.
+    //   led[0]   = heartbeat   -> clk_50 calisiyor mu (~1.3s blink). RESETTEN BAGIMSIZ.
+    //   led[1]   = mmcm_locked  -> MMCM kilitli mi (1=kilit)
+    //   led[2]   = rst_sync_n   -> reset kalkti mi (1=calisma)
+    //   led[7:3] = gpio_out[4:0]-> CPU GPIO yaziyor mu (firmware blink)
+    logic [25:0] heartbeat_cnt;
+    always_ff @(posedge clk_50) heartbeat_cnt <= heartbeat_cnt + 1'b1;
+
+    assign led = {gpio_out[4:0], rst_sync_n, mmcm_locked, heartbeat_cnt[25]};
     assign jb  = gpio_out[15:8];
 
     // --- UART1 (YZ stream) + I2C @ Pmod JA ---
@@ -184,7 +199,7 @@ module fpga_top (
     // 4. SoC
     // =========================================================
     soc_top #(
-        .BOOT_ADDR   (32'h0000_0000),   // Boot ROM'dan QSPI boot
+        .BOOT_ADDR   (BOOT_ADDR),       // param: 0x0=bootrom/flash, 0x10000=SRAM-boot
         .CLK_FREQ_HZ (50_000_000)
     ) i_soc (
         .clk_i        (clk_50),
