@@ -50,6 +50,7 @@ add_files ../rtl/core/cv32e40p/rtl/cv32e40p_popcnt.sv
 add_files ../rtl/core/cv32e40p/rtl/cv32e40p_prefetch_buffer.sv
 add_files ../rtl/core/cv32e40p/rtl/cv32e40p_prefetch_controller.sv
 add_files ../rtl/core/cv32e40p/rtl/cv32e40p_register_file_ff.sv
+add_files ../rtl/core/cv32e40p/rtl/cv32e40p_register_file_latch.sv
 add_files ../rtl/core/cv32e40p/rtl/cv32e40p_sleep_unit.sv
 add_files ../rtl/core/cv32e40p/rtl/cv32e40p_core.sv
 add_files ../rtl/core/cv32e40p/rtl/cv32e40p_top.sv
@@ -71,7 +72,9 @@ add_files ../rtl/peripherals/uart_rx.v
 add_files ../rtl/peripherals/uart_tx.v
 add_files ../rtl/peripherals/gpio_axil.sv
 add_files ../rtl/peripherals/timer_axil.sv
+add_files ../rtl/peripherals/i2c_master_axil.sv
 add_files ../rtl/peripherals/qspi_master_axil.sv
+add_files ../rtl/peripherals/uart_stream_axil.sv
 
 # 8. SVA (soc_top icinde i_protocol_checkers instance edildigi icin gerekli)
 add_files ../verif/sva/axi_lite_protocol_checker.sv
@@ -84,14 +87,19 @@ add_files ../rtl/ai_accelerator/ai_accelerator.sv
 add_files ../rtl/ai_accelerator/ai_sram_arbiter.sv
 add_files ./user_files/teknotest_wrapper.sv
 
-# 10. Include dizinleri (cv32e40p + common_cells + axi + user_files)
-set_property include_dirs [list \
-    [file normalize "../rtl/core/cv32e40p/rtl/include"] \
-    [file normalize "../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include"] \
-    [file normalize "../rtl/bus/axi/include"] \
-    [file normalize "./user_files"] \
-] [list [get_filesets sources_1] [get_filesets sim_1]]
+# 10. Include dizinleri:
+# create_vivado_proj.tcl (PRISTINE, DEGISTIRILMEZ) include_dirs'i ./user_files olarak
+# ayarlar. Tasarimin `include ettigi basliklar (axi/*.svh, common_cells/*.svh) user_files/
+# altina kopyalandi -> tek include dizini (user_files) yeterli olur; boylece scripts/
+# pristine kalir ve DDK'ya gerek kalmaz (PDF "sadece user_files" kurali).
 
-# Memory init dosyalari
-add_files ./sw/build/firmware.hex
-add_files ./sw/build/data_mem.hex
+# teknotest'te protocol checker'lar (yalniz dogrulama monitoru) DEVRE DISI:
+# pass/fail/check_count birden cok always_ff'ten suruldugu icin Vivado xelab
+# multi-driver hatasi verir; bu testte gerekli degiller. Verilator regresyonunda
+# makro tanimsiz oldugu icin checker'lar orada tam aktif kalir.
+set_property verilog_define {NO_PROTOCOL_CHECK} [list [get_filesets sources_1] [get_filesets sim_1]]
+
+# NOT: instr SRAM'e test kodu user_files/teknotest_tb_user_code.sv icinde helloworld.mem
+# ile yuklenir (helloworld.mem'i create_vivado_proj.tcl projeye ekler). axi_sram_wrapper'in
+# diger INIT_FILE ($readmemh) cagrilari icin "file not found" uyarilari zararsizdir:
+# o bellekler bu testte kullanilmaz (instr SRAM zaten helloworld.mem ile ezilir).

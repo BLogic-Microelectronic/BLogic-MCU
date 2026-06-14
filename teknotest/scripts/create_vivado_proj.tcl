@@ -4,8 +4,7 @@ add_files ./tb/teknotest_tb.sv -fileset sim_1
 
 source ./user_files/compile_user_design.tcl
 
-# DISABLED: include_dirs compile_user_design.tcl icinde set ediliyor (user_files dahil)
-# set_property include_dirs [file normalize "./user_files/"] [list [get_filesets sources_1] [get_filesets sim_1]]
+set_property include_dirs [file normalize "./user_files/"] [list [get_filesets sources_1] [get_filesets sim_1]]
 
 update_compile_order -fileset sources_1
 update_compile_order -fileset sim_1

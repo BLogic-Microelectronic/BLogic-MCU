@@ -37,6 +37,10 @@ module axi_lite_protocol_checker #(
     input logic [ 1:0] rresp
 );
 
+// teknotest (Vivado xsim): sayac (pass/fail/check_count) multi-driver hatasini onlemek
+// icin govde NO_PROTOCOL_CHECK tanimliyken haric tutulur (bos modul). Verilator
+// regresyonunda makro tanimsiz -> checker tam aktif kalir.
+`ifndef NO_PROTOCOL_CHECK
     // =========================================================
     // Geçmiş değerler (1 cycle öncesi)
     // =========================================================
@@ -204,5 +208,6 @@ module axi_lite_protocol_checker #(
             $display("  >>> PROTOKOL IHLALI TESPIT EDILDI <<<");
         $display("==========================================");
     end
+`endif // NO_PROTOCOL_CHECK
 
 endmodule

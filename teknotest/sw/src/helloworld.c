@@ -30,7 +30,7 @@ int main(){
     msg[12] = '\0';
 
     // Init UART
-    uart->CPB = 54;
+    uart->CPB = 434;
     uart->STP = 0;
     uart->CFG = 0;
     
