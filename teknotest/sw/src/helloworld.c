@@ -1,7 +1,3 @@
-// ============================================
-// Ostim BLogic Mikroelektronik
-// helloworld.c  -  UART hello world testi
-// ============================================
 #include "user_defines.h"
 
 // UART register yapisi
@@ -15,7 +11,8 @@ typedef struct{
 
 int main(){
     volatile uart_regspace *uart = ((volatile uart_regspace *) UART_BASE_ADDR);
-
+    
+    // Init message
     unsigned char msg[16];
 
     msg[0]  = 'H';
@@ -32,35 +29,36 @@ int main(){
     msg[11] = '!';
     msg[12] = '\0';
 
-    // UART ayarlari
+    // Init UART
     uart->CPB = 434;
     uart->STP = 0;
     uart->CFG = 0;
     
-    // 'R' gonder
+    // Send char 'R'
     uart->TDR = 'R';
     uart->CFG |= (0x1UL << 0); // gonderimi baslat
 
     while (!(uart->CFG & (0x1UL << 2))){} // gonderim bitti mi
     uart->CFG &= ~(0x1UL << 2);
 
-    // 'A' bekle
+    // Wait for char 'A'
     while (!(uart->CFG & (0x1UL << 1))){}
     uart->CFG &= ~(0x1UL << 1);
 
     if (uart->RDR == 'A') { // beklenen 'A' geldiyse mesaji bas
         for (int i = 0; i < 16; i++){
+            // Send message
             uart->TDR = msg[i];
-            uart->CFG |= (0x1UL << 0);
+            uart->CFG |= (0x1UL << 0); // Enable data transmi
 
-            while (!(uart->CFG & (0x1UL << 2))){}
+            while (!(uart->CFG & (0x1UL << 2))){} // Wait for transmit completed flag
             uart->CFG &= ~(0x1UL << 2);
 
-            if (msg[i] == '\0') // string sonu
+            if (msg[i] == '\0') // Break at the end of string
                 break;
         }
     }
-    else return 1; // test basarisiz
+    else return 1; // Test failed
 
     return 0;
 }
