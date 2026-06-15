@@ -1,9 +1,8 @@
 #!/bin/bash
-# ============================================================
-# BLogic MCU - Line Coverage (ekip RTL'i; vendor cekirdek waiver'li)
-# Kullanim: make coverage   (veya: bash scripts/run_coverage.sh)
-# Cikti  : logs/coverage/annotate/ + logs/coverage/summary.txt
-# ============================================================
+# ============================================
+# Ostim BLogic Mikroelektronik
+# run_coverage.sh  -  RTL satir kapsama olcumu
+# ============================================
 set -e
 cd "$(dirname "$0")/.."
 PROJ=$(pwd)
@@ -42,7 +41,7 @@ done
 echo ""
 echo "Annotated kaynaklar: logs/coverage/annotate/  ('%' onekli satir = kapsanmamis)"
 
-# izlenen kopya: repoya commit edilen ozet (DTR/juri referansi)
+# repoya commit edilen ozet kopyasi
 SUM="$PROJ/verif/coverage_summary.txt"
 {
     echo "BLogic MCU - line coverage ozeti (make coverage)"

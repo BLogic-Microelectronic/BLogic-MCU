@@ -1,18 +1,8 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// spi_flash_model.sv  -  Simulasyon SPI/QSPI flash modeli
+// ============================================
 `timescale 1ns / 1ps
-// ============================================================
-// Simulasyon SPI/QSPI flash modeli v2
-//   Desteklenen komutlar:
-//     0x03 READ   : 3B adres, dummy=0, veri x1 (IO1)
-//     0x3B DOR    : 3B adres, dummy=8, veri x2 (IO1:IO0)
-//     0x6B QOR    : 3B adres, dummy=8, veri x4 (IO3:IO0)
-//     0x13 READ4B : 4B adres, dummy=0, veri x1 (IO1)
-//   FLASH_SIZE disi adresler: adres-essiz deterministik veri
-//     hi_byte = a[7:0]^a[15:8]^a[23:16]^a[31:24]^0xC3
-//   (4B adreslemenin ust baytinin telde tasindigini kanitlamak icin;
-//    alias'lanan okuma memory[] rampasina duser ve yakalanir)
-//   Zamanlama sozlesmesi (v1'den korunur): girisler posedge sclk'de
-//   orneklenir, cikis kombinasyonel surulur (master falling'de ornekler).
-// ============================================================
 module spi_flash_model #(
     parameter int FLASH_SIZE = 8192,
     parameter     INIT_FILE  = ""
@@ -46,10 +36,7 @@ module spi_flash_model #(
     logic [3:0]  out_step;
 
     wire [5:0] cap_total = 6'd8 + {abytes, 3'b000};   // 8 + 8*abytes
-    // Post-kenar ornekleme sozlesmesi: flash, master'in ayni sistem-clock
-    // kenarinda guncellenen sclk_reg'ini dinler; her posedge'de kenar-SONRASI
-    // deger orneklenir -> ilk ornek cmd bit6'dir (bit7 gozlenemez; mevcut
-    // komut setinde 0x03/0x3B/0x6B/0x13 icin bit7=0).
+    // ilk ornek cmd bit6; bit7 gozlenemez (komutlarda bit7=0)
     wire [7:0] cmd_new   = {1'b0, in_sr[5:0], io_in[0]};
 
     always @(posedge sclk or posedge cs_n) begin
@@ -75,8 +62,7 @@ module spi_flash_model #(
                         endcase
                     end
                     if (in_bit_cnt == cap_total - 6'd1) begin
-                        // Bu kenardaki io_in artik master surusu degil (oe dustu);
-                        // adres tamamen in_sr icindedir (v1 ile ayni hizalama).
+                        // adres tamamen in_sr icinde
                         read_addr <= (abytes == 3'd4) ? in_sr[31:0]
                                                       : {8'd0, in_sr[23:0]};
                         out_step  <= '0;
@@ -99,11 +85,7 @@ module spi_flash_model #(
         end
     end
 
-    // Cikis surme: kombinasyonel; quad nibble MSB once, IO3=MSB
-    // FLASH_SIZE icinde: yuklu memory[] (mevcut davranis, boot dahil).
-    // Disinda (orn. 16MB+ siniri otesi): adres-essiz formul. Ust bayti
-    // dusuren/stuck-0 yapan bir RTL hatasi adresi memory[] bolgesine
-    // alias'lar -> beklenen formul verisi yerine rampa gelir -> FAIL.
+    // kombinasyonel cikis; FLASH_SIZE disinda adres-essiz formul
     wire [7:0] hi_byte  = read_addr[7:0] ^ read_addr[15:8]
                         ^ read_addr[23:16] ^ read_addr[31:24] ^ 8'hC3;
     wire [7:0] cur_byte = (read_addr < FLASH_SIZE)

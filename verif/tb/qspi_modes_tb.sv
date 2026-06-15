@@ -1,7 +1,9 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// qspi_modes_tb.sv  -  QSPI x1/x2/x4 mod testi
+// ============================================
 `timescale 1ns / 1ps
-// QSPI sartname uyum testi: x1/x2/x4 veri fazi + 4-bayt adresleme.
-// Firmware dogrudan Instr SRAM'den kosar (BOOT_ADDR=0x10000), flash'taki
-// rampa desenini dort modda okuyup UART'tan "QSPI MODES OK" basar.
+// Firmware Instr SRAM'den kosar, flash'i dort modda okuyup UART'a basar.
 module qspi_modes_tb;
     logic clk = 0, resetn = 0;
     always #10 clk = ~clk;

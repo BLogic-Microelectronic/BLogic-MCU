@@ -1,20 +1,8 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// qspi_master_axil.sv  -  AXI-Lite QSPI master
+// ============================================
 `timescale 1ns / 1ps
-
-// ============================================================
-// BLogic MCU — QSPI Master (Multi-Driver Bug Düzeltilmiş)
-// ============================================================
-// Tüm FIFO pointer'ları ve state TEK always_ff bloğunda.
-// Vivado multi-driven net hatası artık oluşmaz.
-//
-// Register Map (EK-2):
-//   0x00  QSPI_CCR  — Communication Configuration Register (RW)
-//   0x04  QSPI_ADR  — Address Register (RW)
-//   0x08  QSPI_DR   — Data Register (RW, FIFO arkasında)
-//   0x0C  QSPI_STA  — Status Register (RO)
-//   0x10  QSPI_FCR  — FIFO Control Register (RW)
-//                       [2] = 4-bayt adres modu (yarismaci tanimli, sticky)
-// Veri fazi x1/x2/x4 destekler (CCR[9:8]); CMD/ADDR/DUMMY daima x1 (1-1-N).
-// ============================================================
 
 module qspi_master_axil (
     input  logic        clk_i,
@@ -47,18 +35,14 @@ module qspi_master_axil (
     output logic [ 3:0] io_oe
 );
 
-    // =========================================================
-    // 1. REGISTER ADRESLERİ
-    // =========================================================
+    // register adresleri
     localparam logic [4:0] ADDR_CCR = 5'h00;
     localparam logic [4:0] ADDR_ADR = 5'h04;
     localparam logic [4:0] ADDR_DR  = 5'h08;
     localparam logic [4:0] ADDR_STA = 5'h0C;
     localparam logic [4:0] ADDR_FCR = 5'h10;
 
-    // =========================================================
-    // 2. CCR ALANLARI
-    // =========================================================
+    // CCR alanlari
     logic [ 7:0] ccr_instr;
     logic [ 1:0] ccr_data_mode;
     logic        ccr_dir;
@@ -66,25 +50,19 @@ module qspi_master_axil (
     logic [ 7:0] ccr_data_len;
     logic [ 5:0] ccr_prescaler;
     logic [31:0] qspi_adr;
-    logic        cfg_addr4b;   // FCR[2] (yarismaci tanimli): 1 = 4-bayt adres fazi
-    // FCR[4:3] (yarismaci tanimli): adres fazi kontrolu
-    //   00 = OTOMATIK (veri fazi varsa adres gonderilir: READ/DOR/QOR/PP/QPP/
-    //                  READ_ID/RES — bootrom ve eski yazilimla geriye uyumlu)
-    //   01 = ZORLA    (veri fazi olmasa da adres gonder: SE)
-    //   10 = KAPAT    (veri fazi olsa da adres atlanir: RDID/RDSR1/RDSR2/RDCR/WRR)
+    logic        cfg_addr4b;   // FCR[2]: 1 = 4-bayt adres fazi
+    // FCR[4:3] adres fazi modu: 00=oto, 01=zorla, 10=kapat
     logic [ 1:0] cfg_addr_mode;
     wire addr_phase_en = (cfg_addr_mode == 2'b01) ? 1'b1 :
                          (cfg_addr_mode == 2'b10) ? 1'b0 :
                                                     (ccr_data_mode != 2'b00);
-    // Veri fazinda SCLK basina kaydirilan bit sayisi (CMD/ADDR/DUMMY daima x1)
+    // veri fazinda kac bit kaydirilir (x1/x2/x4)
     wire  [2:0]  lane_w  = (ccr_data_mode == 2'b11) ? 3'd4 :
                            (ccr_data_mode == 2'b10) ? 3'd2 : 3'd1;
-    // Adres fazi icin MSB-hizali efektif adres (3B modda ust bayta kaydirilir)
+    // MSB-hizali adres; 3B modda ust bayta kaydir
     wire  [31:0] adr_eff = cfg_addr4b ? qspi_adr : {qspi_adr[23:0], 8'h00};
 
-    // =========================================================
-    // 3. FIFO — TEK BLOKTA YÖNETİLEN POINTER'LAR
-    // =========================================================
+    // FIFO pointer'lari tek blokta tutulur
     localparam int FIFO_DEPTH = 64;
     localparam int FIFO_AW    = 6;
 
@@ -100,9 +78,7 @@ module qspi_master_axil (
     wire rx_full  = (rx_count == FIFO_DEPTH);
     wire rx_empty = (rx_count == 0);
 
-    // =========================================================
-    // 4. SPI ENGINE STATE
-    // =========================================================
+    // SPI engine state
     typedef enum logic [3:0] {
         SPI_IDLE, SPI_CS_ASSERT, SPI_SEND_CMD, SPI_SEND_ADDR,
         SPI_DUMMY, SPI_DATA_TX, SPI_DATA_RX, SPI_CS_DEASSERT, SPI_DONE
@@ -125,7 +101,6 @@ module qspi_master_axil (
     logic        sta_busy;
     logic [ 3:0] sta_fifo_err;
 
-    // SPI clock tick
     wire sclk_tick    = (sclk_cnt >= ccr_prescaler);
     wire sclk_rising  = sclk_tick && (sclk_reg == 1'b0);
     wire sclk_falling = sclk_tick && (sclk_reg == 1'b1);
@@ -133,9 +108,7 @@ module qspi_master_axil (
     assign sclk_o = sclk_reg;
     assign cs_no  = (spi_state == SPI_IDLE || spi_state == SPI_DONE);
 
-    // SPI I/O
-    // Lane suruculeri: veri fazinda mod'a gore x1/x2/x4; diger fazlar x1.
-    // Quad eslesme standart: nibble MSB -> IO3 ... LSB -> IO0. Dual: MSB -> IO1.
+    // veri fazinda x1/x2/x4 lane suruculeri; quad: MSB->IO3, dual: MSB->IO1
     always_comb begin
         io_o[0] = shift_out[bit_cnt];
         io_o[1] = 1'b1;
@@ -171,21 +144,16 @@ module qspi_master_axil (
         end
     end
 
-    // =========================================================
-    // 5. AXI YAZMA/OKUMA — Komut sinyalleri (pulse)
-    // =========================================================
-    // AXI FSM'den SPI engine'e giden pulse sinyalleri
-    logic        cmd_start;        // CCR'ye yazıldı → transaction başlat
-    logic        cmd_clr_sta;      // CCR[31] → status temizle
-    logic        cmd_tx_push;      // DR'ye yazıldı → TX FIFO'ya push
-    logic [31:0] cmd_tx_data;      // Push edilecek veri
-    logic        cmd_rx_pop;       // DR okundu → RX FIFO'dan pop
-    logic        cmd_rx_flush;     // FCR[0] → RX FIFO flush
-    logic        cmd_tx_flush;     // FCR[1] → TX FIFO flush
+    // AXI FSM'den SPI engine'e giden pulse'lar
+    logic        cmd_start;        // CCR yazildi, transaction baslat
+    logic        cmd_clr_sta;      // CCR[31], status temizle
+    logic        cmd_tx_push;      // DR yazildi, TX FIFO push
+    logic [31:0] cmd_tx_data;
+    logic        cmd_rx_pop;       // DR okundu, RX FIFO pop
+    logic        cmd_rx_flush;     // FCR[0]
+    logic        cmd_tx_flush;     // FCR[1]
 
-    // =========================================================
-    // 6. TEK MASTER always_ff — TÜM STATE + FIFO POINTER'LAR
-    // =========================================================
+    // tum state + FIFO pointer'lar tek always_ff'te
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
             spi_state     <= SPI_IDLE;
@@ -210,7 +178,7 @@ module qspi_master_axil (
             rx_rd_ptr     <= '0;
         end else begin
 
-            // --- FIFO flush komutları (en yüksek öncelik) ---
+            // FIFO flush (en yuksek oncelik)
             if (cmd_rx_flush) begin
                 rx_wr_ptr <= '0;
                 rx_rd_ptr <= '0;
@@ -220,7 +188,7 @@ module qspi_master_axil (
                 tx_rd_ptr <= '0;
             end
 
-            // --- TX FIFO push (AXI DR yazma) ---
+            // TX FIFO push (DR yazma)
             if (cmd_tx_push && !cmd_tx_flush) begin
                 if (!tx_full) begin
                     tx_fifo[tx_wr_ptr[FIFO_AW-1:0]] <= cmd_tx_data;
@@ -230,7 +198,7 @@ module qspi_master_axil (
                 end
             end
 
-            // --- RX FIFO pop (AXI DR okuma) ---
+            // RX FIFO pop (DR okuma)
             if (cmd_rx_pop && !cmd_rx_flush) begin
                 if (!rx_empty)
                     rx_rd_ptr <= rx_rd_ptr + 1;
@@ -238,13 +206,13 @@ module qspi_master_axil (
                     sta_fifo_err <= 4'b0001;
             end
 
-            // --- Status clear ---
+            // status temizle
             if (cmd_clr_sta) begin
                 sta_done     <= 1'b0;
                 sta_fifo_err <= 4'b0;
             end
 
-            // --- SPI Clock üretici ---
+            // SPI clock uretici
             if (spi_state == SPI_IDLE || spi_state == SPI_CS_ASSERT ||
                 spi_state == SPI_CS_DEASSERT || spi_state == SPI_DONE) begin
                 sclk_cnt <= '0;
@@ -258,14 +226,12 @@ module qspi_master_axil (
                 end
             end
 
-            // --- SPI FSM ---
+            // SPI FSM
             case (spi_state)
                 SPI_IDLE: begin
                     sta_busy <= 1'b0;
                     if (cmd_start) begin
-                        // cmd_start yazma FSM'inde tek-cycle pulse'tir (her cycle 0'lanir,
-                        // yalniz CCR-yazma cycle'inda 1 olur). Burada SURULMEZ -> Vivado xelab
-                        // "variable driven by invalid combination of procedural drivers" hatasi onlenir.
+                        // cmd_start burada surulmez, Vivado xelab multi-driver hatasi cikmasin
                         $display("[%0t QSPI] IDLE->CS_ASSERT instr=%02x adr=%06x", $time, ccr_instr, qspi_adr);
                         spi_state     <= SPI_CS_ASSERT;
                         sta_busy      <= 1'b1;
@@ -297,18 +263,18 @@ module qspi_master_axil (
                                 // komut-only (WREN/WRDI/CLSR/RESET)
                                 spi_state <= SPI_CS_DEASSERT;
                             end else if (ccr_dummy > 0) begin
-                                // adressiz + dummy + veri (örn. RES x1 varyantı)
+                                // adressiz + dummy + veri
                                 spi_state <= SPI_DUMMY;
                                 dummy_cnt <= ccr_dummy;
                             end else if (ccr_dir) begin
-                                // adressiz yazma (WRR: SR1/CR1)
+                                // adressiz yazma (WRR)
                                 spi_state <= SPI_DATA_TX;
                                 bit_cnt   <= 3'd7;
                                 tx_current_word <= tx_fifo[tx_rd_ptr[FIFO_AW-1:0]];
                                 shift_out <= tx_fifo[tx_rd_ptr[FIFO_AW-1:0]][7:0];
                                 tx_byte_pos <= 2'd1;
                             end else begin
-                                // adressiz okuma (RDID/RDSR1/RDSR2/RDCR/RES)
+                                // adressiz okuma (RDID/RDSR/RDCR/RES)
                                 spi_state <= SPI_DATA_RX;
                                 bit_cnt   <= 3'd7;
                                 shift_in  <= '0;
@@ -323,7 +289,7 @@ module qspi_master_axil (
                         if (bit_cnt == 0) begin
                             if (addr_byte == (cfg_addr4b ? 2'd3 : 2'd2)) begin
                                 if (ccr_data_mode == 2'b00) begin
-                                    // adresli/verisiz komut (SE — addr_mode=ZORLA)
+                                    // adresli/verisiz komut (SE)
                                     spi_state <= SPI_CS_DEASSERT;
                                 end else if (ccr_dummy > 0) begin
                                     spi_state <= SPI_DUMMY;
@@ -374,13 +340,8 @@ module qspi_master_axil (
                 end
 
                 SPI_DATA_RX: begin
-                    // FPGA/gercek-flash DUZELTMESI: okuma verisini YUKSELEN kenarda
-                    // ornekle (SPI mode-0). Eski sürüm DUSEN kenarda ornekliyordu;
-                    // sim'de (sifir I/O gecikmesi) tutuyordu ama gercek flash'in tCO
-                    // gecikmesi yuzunden master bir onceki biti yakaliyordu -> tum
-                    // akis 1 bit kayiyordu (donanimda 0x00012117 -> 0x8080900B).
-                    // Ornekleme + bayt birlestirme ayni (yukselen) kenarda yapilir;
-                    // 'nsh' o kenarda olusan guncel kaydirma degeridir.
+                    // gercek flash icin yukselen kenarda ornekle (mode-0);
+                    // dusen kenarda ornekleyince tCO yuzunden 1 bit kayiyordu
                     if (sclk_rising) begin : rx_samp
                         logic [7:0] nsh;
                         case (ccr_data_mode)
@@ -406,7 +367,7 @@ module qspi_master_axil (
 
                             if (data_byte_cnt >= {1'b0, ccr_data_len}) begin
                                 if (rx_byte_pos != 2'd3 && !rx_full) begin
-                                        // partial word (nsh = son bayt)
+                                        // eksik word (nsh = son bayt)
                                         case (rx_byte_pos)
                                             2'd0: rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= {24'd0, nsh};
                                             2'd1: rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= {16'd0, nsh, rx_word_acc[7:0]};
@@ -467,9 +428,7 @@ module qspi_master_axil (
         end
     end
 
-    // =========================================================
-    // 7. AXI-LITE YAZMA FSM (CCR/ADR/DR/FCR kontrolü)
-    // =========================================================
+    // AXI-Lite yazma FSM
     logic aw_en;
     logic [4:0] write_addr;
     assign s_axi_bresp = 2'b00;
@@ -497,14 +456,14 @@ module qspi_master_axil (
             cfg_addr4b    <= 1'b0;
             cfg_addr_mode <= 2'b00;
         end else begin
-            // Pulse sinyallerini varsayılan olarak temizle
+            // pulse'lar varsayilan 0
             cmd_start    <= 1'b0;
             cmd_clr_sta  <= 1'b0;
             cmd_tx_push  <= 1'b0;
             cmd_rx_flush <= 1'b0;
             cmd_tx_flush <= 1'b0;
 
-            // AW + W yakalama
+            // AW + W yakala
             if (s_axi_awvalid && s_axi_wvalid && aw_en) begin
                 s_axi_awready <= 1'b1;
                 s_axi_wready  <= 1'b1;
@@ -515,7 +474,7 @@ module qspi_master_axil (
                 s_axi_wready  <= 1'b0;
             end
 
-            // Veri yazma
+            // veri yazma
             if (s_axi_wready && s_axi_wvalid && s_axi_awready && s_axi_awvalid) begin
                 case (write_addr)
                     ADDR_CCR: begin
@@ -539,14 +498,14 @@ module qspi_master_axil (
                     ADDR_FCR: begin
                         if (s_axi_wdata[0]) cmd_rx_flush <= 1'b1;
                         if (s_axi_wdata[1]) cmd_tx_flush <= 1'b1;
-                        cfg_addr4b    <= s_axi_wdata[2];   // yarismaci tanimli: 4B adres modu
-                        cfg_addr_mode <= s_axi_wdata[4:3]; // yarismaci tanimli: adres fazi modu
+                        cfg_addr4b    <= s_axi_wdata[2];   // 4B adres modu
+                        cfg_addr_mode <= s_axi_wdata[4:3]; // adres fazi modu
                     end
                     default: ;
                 endcase
             end
 
-            // B yanıtı
+            // B yaniti
             if (s_axi_wready && s_axi_wvalid && s_axi_awready && s_axi_awvalid && !s_axi_bvalid)
                 s_axi_bvalid <= 1'b1;
             else if (s_axi_bready && s_axi_bvalid) begin
@@ -556,9 +515,7 @@ module qspi_master_axil (
         end
     end
 
-    // =========================================================
-    // 8. AXI-LITE OKUMA FSM
-    // =========================================================
+    // AXI-Lite okuma FSM
     assign s_axi_rresp = 2'b00;
 
     always_ff @(posedge clk_i or negedge rst_ni) begin

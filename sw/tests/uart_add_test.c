@@ -1,6 +1,10 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// uart_add_test.c  -  UART toplama testi
+// ============================================
 #include "../drivers/blogic_mcu.h"
 
-// Standart kütüphane olmadığı için tam sayıyı ASCII metnine çeviren yardımcı fonksiyon
+// sayiyi ASCII'ye cevirir
 void uart_put_int(uint32_t num) {
     char buf[11];
     int i = 10;
@@ -20,15 +24,15 @@ void uart_put_int(uint32_t num) {
 }
 
 int main(void) {
-    // UART0 başlatma (115200 Baud hızı ayarı)
+    // UART0 115200 baud
     UART0->CPB = 434;
     
-    // Test edilecek toplama işlemi verileri
+    // test verileri
     int sayi1 = 584;
     int sayi2 = 268;
     int toplam = sayi1 + sayi2;
     
-    // Sonuçları UART üzerinden ekrana basma
+    // sonuclari UART'a bas
     uart_puts(UART0, "[MCU] Toplama Islemi Baslatiliyor...\n");
     uart_puts(UART0, "Denklem: ");
     uart_put_int(sayi1);
@@ -38,7 +42,7 @@ int main(void) {
     uart_put_int(toplam);
     uart_puts(UART0, "\n");
     
-    // sim_main.cpp simülatörünün başarı algılaması ve kapanması için gerekli dize
+    // sim_main.cpp basari algilamasi icin gerekli dize
     uart_puts(UART0, "Hello World from BLogic MCU!\n");
 
     while (1) {

@@ -1,4 +1,7 @@
-/* Otomatik uretildi — extract_weights_v2.py */
+/* ============================================
+   Ostim BLogic Mikroelektronik
+   quant_params.h  -  uretilen kuantizasyon parametreleri
+   ============================================ */
 #ifndef QUANT_PARAMS_H
 #define QUANT_PARAMS_H
 #ifdef __riscv

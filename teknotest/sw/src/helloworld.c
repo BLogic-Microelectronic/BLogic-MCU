@@ -1,6 +1,10 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// helloworld.c  -  UART hello world testi
+// ============================================
 #include "user_defines.h"
 
-// UART Regspace definition
+// UART register yapisi
 typedef struct{
     unsigned int CPB;
     unsigned int STP;
@@ -12,7 +16,6 @@ typedef struct{
 int main(){
     volatile uart_regspace *uart = ((volatile uart_regspace *) UART_BASE_ADDR);
 
-    // Init message
     unsigned char msg[16];
 
     msg[0]  = 'H';
@@ -29,36 +32,35 @@ int main(){
     msg[11] = '!';
     msg[12] = '\0';
 
-    // Init UART
+    // UART ayarlari
     uart->CPB = 434;
     uart->STP = 0;
     uart->CFG = 0;
     
-    // Send char 'R'
+    // 'R' gonder
     uart->TDR = 'R';
-    uart->CFG |= (0x1UL << 0); // Enable data transmit
+    uart->CFG |= (0x1UL << 0); // gonderimi baslat
 
-    while (!(uart->CFG & (0x1UL << 2))){} // Wait for transmit completed flag
+    while (!(uart->CFG & (0x1UL << 2))){} // gonderim bitti mi
     uart->CFG &= ~(0x1UL << 2);
-    
-    // Wait for char 'A'
-    while (!(uart->CFG & (0x1UL << 1))){} // Wait for transmit completed flag
-    uart->CFG &= ~(0x1UL << 1);
-    
-    if (uart->RDR == 'A') { // Print "Hello World!" if 'A' is received as expected
-        for (int i = 0; i < 16; i++){
-            // Send message
-            uart->TDR = msg[i];
-            uart->CFG |= (0x1UL << 0); // Enable data transmit
 
-            while (!(uart->CFG & (0x1UL << 2))){} // Wait for transmit completed flag
+    // 'A' bekle
+    while (!(uart->CFG & (0x1UL << 1))){}
+    uart->CFG &= ~(0x1UL << 1);
+
+    if (uart->RDR == 'A') { // beklenen 'A' geldiyse mesaji bas
+        for (int i = 0; i < 16; i++){
+            uart->TDR = msg[i];
+            uart->CFG |= (0x1UL << 0);
+
+            while (!(uart->CFG & (0x1UL << 2))){}
             uart->CFG &= ~(0x1UL << 2);
 
-            if (msg[i] == '\0') // Break at the end of string
+            if (msg[i] == '\0') // string sonu
                 break;
         }
     }
-    else return 1; // Test failed
+    else return 1; // test basarisiz
 
     return 0;
 }

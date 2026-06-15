@@ -1,58 +1,18 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// ai_accelerator.sv  -  YZ hizlandirici (Tiny Conv)
+// ============================================
+
 `timescale 1ns / 1ps
 
-// ============================================================
-// BLogic MCU — YZ Hızlandırıcı (AI Accelerator) — v2
-// ============================================================
-// TFLite Micro Speech "Tiny Conv" modelini RTL düzeyinde gerçekler.
-// Bu sürümde GERÇEK Conv2D ve FC hesabı yapılır; quantization
-// tek sabit sağ-kaydırma ile yapılır. Python referansın AYNI sabit
-// ofsetleri, AYNI shift değerlerini ve AYNI ReLU/argmax yerini
-// kullanması ŞART — yoksa golden test eşleşmez.
-//
-// Mimari:
-//   - AXI4-Lite Slave   : CPU CSR erişimi (CTRL/STATUS/DATA_ADDR/OUT_ADDR)
-//   - AXI4 Master       : AI SRAM okuma/yazma (32-bit word, byte wstrb)
-//   - Yerel bellekler   : input (1960B) + conv_w (640B) + conv_bias (32B)
-//                         + conv_out (4000B) + fc_bias (16B) + fc_out (4B)
-//   - Datapath          : INT8 × INT8 → INT32 MAC + ReLU + shift + sat→INT8
-//   - Ana FSM           : LOAD → CONV → WRITE_CONV → LOAD_FC → FC → ARGMAX → DONE
-//   - Interrupt         : İşlem bitince irq_o
-//
-// Model (EK-1, TFLite Micro Speech tiny_conv):
-//   Giriş : 49 × 40 × 1 INT8 (1960 byte)
-//   Conv  : 8 filtre × 10×8×1, stride 2, SAME pad (top=4, left=3)
-//           → 25 × 20 × 8 → +bias → ReLU → >>>CONV_SHIFT → INT8 sat
-//   FC    : 4000 → 4, +bias → >>>FC_SHIFT → INT8 sat
-//   Argmax: 4 INT8 → {0:silence, 1:unknown, 2:yes, 3:no}
-//
-// AI SRAM düzeni (AI_SRAM_BASE = 0x0003_0000, 30 KB):
-//   Bölge          Ofset       Boyut    Açıklama
-//   INPUT          0x0000      1960     csr_data_addr; INT8
-//   CONV_OUT       0x07A8      4000     Conv ara çıkışı; INT8, HWC [25,20,8]
-//   CONV_W         0x17A8       640     8×10×8×1 INT8 (filtre-major)
-//   CONV_BIAS      0x1BA8        32     8 × INT32 (little-endian)
-//   FC_W           0x1BC8     16000     4 × 4000 INT8 (out-major)
-//   FC_BIAS        0x5A48        16     4 × INT32
-//   RESULT         csr_out_addr   4     INT32 argmax sınıfı (default 0x5A58)
-//
-// Conv layout (HWC): conv_out[r*160 + c*8 + f]   (r=0..24, c=0..19, f=0..7)
-// Conv weight layout (filtre-major):
-//   conv_w[f*80 + kh*8 + kw]   (f=0..7, kh=0..9, kw=0..7)
-// FC weight layout (out-major):
-//   fc_w[o*4000 + i]           (o=0..3, i=0..3999)
-//
-// !!! Berkin'in tiny_conv_reference.py'sinin BU layout'a, CONV_SHIFT'e ve
-//     FC_SHIFT'e bit-bit uyması gerekir.
-// ============================================================
-
 module ai_accelerator #(
-    parameter int CONV_SHIFT = 11,   // INT32 acc → INT8 conv requant kaydırma
-    parameter int FC_SHIFT   = 11    // INT32 acc → INT8 fc   requant kaydırma
+    parameter int CONV_SHIFT = 11,   // conv requant kaydirma
+    parameter int FC_SHIFT   = 11    // fc requant kaydirma
 ) (
     input  logic        clk_i,
     input  logic        rst_ni,
 
-    // ---- AXI4-Lite Slave (CPU CSR) ----
+    // AXI4-Lite slave (CPU CSR)
     input  logic [31:0] s_axi_awaddr,
     input  logic        s_axi_awvalid,
     output logic        s_axi_awready,
@@ -71,7 +31,7 @@ module ai_accelerator #(
     output logic        s_axi_rvalid,
     input  logic        s_axi_rready,
 
-    // ---- AXI4 Master (AI SRAM) ----
+    // AXI4 master (AI SRAM)
     output logic [ 3:0] m_axi_awid,
     output logic [31:0] m_axi_awaddr,
     output logic [ 7:0] m_axi_awlen,
@@ -104,34 +64,27 @@ module ai_accelerator #(
 
     output logic        busy_o,
 
-    // ---- Interrupt ----
+    // kesme
     output logic        irq_o
 );
 
-    // =========================================================
-    // TFLite QUANTIZATION PARAMETRELERI (extract_weights.py ciktisi)
-    // =========================================================
-    // micro_speech_quantized.tflite modelinden cikarildi.
-    // Yeniden uretmek icin: python3 extract_weights.py
-    // ---------------------------------------------------------
+    // TFLite quantization parametreleri (extract_weights.py ciktisi)
     localparam logic signed [ 7:0] INPUT_ZP    = -8'sd128;
     localparam logic signed [ 7:0] CONV_OUT_ZP = -8'sd128;
     localparam logic signed [ 7:0] FC_OUT_ZP   =  8'sd14;
 
-    // Per-channel CONV requant (8 filtre)
+    // conv requant, kanal basina (8 filtre)
     localparam logic signed [31:0] M_CONV_Q31 [0:7] = '{
         32'h628A49AF, 32'h5A64A4B7, 32'h7741C64F, 32'h452319CA,
         32'h594FD417, 32'h4CA163E2, 32'h7FEC0835, 32'h68B36BE8
     };
     localparam int SHIFT_CONV [0:7] = '{41, 43, 41, 41, 41, 41, 41, 41};
 
-    // Per-tensor FC requant
+    // fc requant, tensor basina
     localparam logic signed [31:0] M_FC_Q31 = 32'h732B0C78;
     localparam int                 SHIFT_FC = 42;
 
-    // =========================================================
-    // SABİTLER — Bellek haritası ve model parametreleri
-    // =========================================================
+    // Bellek haritasi ve model parametreleri
     localparam logic [31:0] AI_SRAM_BASE   = 32'h0003_0000;
     localparam logic [31:0] CONV_OUT_OFF   = 32'h0000_07A8;
     localparam logic [31:0] CONV_W_OFF     = 32'h0000_17A8;
@@ -151,51 +104,44 @@ module ai_accelerator #(
     localparam int STRIDE      = 2;
     localparam int CONV_OUT_H  = 25;
     localparam int CONV_OUT_W  = 20;
-    localparam int FC_IN       = 4000;   // 25 * 20 * 8
+    localparam int FC_IN       = 4000;   // 25*20*8
     localparam int FC_OUT      = 4;
 
-    // Yerel bellek boyutları (word = 32-bit)
-    localparam int INPUT_WORDS    = 490;   // 1960 byte / 4
-    localparam int CONV_W_WORDS   = 160;   // 640 byte / 4
-    localparam int CONV_OUT_WORDS = 1000;  // 4000 byte / 4
+    // Yerel bellek boyutlari (32-bit word)
+    localparam int INPUT_WORDS    = 490;   // 1960B / 4
+    localparam int CONV_W_WORDS   = 160;   // 640B / 4
+    localparam int CONV_OUT_WORDS = 1000;  // 4000B / 4
 
-    // =========================================================
-    // CSR (AXI4-Lite Slave) sinyalleri
-    // =========================================================
-    // 0x00 CTRL    : [0]=START (pulse), [1]=CLEAR_DONE (pulse)
-    // 0x04 STATUS  : [0]=BUSY, [1]=DONE, [7:4]=RESULT (argmax)
-    // 0x08 DATA_ADDR : Giriş veri başlangıç adresi
-    // 0x0C OUT_ADDR  : Sonuç (argmax) yazılacak adres
+    // CSR (AXI4-Lite slave) sinyalleri
+    // 0x00 CTRL: [0]=START, [1]=CLEAR_DONE (pulse)
+    // 0x04 STATUS: [0]=BUSY, [1]=DONE, [7:4]=RESULT
+    // 0x08 DATA_ADDR: giris adresi, 0x0C OUT_ADDR: sonuc adresi
     localparam logic [4:0] CSR_CTRL      = 5'h00;
     localparam logic [4:0] CSR_STATUS    = 5'h04;
     localparam logic [4:0] CSR_DATA_ADDR = 5'h08;
     localparam logic [4:0] CSR_OUT_ADDR  = 5'h0C;
 
-    // FSM ↔ CSR arası pulse sinyaller (tek sürücülü yapmak için)
-    logic        csr_start;          // 1-cycle pulse, SW yazınca tetiklenir
-    logic        csr_clear_done;     // 1-cycle pulse, SW DONE'u temizler
+    // FSM ile CSR arasi pulse sinyalleri (tek surucu icin)
+    logic        csr_start;          // SW yazinca 1-cycle pulse
+    logic        csr_clear_done;     // SW DONE temizler
     logic [31:0] csr_data_addr;
     logic [31:0] csr_out_addr;
 
-    // FSM tarafından sürülen STATUS sinyalleri
+    // FSM'in surdugu STATUS sinyalleri
     logic        status_busy;
     logic        status_done;
     logic [ 3:0] status_result;
 
-    // =========================================================
-    // YEREL BELLEKLER
-    // =========================================================
-    logic [31:0] input_mem    [0:INPUT_WORDS-1];      // 1960 byte
-    logic [31:0] conv_w_mem   [0:CONV_W_WORDS-1];     // 640 byte
-    logic signed [31:0] conv_bias_mem [0:NUM_FILTERS-1];  // 8 × INT32
-    logic [31:0] conv_out_mem [0:CONV_OUT_WORDS-1];   // 4000 byte
-    logic signed [31:0] fc_bias_mem [0:FC_OUT-1];     // 4 × INT32
-    logic signed [ 7:0] fc_out_mem  [0:FC_OUT-1];     // 4 × INT8 (saturate)
+    // Yerel bellekler
+    logic [31:0] input_mem    [0:INPUT_WORDS-1];
+    logic [31:0] conv_w_mem   [0:CONV_W_WORDS-1];
+    logic signed [31:0] conv_bias_mem [0:NUM_FILTERS-1];
+    logic [31:0] conv_out_mem [0:CONV_OUT_WORDS-1];
+    logic signed [31:0] fc_bias_mem [0:FC_OUT-1];
+    logic signed [ 7:0] fc_out_mem  [0:FC_OUT-1];
 
-    // =========================================================
-    // MAC BİRİMİ (combinational + acc register)
-    // =========================================================
-    logic signed [15:0] mac_a;   // input - input_zp 9-bit sigabilmesi icin
+    // MAC birimi
+    logic signed [15:0] mac_a;   // input - input_zp 9-bit sigsin diye
     logic signed [ 7:0] mac_b;
     logic signed [31:0] mac_acc;
     logic               mac_clear;
@@ -210,10 +156,8 @@ module ai_accelerator #(
             mac_acc <= mac_acc + ($signed(mac_a) * $signed(mac_b));
     end
 
-    // =========================================================
-    // TFLite requant: (acc * M_q31 + round) >>> right_shift + out_zp, sat
-    // do_relu=1 ise alt saturasyon out_zp (TFLite fused ReLU), aksi -128
-    // =========================================================
+    // TFLite requant: (acc*M_q31 + round) >>> shift + out_zp, sat.
+    // do_relu=1 ise alt sinir out_zp (fused ReLU), degilse -128.
     function automatic logic signed [7:0] tflite_requant(
         input logic signed [31:0] acc,
         input logic signed [31:0] M_q31,
@@ -240,37 +184,29 @@ module ai_accelerator #(
         else                          return biased[7:0];
     endfunction
 
-    // =========================================================
-    // ANA FSM DURUM TANIMI
-    // =========================================================
+    // Ana FSM durumlari
     typedef enum logic [4:0] {
         ST_IDLE,
-        // --- Önceden yükleme ---
-        ST_LOAD_CW,        // Conv ağırlıklarını yükle (160 word)
+        ST_LOAD_CW,        // conv agirlik yukle (160 word)
         ST_LOAD_CW_WAIT,
-        ST_LOAD_CB,        // Conv bias yükle (8 INT32)
+        ST_LOAD_CB,        // conv bias yukle (8 INT32)
         ST_LOAD_CB_WAIT,
-        ST_LOAD_IN,        // Input yükle (490 word)
+        ST_LOAD_IN,        // input yukle (490 word)
         ST_LOAD_IN_WAIT,
-        // --- Conv2D compute (yerel bellekten) ---
-        ST_CONV_INIT,      // (f,r,c) için acc=bias[f], (kh,kw)=0
-        ST_CONV_MAC,       // 1 MAC / cycle (yerel bellek erişimleri)
-        ST_CONV_DRAIN,     // pipeline drain (last MAC product)
-        ST_CONV_STORE,     // acc → requant → conv_out_mem[r,c,f]
-        // --- Conv çıkışını AI SRAM'e yaz ---
+        ST_CONV_INIT,
+        ST_CONV_MAC,       // cycle basina 1 MAC
+        ST_CONV_DRAIN,     // pipeline bosalt
+        ST_CONV_STORE,     // requant + conv_out_mem'e yaz
         ST_WCONV_ISSUE,
         ST_WCONV_WAIT,
-        // --- FC bias yükle ---
         ST_LOAD_FB,
         ST_LOAD_FB_WAIT,
-        // --- FC compute ---
-        ST_FC_INIT,        // out_idx için acc=fc_bias[out_idx], in_idx=0
-        ST_FC_FETCH_W,     // FC ağırlık byte oku
+        ST_FC_INIT,
+        ST_FC_FETCH_W,     // FC agirlik byte oku
         ST_FC_FETCH_W_WAIT,
         ST_FC_MAC,
-        ST_FC_DRAIN,       // pipeline drain (last MAC product)
-        ST_FC_STORE,       // 4000 MAC bitince fc_out_mem[out_idx]
-        // --- Argmax + sonuç yaz ---
+        ST_FC_DRAIN,       // pipeline bosalt
+        ST_FC_STORE,
         ST_ARGMAX,
         ST_WRITE_RESULT,
         ST_WRITE_WAIT,
@@ -278,8 +214,8 @@ module ai_accelerator #(
     } state_t;
     state_t state;
 
-    // Sayaçlar
-    logic [ 9:0] load_idx;     // 0..489 (input), 0..159 (cw), 0..999 (conv_out)
+    // Sayaclar
+    logic [ 9:0] load_idx;
     logic [ 2:0] f_idx;        // 0..7
     logic [ 4:0] r_idx;        // 0..24
     logic [ 4:0] c_idx;        // 0..19
@@ -288,26 +224,24 @@ module ai_accelerator #(
     logic [ 1:0] out_idx;      // 0..3
     logic [11:0] in_idx;       // 0..3999
 
-    // FC row base: out_idx değiştikçe sırayla 4000 eklenir
+    // FC satir tabani: out_idx arttikca 4000 eklenir
     logic [31:0] fc_w_row_base;
 
-    // =========================================================
-    // AXI4 MASTER FSM — byte-strobed yazma + word okuma
-    // =========================================================
+    // AXI4 master FSM: byte-strobe yazma + word okuma
     typedef enum logic [2:0] {
         MEM_IDLE, MEM_RA, MEM_RD, MEM_WA, MEM_WR_RESP
     } mem_state_t;
     mem_state_t mem_state;
 
-    logic [31:0] mem_addr;        // Byte adres (yazma için tam adres, okuma için word-align önerilir)
-    logic [31:0] mem_wdata_q;     // Yazma verisi (4-byte hizalanmış word)
-    logic [ 3:0] mem_wstrb_q;     // Yazma strobu
-    logic [31:0] mem_rdata;       // Son okuma sonucu (32-bit word)
+    logic [31:0] mem_addr;        // byte adres
+    logic [31:0] mem_wdata_q;     // yazma verisi
+    logic [ 3:0] mem_wstrb_q;     // yazma strobu
+    logic [31:0] mem_rdata;       // son okunan word
     logic        mem_read_req;
     logic        mem_write_req;
     logic        mem_done;
 
-    // AXI sabit sinyaller (tek-beat, INCR, 4 byte)
+    // AXI sabit sinyalleri (tek-beat, INCR, 4 byte)
     assign m_axi_awid    = 4'd2;
     assign m_axi_awlen   = 8'd0;
     assign m_axi_awsize  = 3'b010;
@@ -337,7 +271,7 @@ module ai_accelerator #(
             case (mem_state)
                 MEM_IDLE: begin
                     if (mem_read_req) begin
-                        m_axi_araddr  <= {mem_addr[31:2], 2'b00};  // word-align
+                        m_axi_araddr  <= {mem_addr[31:2], 2'b00};  // word hizala
                         m_axi_arvalid <= 1'b1;
                         mem_state     <= MEM_RA;
                     end else if (mem_write_req) begin
@@ -384,9 +318,7 @@ module ai_accelerator #(
         end
     end
 
-    // =========================================================
-    // YARDIMCI: byte indeksinden (input/conv_w/conv_out_mem) byte çek
-    // =========================================================
+    // word icinden byte cek
     function automatic logic signed [7:0] get_byte_from_word(
         input logic [31:0] word,
         input logic [ 1:0] byte_off
@@ -399,13 +331,13 @@ module ai_accelerator #(
         endcase
     endfunction
 
-    // input_mem'den (ir, ic) konumundaki byte (padding kontrolü ile)
+    // input_mem'den (ir, ic) pikseli, padding kontrollu
     function automatic logic signed [7:0] read_input_pixel(
         input int ir, input int ic
     );
         int byte_idx;
         if (ir < 0 || ir >= INPUT_H || ic < 0 || ic >= INPUT_W)
-            return INPUT_ZP;   // SAME padding: input_zp (TFLite kurali)
+            return INPUT_ZP;   // SAME pad icin input_zp
         byte_idx = ir * INPUT_W + ic;
         return get_byte_from_word(
             input_mem[byte_idx >> 2],
@@ -413,7 +345,7 @@ module ai_accelerator #(
         );
     endfunction
 
-    // conv_w_mem'den (f, kh, kw) ağırlık byte'ı
+    // conv_w_mem'den (f, kh, kw) agirlik byte'i
     function automatic logic signed [7:0] read_conv_weight(
         input int f, input int kh, input int kw
     );
@@ -425,7 +357,7 @@ module ai_accelerator #(
         );
     endfunction
 
-    // conv_out_mem'e byte yaz (lokal RMW)
+    // conv_out_mem'e byte yaz (RMW)
     task automatic write_conv_out_byte(
         input int                 r,
         input int                 c,
@@ -449,7 +381,7 @@ module ai_accelerator #(
         conv_out_mem[word_idx] = w;
     endtask
 
-    // conv_out_mem'den byte oku (FC compute için)
+    // conv_out_mem'den byte oku (FC icin)
     function automatic logic signed [7:0] read_conv_out_byte(
         input int i
     );
@@ -459,10 +391,8 @@ module ai_accelerator #(
         );
     endfunction
 
-    // =========================================================
-    // ANA FSM
-    // =========================================================
-    int ir, ic;           // padding hesabı için iterler (combinational geçici)
+    // Ana FSM
+    int ir, ic;           // padding hesabi icin gecici
     logic signed [7:0] input_pix, weight_pix, conv_out_pix, fc_w_pix;
     logic signed [7:0] result_byte;
     int idx_tmp;
@@ -494,19 +424,18 @@ module ai_accelerator #(
             mem_wdata_q    <= '0;
             mem_wstrb_q    <= 4'b1111;
         end else begin
-            // Varsayılan pulse temizlikleri
+            // pulse'lari varsayilan temizle
             mac_clear     <= 1'b0;
             mac_en        <= 1'b0;
             mem_read_req  <= 1'b0;
             mem_write_req <= 1'b0;
 
 
-            // SW DONE temizleme (tek sürücülü kalsın diye burada)
+            // SW DONE temizleme (tek surucu icin burada)
             if (csr_clear_done)
                 status_done <= 1'b0;
 
             case (state)
-                // ----------------------------------------------------
                 ST_IDLE: begin
                     status_busy <= 1'b0;
                     if (csr_start) begin
@@ -514,16 +443,14 @@ module ai_accelerator #(
                         status_done   <= 1'b0;
                         status_result <= 4'd0;
                         load_idx      <= '0;
-                        // Conv ağırlıklarını yüklemeye başla
+                        // conv agirlik yuklemeye basla
                         mem_addr      <= AI_SRAM_BASE + CONV_W_OFF;
                         mem_read_req  <= 1'b1;
                         state         <= ST_LOAD_CW_WAIT;
                     end
                 end
 
-                // ----------------------------------------------------
-                // 1) Conv ağırlıklarını yükle (160 word)
-                // ----------------------------------------------------
+                // conv agirlik yukle (160 word)
                 ST_LOAD_CW: begin
                     mem_addr     <= AI_SRAM_BASE + CONV_W_OFF + (load_idx << 2);
                     mem_read_req <= 1'b1;
@@ -542,9 +469,7 @@ module ai_accelerator #(
                     end
                 end
 
-                // ----------------------------------------------------
-                // 2) Conv bias yükle (8 INT32 = 8 word)
-                // ----------------------------------------------------
+                // conv bias yukle (8 word)
                 ST_LOAD_CB: begin
                     mem_addr     <= AI_SRAM_BASE + CONV_BIAS_OFF + (load_idx << 2);
                     mem_read_req <= 1'b1;
@@ -563,9 +488,7 @@ module ai_accelerator #(
                     end
                 end
 
-                // ----------------------------------------------------
-                // 3) Input yükle (490 word) — SW'in verdiği csr_data_addr'ten
-                // ----------------------------------------------------
+                // input yukle (490 word), csr_data_addr'ten
                 ST_LOAD_IN: begin
                     mem_addr     <= csr_data_addr + (load_idx << 2);
                     mem_read_req <= 1'b1;
@@ -576,7 +499,7 @@ module ai_accelerator #(
                         input_mem[load_idx] <= mem_rdata;
                         if (load_idx == INPUT_WORDS - 1) begin
                             load_idx <= '0;
-                            // Conv2D başlat
+                            // Conv2D basla
                             f_idx    <= '0;
                             r_idx    <= '0;
                             c_idx    <= '0;
@@ -590,13 +513,10 @@ module ai_accelerator #(
                     end
                 end
 
-                // ----------------------------------------------------
-                // 4) Conv2D — yerel bellekten, 1 MAC/cycle
-                // ----------------------------------------------------
+                // Conv2D: yerel bellekten, cycle basina 1 MAC
                 ST_CONV_INIT: begin
-                    // (f, r, c) için yeni MAC penceresi
+                    // (f, r, c) icin yeni MAC penceresi; bias STORE'da eklenir
                     mac_clear <= 1'b1;
-                    // bir cycle sonra MAC'e başla; bias'ı en sonda STORE'da ekleyeceğiz
                     kh_idx <= '0;
                     kw_idx <= '0;
                     state  <= ST_CONV_MAC;
@@ -608,17 +528,16 @@ module ai_accelerator #(
                     ic = (c_idx * STRIDE) + kw_idx - PAD_LEFT;
                     input_pix  = read_input_pixel(ir, ic);
                     weight_pix = read_conv_weight(f_idx, kh_idx, kw_idx);
-                    // TFLite: (input - input_zp) * weight, weight_zp=0
+                    // (input - input_zp) * weight, weight_zp=0
                     mac_a  <= 16'($signed(input_pix) - $signed(INPUT_ZP));
                     mac_b  <= weight_pix;
                     mac_en <= 1'b1;
 
-                    // Kernel iç döngüsünü ilerlet
+                    // kernel ic dongusu
                     if (kw_idx == KERNEL_W - 1) begin
                         kw_idx <= '0;
                         if (kh_idx == KERNEL_H - 1) begin
                             kh_idx <= '0;
-                            // Pencere bitti → STORE'a (bias eklenip yazılacak)
                             state <= ST_CONV_DRAIN;
                         end else begin
                             kh_idx <= kh_idx + 1;
@@ -629,17 +548,12 @@ module ai_accelerator #(
                 end
 
                 ST_CONV_DRAIN: begin
-                    // last conv MAC product (kh=9,kw=7) lands THIS cycle;
-                    // mac_en is still 1 from prev cycle, default <=0 clears
-                    // it, so STORE sees all 80 products (none dropped).
+                    // son MAC carpimi bu cycle acc'a girer, 80'i de sayilir
                     state <= ST_CONV_STORE;
                 end
 
                 ST_CONV_STORE: begin
-                    // mac_en'in son MAC'i acc'a yazması için 1 cycle bekledik
-                    // (state geçişi cycle aldı; acc artık güncel)
-                    // Bias ekle, ReLU+shift+sat, yerel conv_out_mem'e yaz
-                    // Per-channel requant + fused ReLU (TFLite: act_min = out_zp)
+                    // bias ekle, kanal basina requant + fused ReLU, conv_out_mem'e yaz
                     result_byte = tflite_requant(
                         mac_acc + conv_bias_mem[f_idx],
                         M_CONV_Q31[f_idx],
@@ -649,13 +563,13 @@ module ai_accelerator #(
                     );
                     write_conv_out_byte(r_idx, c_idx, f_idx, result_byte);
 
-                    // (f, r, c) ilerlet — düzen: f outer, r mid, c inner
+                    // (f, r, c) ilerlet: f dis, r orta, c ic
                     if (c_idx == CONV_OUT_W - 1) begin
                         c_idx <= '0;
                         if (r_idx == CONV_OUT_H - 1) begin
                             r_idx <= '0;
                             if (f_idx == NUM_FILTERS - 1) begin
-                                // Tüm conv2d bitti → conv_out'u AI SRAM'e yaz
+                                // conv2d bitti, conv_out'u SRAM'e yaz
                                 f_idx    <= '0;
                                 load_idx <= '0;
                                 state    <= ST_WCONV_ISSUE;
@@ -673,14 +587,11 @@ module ai_accelerator #(
                     end
                 end
 
-                // ----------------------------------------------------
-                // 5) conv_out yerel belleği AI SRAM'e yaz (1000 word)
-                //    (Berkin'in testbench'i golden conv_out_*.hex ile karşılaştırır)
-                // ----------------------------------------------------
+                // conv_out yerel bellegi SRAM'e yaz (1000 word)
                 ST_WCONV_ISSUE: begin
                     mem_addr      <= AI_SRAM_BASE + CONV_OUT_OFF + (load_idx << 2);
                     mem_wdata_q   <= conv_out_mem[load_idx];
-                    mem_wstrb_q   <= 4'b1111;     // tam word yazımı
+                    mem_wstrb_q   <= 4'b1111;     // tam word
                     mem_write_req <= 1'b1;
                     state         <= ST_WCONV_WAIT;
                 end
@@ -696,9 +607,7 @@ module ai_accelerator #(
                     end
                 end
 
-                // ----------------------------------------------------
-                // 6) FC bias yükle (4 INT32)
-                // ----------------------------------------------------
+                // FC bias yukle (4 INT32)
                 ST_LOAD_FB: begin
                     mem_addr     <= AI_SRAM_BASE + FC_BIAS_OFF + (load_idx << 2);
                     mem_read_req <= 1'b1;
@@ -708,7 +617,7 @@ module ai_accelerator #(
                     if (mem_done) begin
                         fc_bias_mem[load_idx[1:0]] <= $signed(mem_rdata);
                         if (load_idx == FC_OUT - 1) begin
-                            // FC compute başlat
+                            // FC basla
                             out_idx       <= '0;
                             in_idx        <= '0;
                             fc_w_row_base <= AI_SRAM_BASE + FC_W_OFF;
@@ -720,9 +629,7 @@ module ai_accelerator #(
                     end
                 end
 
-                // ----------------------------------------------------
-                // 7) FC: 4 × 4000 MAC. conv_out yerelde, fc_w stream.
-                // ----------------------------------------------------
+                // FC: 4 x 4000 MAC; conv_out yerelde, fc_w stream
                 ST_FC_INIT: begin
                     mac_clear <= 1'b1;
                     in_idx    <= '0;
@@ -730,7 +637,7 @@ module ai_accelerator #(
                 end
 
                 ST_FC_FETCH_W: begin
-                    // FC ağırlığını oku (byte-precise adres → 32-bit oku, byte çek)
+                    // FC agirligi oku (word oku, sonra byte cek)
                     mem_addr     <= fc_w_row_base + {20'd0, in_idx};
                     mem_read_req <= 1'b1;
                     state        <= ST_FC_FETCH_W_WAIT;
@@ -740,10 +647,9 @@ module ai_accelerator #(
                 end
 
                 ST_FC_MAC: begin
-                    // conv_out_mem yerelden, fc_w son okunan word'ten byte çek
                     conv_out_pix = read_conv_out_byte(in_idx);
                     fc_w_pix     = get_byte_from_word(mem_rdata, in_idx[1:0]);
-                    // TFLite: (conv_out - conv_out_zp) * fc_w, fc_w_zp=0
+                    // (conv_out - conv_out_zp) * fc_w, fc_w_zp=0
                     mac_a  <= 16'($signed(conv_out_pix) - $signed(CONV_OUT_ZP));
                     mac_b  <= fc_w_pix;
                     mac_en <= 1'b1;
@@ -757,14 +663,12 @@ module ai_accelerator #(
                 end
 
                 ST_FC_DRAIN: begin
-                    // last FC MAC product (in_idx=3999) lands THIS cycle;
-                    // default mac_en<=0 then clears it, STORE sees all 4000.
+                    // son MAC bu cycle acc'a girer, 4000'i de sayilir
                     state <= ST_FC_STORE;
                 end
 
                 ST_FC_STORE: begin
-                    // Son MAC'in acc'a yansıması için 1 cycle bekledik
-                    // Per-tensor requant, ReLU yok (softmax girisi)
+                    // tensor basina requant, ReLU yok (softmax girisi)
                     fc_out_mem[out_idx] <= tflite_requant(
                         mac_acc + fc_bias_mem[out_idx],
                         M_FC_Q31,
@@ -777,14 +681,12 @@ module ai_accelerator #(
                     end else begin
                         out_idx       <= out_idx + 1;
                         in_idx        <= '0;
-                        fc_w_row_base <= fc_w_row_base + FC_IN;  // bir sonraki satır
+                        fc_w_row_base <= fc_w_row_base + FC_IN;  // sonraki satir
                         state         <= ST_FC_INIT;
                     end
                 end
 
-                // ----------------------------------------------------
-                // 8) Argmax (4 INT8 → 0..3)
-                // ----------------------------------------------------
+                // Argmax (4 INT8 -> 0..3)
                 ST_ARGMAX: begin
                     best_idx = 0;
                     best_val = fc_out_mem[0];
@@ -795,9 +697,7 @@ module ai_accelerator #(
                     state         <= ST_WRITE_RESULT;
                 end
 
-                // ----------------------------------------------------
-                // 9) Sonucu csr_out_addr'a yaz (1 INT32)
-                // ----------------------------------------------------
+                // sonucu csr_out_addr'a yaz (1 INT32)
                 ST_WRITE_RESULT: begin
                     mem_addr      <= csr_out_addr;
                     mem_wdata_q   <= {28'd0, status_result};
@@ -809,7 +709,6 @@ module ai_accelerator #(
                     if (mem_done) state <= ST_DONE;
                 end
 
-                // ----------------------------------------------------
                 ST_DONE: begin
                     status_busy <= 1'b0;
                     status_done <= 1'b1;
@@ -821,9 +720,7 @@ module ai_accelerator #(
         end
     end
 
-    // =========================================================
-    // AXI4-LITE SLAVE — CSR YAZMA
-    // =========================================================
+    // AXI4-Lite slave: CSR yazma
     logic       aw_en;
     logic [4:0] wr_addr_q;
     assign s_axi_bresp = 2'b00;
@@ -837,10 +734,10 @@ module ai_accelerator #(
             wr_addr_q      <= '0;
             csr_start      <= 1'b0;
             csr_clear_done <= 1'b0;
-            csr_data_addr  <= AI_SRAM_BASE;                 // varsayılan input adresi
-            csr_out_addr   <= AI_SRAM_BASE + DEFAULT_OUT;   // varsayılan sonuç adresi
+            csr_data_addr  <= AI_SRAM_BASE;                 // varsayilan input adresi
+            csr_out_addr   <= AI_SRAM_BASE + DEFAULT_OUT;   // varsayilan sonuc adresi
         end else begin
-            // pulse'lar varsayılan 0
+            // pulse'lar varsayilan 0
             csr_start      <= 1'b0;
             csr_clear_done <= 1'b0;
 
@@ -875,9 +772,7 @@ module ai_accelerator #(
         end
     end
 
-    // =========================================================
-    // AXI4-LITE SLAVE — CSR OKUMA
-    // =========================================================
+    // AXI4-Lite slave: CSR okuma
     assign s_axi_rresp = 2'b00;
 
     always_ff @(posedge clk_i or negedge rst_ni) begin

@@ -1,14 +1,14 @@
-# ==============================================================================
-# BLogic MCU — Verilator / Sentez Dosya Listesi (soc_files.f)
-# TEKNOFEST 2026 Çip Tasarım Yarışması
-# ==============================================================================
+# ============================================
+# Ostim BLogic Mikroelektronik
+# soc_files.f  -  Verilator/sentez dosya listesi
+# ============================================
 
-# 1. INCLUDE ADRESLERI
+# include adresleri
 +incdir+rtl/core/cv32e40p/rtl/include
 +incdir+rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include
 +incdir+rtl/bus/axi/include
 
-# 2. PAKETLER VE GLOBAL TANIMLAR (ilk derlenmelidir)
+# paketler ve global tanimlar (once derlenmeli)
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/cf_math_pkg.sv
 rtl/bus/axi/src/axi_pkg.sv
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_fpnew/src/fpnew_pkg.sv
@@ -17,10 +17,10 @@ rtl/core/cv32e40p/rtl/include/cv32e40p_apu_core_pkg.sv
 rtl/core/cv32e40p/rtl/include/cv32e40p_fpu_pkg.sv
 rtl/core/cv32e40p/bhv/cv32e40p_sim_clock_gate.sv
 
-# 3. INTERFACE TANIMLARI
+# interface tanimlari
 rtl/bus/axi/src/axi_intf.sv
 
-# 4. VENDOR / KÜTÜPHANE MODÜLLERİ (PULP Common Cells)
+# vendor moduller (PULP common cells)
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/fifo_v3.sv
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/lzc.sv
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/rr_arb_tree.sv
@@ -34,7 +34,7 @@ rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/fall_through_registe
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/addr_decode.sv
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/onehot_to_bin.sv
 
-# 5. İŞLEMCİ ÇEKİRDEĞİ
+# islemci cekirdegi
 rtl/core/cv32e40p/rtl/cv32e40p_aligner.sv
 rtl/core/cv32e40p/rtl/cv32e40p_alu.sv
 rtl/core/cv32e40p/rtl/cv32e40p_alu_div.sv
@@ -63,17 +63,17 @@ rtl/core/cv32e40p/rtl/cv32e40p_sleep_unit.sv
 rtl/core/cv32e40p/rtl/cv32e40p_core.sv
 rtl/core/cv32e40p/rtl/cv32e40p_top.sv
 
-# 6. BELLEK MODÜLLERİ
+# bellek modulleri
 rtl/core/cv32e40p/rtl/axi_sram_wrapper.sv
 rtl/core/cv32e40p/rtl/axi_slave_tieoff.sv
 
-# 7. VERİYOLU MODÜLLERİ
+# veriyolu modulleri
 rtl/bus/obi_to_axi.sv
 rtl/bus/soc_axi_interconnect.sv
 rtl/bus/axi4_to_axilite_bridge.sv
 rtl/bus/periph_decoder.sv
 
-# 8. ÇEVRE BİRİMLERİ
+# cevre birimleri
 rtl/peripherals/uart_axil.sv
 rtl/peripherals/uart.v
 rtl/peripherals/uart_rx.v
@@ -84,12 +84,12 @@ rtl/peripherals/i2c_master_axil.sv
 rtl/peripherals/qspi_master_axil.sv
 rtl/peripherals/uart_stream_axil.sv
 
-# 9. PROTOCOL CHECKER'LAR (doğrulama — sentezde dahil edilmez)
+# protocol checker'lar (sentezde yok)
 verif/sva/axi_lite_protocol_checker.sv
 verif/sva/axi4_protocol_checker.sv
 verif/sva/soc_protocol_bind.sv
 
-# 10. EN ÜST SEVİYE
+# en ust seviye
 rtl/soc_top.sv
 rtl/ai_accelerator/ai_accelerator.sv
 rtl/ai_accelerator/ai_sram_arbiter.sv

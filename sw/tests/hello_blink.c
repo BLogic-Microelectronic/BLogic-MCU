@@ -1,11 +1,7 @@
-/* BLogic MCU - M3 teshis firmware'i (flash-boot)
- * Amac: QSPI flash-boot + CPU calisiyor mu UART'tan BAGIMSIZ gormek.
- *   - LED'ler yanip soner  -> CPU flash'tan boot etti = QSPI okuma CALISIYOR
- *   - UART de basarsa       -> UART yolu da calisiyor
- *   - LED yanmaz            -> bootrom cop okudu / CPU calismiyor (daha derin)
- * Not: string "Hello World from BLogic MCU!\n" UART_HELLO ile AYNI ->
- *      data SRAM (data_mem.hex) degismez -> bitstream rebuild gerekmez, sadece reflash.
- */
+/* ============================================
+   Ostim BLogic Mikroelektronik
+   hello_blink.c - LED blink + UART boot testi
+   ============================================ */
 #include "../drivers/blogic_mcu.h"
 
 int main(void) {

@@ -1,37 +1,20 @@
-"""
-generate_ai_sram_init.py — Adim 2.1: AI SRAM icin tek bir preload hex'i.
-
-Standalone TB $readmemh ile her bolgeyi ayri ayri yukluyordu; SoC sim
-ise i_ai_sram'in INIT_FILE parametresine TEK bir hex bekliyor (30720
-byte = 7680 word). Bu script:
-  - weights_conv, bias_conv, weights_fc, bias_fc'yi dogru offsetlere yerlestirir
-  - Bir test senaryosunun input'unu da INPUT bolgesine onceden koyar
-  - Gerisini sifir birakir
-  -> sw/ai_model/golden_vectors/ai_sram_init.hex (7680 satir, RTL beklentisiyle birebir)
-
-Calistirma (repo kokunden, venv aktif):
-    python3 sw/ai_model/generate_ai_sram_init.py
-
-Test senaryosu degistirmek icin TEST_SCENARIO sabitini guncelle
-(yes / no / silence / unknown). Beklenen argmax:
-    yes=2, no=3, unknown=1, silence=0
-
-soc_top.sv i_ai_sram'in INIT_FILE'ini bu yeni hex'e cevirmek icin:
-    sed -i '/\\.SRAM_BYTES(30720)/s|"data_mem.hex"|"ai_sram_init.hex"|' \\
-        rtl/soc_top.sv
-"""
+# ============================================
+# Ostim BLogic Mikroelektronik
+# generate_ai_sram_init.py  -  AI SRAM preload hex'i uretir
+# ============================================
+# Agirliklari ve test inputunu dogru offsetlere koyup tek hex yazar.
+# TEST_SCENARIO ile senaryo secilir (yes/no/silence/unknown).
 import os
 import sys
 
-# --- Konfigurasyon -----------------------------------------------
-TEST_SCENARIO = "yes_real"   # SoC on-yukleme: gercek ses ozniteligi (EK-3)
+TEST_SCENARIO = "yes_real"   # gercek ses ozniteligi (EK-3)
 
 GOLDEN_DIR = "sw/ai_model/golden_vectors"
 OUT_FILE   = os.path.join(GOLDEN_DIR, "ai_sram_init.hex")
 
-# AI SRAM offsetleri (byte) — ai_accelerator.sv'deki sabitlerle birebir
+# AI SRAM offsetleri (byte), ai_accelerator.sv ile ayni
 INPUT_OFF      = 0x0000   # 1960 byte
-CONV_OUT_OFF   = 0x07A8   # 4000 byte (accelerator yazacak, sifir baslat)
+CONV_OUT_OFF   = 0x07A8   # 4000 byte (accelerator yazacak)
 CONV_W_OFF     = 0x17A8   #  640 byte
 CONV_BIAS_OFF  = 0x1BA8   #   32 byte
 FC_W_OFF       = 0x1BC8   # 16000 byte
@@ -41,7 +24,6 @@ FC_BIAS_OFF    = 0x5A48   #   16 byte
 AI_SRAM_BYTES = 30720
 AI_SRAM_WORDS = AI_SRAM_BYTES // 4   # 7680
 
-# Tum word'leri sifir baslat
 words = [0] * AI_SRAM_WORDS
 
 

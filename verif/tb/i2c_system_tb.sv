@@ -1,6 +1,8 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// i2c_system_tb.sv  -  I2C sistem yolu testi
+// ============================================
 `timescale 1ns / 1ps
-// I2C sistem testi: CPU gercek yoldan (OBI->AXI4->kopru->decoder 0x4)
-// I2C Master'i programlar, echo slave ile konusur, "I2C SYS OK" basar.
 module i2c_system_tb;
     logic clk = 0, resetn = 0;
     always #10 clk = ~clk;

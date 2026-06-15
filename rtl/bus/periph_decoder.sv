@@ -1,23 +1,14 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// periph_decoder.sv  -  Çevre birimi adres çözücü
+// ============================================
 `timescale 1ns / 1ps
-
-// ============================================================
-// BLogic MCU - Çevre Birimi Adres Çözücü (Peripheral Decoder)
-// ============================================================
-// Adres haritası (0x4000_xxxx, bits[11:8] ile seçim):
-//   0x0 → UART_0    (0x4000_0000)
-//   0x1 → GPIO      (0x4000_0100)
-//   0x2 → Timer     (0x4000_0200)
-//   0x3 → UART_1    (0x4000_0300) — YZ stream UART (DMA)
-//   0x4 → I2C       (0x4000_0400) — YENİ
-//   0x5 → QSPI      (0x4000_0500)
-//   0x6 → AI_ACC    (0x4000_0600) — CSR erişimi (YENİ)
-// ============================================================
 
 module periph_decoder (
     input  logic        clk_i,
     input  logic        rst_ni,
 
-    // Giriş: Köprüden gelen AXI4-Lite
+    // Köprüden gelen AXI4-Lite
     input  logic [31:0] s_awaddr,
     input  logic        s_awvalid,
     output logic        s_awready,
@@ -57,14 +48,14 @@ module periph_decoder (
     output logic [31:0] timer_araddr, output logic timer_arvalid, input  logic timer_arready,
     input  logic [31:0] timer_rdata,  input  logic [1:0] timer_rresp, input  logic timer_rvalid,  output logic timer_rready,
 
-    // UART_1 / YZ stream (0x3) — YENİ
+    // UART_1 / YZ stream (0x3)
     output logic [31:0] uart1_awaddr, output logic uart1_awvalid, input  logic uart1_awready,
     output logic [31:0] uart1_wdata,  output logic [3:0] uart1_wstrb, output logic uart1_wvalid,  input  logic uart1_wready,
     input  logic [ 1:0] uart1_bresp,  input  logic uart1_bvalid,  output logic uart1_bready,
     output logic [31:0] uart1_araddr, output logic uart1_arvalid, input  logic uart1_arready,
     input  logic [31:0] uart1_rdata,  input  logic [1:0] uart1_rresp, input  logic uart1_rvalid,  output logic uart1_rready,
 
-    // I2C (0x4) — YENİ
+    // I2C (0x4)
     output logic [31:0] i2c_awaddr,   output logic i2c_awvalid,  input  logic i2c_awready,
     output logic [31:0] i2c_wdata,    output logic [3:0] i2c_wstrb, output logic i2c_wvalid,   input  logic i2c_wready,
     input  logic [ 1:0] i2c_bresp,    input  logic i2c_bvalid,   output logic i2c_bready,
@@ -78,7 +69,7 @@ module periph_decoder (
     output logic [31:0] qspi_araddr,  output logic qspi_arvalid, input  logic qspi_arready,
     input  logic [31:0] qspi_rdata,   input  logic [1:0] qspi_rresp, input  logic qspi_rvalid,  output logic qspi_rready,
 
-    // AI Accelerator CSR (0x6) — YENİ
+    // AI Accelerator CSR (0x6)
     output logic [31:0] ai_awaddr,  output logic ai_awvalid, input  logic ai_awready,
     output logic [31:0] ai_wdata,   output logic [3:0] ai_wstrb, output logic ai_wvalid,  input  logic ai_wready,
     input  logic [ 1:0] ai_bresp,   input  logic ai_bvalid,  output logic ai_bready,

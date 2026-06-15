@@ -1,45 +1,27 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// ai_accel_tb.sv  -  AI hizlandirici test bench
+// ============================================
 `timescale 1ns/1ps
-
-// ============================================================
-// BLogic AI Accelerator — Standalone TB
-// ============================================================
-// İskelet sırası:
-//   A — boilerplate + AXI4 slave SRAM + sanity (DUT yok)        [v]
-//   B — AXI-Lite master driver task'leri                         [v]
-//   C — DUT instance + reset → STATUS oku                        [v]
-//   D — preload + run_scenario("yes") + argmax karşılaştırma     [v]  <-- ŞU AN
-//   E — tensor-level diff + 4 senaryo (bonus)
-//
-// Bu adımı yeşil yakarsak TEKNOFEST min ödül kriteri #4 kapanıyor:
-//   "AI accelerator üzerinde en az 1 senaryo PASS."
-// ============================================================
 
 module ai_accel_tb;
 
-  // -------------------------------------------------------------
   // Saat / reset
-  // -------------------------------------------------------------
   logic clk   = 1'b0;
   logic rst_n = 1'b0;
   always #5 clk = ~clk;   // 100 MHz
 
-  // -------------------------------------------------------------
-  // AI SRAM modeli
-  // -------------------------------------------------------------
-  // RTL'de AI_SRAM_BASE = 0x0003_0000, 30 KB (7680 word).
-  // TB'de 8K word (32 KB) — güvenli üst sınır.
+  // AI SRAM modeli. RTL'de 30 KB, TB'de 32 KB guvenli ust sinir.
   localparam logic [31:0] AI_SRAM_BASE = 32'h0003_0000;
   localparam int          AI_MEM_WORDS = 8192;
   logic [31:0] ai_mem [0:AI_MEM_WORDS-1];
 
-  // Byte adresi → word indeksi
+  // Byte adresi -> word indeksi
   function automatic int unsigned word_idx(input logic [31:0] byte_addr);
     return (byte_addr - AI_SRAM_BASE) >> 2;
   endfunction
 
-  // -------------------------------------------------------------
-  // AXI4 Master sinyalleri (DUT → TB SRAM)
-  // -------------------------------------------------------------
+  // AXI4 Master sinyalleri (DUT -> TB SRAM)
   logic [ 3:0] m_awid;
   logic [31:0] m_awaddr;
   logic [ 7:0] m_awlen;
@@ -63,9 +45,7 @@ module ai_accel_tb;
   logic [ 1:0] m_rresp;
   logic        m_rlast, m_rvalid, m_rready;
 
-  // -------------------------------------------------------------
-  // AXI-Lite Slave (CSR) sinyalleri — TB master, DUT slave
-  // -------------------------------------------------------------
+  // AXI-Lite Slave (CSR) sinyalleri. TB master, DUT slave.
   logic [31:0] s_awaddr;
   logic        s_awvalid, s_awready;
   logic [31:0] s_wdata;
@@ -79,14 +59,10 @@ module ai_accel_tb;
   logic [ 1:0] s_rresp;
   logic        s_rvalid,  s_rready;
 
-  // -------------------------------------------------------------
   // IRQ / busy
-  // -------------------------------------------------------------
   logic irq, busy;
 
-  // -------------------------------------------------------------
   // DUT instance
-  // -------------------------------------------------------------
   ai_accelerator #(
     .CONV_SHIFT(11),
     .FC_SHIFT  (11)
@@ -148,20 +124,15 @@ module ai_accel_tb;
     .irq_o (irq)
   );
 
-  // -------------------------------------------------------------
   // AXI4 Slave SRAM FSM
-  // -------------------------------------------------------------
   typedef enum logic [2:0] {
     S_IDLE, S_R_DRIVE, S_W_DATA, S_W_RESP
   } slv_state_t;
   slv_state_t slv;
 
   logic [31:0] saved_awaddr, saved_araddr;
-  // -------------------------------------------------------------
-  // ADIM G - performans olcumu. Sartname penceresi: ilk veri
-  // okuma ani -> son veri yazma ani. perf_armed YALNIZ task'tan,
-  // zaman damgalari YALNIZ servis FF'inden yazilir (tek surucu).
-  // -------------------------------------------------------------
+  // Performans olcumu: ilk okuma -> son yazma penceresi.
+  // perf_armed task'tan, zaman damgalari FF'den yazilir (tek surucu).
   bit          perf_armed = 1'b0;
   int unsigned perf_cyc;
   int unsigned perf_t_start;
@@ -253,9 +224,7 @@ module ai_accel_tb;
     end
   end
 
-  // =============================================================
   // AXI-Lite master driver task'leri
-  // =============================================================
   task automatic csr_write(input logic [4:0] addr, input logic [31:0] data);
     fork
       begin: aw_ph
@@ -292,12 +261,8 @@ module ai_accel_tb;
     s_rready <= 1'b0;
   endtask
 
-  // =============================================================
-  // ADIM D — Preload task'leri
-  // =============================================================
-  // Statik ağırlıkları yükle (her senaryoda aynı kalıyor, model
-  // ağırlıkları konvolüsyon eğitiminden gelen sabit değerler).
-  // $readmemh'in 3. ve 4. parametresi WORD indeksi, byte değil.
+  // Statik agirliklari yukle (her senaryoda ayni).
+  // $readmemh'in son iki parametresi word indeksi, byte degil.
   task automatic preload_static_weights();
     int unsigned base;
 
@@ -320,9 +285,8 @@ module ai_accel_tb;
     $display("[PRELOAD] statik agirliklar yuklendi (conv_w@17A8, conv_bias@1BA8, fc_w@1BC8, fc_bias@5A48)");
   endtask
 
-  // Senaryo-spesifik girişi yükle. INPUT bölgesi 0x0000 ofsetinden
-  // başlar, 490 word (1960 byte) sürer. Verilator dinamik string
-  // path kabul etmediği için case ile literal yol kullanıyoruz.
+  // Senaryo girisini yukle. 0x0000 ofsetinden 490 word.
+  // Verilator dinamik string yol kabul etmiyor, case ile literal yol.
   task automatic preload_input(input string scenario);
     int unsigned base;
     base = word_idx(AI_SRAM_BASE + 32'h0000);
@@ -336,7 +300,7 @@ module ai_accel_tb;
                            ai_mem, base, base + 490 - 1);
       "silence": $readmemh("sw/ai_model/golden_vectors/input_silence.hex",
                            ai_mem, base, base + 490 - 1);
-      // EK-3 (Zorunlu): gercek 1 sn WAV kaynakli onislenmis oznitelikler
+      // gercek 1 sn WAV kaynakli oznitelikler
       "yes_real": $readmemh("sw/ai_model/golden_vectors/input_yes_real.hex",
                            ai_mem, base, base + 490 - 1);
       "no_real":  $readmemh("sw/ai_model/golden_vectors/input_no_real.hex",
@@ -348,12 +312,8 @@ module ai_accel_tb;
              scenario);
   endtask
 
-  // =============================================================
-  // ADIM D — Golden referans okuyucu
-  // =============================================================
-  // output_<senaryo>.hex tek bir 32-bit word içerir; little-endian
-  // sıralamada bu 4 INT8 byte fc_out[0..3]'tür ([silence, unknown,
-  // yes, no]). Argmax indeksini hesapla.
+  // Golden referans okuyucu. output_*.hex tek word, little-endian
+  // 4 INT8 bayt = fc_out[silence, unknown, yes, no]. Argmax'i dondur.
   function automatic int unsigned read_expected_argmax(input string scenario);
     logic [31:0] tmp_mem [0:0];
     logic signed [7:0] b [0:3];
@@ -391,15 +351,8 @@ module ai_accel_tb;
     return argmax;
   endfunction
 
-  // =============================================================
-  // ADIM D — Senaryo koştur
-  // =============================================================
-  // 1) Inputu yükle
-  // 2) DATA_ADDR ve OUT_ADDR'ı yaz
-  // 3) CTRL.START (=1) pulse'la
-  // 4) IRQ'yu watchdog ile bekle
-  // 5) STATUS[7:4] ve RESULT memory cell'inden argmax oku
-  // 6) Golden output_*.hex argmax'ı ile karşılaştır
+  // Senaryo kostur: input yukle, CSR kur, START, IRQ bekle,
+  // argmax'i oku ve golden ile karsilastir.
   task automatic run_scenario(input string scenario, output int local_errors);
     logic [31:0] st;
     logic [31:0] result_word;
@@ -418,7 +371,7 @@ module ai_accel_tb;
     csr_write(5'h08, AI_SRAM_BASE);                  // DATA_ADDR = 0x30000
     csr_write(5'h0C, AI_SRAM_BASE + 32'h5A58);       // OUT_ADDR  = 0x35A58
 
-    // ADIM G: olcum penceresini kur
+    // olcum penceresini kur
     perf_t_start = perf_cyc;
     perf_armed   = 1'b1;
 
@@ -426,7 +379,7 @@ module ai_accel_tb;
     $display("[%s] CTRL.START yazılıyor...", scenario);
     csr_write(5'h00, 32'h0000_0001);
 
-    // IRQ bekle — 10 ms watchdog
+    // IRQ bekle, 10 ms watchdog
     irq_seen = 1'b0;
     fork
       begin: wait_irq
@@ -447,7 +400,7 @@ module ai_accel_tb;
 
     $display("[%s] IRQ alındı, sonuç okunuyor...", scenario);
 
-    // STATUS oku — DONE=1, RESULT alanında argmax bekliyoruz
+    // STATUS oku, DONE=1 ve RESULT alaninda argmax bekliyoruz
     csr_read(5'h04, st);
     $display("[%s] STATUS = 0x%08h (BUSY=%0d DONE=%0d RESULT=%0d)",
              scenario, st, st[0], st[1], st[7:4]);
@@ -457,12 +410,12 @@ module ai_accel_tb;
     end
     rtl_argmax = st[7:4];
 
-    // ADIM G: sartname penceresi raporu
+    // perf penceresi raporu
     perf_armed = 1'b0;
     $display("[PERF-HW] %s: ilk-okuma -> son-yazma = %0d cycle | START -> olcum = %0d cycle",
              scenario, perf_t_last - perf_t_first, perf_cyc - perf_t_start);
 
-    // Belleğe yazılan RESULT word'ünü oku (cross-check)
+    // Bellege yazilan RESULT word'unu oku (cross-check)
     result_word = ai_mem[word_idx(AI_SRAM_BASE + 32'h5A58)];
     mem_argmax  = result_word[31:0] & 32'hFF;   // alt byte argmax indeksi
     $display("[%s] mem[0x35A58] = 0x%08h (argmax byte=%0d)",
@@ -486,23 +439,19 @@ module ai_accel_tb;
       local_errors++;
     end
 
-    // Conv katmanı tensor-level doğrulama (Adım E)
+    // Conv katmani tensor-level dogrulama
     begin
       int ce;
       verify_conv_out(scenario, ce);
       local_errors += ce;
     end
 
-    // DONE bayrağını CLEAR_DONE ile temizle (sonraki senaryoya hazır)
+    // DONE bayragini temizle
     csr_write(5'h00, 32'h0000_0002);
   endtask
 
-  // =============================================================
-  // ADIM E — conv_out tensor-level diff
-  // =============================================================
-  // DUT conv katmanı çıkışını AI SRAM'e (CONV_OUT_OFF=0x07A8, 1000 word)
-  // yazar. Golden conv_out_<senaryo>.hex ile word-word karşılaştır.
-  // Argmax'tan çok daha güçlü: ara tensörün her byte'ı doğru olmalı.
+  // conv_out tensor diff. DUT conv cikisini 0x07A8'e (1000 word)
+  // yazar; golden conv_out_*.hex ile word-word karsilastir.
   task automatic verify_conv_out(input string scenario, output int conv_errors);
     logic [31:0] golden_conv [0:999];
     logic [31:0] got;
@@ -538,12 +487,8 @@ module ai_accel_tb;
                ai_mem[base+first_mismatch], golden_conv[first_mismatch]);
   endtask
 
-  // =============================================================
-  // ADIM D — Hex preload spot check
-  // =============================================================
-  // weights_conv.hex'in ilk satırı "FF0CC8EF" idi. CONV_W ofsetinde
-  // bu değeri bulamazsak ya yol yanlış ya da $readmemh sessiz hata
-  // verdi. Erken yakala.
+  // Hex preload spot-check. Beklenen ilk word'leri bulamazsak
+  // yol yanlis ya da $readmemh sessizce hata verdi; erken yakala.
   task automatic verify_preload_spot_checks();
     logic [31:0] expected_first_conv_w  = 32'h095C1EFA;
     logic [31:0] expected_first_fc_w    = 32'h0AFDF9FF;
@@ -570,16 +515,9 @@ module ai_accel_tb;
       $fatal(1, "[SPOT] Preload verisi yuklenememis, dosya yollarini kontrol et (repo kokunden mi calistiriyorsun?)");
   endtask
 
-  // =============================================================
-  // Ana akış
-  // =============================================================
-  // =============================================================
-  // ADIM F - %10 dogruluk penceresi: SW(tflite) vs RTL toplu kosu
-  // =============================================================
-  // run_accuracy_window.py 40 ornegi uretir; SW referans argmax'i
-  // acc_batch_expected.hex'teki word'lerden turetilir (4 INT8 bayt,
-  // output_*.hex ile ayni little-endian duzen). Dosyalar yoksa faz
-  // acik mesajla atlanir.
+  // Dogruluk penceresi: SW(tflite) vs RTL toplu kosu.
+  // run_accuracy_window.py 40 ornek uretir; SW argmax'i
+  // acc_batch_expected.hex word'lerinden gelir. Dosyalar yoksa atlanir.
   localparam int BATCH_N = 40;
   localparam int BATCH_W = 490;
 
@@ -675,14 +613,14 @@ module ai_accel_tb;
   int total_errors = 0;
 
   initial begin
-    // TB master sinyallerini sıfırla
+    // TB master sinyallerini sifirla
     s_awaddr  = 32'd0; s_awvalid = 1'b0;
     s_wdata   = 32'd0; s_wstrb   = 4'd0; s_wvalid  = 1'b0;
     s_bready  = 1'b0;
     s_araddr  = 32'd0; s_arvalid = 1'b0;
     s_rready  = 1'b0;
 
-    // AI mem'i sıfırla
+    // AI mem'i sifirla
     for (int i = 0; i < AI_MEM_WORDS; i++) ai_mem[i] = 32'd0;
 
     // Reset
@@ -693,15 +631,15 @@ module ai_accel_tb;
 
     $display("[INFO] Reset bitti, preload başlıyor...");
 
-    // Statik ağırlıkları yükle ve spot-check
+    // Statik agirliklari yukle ve spot-check
     preload_static_weights();
     verify_preload_spot_checks();
 
-    // 4 senaryoyu sırayla koştur (Adım E)
+    // senaryolari sirayla kostur
     begin
       string scen [0:5];
       int e;
-      // EK-3 (Zorunlu) gercek ses oznitelikleri once, sentetikler sonra
+      // gercek ses oznitelikleri once, sentetikler sonra
       scen[0] = "yes_real"; scen[1] = "no_real";
       scen[2] = "yes"; scen[3] = "no"; scen[4] = "unknown"; scen[5] = "silence";
       for (int s = 0; s < 6; s++) begin
@@ -710,14 +648,13 @@ module ai_accel_tb;
       end
     end
 
-    // ADIM F - dogruluk penceresi batch'i (dosyalar varsa)
+    // dogruluk penceresi batch'i (dosyalar varsa)
     begin
       int be;
       run_accuracy_batch(be);
       total_errors += be;
     end
 
-    // Final
     if (total_errors == 0)
       $display("\n[ADIM E] PASS - 6/6 senaryo (2 gercek ses oznitelik + 4 sentetik) argmax + conv_out tensor diff TEMIZ. Min #4 ve EK-3 zorunlu YZ testi kapandi.\n");
     else
@@ -727,9 +664,8 @@ module ai_accel_tb;
     $finish;
   end
 
-  // Watchdog: tüm simülasyon en fazla 50 ms sürer (5M cycle @100MHz)
+  // Genel watchdog: tum simulasyon en fazla 250 ms surer
   initial begin
-    // ADIM F batch (40 ornek x ~4.5ms) icin genisletildi: 50ms -> 250ms
     #250_000_000;
     $display("[WATCHDOG] 250ms genel timeout, $finish");
     $finish;

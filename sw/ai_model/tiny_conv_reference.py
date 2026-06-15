@@ -1,22 +1,14 @@
 #!/usr/bin/env python3
-# ============================================================
-# BLogic MCU — YZ Hızlandırıcı Golden Vektör Üretici
-# ============================================================
-# ÖNEMLİ: Bu script RTL'in (rtl/ai_accelerator/ai_accelerator.sv)
-# AYNEN davranışını taklit eder. RTL gerçek TFLite kuantizasyonu
-# YAPMAZ; bunun yerine:
-#   - Conv requant : ReLU(acc) >>> CONV_SHIFT, üst saturasyon 127
-#   - FC   requant : acc >>> FC_SHIFT, saturasyon [-128, 127]
-#   - Zero-point HİÇBİR yerde eklenmez
-#   - FC MAC conv çıkışını doğrudan kullanır (+128 yok)
-# CONV_SHIFT ve FC_SHIFT, RTL parametreleriyle aynı olmalı (11).
-# ============================================================
+# ============================================
+# Ostim BLogic Mikroelektronik
+# tiny_conv_reference.py  -  YZ golden vektor uretici
+# ============================================
 import numpy as np
 import os
 
 np.random.seed(2026)
 
-# Model boyutları (TFLite Micro Speech)
+# Model boyutlari
 INPUT_H, INPUT_W, INPUT_C = 49, 40, 1
 CONV_KH, CONV_KW = 10, 8
 CONV_FILTERS = 8
@@ -24,17 +16,16 @@ CONV_STRIDE_H, CONV_STRIDE_W = 2, 2
 NUM_CLASSES = 4
 CLASS_NAMES = ["yes", "no", "unknown", "silence"]
 
-# RTL ile birebir aynı shift değerleri (ai_accelerator.sv:49-50)
+# RTL ile ayni shift degerleri
 CONV_SHIFT = 11
 FC_SHIFT   = 11
 
-# Ağırlık üretimi için kullanılan ölçek (sadece ağırlık dağılımını
-# belirler; requantization'da KULLANILMAZ — RTL shift kullanıyor)
+# Sadece agirlik dagilimini belirler, requant'ta kullanilmaz
 CONV_W_SCALE = 0.00390625
 FC_W_SCALE   = 0.00390625
 INPUT_SCALE  = 0.0078125
 
-# TFLite SAME padding sonuçları
+# SAME padding sonuclari
 PAD_TOP, PAD_BOTTOM = 4, 5
 PAD_LEFT, PAD_RIGHT = 3, 3
 CONV_OUT_H, CONV_OUT_W = 25, 20
@@ -59,18 +50,12 @@ fc_weights = generate_quantized_weights((NUM_CLASSES, FC_INPUT_SIZE), FC_W_SCALE
 fc_bias = np.zeros(NUM_CLASSES, dtype=np.int32)
 
 
-# ============================================================
-# RTL requant_relu ile birebir (ai_accelerator.sv:193-203)
-#   relu_v  = (acc < 0) ? 0 : acc
-#   shifted = relu_v >>> CONV_SHIFT
-#   return  (shifted > 127) ? 127 : shifted[7:0]
-# Zero-point YOK, alt saturasyon YOK (relu >= 0).
-# ============================================================
+# RTL requant_relu ile birebir, zero-point yok
 def quantized_conv2d(input_q, weights_q, bias_q):
     padded = np.pad(
         input_q,
         ((PAD_TOP, PAD_BOTTOM), (PAD_LEFT, PAD_RIGHT), (0, 0)),
-        mode='constant', constant_values=0   # INPUT_ZP = 0
+        mode='constant', constant_values=0
     )
     out = np.zeros((CONV_OUT_H, CONV_OUT_W, CONV_FILTERS), dtype=np.int8)
 
@@ -83,24 +68,18 @@ def quantized_conv2d(input_q, weights_q, bias_q):
                         for ci in range(INPUT_C):
                             ih = oh * CONV_STRIDE_H + khi
                             iw = ow * CONV_STRIDE_W + kwi
-                            inp_val = np.int32(padded[ih, iw, ci])        # zp = 0
-                            w_val   = np.int32(weights_q[f, khi, kwi, ci])  # zp = 0
+                            inp_val = np.int32(padded[ih, iw, ci])
+                            w_val   = np.int32(weights_q[f, khi, kwi, ci])
                             acc += np.int64(inp_val) * np.int64(w_val)
 
-                # --- RTL shift-only requant ---
                 relu_v  = int(acc) if acc > 0 else 0
-                shifted = relu_v >> CONV_SHIFT     # relu_v >= 0 → aritmetik kaydırma
+                shifted = relu_v >> CONV_SHIFT
                 q_out   = min(shifted, 127)
                 out[oh, ow, f] = np.int8(q_out)
     return out
 
 
-# ============================================================
-# RTL requant_no_relu ile birebir (ai_accelerator.sv:205-214)
-#   shifted = acc >>> FC_SHIFT
-#   return clip(shifted, -128, 127)
-# FC MAC conv çıkışını DOĞRUDAN kullanır (zero-point YOK).
-# ============================================================
+# RTL requant_no_relu ile birebir, conv cikisini dogrudan kullanir
 def quantized_fc(input_q, weights_q, bias_q):
     flat = input_q.flatten().astype(np.int32)
     out = np.zeros(NUM_CLASSES, dtype=np.int8)
@@ -108,12 +87,11 @@ def quantized_fc(input_q, weights_q, bias_q):
     for o in range(NUM_CLASSES):
         acc = np.int64(bias_q[o])
         for i in range(FC_INPUT_SIZE):
-            inp_val = np.int32(flat[i])          # RTL conv_out doğrudan, +128 YOK
-            w_val   = np.int32(weights_q[o, i])  # FC_W_ZP = 0
+            inp_val = np.int32(flat[i])
+            w_val   = np.int32(weights_q[o, i])
             acc += np.int64(inp_val) * np.int64(w_val)
 
-        # --- RTL shift-only requant ---
-        shifted = int(acc) >> FC_SHIFT           # Python >> negatifte de Verilog >>> ile aynı
+        shifted = int(acc) >> FC_SHIFT
         q_out   = min(max(shifted, -128), 127)
         out[o] = np.int8(q_out)
     return out
@@ -128,7 +106,7 @@ for cls_idx, cls_name in enumerate(CLASS_NAMES):
     input_float = np.random.randn(INPUT_H, INPUT_W, INPUT_C).astype(np.float32) * 0.5
     freq_start = cls_idx * 10
     input_float[:, freq_start:freq_start+10, :] += 1.0
-    input_q = np.clip(np.round(input_float / INPUT_SCALE), -128, 127).astype(np.int8)  # INPUT_ZP=0
+    input_q = np.clip(np.round(input_float / INPUT_SCALE), -128, 127).astype(np.int8)
 
     conv_out = quantized_conv2d(input_q, conv_weights, conv_bias)
     fc_out = quantized_fc(conv_out, fc_weights, fc_bias)

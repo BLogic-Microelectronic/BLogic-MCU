@@ -1,5 +1,8 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// boot_flow_test_tb.sv  -  QSPI boot akisi dogrulamasi
+// ============================================
 `timescale 1ns / 1ps
-// Min Kriter #2 self-check: QSPI boot akisi dogrulamasi
 
 module boot_flow_test_tb;
     logic clk = 0, resetn = 0;
@@ -10,7 +13,7 @@ module boot_flow_test_tb;
     logic qspi_sclk, qspi_cs_n;
     logic [3:0] qspi_io_o, qspi_io_oe, qspi_io_i;
 
-    // GERCEK boot: BOOT_ADDR = 0x00000000 (Boot ROM)
+    // boot adresi: Boot ROM
     soc_top #(.BOOT_ADDR(32'h0000_0000)) dut (
         .clk_i(clk), .rst_ni(resetn),
         .uart_rxd_i(uart_rx), .uart_txd_o(uart_tx),
@@ -21,7 +24,7 @@ module boot_flow_test_tb;
         .gpio_in_i('0)
     );
 
-    // Flash model v2: 4-lane arayuz (x1 boot yolu davranissal olarak birebir)
+    // flash model: 4-lane arayuz
     wire [3:0] flash_out, flash_oe;
     spi_flash_model #(.INIT_FILE("flash.hex")) flash (
         .sclk(qspi_sclk), .cs_n(qspi_cs_n),
@@ -55,9 +58,7 @@ module boot_flow_test_tb;
         if (ch !== "R") begin $error("'R' bekleniyordu, 0x%02h alindi", ch); $finish; end
         $display("[%0t] 'R' alindi -> bootloader+firmware calisti", $time);
 
-        // FIX: alici, 'A' gonderiminden ONCE arm edilmeli. Firmware 'A'nin
-        // stop bitinde (RX_DONE ~9.5 bit) cevabi basiyor; sirali kod 'H'nin
-        // start kenarini kaciriyor ve hat ortasinda hizasiz kilitleniyordu.
+        // alici 'A' gonderiminden once arm edilmeli, yoksa 'H'nin start kenari kaciriliyor
         fork
             begin
                 for (int i = 0; i < 12; i++) begin

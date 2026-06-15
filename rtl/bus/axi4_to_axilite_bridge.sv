@@ -1,13 +1,8 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// axi4_to_axilite_bridge.sv  -  AXI4 -> AXI4-Lite köprüsü
+// ============================================
 `timescale 1ns / 1ps
-
-// ============================================================
-// BLogic MCU - AXI4 → AXI4-Lite Eşzamanlı Köprü (Bridge)
-// ============================================================
-// Blok diyagramındaki mor kutunun karşılığıdır.
-// AXI4 Full sinyallerini AXI4-Lite standardına düşürür.
-// OBI-to-AXI bridge AW ve W'yi aynı anda bastığı için, bu köprü
-// FSM (State Machine) KULLANMAZ. Sıfır gecikmeli passthrough çalışır.
-// ============================================================
 
 module axi4_to_axilite_bridge (
     input  logic        clk_i,
@@ -84,9 +79,7 @@ module axi4_to_axilite_bridge (
     output logic        m_rready
 );
 
-    // ------------------------------------------------------------
-    // 1. YAZMA KANALLARI (AW / W / B) PASSTHROUGH
-    // ------------------------------------------------------------
+    // Yazma kanalları (AW/W/B) passthrough
     assign m_awaddr     = s_awaddr;
     assign m_awvalid    = s_awvalid;
     assign s_awready    = m_awready;
@@ -96,27 +89,24 @@ module axi4_to_axilite_bridge (
     assign m_wvalid     = s_wvalid;
     assign s_wready     = m_wready;
 
-    // Yazma Yanıtı (B Kanalı) ID Yönetimi
-    // AXI4-Lite'tan gelen yanıtı Full AXI4'e iletirken ID'yi ekliyoruz
-    assign s_bid        = s_awid; 
+    // B kanalı yanıtına ID'yi geri ekliyoruz
+    assign s_bid        = s_awid;
     assign s_bresp      = m_bresp;
     assign s_bvalid     = m_bvalid;
     assign s_buser      = 1'b0;
     assign m_bready     = s_bready;
 
-    // ------------------------------------------------------------
-    // 2. OKUMA KANALLARI (AR / R) PASSTHROUGH
-    // ------------------------------------------------------------
+    // Okuma kanalları (AR/R) passthrough
     assign m_araddr     = s_araddr;
     assign m_arvalid    = s_arvalid;
     assign s_arready    = m_arready;
 
-    // Okuma Yanıtı (R Kanalı) ID Yönetimi
+    // R kanalı yanıtına ID'yi geri ekliyoruz
     assign s_rid        = s_arid;
     assign s_rdata      = m_rdata;
     assign s_rresp      = m_rresp;
     assign s_rvalid     = m_rvalid;
-    assign s_rlast      = 1'b1; // Çevre birimleri hep tek beat çalıştığı için her zaman last=1
+    assign s_rlast      = 1'b1; // çevre birimleri tek beat, hep last
     assign s_ruser      = 1'b0;
     assign m_rready     = s_rready;
 

@@ -1,27 +1,7 @@
-# ================================================================
-# BLogic MCU — Ana Makefile (thin wrapper)
-# Tum gercek is Makefile.verilator'da. Bu dosya sadece kullanici
-# aliskanligindaki hedef isimlerini (compile, sim, regression, ...)
-# Makefile.verilator'a yonlendirir. Tek log akisi: logs/
-# ================================================================
-# Kullanim:
-#   make compile                          → Firmware derle
-#   make sim                              → Tam simulasyon (logs/sim/<test>/)
-#   make sim TRACE=1                      → VCD trace ile
-#   make sim COVERAGE=1                   → Coverage ile
-#   make sim FW_SRC=sw/tests/gpio_led_test.c
-#   make regression                       → Tum testleri kos
-#   make uart-baud                        -> EK-2 cok-baud kaniti (115200/1M/9600)
-#   make uart-stp                         -> EK-2 stop-bit 1/1.5/2 testi
-#   make boot                             → QSPI boot akisi testi (Min #2)
-#   make ai                               → AI accel standalone TB (Min #4)
-#   make soc-ai                           → SoC seviyesi AI C testi
-#   make arch-test [ARCH_EXT=I]           → riscv-arch-test
-#   make uvm                              → UVM GPIO testleri
-#   make test-all                         → regression+boot+ai+soc-ai+arch-test
-#   make spike                            → Spike ISS ile elf kos
-#   make clean / logs-clean / help
-# ================================================================
+# ============================================
+# Ostim BLogic Mikroelektronik
+# Makefile  -  ana derleme/test sarmali
+# ============================================
 
 FW_SRC ?= sw/tests/uart_hello.c
 
@@ -46,7 +26,7 @@ sim:
 regression:
 	bash scripts/run_regression.sh
 
-# --- EK-2 cok-baud kaniti: tek kosuda 115200 -> 1 Mbps -> 9600 (CPB sweep) ---
+# cok-baud kaniti: 115200 -> 1 Mbps -> 9600
 uart-baud:
 	rm -rf build
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/uart_baud_sweep.c \
@@ -56,7 +36,7 @@ uart-baud:
 	    && echo "[UART-BAUD] PASS (CPB 434/115200 + 50/1Mbps + 5208/9600)" \
 	    || { echo "[UART-BAUD] FAIL"; exit 1; }
 
-# --- EK-2 UART_STP: stop-bit 1 / 1.5 / 2 dogrulamasi (standalone uart_axil TB) ---
+# stop-bit 1 / 1.5 / 2 dogrulamasi
 UARTSTP_DIR = obj_dir_uart_stp
 uart-stp:
 	rm -rf $(UARTSTP_DIR)
@@ -70,7 +50,7 @@ uart-stp:
 	@grep -aq "TEST SUCCESS" $(UARTSTP_DIR)/uart_stp_run.log \
 	    && echo "[UART-STP] PASS (stop 1 / 1.5 / 2)" || { echo "[UART-STP] FAIL"; exit 1; }
 
-# --- UART-stream (UART_1 / YZ veri akisi): DMA → AI SRAM dogrulamasi ---
+# UART stream: DMA -> AI SRAM dogrulamasi
 UARTSTRM_DIR = obj_dir_uart_stream
 uart-stream:
 	rm -rf $(UARTSTRM_DIR)
@@ -84,7 +64,7 @@ uart-stream:
 	@grep -aq "TEST SUCCESS" $(UARTSTRM_DIR)/uart_stream_run.log \
 	    && echo "[UART-STREAM] PASS (DMA A-E 5 senaryo)" || { echo "[UART-STREAM] FAIL"; exit 1; }
 
-# --- QSPI boot akisi (Min Kriter #2): her seferinde temiz build ---
+# QSPI boot akisi (her kosuda temiz build)
 boot:
 	rm -rf $(BOOT_DIR)
 	verilator --binary --timing --top-module boot_flow_test_tb \
@@ -101,7 +81,7 @@ boot:
 	@grep -aq "TEST SUCCESS" $(BOOT_DIR)/boot_run.log \
 	    && echo "[BOOT] PASS" || { echo "[BOOT] FAIL"; exit 1; }
 
-# --- AI accelerator standalone TB (Min Kriter #4, 4 senaryo) ---
+# AI hizlandirici standalone TB
 ai:
 	@test -f sw/ai_model/golden_vectors/weights_conv.hex -a -f sw/ai_model/golden_vectors/input_yes.hex -a -f sw/ai_model/golden_vectors/input_yes_real.hex \
 	    || { echo "[AI] golden_vectors eksik - once: python3 sw/ai_model/extract_weights.py && python3 sw/ai_model/generate_golden.py && python3 sw/ai_model/fetch_real_features.py"; exit 1; }
@@ -119,33 +99,33 @@ ai:
 	    echo "[AI] not: EK-1 dogruluk raporu icin 'make ai-acc' (uretim+sim+rapor)"; \
 	fi
 
-# --- EK-1 dogruluk penceresi tam boru hatti: uretim + sim + otomatik rapor ---
+# dogruluk penceresi: uretim + sim + rapor
 ai-acc:
 	python3 sw/ai_model/run_accuracy_window.py
 	$(MAKE) ai
 
-# --- SoC seviyesi AI C testi (ai_sram_init.hex preload ile) ---
+# SoC seviyesi AI C testi
 soc-ai:
 	rm -rf build
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_micro_speech_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/ai_micro_speech_test/result.log \
 	    && echo "[SOC-AI] PASS" || { echo "[SOC-AI] FAIL"; exit 1; }
 
-# --- A10: AI kesme (ISR) akisi testi - sartname entegrasyon halkasi ---
+# AI kesme (ISR) akisi testi
 soc-ai-irq:
 	rm -rf build
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_irq_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/ai_irq_test/result.log \
 	    && echo "[SOC-AI-IRQ] PASS" || { echo "[SOC-AI-IRQ] FAIL"; exit 1; }
 
-# --- EK-1 hizlanma olcumu: HW vs SW referans (ayni SoC, ayni mcycle) ---
+# hizlanma olcumu: HW vs SW referans
 soc-perf:
 	rm -rf build
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_sw_reference.c SIM_PLUSARGS=+MAX_CYCLES=25000000 $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/ai_sw_reference/result.log \
 	    && echo "[SOC-PERF] PASS" || { echo "[SOC-PERF] FAIL"; exit 1; }
 
-# --- riscv-arch-test (ISA uyumluluk) ---
+# riscv-arch-test (ISA uyumluluk)
 arch-test:
 	@test -d verif/arch_tests/riscv-arch-test \
 	    || { echo "[ARCH] riscv-arch-test repo eksik:"; \
@@ -153,11 +133,11 @@ arch-test:
 	         exit 1; }
 	bash verif/arch_tests/run_arch_test.sh $(ARCH_EXT)
 
-# --- Line coverage: test seti + birlesik rapor ---
+# line coverage: test seti + rapor
 coverage:
 	bash scripts/run_coverage.sh
 
-# --- QSPI mod testi: x1/x2/x4 veri fazi + 4-bayt adresleme ---
+# QSPI mod testi: x1/x2/x4 + 4-bayt adres
 MODES_DIR = obj_dir_qspi_modes
 qspi-modes:
 	rm -rf build
@@ -177,7 +157,7 @@ qspi-modes:
 	@grep -aq "TEST SUCCESS" $(MODES_DIR)/modes_run.log \
 	    && echo "[QSPI-MODES] PASS" || { echo "[QSPI-MODES] FAIL"; exit 1; }
 
-# --- I2C sistem testi: CPU -> AXI -> decoder 0x4 -> i2c_master + echo slave ---
+# I2C sistem testi: CPU -> AXI -> i2c_master + echo slave
 I2C_DIR = obj_dir_i2c_sys
 i2c-sys:
 	rm -rf build
@@ -196,11 +176,11 @@ i2c-sys:
 	@grep -aq "TEST SUCCESS" $(I2C_DIR)/i2c_run.log \
 	    && echo "[I2C-SYS] PASS" || { echo "[I2C-SYS] FAIL"; exit 1; }
 
-# --- UVM GPIO testleri ---
+# UVM GPIO testleri
 uvm:
 	$(MAKE) -f Makefile.uvm all
 
-# --- Hepsi: ilk hatada durmaz, sonda ozet basar ---
+# hepsi: ilk hatada durmaz, sonda ozet basar
 test-all:
 	@overall=0; \
 	r=PASS; $(MAKE) regression || { r=FAIL; overall=1; }; \

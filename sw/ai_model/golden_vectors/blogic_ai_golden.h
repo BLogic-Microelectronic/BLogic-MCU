@@ -1,3 +1,7 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// blogic_ai_golden.h  -  AI altin referans vektorleri
+// ============================================
 #ifndef BLOGIC_AI_GOLDEN_H
 #define BLOGIC_AI_GOLDEN_H
 

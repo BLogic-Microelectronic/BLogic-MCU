@@ -1,21 +1,8 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// uart_stp_tb.sv  -  UART stop-bit dogrulamasi
+// ============================================
 `timescale 1ns/1ps
-// ============================================================
-// uart_stp_tb - EK-2 UART_STP (stop-bit 1 / 1.5 / 2) dogrulamasi
-//
-// DUT: uart_axil tek basina; AXI-Lite dogrudan TB'den surulur,
-// olcum tamamen txd_o hattindan yapilir (50 MHz, CPB=434).
-//
-// Olcum 1 (poll'lu yol): Ayni deterministik master dizisiyle her
-//   STP ayarinda iki bayt gonderilir; start->start araligi olculur.
-//   Beklenti: fark(01-00) = presc*4 = 216 clk (+0.5 bit),
-//             fark(1X-00) = presc*8 = 432 clk (+1 bit),
-//             fark(11-10) ~ 0       ("1X" esdegerligi).
-//
-// Olcum 2 (donanim garantisi): STP=2 iken TX_DONE'a BAKILMADAN,
-//   cekirdegin 1 stop biti biter bitmez (start + 10*BIT + 1) TDR
-//   yazilir. Ikinci start kenari yine de uzatma dolmadan cikmamali:
-//   start->start >= 11*BIT olmali (uzatmasiz ~10*BIT+10 olurdu).
-// ============================================================
 module uart_stp_tb;
 
     localparam logic [4:0] ADDR_CPB = 5'h00;
@@ -33,7 +20,7 @@ module uart_stp_tb;
     logic rst_n = 1'b0;
     always #10 clk = ~clk;                          // 50 MHz
 
-    // --- AXI-Lite master sinyalleri ---
+    // AXI-Lite master sinyalleri
     logic [31:0] awaddr  = '0;
     logic        awvalid = 1'b0;
     logic        awready;
@@ -77,22 +64,17 @@ module uart_stp_tb;
         .txd_o         (txd)
     );
 
-    // --- Cevrim sayaci + start (dusen) kenar kaydi ---
+    // cevrim sayaci + start kenar kaydi
     int unsigned cyc = 0;
     logic        txd_q = 1'b1;
     int unsigned start_cyc [0:15];
     int unsigned start_n = 0;
-    int unsigned frame_guard = 0;   // cerceve ici dusen kenar maskesi
+    int unsigned frame_guard = 0;   // cerceve ici kenar maskesi
 
     always @(posedge clk) begin
         cyc   <= cyc + 1;
         txd_q <= txd;
-        // Sadece CERCEVE BASLANGICI olan dusen kenar sayilir: start
-        // yakalaninca cerceve boyunca veri-biti kaynakli dusen kenarlar
-        // maskelenir. (Orn. 0x41 LSB-first 1,0,0,0,0,0,1,0 -> cercevede
-        // start disinda 2 dusen kenar daha var.) Cerceve ici son dusen
-        // kenar start+8*BIT'te, bir sonraki start en erken
-        // start+10*BIT+1'de oldugundan 10*BIT-16 iki yonde de guvenli.
+        // Sadece cerceve baslangici olan dusen kenari say, veri bitlerini maskele
         if (rst_n && txd_q && !txd && cyc >= frame_guard && start_n < 16) begin
             start_cyc[start_n] <= cyc;
             start_n            <= start_n + 1;
@@ -100,7 +82,7 @@ module uart_stp_tb;
         end
     end
 
-    // --- AXI-Lite gorevleri (ai_accel_tb kalibi) ---
+    // AXI-Lite gorevleri
     task automatic axi_write(input logic [4:0] addr, input logic [31:0] data);
         @(posedge clk);
         awaddr  <= {27'd0, addr};
@@ -123,8 +105,7 @@ module uart_stp_tb;
         data = rdata;
     endtask
 
-    // Bir STP ayarinda iki bayt gonderir (TX_DONE poll'lu, sabit dizi),
-    // start->start araligini dondurur.
+    // Bir STP ayarinda iki bayt gonderir, start->start araligini dondurur
     task automatic send_pair(input logic [1:0] stp, output int unsigned delta);
         logic [31:0] r;
         int unsigned base;
@@ -154,10 +135,10 @@ module uart_stp_tb;
         rst_n = 1'b1;
         repeat (5) @(posedge clk);
 
-        // CPB'yi acikca yaz (reset varsayilani da 434, test kendi ayarini kursun)
+        // CPB'yi acikca yaz
         axi_write(ADDR_CPB, CPB);
 
-        // ---------------- Olcum 1: poll'lu yol ----------------
+        // Olcum 1: poll'lu yol
         send_pair(2'b00, d00);
         send_pair(2'b01, d01);
         send_pair(2'b10, d10);
@@ -175,19 +156,16 @@ module uart_stp_tb;
         if (absdiff(d11, d10) > TOL)
             $fatal(1, "[STP] STP=11, STP=10 ile esdeger degil: %0d vs %0d", d11, d10);
 
-        // ------------- Olcum 2: donanim garantisi -------------
-        // STP=2 iken TX_DONE'a bakmadan, cekirdek stop biti biter bitmez
-        // TDR yaz; uzatma yeni cerceveyi sayac dolana kadar tutmali.
+        // Olcum 2: donanim garantisi - STP=2 iken TX_DONE'a bakmadan TDR yaz
         axi_write(ADDR_STP, 32'h2);
         base2 = start_n;
         axi_write(ADDR_TDR, 32'h55);
         while (start_n <= base2) @(posedge clk);
         s1 = start_cyc[base2];
 
-        // Cekirdek stop biti sonu: s1 + 10*BIT_CLK + 1. Birkac cevrim
-        // sonrasina kadar bekle -> TDR yazisi uzatma penceresine duser.
+        // TDR yazisi uzatma penceresine dussun diye bekle
         while (cyc < s1 + 10 * BIT_CLK + 6) @(posedge clk);
-        axi_write(ADDR_TDR, 32'h56);          // TX_DONE POLL YOK!
+        axi_write(ADDR_TDR, 32'h56);          // poll yok
 
         while (start_n <= base2 + 1) @(posedge clk);
         s2  = start_cyc[base2 + 1];
@@ -204,7 +182,7 @@ module uart_stp_tb;
         $finish;
     end
 
-    // Bekci: tum test ~1 ms surmeli
+    // bekci
     initial begin
         #4ms;
         $fatal(1, "[STP] TIMEOUT");

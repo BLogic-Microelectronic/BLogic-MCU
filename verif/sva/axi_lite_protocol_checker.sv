@@ -1,7 +1,7 @@
-// ============================================================
-// BLogic MCU — AXI-Lite Protocol Checker (SVA)
-// TEKNOFEST 2026 Çip Tasarım Yarışması
-// ============================================================
+// ============================================
+// Ostim BLogic Mikroelektronik
+// axi_lite_protocol_checker.sv  -  AXI-Lite protokol denetleyici (SVA)
+// ============================================
 
 module axi_lite_protocol_checker #(
     parameter string INTF_NAME = "AXI_LITE"
@@ -37,13 +37,9 @@ module axi_lite_protocol_checker #(
     input logic [ 1:0] rresp
 );
 
-// teknotest (Vivado xsim): sayac (pass/fail/check_count) multi-driver hatasini onlemek
-// icin govde NO_PROTOCOL_CHECK tanimliyken haric tutulur (bos modul). Verilator
-// regresyonunda makro tanimsiz -> checker tam aktif kalir.
+// xsim'de sayac multi-driver hatasi vermesin diye makro tanimliyken govde haric tutulur.
 `ifndef NO_PROTOCOL_CHECK
-    // =========================================================
-    // Geçmiş değerler (1 cycle öncesi)
-    // =========================================================
+    // gecmis degerler (1 cycle oncesi)
     logic        prev_awvalid, prev_wvalid, prev_bvalid;
     logic        prev_arvalid, prev_rvalid;
     logic [31:0] prev_awaddr,  prev_wdata,  prev_araddr;
@@ -69,16 +65,12 @@ module axi_lite_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // Assertion sayaçları (raporlama)
-    // =========================================================
+    // sayaclar (raporlama)
     integer pass_count = 0;
     integer fail_count = 0;
     integer check_count = 0;
 
-    // =========================================================
-    // KURAL [AW1 & AW2]: Write Address Kontrolleri
-    // =========================================================
+    // write address kontrolleri (AW1, AW2)
     always_ff @(posedge clk) begin
         if (rst_n) begin
             if (prev_awvalid && !prev_awready) begin
@@ -102,9 +94,7 @@ module axi_lite_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // KURAL [W1, W2, W3]: Write Data Kontrolleri
-    // =========================================================
+    // write data kontrolleri (W1, W2, W3)
     always_ff @(posedge clk) begin
         if (rst_n) begin
             if (prev_wvalid && !prev_wready) begin
@@ -134,9 +124,7 @@ module axi_lite_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // KURAL [B1]: Write Response Kontrolü
-    // =========================================================
+    // write response kontrolu (B1)
     always_ff @(posedge clk) begin
         if (rst_n) begin
             if (prev_bvalid && !prev_bready) begin
@@ -151,9 +139,7 @@ module axi_lite_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // KURAL [AR1 & AR2]: Read Address Kontrolleri
-    // =========================================================
+    // read address kontrolleri (AR1, AR2)
     always_ff @(posedge clk) begin
         if (rst_n) begin
             if (prev_arvalid && !prev_arready) begin
@@ -177,9 +163,7 @@ module axi_lite_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // KURAL [R1]: Read Data Kontrolü
-    // =========================================================
+    // read data kontrolu (R1)
     always_ff @(posedge clk) begin
         if (rst_n) begin
             if (prev_rvalid && !prev_rready) begin
@@ -194,9 +178,7 @@ module axi_lite_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // Simülasyon sonu raporu
-    // =========================================================
+    // simulasyon sonu raporu
     final begin
         $display("=== [%s] AXI-Lite Protocol Check Raporu ===", INTF_NAME);
         $display("  Kontrol : %0d", check_count);

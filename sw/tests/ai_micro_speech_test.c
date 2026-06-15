@@ -1,38 +1,15 @@
-/*
- * sw/tests/ai_micro_speech_test.c
- * ================================================================
- * Adim 2.2: AI hizlandirici SoC seviyesi self-checking testi (polling).
- *
- * AI SRAM (`i_ai_sram` INIT_FILE="ai_sram_init.hex") onceden yuklenmis:
- *   - INPUT  @ 0x30000  = "yes_real" senaryosu: gercek 1 sn WAV
- *     kaynakli onislenmis oznitelik (EK-3; generate_ai_sram_init.py)
- *   - CONV_W/BIAS, FC_W/BIAS dogru offsetlerde
- *   Beklenen argmax = 2 (yes)
- *
- * Akis:
- *   1) UART_0 baud (CPB=434 = clk/baud, EK-2; prescale=434>>3=54 -> 115200 @ 50MHz)
- *   2) Banner + STATUS sanity check
- *   3) DATA_ADDR/OUT_ADDR CSR yaz (default zaten dogru, MMIO yaz yolunu test)
- *   4) CTRL.START (bit 0)
- *   5) STATUS.DONE (bit 1) bekle, polling + timeout
- *   6) argmax = STATUS[7:4], sinif adini yaz
- *   7) AI_SRAM[OUT_ADDR] da ayrica oku (consistency check)
- *   8) Self-checking PASS/FAIL ([AI] PASS / [AI] FAIL) yaz
- *   9) "Hello World..." bas - TB golden_string match -> sim erken biter
- *  10) Sonsuz nop dongusu
- *
- * Sim sonrasi gerçek karar:
- *   grep "\[AI\]" logs/sim/ai_micro_speech_test/uart.log
- * ================================================================
- */
+/* ============================================
+   Ostim BLogic Mikroelektronik
+   ai_micro_speech_test.c  -  AI hizlandirici SoC self-test
+   ============================================ */
 #include "../drivers/blogic_mcu.h"
 
-/* AI SRAM yerlesimi (ai_accelerator.sv sabitleriyle ayni) */
+/* AI SRAM yerlesimi (ai_accelerator.sv ile ayni) */
 #define AI_SRAM_BASE        0x00030000U
 #define AI_INPUT_OFF        0x00000000U
 #define AI_RESULT_OFF       0x00005A58U
 
-/* AI accelerator CSR bit alanlari */
+/* AI accelerator CSR bitleri */
 #define CTRL_START          (1U << 0)
 #define CTRL_CLEAR_DONE     (1U << 1)
 #define STATUS_BUSY         (1U << 0)
@@ -40,15 +17,13 @@
 #define STATUS_RESULT_SHIFT 4U
 #define STATUS_RESULT_MASK  0xFU
 
-/* TFLite Micro Speech standart sinif sirasi (labels_softmax) */
+/* sinif sirasi: labels_softmax */
 #define EXPECTED_ARGMAX     2U   /* "yes" */
 
 static const char *CLASS_NAMES[4] = {"silence", "unknown", "yes", "no"};
 
 
-/* --------------------------------------------------------------
- * Yardimcilar — bare-metal printf yerine elle hex/dec
- * -------------------------------------------------------------- */
+/* printf yok, hex/dec'i elle yaziyoruz */
 static void uart_putu(UART_TypeDef *u, uint32_t v) {
     char b[12];
     int  n = 0;
@@ -65,33 +40,30 @@ static void uart_puth(UART_TypeDef *u, uint32_t v) {
 }
 
 
-/* --------------------------------------------------------------
- * main
- * -------------------------------------------------------------- */
 int main(void) {
-    /* 1) UART0 baud */
+    /* UART0 baud */
     UART0->CPB = 434;
 
-    /* 2) Banner */
+    /* banner */
     uart_puts(UART0, "\n[AI] BLogic MCU - Micro Speech Test (polling)\n");
     uart_puts(UART0, "[AI] Senaryo: yes_real (gercek ses ozniteligi, beklenen argmax=2)\n");
 
-    /* 2b) STATUS pre-start sanity (BUSY=0, DONE=0 beklenir) */
+    /* start oncesi STATUS kontrol (BUSY=0, DONE=0 olmali) */
     uint32_t st0 = AI_ACC->STATUS;
     uart_puts(UART0, "[AI] STATUS pre-start = ");
     uart_puth(UART0, st0);
     uart_puts(UART0, "\n");
 
-    /* 3) CSR'lar (default'lar zaten dogru ama MMIO yaz yolunu da test et) */
+    /* CSR yaz (MMIO yaz yolunu da test et) */
     AI_ACC->DATA_ADDR = AI_SRAM_BASE + AI_INPUT_OFF;
     AI_ACC->OUT_ADDR  = AI_SRAM_BASE + AI_RESULT_OFF;
     uart_puts(UART0, "[DBG] OUT_ADDR CSR readback = ");
     uart_puth(UART0, AI_ACC->OUT_ADDR);
     uart_puts(UART0, "\n");
 
-    /* 4) START */
+    /* START */
     uart_puts(UART0, "[AI] CTRL.START yaziliyor...\n");
-    /* Sentinel: AI master gercekten yaziyor mu? */
+    /* AI master gercekten yaziyor mu? */
     volatile uint32_t *sentinel = (volatile uint32_t *)(AI_SRAM_BASE + AI_RESULT_OFF);
     *sentinel = 0xDEADBEEF;
     uart_puts(UART0, "[DBG] sentinel write 0xDEADBEEF -> 0x35A58\n");
@@ -101,7 +73,7 @@ int main(void) {
 
     AI_ACC->CTRL = CTRL_START;
 
-    /* 5) DONE'i polla (timeout korumali) */
+    /* DONE'i polla (timeout korumali) */
     uint32_t st        = 0U;
     uint32_t timeout   = 500000U;
     uint32_t poll_iter = 0U;
@@ -117,7 +89,7 @@ int main(void) {
         while (1) { __asm__ volatile("nop"); }
     }
 
-    /* 6) argmax */
+    /* argmax */
     uint32_t argmax = (st >> STATUS_RESULT_SHIFT) & STATUS_RESULT_MASK;
 
     uart_puts(UART0, "[AI] STATUS post-done = ");
@@ -132,8 +104,8 @@ int main(void) {
     uart_putu(UART0, poll_iter);
     uart_puts(UART0, "\n");
 
-    /* 7) AI_SRAM'deki RESULT word'u da oku (consistency check) */
-        /* AI master conv_out yazimi calisti mi? */
+    /* RESULT word'u da oku (consistency check) */
+        /* conv_out yazimi calisti mi? */
         volatile uint32_t *conv0 = (volatile uint32_t *)(AI_SRAM_BASE + 0x07A8);
         uart_puts(UART0, "[DBG] conv_out[0..3] = ");
         for (int i = 0; i < 4; i++) { uart_puth(UART0, conv0[i]); uart_puts(UART0, " "); }
@@ -153,7 +125,7 @@ int main(void) {
     uart_puth(UART0, result_word);
     uart_puts(UART0, "\n");
 
-    /* 8) Self-checking karar */
+    /* PASS/FAIL karar */
     if ((argmax == EXPECTED_ARGMAX) && ((result_word & 0xFU) == EXPECTED_ARGMAX)) {
         uart_puts(UART0, "[AI] PASS\n");
     } else {
@@ -166,13 +138,13 @@ int main(void) {
         uart_puts(UART0, "\n");
     }
 
-    /* DONE bayragini temizle (siradaki inference'a hazirlik) */
+    /* DONE bayragini temizle */
     AI_ACC->CTRL = CTRL_CLEAR_DONE;
 
-    /* 9) TB golden_string match -> sim 10M cycle timeout'a takilmasin */
+    /* TB golden_string match -> sim erken bitsin */
     uart_puts(UART0, "Hello World from BLogic MCU!\n");
 
-    /* 10) Sonsuz dongu */
+    /* sonsuz dongu */
     while (1) {
         __asm__ volatile("nop");
     }

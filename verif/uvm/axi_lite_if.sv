@@ -1,6 +1,7 @@
-// ============================================================
-// BLogic MCU - AXI-Lite Interface (UVM Testbench)
-// ============================================================
+// ============================================
+// Ostim BLogic Mikroelektronik
+// axi_lite_if.sv  -  UVM testbench AXI-Lite arayuzu
+// ============================================
 `timescale 1ns/1ns
 
 interface axi_lite_if (input logic clk, input logic rst_n);

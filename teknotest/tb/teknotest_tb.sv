@@ -1,3 +1,7 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// teknotest_tb.sv  -  UART hello-world testbench
+// ============================================
 `timescale 1ns/1ps
 
 module teknotest_tb();
@@ -5,13 +9,9 @@ module teknotest_tb();
   logic clk    = 1'b0;
   logic resetn = 1'b0;
   logic uart_tx;
-  logic uart_rx = 1'b1; // UART line idle high
+  logic uart_rx = 1'b1; // UART hatti boşta high
 
-  // ------------------------------------------------------------
-  // UART configuration
-  // You can override these with compile defines if you want:
-  // +define+UART_BAUD=115200 +define+UART_STOP_BITS=1
-  // ------------------------------------------------------------
+  // UART ayarlari; compile define ile ezilebilir (+define+UART_BAUD=...)
 `ifndef UART_BAUD
   `define UART_BAUD 115200
 `endif
@@ -23,16 +23,14 @@ module teknotest_tb();
   localparam int UART_BAUD_RATE  = `UART_BAUD;
   localparam real UART_STOP_BITS_N = `UART_STOP_BITS;
 
-  // 1 second = 1_000_000_000 ns
+  // 1 saniye = 1_000_000_000 ns
   localparam int BIT_TIME_NS     = 1_000_000_000 / UART_BAUD_RATE;
   localparam time TEST_TIMEOUT   = 10ms;
 
   string expected_string = "Hello World!";
   string received_string = "";
 
-  // ------------------------------------------------------------
   // DUT
-  // ------------------------------------------------------------
   teknotest_wrapper dut (
     .clk_i      (clk),
     .resetn_i   (resetn),
@@ -40,73 +38,61 @@ module teknotest_tb();
     .uart_tx_o  (uart_tx)
   );
 
-  // ------------------------------------------------------------
-  // Clock / reset
-  // ------------------------------------------------------------
-  always #10 clk = ~clk; // 50 MHz clock
+  // Saat / reset
+  always #10 clk = ~clk; // 50 MHz
 
   initial begin
     #10000;
-    resetn = 1'b1; // Deassert reset after 10 us
+    resetn = 1'b1; // 10 us sonra reset birak
   end
 
-  // ------------------------------------------------------------
-  // UART write task
-  // TB -> DUT
-  // 1 start bit, 8 data bits, no parity, parametrized stop bits
-  // ------------------------------------------------------------
+  // UART yaz (TB -> DUT): 1 start, 8 data, parity yok, parametrik stop
   task automatic uart_write(input byte unsigned data);
     int i;
     begin
-      // Start bit
+      // start bit
       uart_rx = 1'b0;
       #(BIT_TIME_NS);
 
-      // Data bits, LSB first
+      // data bitleri, LSB first
       for (i = 0; i < 8; i++) begin
         uart_rx = data[i];
         #(BIT_TIME_NS);
       end
 
-      // Stop bits
+      // stop bit
       uart_rx = 1'b1;
       #(UART_STOP_BITS_N * BIT_TIME_NS);
     end
   endtask
 
-  // ------------------------------------------------------------
-  // UART read task
-  // DUT -> TB
-  // Waits for a byte on uart_tx and samples it
-  // ------------------------------------------------------------
+  // UART oku (DUT -> TB): uart_tx'te byte bekle ve ornekle
   task automatic uart_read(output byte unsigned data);
     int i;
     begin
       data = 8'h00;
 
-      // Wait for start bit
+      // start biti bekle
       @(negedge uart_tx);
 
-      // Move to center of bit[0]
+      // bit[0] ortasina git
       #(BIT_TIME_NS + (BIT_TIME_NS/2));
 
-      // Sample 8 data bits, LSB first
+      // 8 data bitini ornekle, LSB first
       for (i = 0; i < 8; i++) begin
         data[i] = uart_tx;
         #(BIT_TIME_NS);
       end
 
-      // Consume stop bits
-      #(UART_STOP_BITS_N * BIT_TIME_NS - (BIT_TIME_NS/2)); // We have already waited half bit time at the for loop above
+      // stop bitlerini tuket; for icinde yarim bit zaten beklendi
+      #(UART_STOP_BITS_N * BIT_TIME_NS - (BIT_TIME_NS/2));
       
       $display("[%0t] INFO: Read byte 0x%02h ('%s')",
                 $time, data, data);
     end
   endtask
 
-  // ------------------------------------------------------------
-  // Helper: read one byte and compare
-  // ------------------------------------------------------------
+  // Bir byte oku ve karsilastir
   task automatic uart_wait_byte(input byte unsigned expected);
     byte unsigned data;
     begin
@@ -123,13 +109,7 @@ module teknotest_tb();
     end
   endtask
 
-  // ------------------------------------------------------------
-  // Main test
-  // Sequence:
-  // 1) Wait DUT sends 'R'
-  // 2) Send 'A'
-  // 3) Expect "Hello World!"
-  // ------------------------------------------------------------
+  // Ana test: DUT 'R' yollar, biz 'A' gondeririz, "Hello World!" bekleriz
   initial begin : test_main
     byte unsigned ch;
     int idx;
@@ -139,18 +119,18 @@ module teknotest_tb();
 
     fork
       begin : test_flow
-        // Step 1: wait 'R'
+        // 'R' bekle
         uart_wait_byte("R");
 
         fork
           begin: send_A
-            // Step 2: send 'A'
+            // 'A' gonder
             $display("[%0t] INFO: Sending byte 0x%02h ('A') to DUT", $time, "A");
             uart_write("A");
           end
 
           begin: receive_msg
-            // Step 3: read "Hello World!"
+            // "Hello World!" oku
             received_string = "";
             for (idx = 0; idx < expected_string.len(); idx++) begin
               uart_read(ch);
@@ -180,7 +160,7 @@ module teknotest_tb();
     disable fork;
   end
 
-  // Your user code will be pasted here
+  // Kullanici kodu buraya gelir
   `include "teknotest_tb_user_code.sv"
 
 endmodule

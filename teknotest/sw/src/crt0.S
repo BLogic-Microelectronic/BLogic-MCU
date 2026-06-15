@@ -1,3 +1,7 @@
+# ============================================
+# Ostim BLogic Mikroelektronik
+# crt0.S  -  acilis kodu, main'e atlar
+# ============================================
 .section .text.start
 .global _start
 .global __data_load_start

@@ -1,19 +1,7 @@
-// ============================================================
-// BLogic MCU — AXI4 Full Protocol Checker (SVA)
-// TEKNOFEST 2026 Çip Tasarım Yarışması
-// ============================================================
-// AXI4 master arayüzü protocol-check seviyesinde doğrulama.
-//
-// Kontrol edilen kurallar:
-//   [AW1-AW2] Write-address handshake kararlılığı
-//   [W1-W3]   Write-data handshake kararlılığı + WLAST
-//   [B1]      Write-response handshake kararlılığı
-//   [AR1-AR2] Read-address handshake kararlılığı
-//   [R1-R2]   Read-data handshake kararlılığı + RLAST
-//   [RESP1]   BRESP/RRESP geçerlilik (DECERR/SLVERR izleme)
-//   [ORD1]    Yazma yanıtı öncesinde AW+W tamamlanmış olmalı
-//   [LEN1]    AWLEN/ARLEN sıfır ise WLAST=1 olmalı (tek beat)
-// ============================================================
+// ============================================
+// Ostim BLogic Mikroelektronik
+// axi4_protocol_checker.sv  -  AXI4 protokol kontrolcusu
+// ============================================
 
 module axi4_protocol_checker #(
     parameter string      INTF_NAME    = "AXI4",
@@ -65,13 +53,9 @@ module axi4_protocol_checker #(
     input logic                    rready
 );
 
-// teknotest (Vivado xsim): sayac (pass/fail/check_count) multi-driver hatasini onlemek
-// icin govde NO_PROTOCOL_CHECK tanimliyken haric tutulur (bos modul). Verilator
-// regresyonunda makro tanimsiz -> checker tam aktif kalir.
+// xsim'de multi-driver hatasini onlemek icin makro tanimliyken govde haric tutulur.
 `ifndef NO_PROTOCOL_CHECK
-    // =========================================================
-    // Önceki değerler (1 cycle gecikmeli)
-    // =========================================================
+    // onceki degerler (1 cycle gecikmeli)
     logic                    prev_awvalid, prev_awready;
     logic [ADDR_WIDTH-1:0]   prev_awaddr;
     logic [7:0]              prev_awlen;
@@ -118,24 +102,20 @@ module axi4_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // Sayaçlar — rapor için
-    // =========================================================
+    // rapor sayaclari
     integer pass_count  = 0;
     integer fail_count  = 0;
     integer check_count = 0;
     integer warn_count  = 0;
 
-    // Handshake sayaçları (istatistik)
+    // handshake sayaclari
     integer aw_handshakes = 0;
     integer w_handshakes  = 0;
     integer b_handshakes  = 0;
     integer ar_handshakes = 0;
     integer r_handshakes  = 0;
 
-    // =========================================================
-    // Yardımcı: handshake sayacı
-    // =========================================================
+    // handshake sayimi
     always_ff @(posedge clk) begin
         if (rst_n) begin
             if (awvalid && awready) aw_handshakes <= aw_handshakes + 1;
@@ -146,10 +126,7 @@ module axi4_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // [AW1] AWVALID handshake olmadan düşmemeli
-    // [AW2] AWADDR/AWLEN/AWSIZE/AWBURST handshake olmadan değişmemeli
-    // =========================================================
+    // AWVALID handshake olmadan dusmemeli, AW sinyalleri degismemeli
     always_ff @(posedge clk) begin
         if (rst_n && prev_awvalid && !prev_awready) begin
             check_count <= check_count + 1;
@@ -160,7 +137,6 @@ module axi4_protocol_checker #(
                 pass_count <= pass_count + 1;
             end
 
-            // Adres + kontrol sinyalleri kararlılık kontrolü
             if (awvalid) begin
                 check_count <= check_count + 1;
                 if (awaddr !== prev_awaddr || awlen !== prev_awlen ||
@@ -174,10 +150,7 @@ module axi4_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // [W1] WVALID handshake olmadan düşmemeli
-    // [W2] WDATA/WSTRB/WLAST handshake olmadan değişmemeli
-    // =========================================================
+    // WVALID handshake olmadan dusmemeli, W sinyalleri degismemeli
     always_ff @(posedge clk) begin
         if (rst_n && prev_wvalid && !prev_wready) begin
             check_count <= check_count + 1;
@@ -200,9 +173,7 @@ module axi4_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // [B1] BVALID handshake olmadan düşmemeli
-    // =========================================================
+    // BVALID handshake olmadan dusmemeli
     always_ff @(posedge clk) begin
         if (rst_n && prev_bvalid && !prev_bready) begin
             check_count <= check_count + 1;
@@ -215,10 +186,7 @@ module axi4_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // [AR1] ARVALID handshake olmadan düşmemeli
-    // [AR2] ARADDR/ARLEN/ARSIZE/ARBURST handshake olmadan değişmemeli
-    // =========================================================
+    // ARVALID handshake olmadan dusmemeli, AR sinyalleri degismemeli
     always_ff @(posedge clk) begin
         if (rst_n && prev_arvalid && !prev_arready) begin
             check_count <= check_count + 1;
@@ -242,9 +210,7 @@ module axi4_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // [R1] RVALID handshake olmadan düşmemeli
-    // =========================================================
+    // RVALID handshake olmadan dusmemeli
     always_ff @(posedge clk) begin
         if (rst_n && prev_rvalid && !prev_rready) begin
             check_count <= check_count + 1;
@@ -257,9 +223,7 @@ module axi4_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // [RESP1] BRESP/RRESP hata izleme (DECERR=11, SLVERR=10)
-    // =========================================================
+    // BRESP/RRESP hata izleme (DECERR=11, SLVERR=10)
     always_ff @(posedge clk) begin
         if (rst_n) begin
             if (bvalid && bready) begin
@@ -284,9 +248,7 @@ module axi4_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // [LEN1] Tek-beat transfer: AWLEN=0 ise WLAST=1 olmalı
-    // =========================================================
+    // yazma beat sayisi AWLEN ile uyumlu olmali
     logic [7:0] pending_awlen;
     logic       aw_pending;
 
@@ -304,7 +266,7 @@ module axi4_protocol_checker #(
         end
     end
 
-    // Yazma beat sayacı
+    // yazma beat sayaci
     logic [8:0] w_beat_cnt;
 
     always_ff @(posedge clk or negedge rst_n) begin
@@ -333,7 +295,7 @@ module axi4_protocol_checker #(
         end
     end
 
-    // Okuma beat sayacı + RLAST kontrolü
+    // okuma beat sayaci + RLAST kontrolu
     logic [7:0] pending_arlen;
     logic        ar_pending;
     logic [8:0]  r_beat_cnt;
@@ -372,9 +334,7 @@ module axi4_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // [BURST1] Burst tipi kontrol: RESERVED(2'b11) yasak
-    // =========================================================
+    // burst tipi RESERVED(2'b11) olmamali
     always_ff @(posedge clk) begin
         if (rst_n) begin
             if (awvalid) begin
@@ -398,9 +358,7 @@ module axi4_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // [SIZE1] Transfer boyutu veri genişliğini aşmamalı
-    // =========================================================
+    // transfer boyutu veri genisligini asmamali
     localparam int MAX_SIZE = $clog2(DATA_WIDTH / 8);
 
     always_ff @(posedge clk) begin
@@ -428,9 +386,7 @@ module axi4_protocol_checker #(
         end
     end
 
-    // =========================================================
-    // Simülasyon sonu raporu
-    // =========================================================
+    // simulasyon sonu raporu
     final begin
         $display("");
         $display("=== [%s] AXI4 Protocol Check Raporu ===", INTF_NAME);

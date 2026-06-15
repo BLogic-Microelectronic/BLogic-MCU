@@ -1,17 +1,7 @@
-// ============================================================
-// BLogic MCU — Verilator Testbench (file-based logging)
-// ============================================================
-// Kullanim:
-//   ./blogic_sim +CPB=432 +TEST_NAME=foo +LOGDIR=../logs/sim/foo
-//
-// Log cikti'lari (LOGDIR altinda):
-//   result.log     -> YAPISAL ozet (key=value)
-//   uart.log       -> sadece UART byte'lari
-//   rtl_trace.log  -> RTL_PC satirlari
-//   diag.log       -> sadece FAIL'de
-//
-// Stdout: tek satirlik karar.
-// ============================================================
+// ============================================
+// Ostim BLogic Mikroelektronik
+// sim_main.cpp  -  Verilator testbench
+// ============================================
 
 #include <verilated.h>
 #include <verilated_cov.h>
@@ -87,7 +77,7 @@ int main(int argc, char** argv) {
     std::string log_dir = "../logs/sim/default";
     std::string test_name = "default";
     uint64_t max_cycles = 10000000;
-    std::vector<int> sweep_cpbs;   // +SWEEP= ile dolan EK-2 cok-baud CPB listesi
+    std::vector<int> sweep_cpbs;   // +SWEEP= ile dolan CPB listesi
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -97,7 +87,7 @@ int main(int argc, char** argv) {
         else if (arg.rfind("+LOGDIR=", 0)    == 0) log_dir = arg.substr(8);
         else if (arg.rfind("+TEST_NAME=", 0) == 0) test_name = arg.substr(11);
         else if (arg.rfind("+SWEEP=", 0)     == 0) {
-            // EK-2 cok-baud kaniti: +SWEEP=434,50,5208 (virgul ayrili CPB listesi)
+            // virgul ayrili CPB listesi, orn: +SWEEP=434,50,5208
             std::string lst = arg.substr(7);
             size_t p = 0;
             while (p <= lst.size()) {
@@ -115,11 +105,9 @@ int main(int argc, char** argv) {
     std::ofstream diag_log     (log_dir + "/diag.log");
     std::ofstream result_log   (log_dir + "/result.log");
 
-    // --- EK-2 baud sweep modu ---
-    // Firmware her fazda UART0->CPB'yi yeniden programlar ve "BAUD-OK\n" basar.
-    // Alici faz k'da sweep_cpbs[k] ile dinler; marker yakalaninca k+1'e gecer.
-    size_t sweep_done  = 0;   // tamamlanan faz sayisi
-    size_t search_from = 0;   // rx_buf icinde bir sonraki aramanin baslangici
+    // baud sweep modu: her fazda alici CPB'yi degistirip marker bekler
+    size_t sweep_done  = 0;
+    size_t search_from = 0;
     if (!sweep_cpbs.empty()) {
         golden_string = "BAUD-OK\n";
         CPB = sweep_cpbs[0];
@@ -141,7 +129,7 @@ int main(int argc, char** argv) {
     time_t     t_start_s   = time(nullptr);
 
     top->clk_i = 0; top->rst_ni = 0; top->uart_rxd_i = 1;
-    top->uart1_rxd_i = 1;   // UART_1 (YZ stream) hatti bosta '1'
+    top->uart1_rxd_i = 1;   // UART_1 hatti bosta '1'
     top->gpio_in_i = 0; top->qspi_io_i = 0;
     top->eval();
     for (int i = 0; i < 20; i++) { top->clk_i = !top->clk_i; top->eval(); }

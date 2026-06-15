@@ -1,13 +1,12 @@
-/*
- * BLogic MCU - Çevre Birimi Tanımları (Register Map)
- * ===================================================
- * Yalın Metal (Bare-Metal) uyumlu, harici kütüphane bağımlılığı yoktur.
- */
+/* ============================================
+ * Ostim BLogic Mikroelektronik
+ * blogic_mcu.h  -  cevre birimi register tanimlari
+ * ============================================ */
 
 #ifndef BLOGIC_MCU_H
 #define BLOGIC_MCU_H
 
-/* RISC-V 32-bit Mimari İçin Saf Yalın Metal Veri Tipleri */
+/* yalin metal veri tipleri */
 typedef unsigned int       uint32_t;
 typedef unsigned short     uint16_t;
 typedef unsigned char      uint8_t;
@@ -15,108 +14,96 @@ typedef signed int         int32_t;
 typedef signed short       int16_t;
 typedef signed char        int8_t;
 
-/* --- Çevre Birimi Taban Adresleri (Adres Haritanızla Birebir Uyumlu) --- */
-#define UART0_BASE      0x40000000U   /* Genel kullanım UART (0x4000_0000) */
-#define GPIO_BASE       0x40000100U   /* GPIO (0x4000_0100) */
-#define TIMER_BASE      0x40000200U   /* Timer (0x4000_0200) */
-#define UART1_BASE      0x40000300U   /* Stream UART (0x4000_0300) */
-#define I2C_BASE        0x40000400U   /* I2C (0x4000_0400) */
-#define QSPI_BASE       0x40000500U   /* QSPI Master (0x4000_0500) */
-#define AI_ACC_BASE     0x40000600U   /* YZ Hizlandirici CSR (0x4000_0600) */
+/* cevre birimi taban adresleri */
+#define UART0_BASE      0x40000000U   /* genel UART */
+#define GPIO_BASE       0x40000100U   /* GPIO */
+#define TIMER_BASE      0x40000200U   /* Timer */
+#define UART1_BASE      0x40000300U   /* stream UART */
+#define I2C_BASE        0x40000400U   /* I2C */
+#define QSPI_BASE       0x40000500U   /* QSPI master */
+#define AI_ACC_BASE     0x40000600U   /* YZ hizlandirici CSR */
 
-/* ============================================================
- * GPIO Yazmaçları (0x4000_0000)
- * ============================================================ */
+/* GPIO yazmaclari */
 typedef struct {
-    volatile uint32_t IDR;    /* 0x00 - Giriş veri yazmacı (RO) */
-    volatile uint32_t ODR;    /* 0x04 - Çıkış veri yazmacı (RW) */
+    volatile uint32_t IDR;    /* 0x00 - giris veri (RO) */
+    volatile uint32_t ODR;    /* 0x04 - cikis veri (RW) */
 } GPIO_TypeDef;
 
 #define GPIO    ((GPIO_TypeDef *) GPIO_BASE)
 
-/* ============================================================
- * Timer Yazmaçları (0x4001_0000)
- * ============================================================ */
+/* Timer yazmaclari */
 typedef struct {
-    volatile uint32_t PRE;    /* 0x00 - Prescaler (RW) */
-    volatile uint32_t ARE;    /* 0x04 - Auto-reload değeri (RW) */
-    volatile uint32_t CLR;    /* 0x08 - Clear (RW) */
-    volatile uint32_t ENA;    /* 0x0C - Enable (RW) */
-    volatile uint32_t MOD;    /* 0x10 - Mode (RW) */
-    volatile uint32_t CNT;    /* 0x14 - Counter değeri (RO) */
-    volatile uint32_t EVN;    /* 0x18 - Event sayacı (RO) */
-    volatile uint32_t EVC;    /* 0x1C - Event clear (RW) */
+    volatile uint32_t PRE;    /* 0x00 - prescaler (RW) */
+    volatile uint32_t ARE;    /* 0x04 - auto-reload (RW) */
+    volatile uint32_t CLR;    /* 0x08 - clear (RW) */
+    volatile uint32_t ENA;    /* 0x0C - enable (RW) */
+    volatile uint32_t MOD;    /* 0x10 - mode (RW) */
+    volatile uint32_t CNT;    /* 0x14 - counter (RO) */
+    volatile uint32_t EVN;    /* 0x18 - event sayaci (RO) */
+    volatile uint32_t EVC;    /* 0x1C - event clear (RW) */
 } TIMER_TypeDef;
 
 #define TIMER   ((TIMER_TypeDef *) TIMER_BASE)
 
-/* ============================================================
- * UART Yazmaçları (0x4002_0000 & 0x4003_0000)
- * ============================================================ */
+/* UART yazmaclari */
 typedef struct {
-    volatile uint32_t CPB;    /* 0x00 - Clock-per-bit (RW) */
-    volatile uint32_t STP;    /* 0x04 - Stop bit (RW) */
-    volatile uint32_t RDR;    /* 0x08 - Alınan veri (RO) */
-    volatile uint32_t TDR;    /* 0x0C - Gönderilecek veri (RW) */
-    volatile uint32_t CFG;    /* 0x10 - Konfigürasyon (RW) */
+    volatile uint32_t CPB;    /* 0x00 - clock-per-bit (RW) */
+    volatile uint32_t STP;    /* 0x04 - stop bit (RW) */
+    volatile uint32_t RDR;    /* 0x08 - alinan veri (RO) */
+    volatile uint32_t TDR;    /* 0x0C - gonderilecek veri (RW) */
+    volatile uint32_t CFG;    /* 0x10 - konfigurasyon (RW) */
 } UART_TypeDef;
 
 #define UART0   ((UART_TypeDef *) UART0_BASE)
 #define UART1   ((UART_TypeDef *) UART1_BASE)
 
-/* UART CFG bit maskeleri */
+/* UART CFG bitleri */
 #define UART_CFG_TX_START    (1U << 0)
 #define UART_CFG_RX_READY    (1U << 1)
 #define UART_CFG_TX_DONE     (1U << 2)
 
-/* ============================================================
- * I2C Master Yazmaçları (0x4004_0000)
- * ============================================================ */
+/* I2C master yazmaclari */
 typedef struct {
-    volatile uint32_t NBY;    /* 0x00 - Bayt sayısı (RW) */
-    volatile uint32_t ADR;    /* 0x04 - Slave adresi (RW) */
-    volatile uint32_t RDR;    /* 0x08 - Okunan veri (RO) */
-    volatile uint32_t TDR;    /* 0x0C - Yazılacak veri (RW) */
-    volatile uint32_t CFG;    /* 0x10 - Konfigürasyon (RW) */
+    volatile uint32_t NBY;    /* 0x00 - bayt sayisi (RW) */
+    volatile uint32_t ADR;    /* 0x04 - slave adresi (RW) */
+    volatile uint32_t RDR;    /* 0x08 - okunan veri (RO) */
+    volatile uint32_t TDR;    /* 0x0C - yazilacak veri (RW) */
+    volatile uint32_t CFG;    /* 0x10 - konfigurasyon (RW) */
 } I2C_TypeDef;
 
 #define I2C     ((I2C_TypeDef *) I2C_BASE)
 
-/* ============================================================
- * QSPI Master Yazmaçları (0x4005_0000)
- * ============================================================ */
+/* QSPI master yazmaclari */
 typedef struct {
-    volatile uint32_t CCR;    /* 0x00 - Communication config (RW) */
-    volatile uint32_t ADR;    /* 0x04 - Flash adres (RW) */
-    volatile uint32_t DR;     /* 0x08 - Data register (RW) */
-    volatile uint32_t STA;    /* 0x0C - Status (RO) */
+    volatile uint32_t CCR;    /* 0x00 - haberlesme config (RW) */
+    volatile uint32_t ADR;    /* 0x04 - flash adres (RW) */
+    volatile uint32_t DR;     /* 0x08 - data (RW) */
+    volatile uint32_t STA;    /* 0x0C - status (RO) */
     volatile uint32_t FCR;    /* 0x10 - FIFO control (RW) */
 } QSPI_TypeDef;
 
 #define QSPI    ((QSPI_TypeDef *) QSPI_BASE)
 
-/* ============================================================
- * YZ Hızlandırıcı CSR (0x4006_0000)
- * ============================================================ */
+/* YZ hizlandirici CSR */
 typedef struct {
-    volatile uint32_t CTRL;       /* 0x00 - Kontrol yazmacı (RW) */
-    volatile uint32_t STATUS;     /* 0x04 - Durum yazmacı (RO) */
-    volatile uint32_t DATA_ADDR;  /* 0x08 - Giriş veri adresi (RW) */
-    volatile uint32_t OUT_ADDR;   /* 0x0C - Çıkış veri adresi (RW) */
+    volatile uint32_t CTRL;       /* 0x00 - kontrol (RW) */
+    volatile uint32_t STATUS;     /* 0x04 - durum (RO) */
+    volatile uint32_t DATA_ADDR;  /* 0x08 - giris veri adresi (RW) */
+    volatile uint32_t OUT_ADDR;   /* 0x0C - cikis veri adresi (RW) */
 } AI_ACC_TypeDef;
 
 #define AI_ACC  ((AI_ACC_TypeDef *) AI_ACC_BASE)
 
-/* UART'tan bir byte gönder (Donanım el sıkışmalı polling modu) */
+/* UART'tan bir byte gonder (polling) */
 static inline void uart_putc(UART_TypeDef *uart, char c)
 {
-    uart->TDR = (uint32_t)c;                 /* Veriyi TDR'a yükle */
-    uart->CFG = UART_CFG_TX_START;           /* Gönderimi başlat (Edge oluştur) */
-    while (!(uart->CFG & UART_CFG_TX_DONE)); /* Donanım bitirene kadar bekle */
-    uart->CFG = 0x00;                        /* KRİTİK: Sonraki edge için temizle */
+    uart->TDR = (uint32_t)c;
+    uart->CFG = UART_CFG_TX_START;           /* gonderimi baslat */
+    while (!(uart->CFG & UART_CFG_TX_DONE));
+    uart->CFG = 0x00;                        /* sonraki edge icin temizle */
 }
 
-/* UART'tan string gönder */
+/* UART'tan string gonder */
 static inline void uart_puts(UART_TypeDef *uart, const char *s)
 {
     while (*s) {
@@ -125,11 +112,11 @@ static inline void uart_puts(UART_TypeDef *uart, const char *s)
 }
 
 
-/* UART'tan bir byte al (Donanım el sıkışmalı polling modu) */
+/* UART'tan bir byte al (polling) */
 static inline char uart_getc(UART_TypeDef *uart)
 {
-    while (!(uart->CFG & UART_CFG_RX_READY)); /* Donanıma veri gelene kadar bekle */
-    char c = (char)(uart->RDR & 0xFF);        /* Alınan veriyi oku */
+    while (!(uart->CFG & UART_CFG_RX_READY)); /* veri gelene kadar bekle */
+    char c = (char)(uart->RDR & 0xFF);
     return c;
 }
 

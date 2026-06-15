@@ -1,35 +1,12 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// i2c_master_tb.sv  -  I2C master testbench
+// ============================================
 `timescale 1ns / 1ps
-
-// ============================================================
-// BLogic MCU - I2C Master Standalone Testbench (self-checking)
-// ------------------------------------------------------------
-// DUT: rtl/peripherals/i2c_master_axil.sv (tek başına, soc_top'suz)
-//
-// Testler:
-//   T1: NBY yuvarlama (0→1, 25→4)                  [şartname]
-//   T2: 4 bayt TX — slave'in aldığı baytlar + LSB-önce sırası
-//   T2b: SCL periyodu ≈ 400 kHz kontrolü
-//   T3: 4 bayt RX — RDR paketleme (ilk bayt [7:0])  [şartname]
-//   T4: 1 bayt TX
-//   T5: NACK — eşleşmeyen adres → CFG[4] set, done yine set
-//   T6: TX+RX aynı anda enable → önce TX, sonra zincirleme RX
-//
-// Open-drain SDA modeli (tristate'siz, Verilator dostu):
-//   sda = ~(mst_sda_oe | slv_sda_oe)   // çeken varsa 0, yoksa pull-up 1
-//
-// Koşturma (Verilator ≥ 5.x):
-//   $ verilator --binary --timing \
-//     rtl/peripherals/i2c_master_axil.sv verif/tb/i2c_master_tb.sv \
-//     --top-module i2c_master_tb
-//   ./obj_dir/Vi2c_master_tb
-// Vivado xsim:
-//   xvlog -sv rtl/peripherals/i2c_master_axil.sv verif/tb/i2c_master_tb.sv
-//   xelab i2c_master_tb -s i2c_sim && xsim i2c_sim -R
-// ============================================================
 
 module i2c_master_tb;
 
-    // ---------------- Saat / Reset ----------------
+    // Saat / reset
     localparam int unsigned CLK_HZ = 50_000_000;   // 20 ns periyot
     localparam logic [6:0]  SLAVE_ADDR = 7'h50;
 
@@ -37,7 +14,7 @@ module i2c_master_tb;
     logic rst_n;
     always #10 clk = ~clk;
 
-    // ---------------- DUT AXI-Lite sinyalleri ----------------
+    // DUT AXI-Lite sinyalleri
     logic [31:0] awaddr, wdata, araddr;
     logic [ 3:0] wstrb;
     logic        awvalid, awready, wvalid, wready;
@@ -48,13 +25,12 @@ module i2c_master_tb;
     logic [ 1:0] rresp;
     logic        rvalid, rready;
 
-    // ---------------- I2C hattı (open-drain modeli) ----------------
+    // I2C hattı (open-drain)
     logic scl;
     logic mst_sda_oe;
     logic slv_sda_oe;
     wire  sda = ~(mst_sda_oe | slv_sda_oe);   // pull-up'lı hat
 
-    // ---------------- DUT ----------------
     i2c_master_axil #(
         .CLK_FREQ_HZ(CLK_HZ),
         .SCL_FREQ_HZ(400_000)
@@ -77,9 +53,7 @@ module i2c_master_tb;
     localparam logic [31:0] A_TDR = 32'h0C;
     localparam logic [31:0] A_CFG = 32'h10;
 
-    // ============================================================
-    // DAVRANIŞSAL I2C SLAVE MODELİ (tam senkron, tek always_ff)
-    // ============================================================
+    // Davranışsal I2C slave modeli
     logic scl_q1, sda_q1;
     always_ff @(posedge clk) begin
         scl_q1 <= scl;
@@ -125,7 +99,7 @@ module i2c_master_tb;
             slv_sda_oe <= 1'b0;
         end else begin
             case (sl_st)
-                // ---- adres veya veri baytı al ----
+                // adres veya veri baytı al
                 SL_GET: begin
                     if (scl_rise) begin
                         sl_sh   <= {sl_sh[6:0], sda};
@@ -149,7 +123,7 @@ module i2c_master_tb;
                         end
                     end
                 end
-                // ---- ACK clock'u bitir ----
+                // ACK clock'u bitir
                 SL_ACK_OUT: begin
                     if (scl_fall) begin
                         if (sl_addr_ph && sl_rw) begin
@@ -166,7 +140,7 @@ module i2c_master_tb;
                         end
                     end
                 end
-                // ---- slave veri gönderiyor (master READ) ----
+                // slave veri gönderiyor (master READ)
                 SL_SEND: begin
                     if (scl_rise) sl_bits <= sl_bits + 4'd1;
                     if (scl_fall) begin
@@ -180,7 +154,7 @@ module i2c_master_tb;
                         end
                     end
                 end
-                // ---- master'ın ACK/NACK'ini örnekle ----
+                // master'ın ACK/NACK'ini örnekle
                 SL_GET_MACK: begin
                     if (scl_rise) sl_mack <= ~sda;          // 0'a çekildi = ACK
                     if (scl_fall) begin
@@ -201,10 +175,7 @@ module i2c_master_tb;
         end
     end
 
-    // ---------------- SCL periyot ölçümü ----------------
-    // İlk yükselen kenar reset artefaktı olabilir (Verilator 2-state'te scl
-    // 0→1 başlar); bu yüzden periyot 2. ve 3. yükselişler arasında ölçülür —
-    // her iki simülatörde de bunlar transfer içindeki ardışık bitlerdir.
+    // SCL periyot ölçümü: ilk kenar reset artefaktı olabilir, 2.-3. yükseliş arası ölçülür
     longint cyc = 0;
     always @(posedge clk) cyc <= cyc + 1;
     longint scl_t0 = 0, scl_per = 0;
@@ -217,17 +188,11 @@ module i2c_master_tb;
         end
     end
 
-    // ============================================================
-    // AXI-LITE BFM GÖREVLERİ
-    // ============================================================
+    // AXI-Lite BFM görevleri
     int errors = 0;
 
-    // BFM zamanlaması iki simülatörde de çalışacak şekilde kurgulandı:
-    //  - Not: Verilator task içindeki <='leri blocking çalıştırır (INITIALDLY).
-    //    Bu yüzden ready görüldükten sonra valid BİR cycle daha tutulur ki
-    //    DUT valid&&ready örtüşmesini bir saat kenarında yakalayabilsin.
-    //  - bready/rready, yanıt (bvalid/rvalid) görülene kadar düşük tutulur;
-    //    böylece yanıt TB onu örnekleyemeden temizlenemez.
+    // ready görüldükten sonra valid bir cycle daha tutulur; bready/rready
+    // yanıt görülene kadar düşük kalır (iki simülatörde de çalışsın diye).
     /* verilator lint_off INITIALDLY */
     task automatic axil_write(input logic [31:0] addr, input logic [31:0] data);
         @(posedge clk);
@@ -236,9 +201,9 @@ module i2c_master_tb;
         do @(posedge clk); while (!(awready && wready));
         @(posedge clk);                       // valid'ları bir cycle daha tut
         awvalid <= 1'b0; wvalid <= 1'b0;
-        do @(posedge clk); while (!bvalid);   // bready düşükken bvalid kalıcı
+        do @(posedge clk); while (!bvalid);
         bready <= 1'b1;
-        @(posedge clk);                       // B el sıkışması
+        @(posedge clk);
         bready <= 1'b0;
     endtask
 
@@ -248,10 +213,10 @@ module i2c_master_tb;
         do @(posedge clk); while (!arready);
         @(posedge clk);                       // arvalid'ı bir cycle daha tut
         arvalid <= 1'b0;
-        do @(posedge clk); while (!rvalid);   // rready düşükken rvalid kalıcı
+        do @(posedge clk); while (!rvalid);
         data = rdata;
         rready <= 1'b1;
-        @(posedge clk);                       // R el sıkışması
+        @(posedge clk);
         rready <= 1'b0;
     endtask
     /* verilator lint_on INITIALDLY */
@@ -276,7 +241,7 @@ module i2c_master_tb;
         end
     endtask
 
-    // CFG'deki bir done bitini timeout'lu bekle
+    // CFG'deki done bitini timeout'lu bekle
     task automatic wait_done(input int bitpos, input string name);
         logic [31:0] v;
         int n = 0;
@@ -295,9 +260,7 @@ module i2c_master_tb;
         end
     endtask
 
-    // ============================================================
-    // TEST AKIŞI
-    // ============================================================
+    // Test akışı
     logic [31:0] v;
 
     initial begin
@@ -318,13 +281,13 @@ module i2c_master_tb;
 
         $display("==== I2C Master Standalone TB ====");
 
-        // ---- T1: NBY yuvarlama ----
+        // T1: NBY yuvarlama
         axil_write(A_NBY, 32'd0);  axil_read(A_NBY, v);
         check32(v, 32'd1, "T1 NBY 0->1");
         axil_write(A_NBY, 32'd25); axil_read(A_NBY, v);
         check32(v, 32'd4, "T1 NBY 25->4");
 
-        // ---- T2: 4 bayt TX ----
+        // T2: 4 bayt TX
         axil_write(A_ADR, {25'd0, SLAVE_ADDR});
         axil_write(A_NBY, 32'd4);
         axil_write(A_TDR, 32'hDDCCBBAA);
@@ -338,7 +301,7 @@ module i2c_master_tb;
         check8(sl_rx_q[3], 8'hDD, "T2 slave bayt3");
         check32({28'd0, sl_rx_n}, 32'd4, "T2 slave bayt sayisi");
 
-        // ---- T2b: SCL ~400 kHz (50MHz'de periyot = 4*31 = 124 clk) ----
+        // T2b: SCL ~400 kHz (50MHz'de periyot = 4*31 = 124 clk)
         if (scl_per < 110 || scl_per > 140) begin
             $display("[HATA] T2b SCL periyodu %0d clk (110-140 bekleniyordu)", scl_per);
             errors++;
@@ -347,31 +310,31 @@ module i2c_master_tb;
                      scl_per, 50_000_000 / scl_per / 1000);
         end
 
-        // ---- T3: 4 bayt RX ----
+        // T3: 4 bayt RX
         axil_write(A_NBY, 32'd4);
         axil_write(A_CFG, 32'h4);                 // RXEN (TXDONE temizlenir)
         wait_done(3, "T3 RXDONE (4B)");
         axil_read(A_RDR, v);
         check32(v, 32'h44332211, "T3 RDR paketleme");
 
-        // ---- T4: 1 bayt TX ----
+        // T4: 1 bayt TX
         axil_write(A_NBY, 32'd1);
         axil_write(A_TDR, 32'h0000005A);
         axil_write(A_CFG, 32'h1);                 // TXEN (RXDONE temizlenir)
         wait_done(1, "T4 TXDONE (1B)");
         check8(sl_rx_q[4], 8'h5A, "T4 slave bayt4");
 
-        // ---- T5: NACK (eşleşmeyen adres) ----
+        // T5: NACK (eşleşmeyen adres)
         axil_write(A_ADR, 32'h23);
         axil_write(A_CFG, 32'h1);
         wait_done(1, "T5 TXDONE (NACK'te de set)");
         axil_read(A_CFG, v);
         check32((v >> 4) & 32'h1, 32'h1, "T5 NACK bayragi");
-        axil_write(A_CFG, 32'h0);                 // her seyi temizle
+        axil_write(A_CFG, 32'h0);                 // hepsini temizle
         axil_read(A_CFG, v);
         check32(v & 32'h0000_001F, 32'd0, "T5 status temiz");
 
-        // ---- T6: TX+RX birlikte → önce TX, sonra zincirleme RX ----
+        // T6: TX+RX birlikte, önce TX sonra zincirleme RX
         axil_write(A_ADR, {25'd0, SLAVE_ADDR});
         axil_write(A_NBY, 32'd1);
         axil_write(A_TDR, 32'h00000077);
@@ -385,14 +348,14 @@ module i2c_master_tb;
         check32(v, 32'h00000044, "T6 zincir RX verisi");
         axil_write(A_CFG, 32'h0);
 
-        // ---- Sonuç ----
+        // Sonuç
         repeat (10) @(posedge clk);
         if (errors == 0) $display("[I2C] PASS — tum testler gecti");
         else             $display("[I2C] FAIL — %0d hata", errors);
         $finish;
     end
 
-    // Genel emniyet timeout'u
+    // Genel emniyet timeout
     initial begin
         #10_000_000;   // 10 ms
         $display("[HATA] Genel TB timeout!");

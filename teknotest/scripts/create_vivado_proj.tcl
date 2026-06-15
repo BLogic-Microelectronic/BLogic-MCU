@@ -1,3 +1,7 @@
+# ============================================
+# Ostim BLogic Mikroelektronik
+# create_vivado_proj.tcl  -  Vivado proje olusturma akisi
+# ============================================
 create_project -force teknotest vivado_proj -part xc7k325tffg900-2
 
 add_files ./tb/teknotest_tb.sv -fileset sim_1

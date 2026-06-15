@@ -1,10 +1,14 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// gpio_axil.sv  -  AXI4-Lite GPIO cevre birimi
+// ============================================
 `timescale 1ns / 1ps
  
 module gpio_axil (
     input  logic        clk_i,
     input  logic        rst_ni,
  
-    // AXI4-Lite Slave Arayüzü
+    // AXI4-Lite slave
     input  logic [31:0] s_axi_awaddr,
     input  logic        s_axi_awvalid,
     output logic        s_axi_awready,
@@ -24,29 +28,19 @@ module gpio_axil (
     output logic        s_axi_rvalid,
     input  logic        s_axi_rready,
  
-    // Fiziksel GPIO Pinleri
-    input  logic [15:0] gpio_in_i,     // 16-bit giriş (sabit giriş)
-    output logic [15:0] gpio_out_o     // 16-bit çıkış (sabit çıkış)
+    // GPIO pinleri
+    input  logic [15:0] gpio_in_i,     // 16-bit giriş
+    output logic [15:0] gpio_out_o     // 16-bit çıkış
 );
  
-    // =========================================================
-    // 1. REGISTER ADRESLERİ (TEKNOFEST EK-2 Şartnamesi)
-    // =========================================================
-    // Offset 0x00: GPIO_IDR — Giriş Veri Yazmacı (Read-Only)
-    //   [15:0]  = 16-bit giriş sinyali değeri
-    //   [31:16] = her zaman 0
-    //
-    // Offset 0x04: GPIO_ODR — Çıkış Veri Yazmacı (Read-Write)
-    //   [15:0]  = 16-bit çıkış değeri
-    //   [31:16] = yazılan değer etkisiz
+    // Register adresleri: IDR giriş (RO), ODR çıkış (RW)
     localparam logic [4:0] ADDR_IDR = 5'h00;
     localparam logic [4:0] ADDR_ODR = 5'h04;
  
-    // Çıkış register
     logic [15:0] gpio_odr;
     assign gpio_out_o = gpio_odr;
  
-    // Giriş sinyalini senkronize et (metastability koruması)
+    // Girişi senkronize et (metastability)
     logic [15:0] gpio_in_sync1, gpio_in_sync2;
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
@@ -58,9 +52,7 @@ module gpio_axil (
         end
     end
  
-    // =========================================================
-    // 2. AXI-LITE YAZMA (WRITE) FSM
-    // =========================================================
+    // AXI-Lite yazma FSM
     logic aw_en;
     logic [4:0] write_addr;
  
@@ -75,7 +67,7 @@ module gpio_axil (
             write_addr    <= 5'd0;
             gpio_odr      <= 16'd0;
         end else begin
-            // Adres + Veri Yakalama
+            // adres + veri yakala
             if (s_axi_awvalid && s_axi_wvalid && aw_en) begin
                 s_axi_awready <= 1'b1;
                 s_axi_wready  <= 1'b1;
@@ -86,16 +78,16 @@ module gpio_axil (
                 s_axi_wready  <= 1'b0;
             end
  
-            // Veri Yazma
+            // veri yaz
             if (s_axi_wready && s_axi_wvalid && s_axi_awready && s_axi_awvalid) begin
                 case (write_addr)
                     ADDR_ODR: gpio_odr <= s_axi_wdata[15:0];
-                    // ADDR_IDR'ye yazma etkisiz (Read-Only)
+                    // IDR salt okunur
                     default: ;
                 endcase
             end
  
-            // Yanıt Gönderme
+            // yanıt gönder
             if (s_axi_wready && s_axi_wvalid && s_axi_awready && s_axi_awvalid && !s_axi_bvalid) begin
                 s_axi_bvalid <= 1'b1;
             end else if (s_axi_bready && s_axi_bvalid) begin
@@ -105,9 +97,7 @@ module gpio_axil (
         end
     end
  
-    // =========================================================
-    // 3. AXI-LITE OKUMA (READ) FSM
-    // =========================================================
+    // AXI-Lite okuma FSM
     assign s_axi_rresp = 2'b00;
  
     always_ff @(posedge clk_i or negedge rst_ni) begin

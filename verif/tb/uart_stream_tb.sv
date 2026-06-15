@@ -1,26 +1,11 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// uart_stream_tb.sv  -  UART YZ stream DMA dogrulama tb
+// ============================================
 `timescale 1ns/1ps
-// ============================================================
-// uart_stream_tb — UART_1 / YZ stream (DMA) dogrulamasi
-//
-// DUT: uart_stream_axil tek basina; AXI-Lite CSR dogrudan TB'den
-// surulur, RX hatti bit-bit TB'den beslenir, DUT'un AXI4 master'i
-// TB icindeki basit bellek modeline (AI SRAM taklidi) baglanir.
-//
-// Senaryolar (hepsi self-checking):
-//   A) Temel DMA: 16 bayt → 4 word little-endian paketleme,
-//      DONE/IRQ/BUSY/rxcnt kontrolu.
-//   B) Kismi word: len=7 → son word wstrb=0111, komsu bayt korunur
-//      (bellek 0xAA on-dolgulu).
-//   C) Kilit: DMA busy iken STRM_ADDR yazisi yok sayilir.
-//   D) ABORT: akis ortasinda durdur (IRQ/DONE yok), ardindan yeni
-//      START sorunsuz calisir (pointer base'e doner).
-//   E) DMA kapaliyken normal UART: RX→RDR + CFG[1], TX→CFG[2].
-//
-// Calistirma: make uart-stream
-// ============================================================
 module uart_stream_tb;
 
-    // --- CSR ofsetleri ---
+    // CSR ofsetleri
     localparam logic [5:0] A_CPB  = 6'h00;
     localparam logic [5:0] A_STP  = 6'h04;
     localparam logic [5:0] A_RDR  = 6'h08;
@@ -31,7 +16,7 @@ module uart_stream_tb;
     localparam logic [5:0] A_SCTL = 6'h1C;
     localparam logic [5:0] A_SSTA = 6'h20;
 
-    localparam int unsigned CPB     = 64;            // hizli sim baud (presc=8)
+    localparam int unsigned CPB     = 64;            // hizli sim baud
     localparam int unsigned BIT_CLK = CPB;           // 1 bit = CPB clk
 
     localparam logic [31:0] MEM_BASE = 32'h0003_0000;
@@ -41,7 +26,7 @@ module uart_stream_tb;
     logic rst_n = 1'b0;
     always #10 clk = ~clk;                            // 50 MHz
 
-    // --- AXI-Lite master (TB → DUT CSR) ---
+    // AXI-Lite master (TB -> DUT CSR)
     logic [31:0] awaddr  = '0;
     logic        awvalid = 1'b0;
     logic        awready;
@@ -60,7 +45,7 @@ module uart_stream_tb;
     logic        rvalid;
     logic        rready  = 1'b1;
 
-    // --- DUT AXI4 master → TB bellek modeli ---
+    // DUT AXI4 master -> TB bellek modeli
     logic [ 3:0] m_awid;
     logic [31:0] m_awaddr;
     logic [ 7:0] m_awlen;
@@ -73,7 +58,7 @@ module uart_stream_tb;
     logic [ 1:0] m_bresp;
     logic        m_bvalid, m_bready;
 
-    // --- UART hatti + durum ---
+    // UART hatti + durum
     logic rxd = 1'b1;
     logic txd;
     logic strm_active;
@@ -136,9 +121,7 @@ module uart_stream_tb;
         .irq_o           (irq)
     );
 
-    // =========================================================
-    // Basit AXI4 slave bellek modeli (tek beat, wstrb uygular)
-    // =========================================================
+    // basit AXI4 slave bellek (tek beat, wstrb uygular)
     logic [31:0] mem [0:MEM_WORDS-1];
     logic [31:0] aw_q;
     logic        aw_got = 1'b0, w_got = 1'b0;
@@ -155,7 +138,7 @@ module uart_stream_tb;
             aw_got <= 1'b0; w_got <= 1'b0; m_bvalid <= 1'b0;
         end else begin
             if (m_awvalid && m_awready) begin
-                // protokol sanity: tek beat, 4 bayt, INCR
+                // tek beat, 4 bayt, INCR kontrolu
                 if (m_awlen != 8'd0)    $fatal(1, "[MEM] awlen != 0: %0d", m_awlen);
                 if (m_awsize != 3'b010) $fatal(1, "[MEM] awsize != 4B: %0d", m_awsize);
                 if (m_awaddr < MEM_BASE || m_awaddr >= MEM_BASE + MEM_WORDS*4)
@@ -186,13 +169,7 @@ module uart_stream_tb;
         end
     end
 
-    // =========================================================
-    // Gorevler
-    // =========================================================
-    // NOT: Verilator initial/task icindeki NBA'yi blocking'e cevirir
-    // (INITIALDLY). Race'siz calismak icin TB master'i NEGEDGE
-    // disipliniyle surulur: atama ve ornekleme negedge'de yapilir,
-    // valid'ler handshake posedge'i gectikten sonra dusurulur.
+    // Verilator NBA'yi blocking yapiyor; race olmasin diye master negedge'de surulur
     task automatic axi_write(input logic [5:0] addr, input logic [31:0] data);
         @(negedge clk);
         awaddr  = {26'd0, addr};
@@ -200,7 +177,7 @@ module uart_stream_tb;
         awvalid = 1'b1;
         wvalid  = 1'b1;
         do @(negedge clk); while (!(awready && wready));
-        @(negedge clk);          // ready&&valid posedge'i (handshake) gecti
+        @(negedge clk);          // handshake posedge'i gecti
         awvalid = 1'b0;
         wvalid  = 1'b0;
         while (!bvalid) @(negedge clk);
@@ -211,13 +188,13 @@ module uart_stream_tb;
         araddr  = {26'd0, addr};
         arvalid = 1'b1;
         do @(negedge clk); while (!arready);
-        @(negedge clk);          // arready&&arvalid posedge'i gecti
+        @(negedge clk);          // handshake posedge'i gecti
         arvalid = 1'b0;
         while (!rvalid) @(negedge clk);
         data = rdata;
     endtask
 
-    // 8N1 cerceve: start(0) + 8 veri (LSB-first) + stop(1)
+    // 8N1: start + 8 veri (LSB-first) + stop
     task automatic uart_send_byte(input logic [7:0] b);
         @(negedge clk);
         rxd = 1'b0;
@@ -230,7 +207,7 @@ module uart_stream_tb;
         repeat (BIT_CLK) @(negedge clk);
     endtask
 
-    // DONE bekleyip durum bitlerini dondurur (sinirli poll)
+    // DONE bekle, durum bitlerini dondur
     task automatic wait_done(output logic [31:0] sta);
         int unsigned n = 0;
         forever begin
@@ -245,20 +222,18 @@ module uart_stream_tb;
         pat = 8'((i * 7 + 3) & 32'hFF);
     endfunction
 
-    // Beklenen word'u dogrula
+    // beklenen word'u dogrula
     task automatic check_word(input int unsigned idx, input logic [31:0] exp, input string tag);
         if (mem[idx] !== exp)
             $fatal(1, "[%s] mem[%0d] = 0x%08x, beklenen 0x%08x", tag, idx, mem[idx], exp);
     endtask
 
-    // =========================================================
-    // Test akisi
-    // =========================================================
+    // test akisi
     logic [31:0] r, sta;
     int unsigned base_idx;
 
     initial begin
-        // Bellek on-dolgu (komsu bayt korunumu kontrolu icin)
+        // komsu bayt korunumu icin bellegi on-dolgula
         for (int i = 0; i < MEM_WORDS; i++) mem[i] = 32'hAAAA_AAAA;
 
         repeat (5) @(posedge clk);
@@ -267,7 +242,7 @@ module uart_stream_tb;
 
         axi_write(A_CPB, CPB);
 
-        // ---------------- A) Temel DMA: 16 bayt ----------------
+        // A) temel DMA: 16 bayt
         $display("[A] Temel DMA: 16 bayt @0x%08x", MEM_BASE);
         irq_seen = 1'b0;
         axi_write(A_SADR, MEM_BASE);
@@ -291,9 +266,9 @@ module uart_stream_tb;
                        {pat(4*w+3), pat(4*w+2), pat(4*w+1), pat(4*w+0)}, "A");
         $display("[A] PASS — 4 word little-endian dogru, DONE+IRQ+rxcnt OK");
 
-        // ------------- B) Kismi word: len=7 @ +0x40 -------------
+        // B) kismi word: len=7 @ +0x40
         $display("[B] Kismi word: 7 bayt @0x%08x", MEM_BASE + 32'h40);
-        axi_write(A_SCTL, 32'h0);                    // (etkisiz yazma)
+        axi_write(A_SCTL, 32'h0);                    // etkisiz yazma
         axi_write(A_SADR, MEM_BASE + 32'h40);
         axi_write(A_SLEN, 32'd7);
         axi_write(A_SCTL, 32'h1);
@@ -303,16 +278,16 @@ module uart_stream_tb;
 
         base_idx = 32'h40 >> 2;
         check_word(base_idx + 0, {pat(103), pat(102), pat(101), pat(100)}, "B");
-        // son word: yalniz 3 bayt yazildi, ust bayt 0xAA korunmali
+        // son word 3 bayt; ust bayt 0xAA korunmali
         check_word(base_idx + 1, {8'hAA, pat(106), pat(105), pat(104)}, "B");
         $display("[B] PASS — wstrb=0111 kismi yazma + komsu bayt korunumu OK");
 
-        // ------- C) Kilit: busy iken STRM_ADDR yazisi etkisiz -------
+        // C) busy iken SADR yazisi etkisiz olmali
         $display("[C] Busy iken SADR kilidi");
         axi_write(A_SADR, MEM_BASE + 32'h80);
         axi_write(A_SLEN, 32'd4);
         axi_write(A_SCTL, 32'h1);
-        axi_write(A_SADR, 32'hDEAD_0000);            // busy iken — yok sayilmali
+        axi_write(A_SADR, 32'hDEAD_0000);            // busy iken yok sayilmali
         for (int i = 0; i < 4; i++) uart_send_byte(pat(200 + i));
         wait_done(sta);
         axi_read(A_SADR, r);
@@ -321,7 +296,7 @@ module uart_stream_tb;
         check_word(32'h80 >> 2, {pat(203), pat(202), pat(201), pat(200)}, "C");
         $display("[C] PASS — busy sirasinda SADR korunur, veri dogru hedefe yazildi");
 
-        // ----------- D) ABORT + yeniden START -----------
+        // D) ABORT + yeniden START
         $display("[D] ABORT ortasinda durdur + yeniden START");
         irq_seen = 1'b0;
         axi_write(A_SADR, MEM_BASE + 32'hC0);
@@ -330,7 +305,7 @@ module uart_stream_tb;
         for (int i = 0; i < 3; i++) uart_send_byte(pat(50 + i));  // 3/8 bayt
         repeat (2 * BIT_CLK) @(posedge clk);                      // hat bosta
         axi_write(A_SCTL, 32'h2);                    // ABORT
-        // busy dusene kadar bekle (zarif sonlanma)
+        // busy dusene kadar bekle
         begin
             int unsigned n = 0;
             do begin
@@ -341,18 +316,18 @@ module uart_stream_tb;
         end
         if (sta[1])    $fatal(1, "[D] ABORT DONE kurdu (kurmamali)");
         if (irq_seen)  $fatal(1, "[D] ABORT IRQ uretti (uretmemeli)");
-        // ayni kanal yeniden kullanilabilir olmali
+        // ayni kanal yeniden kullanilabilmeli
         axi_write(A_SADR, MEM_BASE + 32'h100);
         axi_write(A_SLEN, 32'd4);
         axi_write(A_SCTL, 32'h1);
         for (int i = 0; i < 4; i++) uart_send_byte(pat(60 + i));
         wait_done(sta);
         check_word(32'h100 >> 2, {pat(63), pat(62), pat(61), pat(60)}, "D");
-        // abort edilen akisin yarim kalan baytlari hedefe sizmamis olmali
+        // abort edilen akisin yarim baytlari sizmamali
         check_word(32'hC0 >> 2, 32'hAAAA_AAAA, "D");
         $display("[D] PASS — ABORT temiz (IRQ/DONE yok), yeniden START calisiyor");
 
-        // -------- E) DMA kapaliyken normal UART modu --------
+        // E) DMA kapaliyken normal UART modu
         $display("[E] DMA kapaliyken RX→RDR ve TX→CFG[2]");
         uart_send_byte(8'h5A);
         begin
@@ -383,7 +358,7 @@ module uart_stream_tb;
         $finish;
     end
 
-    // Bekci
+    // bekci
     initial begin
         #20ms;
         $fatal(1, "[STRM] GLOBAL TIMEOUT");

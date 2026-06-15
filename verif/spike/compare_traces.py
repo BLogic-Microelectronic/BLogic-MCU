@@ -1,19 +1,11 @@
 #!/usr/bin/env python3
-"""
-Spike vs CV32E40P RTL instruction trace karsilastirici.
+# ============================================
+# Ostim BLogic Mikroelektronik
+# compare_traces.py  -  Spike ve RTL iz karsilastirma
+# ============================================
+"""Spike commit log'u ile RTL PC izini karsilastirir.
 
-Kullanim:
-    compare_traces.py <spike_log> <rtl_log> [--show N] [--strict]
-
-Spike `-l --log-commits` ile cagrilmali. Iki satir cikar her komut icin:
-    core   0: 0x00010000 (0x00012117) auipc sp, 0x12        <- disasm
-    core   0: 3 0x00010000 (0x00012117) x2 0x00022000      <- commit (bunu kullaniriz)
-
-RTL trace formati (sim_main file-based logging):
-    RTL_PC: 0x00010000
-
-Sadece Instruction SRAM araligi [0x10000, 0x20000) kiyaslanir — Spike'in
-0x1000 bootloader'i ve user-code disindaki yerler hizalama disinda kalir.
+Spike `-l --log-commits` ile kosulmali. Sadece [0x10000, 0x20000) araligi kiyaslanir.
 """
 
 import sys
@@ -24,7 +16,7 @@ from typing import List, Optional
 
 HEX = r"[0-9a-fA-F]+"
 
-# Spike commit satiri: "core 0: 3 0xPC (0xINSN) [tail...]"
+# Spike commit satiri
 SPIKE_COMMIT_RE = re.compile(
     rf"^core\s+\d+:\s+\d+\s+0x({HEX})\s+\(0x({HEX})\)(.*)$"
 )

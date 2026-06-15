@@ -1,7 +1,11 @@
+/* ============================================
+   Ostim BLogic Mikroelektronik
+   link.ld  -  RISC-V test bellek yerlesimi
+   ============================================ */
 OUTPUT_ARCH("riscv")
 ENTRY(rvtest_entry_point)
 MEMORY {
-    INST_RAM (rx)  : ORIGIN = 0x00010000, LENGTH = 960K  /* fetch penceresi 0x10000-0xFFFFF; veri ile LMA cakismasi fiziksel degil (Harvard-ayrik decode) */
+    INST_RAM (rx)  : ORIGIN = 0x00010000, LENGTH = 960K  /* fetch penceresi; veri ile cakisma yok (Harvard-ayrik) */
     DATA_RAM (rwx) : ORIGIN = 0x00020000, LENGTH = 64K
 }
 SECTIONS {

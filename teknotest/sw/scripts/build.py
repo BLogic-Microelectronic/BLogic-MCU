@@ -1,3 +1,7 @@
+# ============================================
+# Ostim BLogic Mikroelektronik
+# build.py  -  RISC-V firmware derleme akisi
+# ============================================
 import os
 import shutil
 import subprocess

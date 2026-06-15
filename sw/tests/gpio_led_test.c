@@ -1,3 +1,7 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// gpio_led_test.c  -  GPIO LED testi
+// ============================================
 #include "../drivers/blogic_mcu.h"
 
 void uart_put_hex(uint32_t val) {
@@ -14,7 +18,7 @@ int main(void) {
 
     int pass = 1;
 
-    // Test 1: Walking-1
+    // walking-1
     uart_puts(UART0, "[1] Walking-1...\n");
     for (int i = 0; i < 16; i++) {
         uint32_t pattern = (1 << i);
@@ -29,7 +33,7 @@ int main(void) {
     }
     if (pass) uart_puts(UART0, "  PASS\n");
 
-    // Test 2: All ON/OFF
+    // hepsi ac/kapa
     uart_puts(UART0, "[2] All ON/OFF...\n");
     GPIO->ODR = 0x0000FFFF;
     volatile uint32_t v1 = GPIO->ODR;
@@ -46,7 +50,7 @@ int main(void) {
         pass = 0;
     }
 
-    // Test 3: Input read
+    // giris oku
     uart_puts(UART0, "[3] Input: ");
     uart_put_hex(GPIO->IDR);
     uart_puts(UART0, "\n");

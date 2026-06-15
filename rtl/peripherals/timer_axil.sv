@@ -1,3 +1,7 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// timer_axil.sv  -  AXI4-Lite timer cevre birimi
+// ============================================
 `timescale 1ns / 1ps
  
 module timer_axil (
@@ -28,9 +32,7 @@ module timer_axil (
     output logic        timer_irq_o
 );
  
-    // =========================================================
-    // 1. REGISTER ADRESLERİ (TEKNOFEST EK-2 Şartnamesi)
-    // =========================================================
+    // Register adresleri
     localparam logic [4:0] ADDR_PRE = 5'h00;  // Prescaler
     localparam logic [4:0] ADDR_ARE = 5'h04;  // Auto-reload
     localparam logic [4:0] ADDR_CLR = 5'h08;  // Clear
@@ -40,9 +42,7 @@ module timer_axil (
     localparam logic [4:0] ADDR_EVN = 5'h18;  // Event counter (RO)
     localparam logic [4:0] ADDR_EVC = 5'h1C;  // Event clear
  
-    // =========================================================
-    // 2. TIMER REGISTER'LARI
-    // =========================================================
+    // Timer register'ları
     logic [31:0] tim_pre;   // Prescaler değeri
     logic [31:0] tim_are;   // Auto-reload değeri
     logic        tim_ena;   // Enable (bit 0)
@@ -57,16 +57,10 @@ module timer_axil (
     logic wr_clr_hit;
     logic wr_evc_hit;
  
-    // Timer interrupt: bekleyen event varken level-aktif.
-    // ISR, TIM_EVC[0]=1 yazarak (event clear) IRQ'yu düşürür — EK-2
-    // registerlarıyla birebir SW-temizlenebilir kesme semantiği.
-    // (Önceki hali tim_cnt==tim_are boyunca, yani büyük prescale'de
-    //  bir tam prescale periyodu yüksek kalıyordu ve SW temizleyemiyordu.)
+    // Bekleyen event varken IRQ yüksek; SW event clear ile düşürür
     assign timer_irq_o = (tim_evn != 32'd0);
  
-    // =========================================================
-    // 3. TIMER SAYAÇ MANTIĞI
-    // =========================================================
+    // Timer sayaç mantığı
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
             tim_cnt      <= 32'd0;
@@ -84,11 +78,11 @@ module timer_axil (
             end
             // Normal çalışma
             else if (tim_ena) begin
-                // Prescaler: her (tim_pre+1) cycle'da bir sayacı güncelle
+                // her (tim_pre+1) cycle'da bir sayacı güncelle
                 if (prescale_cnt >= tim_pre) begin
                     prescale_cnt <= 32'd0;
  
-                    // Auto-reload: sayaç hedefe ulaştığında sıfırla + event artır
+                    // hedefe ulaşınca sıfırla, event artır
                     if (tim_cnt == tim_are) begin
                         tim_cnt <= 32'd0;
                         tim_evn <= tim_evn + 1;
@@ -111,9 +105,7 @@ module timer_axil (
         end
     end
  
-    // =========================================================
-    // 4. AXI-LITE YAZMA (WRITE) FSM
-    // =========================================================
+    // AXI-Lite yazma FSM
     logic aw_en;
     logic [4:0] write_addr;
  
@@ -129,15 +121,15 @@ module timer_axil (
             tim_pre       <= 32'd0;
             tim_are       <= 32'hFFFFFFFF;
             tim_ena       <= 1'b0;
-            tim_mod       <= 1'b1;  // Varsayılan: yukarı sayma
+            tim_mod       <= 1'b1;  // yukarı sayma
             wr_clr_hit    <= 1'b0;
             wr_evc_hit    <= 1'b0;
         end else begin
-            // Varsayılan: pulse sinyallerini temizle
+            // pulse sinyallerini temizle
             wr_clr_hit <= 1'b0;
             wr_evc_hit <= 1'b0;
  
-            // Adres + Veri Yakalama
+            // adres + veri yakala
             if (s_axi_awvalid && s_axi_wvalid && aw_en) begin
                 s_axi_awready <= 1'b1;
                 s_axi_wready  <= 1'b1;
@@ -148,7 +140,7 @@ module timer_axil (
                 s_axi_wready  <= 1'b0;
             end
  
-            // Veri Yazma
+            // veri yaz
             if (s_axi_wready && s_axi_wvalid && s_axi_awready && s_axi_awvalid) begin
                 case (write_addr)
                     ADDR_PRE: tim_pre <= s_axi_wdata;
@@ -157,12 +149,12 @@ module timer_axil (
                     ADDR_ENA: tim_ena <= s_axi_wdata[0];
                     ADDR_MOD: tim_mod <= s_axi_wdata[0];
                     ADDR_EVC: if (s_axi_wdata[0]) wr_evc_hit <= 1'b1;
-                    // TIM_CNT ve TIM_EVN Read-Only, yazma etkisiz
+                    // TIM_CNT ve TIM_EVN read-only
                     default: ;
                 endcase
             end
  
-            // Yanıt Gönderme
+            // yanıt gönder
             if (s_axi_wready && s_axi_wvalid && s_axi_awready && s_axi_awvalid && !s_axi_bvalid) begin
                 s_axi_bvalid <= 1'b1;
             end else if (s_axi_bready && s_axi_bvalid) begin
@@ -172,9 +164,7 @@ module timer_axil (
         end
     end
  
-    // =========================================================
-    // 5. AXI-LITE OKUMA (READ) FSM
-    // =========================================================
+    // AXI-Lite okuma FSM
     assign s_axi_rresp = 2'b00;
  
     always_ff @(posedge clk_i or negedge rst_ni) begin

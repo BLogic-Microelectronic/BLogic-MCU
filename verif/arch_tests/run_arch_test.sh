@@ -1,8 +1,12 @@
 #!/bin/bash
+# ============================================
+# Ostim BLogic Mikroelektronik
+# run_arch_test.sh  -  riscv-arch-test kosturucu
+# ============================================
 # riscv-arch-test runner — ciktilar logs/arch_test/ altinda
 set -euo pipefail
 PROJ="$(cd "$(dirname "$0")/../.." && pwd)"
-REPO="${PROJ}/verif/arch_tests/suite"   # vendor edilmis alt kume (env + rv32i_m/I,M)
+REPO="${PROJ}/verif/arch_tests/suite"   # vendor alt kume: env + rv32i_m/I,M
 TGT="${PROJ}/verif/arch_tests/target/blogic"
 LOG_ROOT="${PROJ}/logs/arch_test"
 GCC=riscv32-unknown-elf-gcc
@@ -19,7 +23,7 @@ echo -e "${YLW}  Cikti: ${LOG_ROOT}${NC}"
 mkdir -p "${LOG_ROOT}"
 
 [ -x "${SIM}" ] || { cd "${PROJ}"; make -f Makefile.verilator verilate-arch; }
-echo 00000000 > "${PROJ}/obj_dir_arch/bootrom.hex"   # zero-ROM: PC=0 illegal->trap->mtvec(0x10000); resmi teknotest akisiyla ayni mekanizma
+echo 00000000 > "${PROJ}/obj_dir_arch/bootrom.hex"   # zero-ROM: PC=0 illegal -> trap -> mtvec(0x10000)
 [ -f "${PROJ}/obj_dir_arch/ai_sram_init.hex" ] || echo 00000000 > "${PROJ}/obj_dir_arch/ai_sram_init.hex"
 
 if [[ "${FILT}" == *"-"* ]]; then TFILT="${FILT}"; FILT="I"; fi
@@ -63,15 +67,14 @@ for EXT in ${FILT}; do
             || printf '' > "${TW}/d.bin"
         ${PY} "${PROJ}/scripts/elf2hex.py" "${TW}/d.bin" "${TW}/dm.hex" >/dev/null 2>&1
 
-        { echo "@00004000"; cat "${TW}/fw.hex"; } > "${PROJ}/obj_dir_arch/firmware.hex"   # 1MB arch SRAM: 0x10000 -> word 0x4000 (alias yok)
+        { echo "@00004000"; cat "${TW}/fw.hex"; } > "${PROJ}/obj_dir_arch/firmware.hex"   # 0x10000 -> word 0x4000
         cp "${TW}/dm.hex" "${PROJ}/obj_dir_arch/data_mem.hex"
         cd "${PROJ}/obj_dir_arch"
         timeout 30 ./blogic_sim +CPB=432 +MAX_CYCLES=2000000 "+TEST_NAME=${TN}" "+LOGDIR=${TW}" \
             >"${TW}/sim.log" 2>&1 || true
         cd "${PROJ}"
 
-        # GECICI PASS kriteri: RTL_PC sayisi > 10
-        # TODO: gercek signature compare
+        # gecici pass: RTL_PC sayisi > 10
         PC=$(awk '/RTL_PC:/{n++} END{print n+0}' "${TW}/rtl_trace.log" 2>/dev/null || echo 0)
         {
             echo "test_name=${TN}"

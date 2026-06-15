@@ -1,36 +1,8 @@
 #!/usr/bin/env python3
-# ============================================================
-# run_accuracy_window.py - EK-1 "%10 dogruluk penceresi" kaniti
-# surum: v2 (tflite FC logit cekimi + softmax aciklamasi)
-#
-# Uc mod:
-#   1) python3 sw/ai_model/run_accuracy_window.py
-#      40 ornek uretir (seed=2026), SW referansi = repo'daki
-#      micro_speech_quantized.tflite GERCEK interpreter ciktisi.
-#      Model SONUNDA SOFTMAX katmani icerir; bu surum interpreter'dan
-#      softmax-ONCESI FC logit tensorunu da ceker
-#      (experimental_preserve_all_tensors) ve RTL-birebir kosim ile
-#      LOGIT seviyesinde karsilastirir. Softmax cikisi ayrica
-#      "argmax uyumu" olarak raporlanir (softmax monotonik ->
-#      siniflandirma karari esdeger; RTL logit-argmax uygular).
-#   2) ... --no-tflite : interpreter olmayan ortamlar (CI) icin
-#      SW vekili = dogrulanmis kosim; raporda acikca belirtilir.
-#   3) ... --ingest-rtl <make-ai-log>  : TB'nin [BATCH-i] satir-
-#      larini okur, nihai DTR tablosunu accuracy_report.txt'ye yazar.
-#
-# Ornek seti (N=40, deterministik):
-#   2 gercek (yes_real/no_real, etiketi BAGIMSIZ bilinen tek kume)
-#   + 4 mevcut sentetik + 34 turetilmis (gurultu, zaman/frekans
-#   kaydirma, karisim, olcek, rastgele, sabit, rampa).
-# Dogruluk argumani: |acc_SW - acc_RTL| <= uyumsuzluk orani.
-# Eslesme 40/40 ise fark tam 0 puan <= 10 puan, her kumede.
-#
-# Kosim formulu fetch_real_features.py'dekiyle AYNIDIR (RTL'e
-# karsi 6 senaryo x conv_out 1000/1000 dogrulanmis).
-# TB ile senkron sabit: N=40 (ai_accel_tb.sv BATCH_N).
-# expected.hex: FC logit word'leri (cekilemezse softmax word'u;
-# argmax ayni oldugundan TB karari degismez).
-# ============================================================
+# ============================================
+# Ostim BLogic Mikroelektronik
+# run_accuracy_window.py  -  EK-1 dogruluk penceresi kaniti
+# ============================================
 import os
 import random
 import re
@@ -49,7 +21,7 @@ def die(msg):
     sys.exit(1)
 
 
-# ---------------- hex yardimcilari ----------------
+# hex yardimcilari
 def hexbytes(path):
     out = []
     with open(path) as f:
@@ -109,7 +81,7 @@ def load_quant_params():
     return qp
 
 
-# ------------- RTL-birebir kosim (dogrulanmis formul) -------------
+# RTL-birebir kosim
 def s32(v):
     v &= 0xFFFFFFFF
     return v - (1 << 32) if v >= (1 << 31) else v
@@ -160,7 +132,7 @@ def argmax4(fc):
     return am
 
 
-# ---------------- ornek uretimi ----------------
+# ornek uretimi
 def clamp(v):
     v = int(round(v))
     return -128 if v < -128 else (127 if v > 127 else v)
@@ -215,7 +187,7 @@ def make_samples(rng, yr, nr, syn):
     return s
 
 
-# ---------------- tflite SW referansi ----------------
+# tflite SW referansi
 def tflite_runner(fc_zp):
     try:
         import numpy as np
@@ -238,8 +210,7 @@ def tflite_runner(fc_zp):
     iidx = it.get_input_details()[0]["index"]
     oidx = it.get_output_details()[0]["index"]
 
-    # Softmax-ONCESI FC logit tensorunu yakala (4 eleman, int8,
-    # zero_point == FC_OUT_ZP, cikis tensoru degil).
+    # softmax oncesi FC logit tensorunu yakala
     it2, i2idx, fidx = None, None, None
     try:
         it2 = Interp(MODEL, experimental_preserve_all_tensors=True)
@@ -277,7 +248,7 @@ def tflite_runner(fc_zp):
     return run, (fidx is not None)
 
 
-# ---------------- ingest-rtl modu ----------------
+# ingest-rtl modu
 def ingest_rtl(log_path):
     if not os.path.isfile(log_path):
         die("log yok: " + log_path)
@@ -352,7 +323,7 @@ def ingest_rtl(log_path):
     return 0
 
 
-# ---------------- uretim modu ----------------
+# uretim modu
 def main():
     if not os.path.isdir(G):
         die("repo kokunden calistirin")

@@ -1,3 +1,7 @@
+/* ============================================
+   Ostim BLogic Mikroelektronik
+   bootrom.ld  -  boot ROM linker betigi
+   ============================================ */
 OUTPUT_ARCH(riscv)
 ENTRY(_start)
 

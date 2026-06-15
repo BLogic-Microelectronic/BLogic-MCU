@@ -1,3 +1,7 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// isa_compliance_test.c  -  RISC-V ISA uyumluluk testi
+// ============================================
 #include "../drivers/blogic_mcu.h"
 
 static int test_count = 0, pass_count = 0, fail_count = 0;
@@ -25,7 +29,7 @@ int main(void) {
     UART0->CPB = 434;
     uart_puts(UART0, "=== BLogic ISA Compliance Test ===\n");
 
-    // ── RV32I: Aritmetik ──
+    // RV32I aritmetik
     uart_puts(UART0, "[RV32I] Aritmetik...\n");
     check("ADD",   100 + 200,    300);
     check("SUB",   500 - 123,    377);
@@ -35,7 +39,7 @@ int main(void) {
     check("ADD_NEG", a + b,      -7);
     check("SUB_NEG", a - b,      -13);
 
-    // ── RV32I: Mantiksal ──
+    // RV32I mantiksal
     uart_puts(UART0, "[RV32I] Mantiksal...\n");
     check("AND",  0xFF00 & 0x0FF0, 0x0F00);
     check("OR",   0xFF00 | 0x00FF, 0xFFFF);
@@ -43,7 +47,7 @@ int main(void) {
     check("ANDI", 0x1234 & 0xFF,   0x34);
     check("ORI",  0x1200 | 0x34,   0x1234);
 
-    // ── RV32I: Shift ──
+    // RV32I shift
     uart_puts(UART0, "[RV32I] Shift...\n");
     check("SLL",  1 << 10,        1024);
     check("SRL",  (int32_t)((uint32_t)0x80000000 >> 1), 0x40000000);
@@ -51,13 +55,13 @@ int main(void) {
     check("SRA",  neg >> 1,       -4);
     check("SLLI", 0xA << 4,      0xA0);
 
-    // ── RV32I: Karsilastirma ──
+    // RV32I karsilastirma
     uart_puts(UART0, "[RV32I] Karsilastirma...\n");
     check("SLT",   (-5 < 3) ? 1 : 0,   1);
     check("SLTU",  (3U < 5U) ? 1 : 0,   1);
     check("SLTI",  (10 < 20) ? 1 : 0,   1);
 
-    // ── RV32I: Dallanma ──
+    // RV32I dallanma
     uart_puts(UART0, "[RV32I] Dallanma...\n");
     volatile int x = 5, y = 5, z = 10;
     check("BEQ",  (x == y) ? 1 : 0, 1);
@@ -65,7 +69,7 @@ int main(void) {
     check("BLT",  (x < z)  ? 1 : 0, 1);
     check("BGE",  (z >= x) ? 1 : 0, 1);
 
-    // ── RV32I: Load/Store ──
+    // RV32I load/store
     uart_puts(UART0, "[RV32I] Load/Store...\n");
     volatile uint32_t mem_val = 0xDEADBEEF;
     check("LW/SW", (int32_t)mem_val, (int32_t)0xDEADBEEF);
@@ -74,12 +78,12 @@ int main(void) {
     volatile uint16_t half_val = 0x1234;
     check("LH/SH", half_val, 0x1234);
 
-    // ── RV32I: LUI/AUIPC ──
+    // RV32I LUI/AUIPC
     uart_puts(UART0, "[RV32I] LUI/AUIPC...\n");
     volatile uint32_t lui_val = 0x12345000;
     check("LUI", (int32_t)(lui_val & 0xFFFFF000), (int32_t)0x12345000);
 
-    // ── RV32M: Carpma/Bolme ──
+    // RV32M carpma/bolme
     uart_puts(UART0, "[RV32M] Carpma/Bolme...\n");
     check("MUL",   7 * 13,       91);
     check("MUL_NEG", (-6) * 7,  -42);
@@ -90,7 +94,7 @@ int main(void) {
     check("DIVU",  (int32_t)(u1 / u2), (int32_t)(0x0FFFFFFF));
     check("REMU",  (int32_t)(u1 % u2), (int32_t)15);
 
-    // ── Sonuc ──
+    // sonuc
     uart_puts(UART0, "\n=== Sonuc: ");
     uart_put_int(pass_count);
     uart_puts(UART0, "/");

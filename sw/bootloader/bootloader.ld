@@ -1,3 +1,7 @@
+/* ============================================
+   Ostim BLogic Mikroelektronik
+   bootloader.ld  -  bootrom yerlesim betigi
+   ============================================ */
 OUTPUT_FORMAT("elf32-littleriscv")
 OUTPUT_ARCH(riscv)
 ENTRY(_start)

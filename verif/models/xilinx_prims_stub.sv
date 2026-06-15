@@ -1,14 +1,8 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// xilinx_prims_stub.sv  -  lint/sim icin Xilinx primitive stublari
+// ============================================
 `timescale 1ns / 1ps
-// ============================================================
-// Xilinx 7-Serisi Primitive Stub'ları (yalnız LINT/SIM amaçlı)
-// ============================================================
-// fpga_top.sv'yi Verilator ile lint/simüle edebilmek için davranışsal
-// taklitler. SENTEZDE KULLANILMAZ — Vivado gerçek primitive'leri
-// unisim'den alır. soc_files.f'e EKLENMEZ; yalnız fpga_top lint
-// komutunda elle verilir:
-//   $ verilator --lint-only rtl/fpga_top.sv \
-//         verif/models/xilinx_prims_stub.sv -f soc_files.f --top-module fpga_top
-// ============================================================
 
 module IBUFDS (
     input  wire I,
@@ -57,10 +51,7 @@ module MMCME2_BASE #(
     input  wire PWRDWN,
     input  wire RST
 );
-    // Davranışsal: giriş saatini aynen geçir (frekans bölme simüle edilmez),
-    // LOCKED reset yokken '1'. CLKFBOUT sabit sürülür — gerçek donanımda
-    // CLKFBOUT→CLKFBIN dışarıdan kısa devre edilir; stub'da aynısı yapılsa
-    // kombinasyonel döngü (x=x) oluşurdu.
+    // saati aynen gecir; CLKFBOUT sabit, yoksa kombinasyonel dongu olur
     assign CLKOUT0  = CLKIN1;
     assign CLKFBOUT = 1'b0;
     assign LOCKED   = ~RST & ~PWRDWN;

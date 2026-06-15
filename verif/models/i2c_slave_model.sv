@@ -1,7 +1,10 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// i2c_slave_model.sv  -  I2C slave echo modeli
+// ============================================
 `timescale 1ns / 1ps
-// I2C slave modeli (echo): master'in yazdigi son transaction'i saklar,
-// okuma istendiginde ayni baytlari geri verir. 7-bit adres, MSB-first.
-// Tel kurali (blok TB ile ayni): sda_oe=1 -> hatti 0'a cek.
+// Echo modeli: yazilan son transaction'i saklar, okuyunca geri verir. 7-bit adres, MSB-first.
+// sda_oe=1 hatti 0'a ceker.
 module i2c_slave_model #(
     parameter logic [6:0] ADDR  = 7'h42,
     parameter int         DEPTH = 8

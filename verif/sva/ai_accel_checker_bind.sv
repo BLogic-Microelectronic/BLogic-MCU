@@ -1,20 +1,15 @@
-// ============================================================
-// AI Accelerator Protocol Checker Bind  —  [ARŞİV / KULLANILMIYOR]
-// ============================================================
-// Bu snippet'in içeriği soc_protocol_bind.sv'ye TAŞINDI:
-//   - AI_CSR      → i_chk_ai_csr      (axi_lite_protocol_checker)
-//   - AI_AXI4_MST → i_chk_ai_master   (axi4_protocol_checker)
-// soc_top.sv → i_protocol_checkers instance'ı bu arayüzleri artık
-// port üzerinden bağlıyor (hiyerarşik referans gerekmez, Verilator
-// uyumlu). Bu dosya referans amaçlı tutuluyor; derleme listesinde
-// (soc_files.f) DEĞİLDİR ve eklenmemelidir.
-// ============================================================
+// ============================================
+// Ostim BLogic Mikroelektronik
+// ai_accel_checker_bind.sv - AI protokol checker bind (arsiv)
+// ============================================
+// Icerik soc_protocol_bind.sv'ye tasindi. Bu dosya referans icin
+// duruyor, derleme listesinde degil.
 
-    // --- AI Hızlandırıcı AXI-Lite Slave (CSR arayüzü) ---
+    // AI Hizlandirici AXI-Lite Slave (CSR arayuzu)
     axi_lite_protocol_checker #(.INTF_NAME("AI_CSR")) i_chk_ai_csr (
         .clk     (clk_i),
         .rst_n   (rst_ni),
-        // ai_acc_ prefix'li sinyaller — periph decoder'dan gelmeli
+        // periph decoder'dan gelen ai sinyalleri
         .awvalid (ai_awvalid),  .awready (ai_awready),  .awaddr (ai_awaddr),
         .wvalid  (ai_wvalid),   .wready  (ai_wready),   .wdata  (ai_wdata),   .wstrb (ai_wstrb),
         .bvalid  (ai_bvalid),   .bready  (ai_bready),   .bresp  (ai_bresp),
@@ -22,7 +17,7 @@
         .rvalid  (ai_rvalid),   .rready  (ai_rready),   .rdata  (ai_rdata),   .rresp (ai_rresp)
     );
 
-    // --- AI Hızlandırıcı AXI4 Master (SRAM erişim arayüzü) ---
+    // AI Hizlandirici AXI4 Master (SRAM erisim arayuzu)
     axi4_protocol_checker #(
         .INTF_NAME  ("AI_AXI4_MST"),
         .ID_WIDTH   (4),
@@ -31,7 +26,7 @@
     ) i_chk_ai_master (
         .clk     (clk_i),
         .rst_n   (rst_ni),
-        // i_ai_accel instance'ındaki çıkış sinyalleri
+        // i_ai_accel cikis sinyalleri
         .awid    (i_ai_accel.m_axi_awid),
         .awaddr  (i_ai_accel.m_axi_awaddr),
         .awlen   (i_ai_accel.m_axi_awlen),

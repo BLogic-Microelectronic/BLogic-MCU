@@ -1,16 +1,14 @@
-# ============================================================
-# BLogic MCU — HTIF (Host-Target Interface) sembolleri
-# ============================================================
-# riscv-arch-test ve riscv-tests her ikisi de programi durdurmak
-# icin `tohost` adli memory-mapped 32-bit'e yazar (PASS=1, FAIL=N).
-# TB bu adresi izleyerek simulasyonu sonlandirir.
-# ============================================================
+# ============================================
+# Ostim BLogic Mikroelektronik
+# htif.S  -  HTIF host-target sembolleri
+# ============================================
 
+# tohost'a yazinca program durur, TB bu adresi izler.
 .section .tohost, "aw", @progbits
 .align 6
 .globl tohost
 tohost:    .word 0
-           .word 0           # 64-bit hizalamayi bos birak
+           .word 0           # 64-bit hizalama
 .globl fromhost
 fromhost:  .word 0
            .word 0

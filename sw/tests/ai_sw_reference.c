@@ -1,33 +1,12 @@
-/* ================================================================
- * ai_sw_reference.c - EK-1 hizlanma (speedup) ve performans olcumu
- *
- * Sartname: hizlandirici "yazilim gerceklemesine kiyasla hizlanma
- * elde etmeli"; performans veri/saat dongusu ve sentezlenmis
- * frekansta veri/saniye bazinda olculmeli (pencere: ilk veri okuma
- * -> son veri yazma).
- *
- * Yontem (AYNI SoC, AYNI mcycle sayaci, AYNI AI SRAM verisi):
- *   1) mcountinhibit=0, mcycle etkin
- *   2) HW: t0 -> CTRL.START -> STATUS.DONE poll -> t1 (hw_cyc)
- *   3) SW: t2 -> C'de RTL-birebir int8 inference -> t3 (sw_cyc)
- *      - girdi/agirliklar AI SRAM'den okunur (HW ile ayni kaynak)
- *      - SW conv_out karalamasi AI SRAM +0x6000 (simetrik bellek)
- *      - quant sabitleri quant_params.h'tan (tek kaynak)
- *   4) Dogruluk: HW argmax == SW argmax == 2 (yes_real) ve
- *      SW conv_out, HW conv_out (0x307A8) ile 1000/1000 word ayni
- *   5) Tablo: cycle, speedup, 50/100 MHz'te inference/s ve B/s
- *   6) Tum kosullar saglanirsa golden string -> result=PASS
- *
- * Not: SW penceresi tam olarak ilk girdi okumasindan son cikti
- * yazimina kadar olan kodu kapsar; HW penceresi START->DONE'dur
- * (sartname-lafzi ilk-okuma->son-yazma sayaci ai_accel_tb ADIM G
- * "[PERF-HW]" satirlarinda ayrica raporlanir).
- * ================================================================ */
+/* ============================================
+ * Ostim BLogic Mikroelektronik
+ * ai_sw_reference.c - HW vs SW hizlanma olcumu
+ * ============================================ */
 #include "../drivers/blogic_mcu.h"
 #include "../ai_model/golden_vectors/quant_params.h"
 
 #ifdef __riscv
-/* blogic_mcu.h 64-bit tip tanimlamaz; requant ara carpimi icin */
+/* requant ara carpimi 64-bit gerektiriyor */
 typedef long long int64_t;
 #endif
 
@@ -51,9 +30,7 @@ typedef long long int64_t;
 
 static const char *CLASS_NAMES[4] = {"silence", "unknown", "yes", "no"};
 
-/* ---------------- UART yardimcilari ----------------
- * uart_putc/uart_puts blogic_mcu.h'ta static inline mevcut;
- * burada yalniz ondalik yazici tanimlanir. */
+/* ondalik sayi yazici (putc/puts zaten header'da) */
 static void uart_putu(UART_TypeDef *u, uint32_t v) {
     char b[10];
     uint32_t n = 0U;
@@ -62,7 +39,6 @@ static void uart_putu(UART_TypeDef *u, uint32_t v) {
     while (n--) uart_putc(u, b[n]);
 }
 
-/* ---------------- mcycle ---------------- */
 static inline void mcycle_enable(void) {
     __asm__ volatile(".option push\n\t"
                      ".option arch, +zicsr\n\t"
@@ -78,11 +54,9 @@ static inline uint32_t rdcycle(void) {
     return v;
 }
 
-/* ---------------- RTL-birebir requant ---------------- */
+/* RTL ile birebir requant: (acc*M + half) >> sh, +zp, doyur */
 static inline int8_t tflite_requant(int32_t acc, int32_t M, int32_t sh,
                                     int32_t zp, int relu) {
-    /* (acc*M + half) >>> sh, sonra +zp ve doyurma - RTL/kosim ile ayni.
-     * gcc'de isaretli >> aritmetiktir (RV32 sra). */
     int64_t p = (int64_t)acc * (int64_t)M + ((int64_t)1 << (sh - 1));
     int32_t b = (int32_t)(p >> sh) + zp;
     int32_t lo = relu ? zp : -128;
@@ -112,7 +86,7 @@ int main(void) {
     uart_puts(U, "[PERF] Girdi: yes_real (gercek ses ozniteligi)\n");
     mcycle_enable();
 
-    /* ---------- 1) HW inference (START -> DONE) ---------- */
+    /* HW inference: START -> DONE */
     uint32_t t0 = rdcycle();
     AI_ACC->CTRL = CTRL_START;
     uint32_t st;
@@ -130,7 +104,7 @@ int main(void) {
     uart_putu(U, hw_cyc);
     uart_puts(U, "\n");
 
-    /* ---------- 2) SW inference (RTL-birebir) ---------- */
+    /* SW inference (RTL-birebir) */
     uint32_t t2 = rdcycle();
     for (int f = 0; f < 8; f++) {
         const volatile int8_t *wf = cw + f * 80;
@@ -186,7 +160,7 @@ int main(void) {
     uart_putu(U, sw_cyc);
     uart_puts(U, "\n");
 
-    /* ---------- 3) HW conv_out vs SW conv_out (1000 word) ---------- */
+    /* HW conv_out ile SW conv_out karsilastir (1000 word) */
     const volatile uint32_t *hco =
         (const volatile uint32_t *)(AI_SRAM_BASE + AI_CONVOUT_OFF);
     const volatile uint32_t *swo =
@@ -199,7 +173,7 @@ int main(void) {
     uart_putu(U, 1000U - diff);
     uart_puts(U, "/1000 word esit\n");
 
-    /* ---------- 4) Tablo ---------- */
+    /* Tablo */
     uint32_t sp_x10 = (hw_cyc != 0U) ? (sw_cyc * 10U) / hw_cyc : 0U;
     uart_puts(U, "[PERF] speedup = ");
     uart_putu(U, sp_x10 / 10U);
@@ -226,7 +200,7 @@ int main(void) {
         }
     }
 
-    /* ---------- 5) Self-check + golden ---------- */
+    /* Self-check + golden */
     if (hw_arg == EXPECTED_ARGMAX && sw_arg == EXPECTED_ARGMAX
         && diff == 0U && sw_cyc > hw_cyc) {
         uart_puts(U, "[PERF] PASS - speedup > 1.0x, sonuclar birebir\n");

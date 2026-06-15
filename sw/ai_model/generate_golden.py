@@ -1,28 +1,7 @@
-"""
-generate_golden.py — Adim 1.5b: TFLite interpreter ile gercek golden vektorler.
-
-Eski random script'in (artik silindi/uzerine yazilacak) yerine, gercek
-micro_speech_quantized.tflite modelini calistirip:
-  - 4 farkli sinifa (silence, unknown, yes, no) denk dusen INT8 input
-    vektorlerini rastgele aramayla bulur
-  - Her sinif icin: input, ara conv_out (Relu), final fc_out (add_1)
-    tensorlerini yakalar
-  - Bu degerleri RTL'in $readmemh ile yukleyebilecegi .hex formatinda
-    'sw/ai_model/golden_vectors/' altina yazar
-
-Calistirma (repo kokunden, venv aktif):
-    python3 generate_golden.py
-
-Cikti:
-    input_<sinif>.hex      490 satir  (1960 byte)
-    conv_out_<sinif>.hex  1000 satir  (4000 byte, HWC [25,20,8])
-    output_<sinif>.hex       1 satir  (4 byte, fc_out [4])
-
-Layout dogrulamasi (RTL ile TFLite ayni mi):
-    Input    : TFLite [1,1960] flat <-> RTL input_mem[ir*40+ic]    (ayni)
-    Conv_out : TFLite Relu [1,25,20,8] C-flatten <-> RTL [r*160+c*8+f]  (ayni)
-    Fc_out   : TFLite add_1 [1,4] <-> RTL fc_out_mem[0..3]              (ayni)
-"""
+# ============================================
+# Ostim BLogic Mikroelektronik
+# generate_golden.py  -  TFLite golden vektor uretimi
+# ============================================
 import os
 import sys
 import numpy as np
@@ -38,7 +17,7 @@ except ImportError:
 MODEL  = "sw/ai_model/micro_speech_quantized.tflite"
 OUTDIR = "sw/ai_model/golden_vectors"
 
-# TFLite Micro Speech standart sinif sirasi (labels_softmax tensor ciktisi)
+# sinif sirasi (labels_softmax ciktisi)
 CLASS_NAMES = ['silence', 'unknown', 'yes', 'no']
 
 if not os.path.exists(MODEL):
@@ -49,9 +28,7 @@ interp = Interpreter(MODEL, experimental_preserve_all_tensors=True)
 interp.allocate_tensors()
 
 
-# ============================================================
-# Tensor index'lerini topla
-# ============================================================
+# tensor index'leri
 input_idx  = interp.get_input_details()[0]['index']
 output_idx = interp.get_output_details()[0]['index']    # labels_softmax
 
@@ -69,11 +46,8 @@ print(f"Tensor index'leri: input={input_idx}, Relu={relu_idx}, "
       f"add_1={add1_idx}, output={output_idx}\n")
 
 
-# ============================================================
-# Tek bir input icin model kosutur, sonuc topla
-# ============================================================
+# tek input icin model kosutur
 def run_inference(inp_int8):
-    """Geri donus: (argmax, conv_out_int8 [4000], fc_out_int8 [4], softmax_int8 [4])"""
     interp.set_tensor(input_idx, inp_int8.reshape(1, 1960).astype(np.int8))
     interp.invoke()
     softmax = interp.get_tensor(output_idx).flatten().astype(np.int8)
@@ -83,12 +57,10 @@ def run_inference(inp_int8):
     return argmax, conv_out.flatten(), fc_out, softmax
 
 
-# ============================================================
-# 4 farkli sinifa denk dusen input ariyor — rastgele + fallback
-# ============================================================
+# 4 sinifa denk dusen input ara (rastgele + fallback)
 print("=== Sinif tarama (rastgele input) ===")
 np.random.seed(2026)
-found = {}   # class_name -> (input, conv_out, fc_out, softmax)
+found = {}   # sinif -> (input, conv_out, fc_out, softmax)
 trial = 0
 MAX_TRIALS = 8000
 
@@ -103,7 +75,7 @@ while len(found) < 4 and trial < MAX_TRIALS:
               f"softmax={list(int(x) for x in softmax)}")
 
 
-# Fallback: rastgele bulamadiklarimiz icin elle desenler dene
+# bulamadigimiz siniflar icin elle desenler
 if len(found) < 4:
     print("\n=== Eksik siniflar icin fallback desenler ===")
     fallbacks = [
@@ -126,7 +98,7 @@ if len(found) < 4:
                   f"softmax={list(int(x) for x in softmax)}")
 
 
-# Hala eksik varsa, ilk bulunani kopyala (TB her senaryo dosyasi bekliyor)
+# hala eksik varsa ilk bulunani kopyala
 missing = [n for n in CLASS_NAMES if n not in found]
 if missing:
     print(f"\nUYARI: Su siniflar bulunamadi: {missing}")
@@ -138,9 +110,7 @@ if missing:
         print(f"          {n} <- {first_key} (kopya)")
 
 
-# ============================================================
-# Hex yazma
-# ============================================================
+# hex yazma
 def save_int8_hex(data, path):
     flat = np.asarray(data, dtype=np.int8).flatten()
     pad = (4 - len(flat) % 4) % 4
@@ -166,12 +136,7 @@ for name in CLASS_NAMES:
           f"({CLASS_NAMES[int(np.argmax(softmax))]})")
 
 
-# ============================================================
-# Dogrulama
-# ============================================================
-# ============================================================
-# golden_summary.txt (rapor; TB tarafindan okunmaz)
-# ============================================================
+# golden_summary.txt (rapor; TB okumaz)
 with open(os.path.join(OUTDIR, "golden_summary.txt"), "w") as f:
     f.write("BLogic MCU -- YZ Hizlandirici Golden Vektor Raporu (gercek TFLite requant)\n")
     f.write("Kaynak: micro_speech_quantized.tflite (extract_weights.py + generate_golden.py)\n")

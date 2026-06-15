@@ -1,8 +1,9 @@
 #!/bin/bash
-# ============================================================
-# BLogic MCU — Regression (logs/ yapisinda)
-# Karar: result.log icindeki result= satirini okur (grep "PASS" yok).
-# ============================================================
+# ============================================
+# Ostim BLogic Mikroelektronik
+# run_regression.sh  -  regresyon testlerini kosar
+# ============================================
+# Sonucu result.log icindeki result= satirindan okur.
 set -e
 cd "$(dirname "$0")/.."
 PROJ=$(pwd)
@@ -136,7 +137,7 @@ spike_lockstep_test() {
     cp "$lock_log" "$REG_DIR/${test_name}_lockstep.log" 2>/dev/null || true
 }
 
-# === Testler ===
+# Testler
 run_test "UART_TX_115200" 434 434 "sw/tests/uart_hello.c"
 run_test "UART_TX_1M"     50   50   "sw/tests/uart_hello.c"
 run_test "UART_TX_9600"   5208 5208 "sw/tests/uart_hello.c"
@@ -151,7 +152,7 @@ DD
 FLASHEOF
 run_test "QSPI_Flash" 434 434 "sw/tests/qspi_test.c"
 
-# === Ozet ===
+# Ozet
 {
     echo ""
     echo "======================================================"

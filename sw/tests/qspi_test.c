@@ -1,3 +1,7 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// qspi_test.c  -  QSPI flash okuma testi
+// ============================================
 #include "../drivers/blogic_mcu.h"
 #include "../drivers/qspi.h"
 
@@ -5,10 +9,10 @@ int main(void) {
     // UART0 baslat
     UART0->CPB = 434;
 
-    // flash.hex dosyasinin ilk adresi 0xAA degerini iceriyor
+    // flashin ilk baytini oku, 0xAA bekleniyor
     uint8_t f_data = qspi_get_flash_byte(0x000000);
 
-    // Eger donanim basariyla okumussa testbencin bekledigi dizeyi bas
+    // okuma basariliysa beklenen dizeyi bas
     if (f_data == 0xAA) {
         uart_puts(UART0, "Hello World from BLogic MCU!\n");
     } else {

@@ -1,17 +1,13 @@
-// ============================================================
-// BLogic MCU - AXI-Lite UVM Agent Paketi
-// TEKNOFEST 2026 Cip Tasarim Yarismasi
-// ============================================================
-// Active/Passive mod, protocol check, scoreboard, coverage.
-// ============================================================
+// ============================================
+// Ostim BLogic Mikroelektronik
+// axi_lite_uvm_pkg.sv  -  AXI-Lite UVM agent paketi
+// ============================================
 
 package axi_lite_uvm_pkg;
     import uvm_pkg::*;
     `include "uvm_macros.svh"
 
-    // =========================================================
-    // 1. TRANSACTION (Sequence Item)
-    // =========================================================
+    // Transaction (sequence item)
     class axi_lite_seq_item extends uvm_sequence_item;
 
         rand bit [31:0] addr;
@@ -19,7 +15,7 @@ package axi_lite_uvm_pkg;
         rand bit [ 3:0] strb;
         rand bit        rw;     // 0=READ, 1=WRITE
 
-        // Response
+        // Yanit
         bit [31:0] rdata;
         bit [ 1:0] resp;
 
@@ -42,16 +38,14 @@ package axi_lite_uvm_pkg;
 
     endclass
 
-    // =========================================================
-    // 2. MONITOR — Passive protocol check + transaction capture
-    // =========================================================
+    // Monitor: passive protokol check + transaction yakalama
     class axi_lite_monitor extends uvm_monitor;
         `uvm_component_utils(axi_lite_monitor)
 
         virtual axi_lite_if vif;
         uvm_analysis_port #(axi_lite_seq_item) item_collected_port;
 
-        // Protocol check sayaclari
+        // Protokol check sayaclari
         int check_count = 0;
         int pass_count  = 0;
         int fail_count  = 0;
@@ -75,7 +69,7 @@ package axi_lite_uvm_pkg;
             join
         endtask
 
-        // --- Write transaction yakalama ---
+        // Write transaction yakalama
         task monitor_writes();
             axi_lite_seq_item txn;
             forever begin
@@ -105,7 +99,7 @@ package axi_lite_uvm_pkg;
             txn.resp = vif.bresp;
         endtask
 
-        // --- Read transaction yakalama ---
+        // Read transaction yakalama
         task monitor_reads();
             axi_lite_seq_item txn;
             forever begin
@@ -133,7 +127,7 @@ package axi_lite_uvm_pkg;
             txn.resp  = vif.rresp;
         endtask
 
-        // --- AXI-Lite Protocol Check ---
+        // AXI-Lite protokol check
         task protocol_check();
             bit prev_awvalid, prev_wvalid, prev_bvalid;
             bit prev_arvalid, prev_rvalid;
@@ -143,7 +137,7 @@ package axi_lite_uvm_pkg;
             forever begin
                 @(posedge vif.clk);
                 if (vif.rst_n) begin
-                    // [AW1] AWVALID handshake olmadan dusmemeli
+                    // AWVALID handshake olmadan dusmemeli
                     if (prev_awvalid && !prev_awready) begin
                         check_count++;
                         if (!vif.awvalid) begin
@@ -152,7 +146,7 @@ package axi_lite_uvm_pkg;
                         end else
                             pass_count++;
                     end
-                    // [W1] WVALID handshake olmadan dusmemeli
+                    // WVALID handshake olmadan dusmemeli
                     if (prev_wvalid && !prev_wready) begin
                         check_count++;
                         if (!vif.wvalid) begin
@@ -161,7 +155,7 @@ package axi_lite_uvm_pkg;
                         end else
                             pass_count++;
                     end
-                    // [B1] BVALID handshake olmadan dusmemeli
+                    // BVALID handshake olmadan dusmemeli
                     if (prev_bvalid && !prev_bready) begin
                         check_count++;
                         if (!vif.bvalid) begin
@@ -170,7 +164,7 @@ package axi_lite_uvm_pkg;
                         end else
                             pass_count++;
                     end
-                    // [AR1] ARVALID handshake olmadan dusmemeli
+                    // ARVALID handshake olmadan dusmemeli
                     if (prev_arvalid && !prev_arready) begin
                         check_count++;
                         if (!vif.arvalid) begin
@@ -179,7 +173,7 @@ package axi_lite_uvm_pkg;
                         end else
                             pass_count++;
                     end
-                    // [R1] RVALID handshake olmadan dusmemeli
+                    // RVALID handshake olmadan dusmemeli
                     if (prev_rvalid && !prev_rready) begin
                         check_count++;
                         if (!vif.rvalid) begin
@@ -209,9 +203,7 @@ package axi_lite_uvm_pkg;
 
     endclass
 
-    // =========================================================
-    // 3. DRIVER — Active mod: AXI-Lite transaction surme
-    // =========================================================
+    // Driver: active modda AXI-Lite transaction surer
     class axi_lite_driver extends uvm_driver #(axi_lite_seq_item);
         `uvm_component_utils(axi_lite_driver)
 
@@ -251,7 +243,7 @@ package axi_lite_uvm_pkg;
         endtask
 
         task drive_write(axi_lite_seq_item txn);
-            // AW + W ayni anda (GPIO bekliyor)
+            // AW + W ayni anda (GPIO boyle bekliyor)
             @(posedge vif.clk);
             vif.awaddr  <= txn.addr;
             vif.awvalid <= 1;
@@ -266,7 +258,7 @@ package axi_lite_uvm_pkg;
             vif.awvalid <= 0;
             vif.wvalid  <= 0;
 
-            // Write response bekle
+            // Write yanitini bekle
             while (!vif.bvalid) @(posedge vif.clk);
             txn.resp = vif.bresp;
             vif.bready <= 0;
@@ -286,7 +278,7 @@ package axi_lite_uvm_pkg;
             while (!vif.arready) @(posedge vif.clk);
             vif.arvalid <= 0;
 
-            // Read data bekle
+            // Read datayi bekle
             while (!vif.rvalid) @(posedge vif.clk);
             txn.rdata = vif.rdata;
             txn.resp  = vif.rresp;
@@ -298,14 +290,10 @@ package axi_lite_uvm_pkg;
 
     endclass
 
-    // =========================================================
-    // 4. SEQUENCER
-    // =========================================================
+    // Sequencer
     typedef uvm_sequencer #(axi_lite_seq_item) axi_lite_sequencer;
 
-    // =========================================================
-    // 5. AGENT — Active/Passive mode
-    // =========================================================
+    // Agent: active/passive mod
     class axi_lite_agent extends uvm_agent;
         `uvm_component_utils(axi_lite_agent)
 
@@ -342,11 +330,7 @@ package axi_lite_uvm_pkg;
 
     endclass
 
-    // =========================================================
-    // 6. SEQUENCES
-    // =========================================================
-
-    // --- Temel sequence ---
+    // Temel sequence
     class axi_lite_base_seq extends uvm_sequence #(axi_lite_seq_item);
         `uvm_object_utils(axi_lite_base_seq)
         function new(string name = "axi_lite_base_seq");
@@ -354,7 +338,7 @@ package axi_lite_uvm_pkg;
         endfunction
     endclass
 
-    // --- Tek yazma ---
+    // Tek yazma
     class axi_lite_write_seq extends axi_lite_base_seq;
         `uvm_object_utils(axi_lite_write_seq)
 
@@ -377,7 +361,7 @@ package axi_lite_uvm_pkg;
         endtask
     endclass
 
-    // --- Tek okuma ---
+    // Tek okuma
     class axi_lite_read_seq extends axi_lite_base_seq;
         `uvm_object_utils(axi_lite_read_seq)
 
@@ -399,7 +383,7 @@ package axi_lite_uvm_pkg;
         endtask
     endclass
 
-    // --- Constrained random R/W ---
+    // Constrained random R/W
     class axi_lite_random_seq extends axi_lite_base_seq;
         `uvm_object_utils(axi_lite_random_seq)
 
@@ -430,15 +414,13 @@ package axi_lite_uvm_pkg;
         endtask
     endclass
 
-    // =========================================================
-    // 7. SCOREBOARD — Self-checking GPIO model
-    // =========================================================
+    // Scoreboard: self-checking GPIO modeli
     class axi_lite_scoreboard extends uvm_scoreboard;
         `uvm_component_utils(axi_lite_scoreboard)
 
         uvm_analysis_imp #(axi_lite_seq_item, axi_lite_scoreboard) analysis_imp;
 
-        // Dahili GPIO referans model
+        // Dahili GPIO referans modeli
         bit [31:0] gpio_odr_model = 0;
         int match_count = 0;
         int mismatch_count = 0;
@@ -453,9 +435,9 @@ package axi_lite_uvm_pkg;
             total_txns++;
 
             if (txn.rw) begin
-                // WRITE: ODR register'a yazildi
+                // ODR register'a yazma
                 if (txn.addr[4:0] == 5'h04) begin
-                    gpio_odr_model = {16'h0, txn.data[15:0]}; // RTL spec: ODR[15:0], ust 16 bit etkisiz
+                    gpio_odr_model = {16'h0, txn.data[15:0]}; // ODR[15:0], ust 16 bit etkisiz
                     `uvm_info("SB", $sformatf("ODR modeli guncellendi: 0x%08h", gpio_odr_model), UVM_HIGH)
                 end
                 // Yazma yaniti OKAY olmali
@@ -466,7 +448,7 @@ package axi_lite_uvm_pkg;
                     `uvm_error("SB", $sformatf("Yazma yaniti OKAY degil: resp=%0d", txn.resp))
                 end
             end else begin
-                // READ: ODR okunuyorsa model ile karsilastir
+                // ODR okunuyorsa model ile karsilastir
                 if (txn.addr[4:0] == 5'h04) begin
                     if (txn.rdata == gpio_odr_model) begin
                         match_count++;
@@ -478,7 +460,7 @@ package axi_lite_uvm_pkg;
                             gpio_odr_model, txn.rdata))
                     end
                 end else begin
-                    // IDR okuma — model disi, sadece resp kontrolu
+                    // IDR okuma: model disi, sadece resp kontrolu
                     if (txn.resp == 2'b00)
                         match_count++;
                     else begin
@@ -501,9 +483,7 @@ package axi_lite_uvm_pkg;
 
     endclass
 
-    // =========================================================
-    // 8. COVERAGE
-    // =========================================================
+    // Coverage
     class axi_lite_coverage extends uvm_subscriber #(axi_lite_seq_item);
         `uvm_component_utils(axi_lite_coverage)
 
@@ -521,7 +501,7 @@ package axi_lite_uvm_pkg;
             else
                 rd_count++;
 
-            // Benzersiz adres takibi
+            // Benzersiz adresleri takip et
             if (!(txn.addr inside {addr_seen}))
                 addr_seen.push_back(txn.addr);
         endfunction
@@ -534,9 +514,7 @@ package axi_lite_uvm_pkg;
 
     endclass
 
-    // =========================================================
-    // 9. ENVIRONMENT
-    // =========================================================
+    // Environment
     class soc_env extends uvm_env;
         `uvm_component_utils(soc_env)
 
@@ -565,11 +543,9 @@ package axi_lite_uvm_pkg;
 
     endclass
 
-    // =========================================================
-    // 10. TEST CLASSES
-    // =========================================================
+    // Test siniflari
 
-    // --- Base test ---
+    // Base test
     class soc_base_test extends uvm_test;
         `uvm_component_utils(soc_base_test)
 
@@ -590,7 +566,7 @@ package axi_lite_uvm_pkg;
 
     endclass
 
-    // --- Directed write-read test ---
+    // Directed write-read test
     class gpio_directed_test extends soc_base_test;
         `uvm_component_utils(gpio_directed_test)
 
@@ -610,7 +586,7 @@ package axi_lite_uvm_pkg;
             wr_seq.wr_data = 32'h0000_CAFE;
             wr_seq.start(env.agent.sequencer);
 
-            // ODR'den oku — ayni degeri bekle
+            // ODR'den oku, ayni degeri bekle
             rd_seq = axi_lite_read_seq::type_id::create("rd_seq");
             rd_seq.rd_addr = 32'h04;
             rd_seq.start(env.agent.sequencer);
@@ -637,7 +613,7 @@ package axi_lite_uvm_pkg;
 
     endclass
 
-    // --- Random test ---
+    // Random test
     class gpio_random_test extends soc_base_test;
         `uvm_component_utils(gpio_random_test)
 

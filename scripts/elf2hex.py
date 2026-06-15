@@ -1,17 +1,8 @@
 #!/usr/bin/env python3
-"""
-elf2hex.py - ELF binary'den Verilog $readmemh uyumlu hex dosyası oluşturur.
-
-Kullanım:
-    python3 elf2hex.py build/test.bin build/instr_mem.hex 0x00010000 8192
-    python3 elf2hex.py build/test.bin build/data_mem.hex  0x00020000 8192
-
-Argümanlar:
-    input.bin    : riscv32-unknown-elf-objcopy -O binary ile üretilen dosya
-    output.hex   : $readmemh ile okunacak hex dosyası
-    base_addr    : SRAM'in başlangıç adresi (hex veya decimal)
-    mem_size     : SRAM boyutu byte cinsinden
-"""
+# ============================================
+# Ostim BLogic Mikroelektronik
+# elf2hex.py  -  ELF binary'den readmemh hex
+# ============================================
 import sys
 import struct
 
@@ -37,24 +28,22 @@ def main():
     print(f"Girdi: {in_file} ({len(data)} bytes)")
 
     if mem_size == 0:
-        # Basit mod: tüm dosyayı dönüştür
+        # basit mod: tüm dosyayı çevir
         num_words = (len(data) + 3) // 4
         with open(out_file, 'w') as f:
             for i in range(num_words):
                 chunk = data[i*4 : i*4+4]
-                # 4 byte'tan küçükse sıfırla doldur
                 chunk = chunk.ljust(4, b'\x00')
-                word = struct.unpack('<I', chunk)[0]  # Little-endian
+                word = struct.unpack('<I', chunk)[0]
                 f.write(f'{word:08X}\n')
         print(f"Çıktı: {out_file} ({num_words} words)")
     else:
-        # Gelişmiş mod: bellek boyutu kadar sıfırlarla doldur
+        # gelişmiş mod: bellek boyutu kadar sıfır doldur
         num_words = mem_size // 4
         with open(out_file, 'w') as f:
             for i in range(num_words):
                 addr = base_addr + i * 4
-                # Bu adres binary dosyasının kapsamında mı?
-                bin_offset = addr  # Basit mapping (ELF base'e göre ayarla)
+                bin_offset = addr
                 if 0 <= bin_offset < len(data) and bin_offset + 4 <= len(data):
                     chunk = data[bin_offset : bin_offset+4]
                     word = struct.unpack('<I', chunk)[0]

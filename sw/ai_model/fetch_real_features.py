@@ -1,34 +1,8 @@
 #!/usr/bin/env python3
-# ============================================================
-# fetch_real_features.py - EK-3 (Zorunlu) gercek ses oznitelikleri
-#
-# tflite-micro'nun klasik micro_speech ornegindeki HAZIR onislenmis
-# oznitelik dizilerini indirir (yes/no 1 sn mono WAV -> mikro-frontend
-# -> 49 cerceve x 40 oznitelik = 1960 deger):
-#   g_yes_micro_f2e59fea_nohash_1_data, g_no_micro_f9643d42_nohash_4_data
-# Kaynak: tensorflow deposu surum etiketleri (degismez/immutable):
-#   tensorflow/lite/micro/examples/micro_speech/micro_features/
-#       {yes,no}_micro_features_data.cc
-#
-# Akis:
-#   1) Indir (veya yerel dosya: argv[1]=yes.cc argv[2]=no.cc)
-#   2) C dizisini ayristir (1960 deger), int8/uint8 kodlamasini
-#      OTOMATIK tespit et (negatif deger varsa int8; yoksa hem
-#      "deger-128" hem two's-complement adaylari denenir)
-#   3) Commit'li agirlik/bias/quant_params ile RTL-birebir Python
-#      kosimulasyonundan gecir (ayni tflite_requant formulu).
-#      KABUL KOSULU: yes -> argmax 2 VE no -> argmax 3. Saglanmazsa
-#      HICBIR dosya yazilmaz.
-#   4) Golden hex'leri yaz: input/conv_out/output_{yes,no}_real.hex
-#   5) golden_summary.txt'ye EK-3 bolumu ekle/yenile
-#   6) generate_ai_sram_init.py'yi kostur (SoC on-yukleme: yes_real)
-#
-# Kullanim (REPO KOKUNDE):
-#   python3 sw/ai_model/fetch_real_features.py
-#   python3 sw/ai_model/fetch_real_features.py yerel_yes.cc yerel_no.cc
-# Ag yoksa: iki .cc dosyasini elle indirip yerel-yol moduyla verin.
-# Bagimliliklar: yalnizca Python standart kutuphanesi.
-# ============================================================
+# ============================================
+# Ostim BLogic Mikroelektronik
+# fetch_real_features.py - gercek ses golden uretimi
+# ============================================
 import hashlib
 import os
 import re
@@ -43,7 +17,7 @@ URL_T = ("https://raw.githubusercontent.com/tensorflow/tensorflow/{tag}/"
          "tensorflow/lite/micro/examples/micro_speech/micro_features/"
          "{name}_micro_features_data.cc")
 
-EXPECT = {"yes": 2, "no": 3}   # kanonik sinif sirasi: silence,unknown,yes,no
+EXPECT = {"yes": 2, "no": 3}   # sinif sirasi: silence,unknown,yes,no
 CLS = ["silence", "unknown", "yes", "no"]
 
 
@@ -52,7 +26,6 @@ def die(msg):
     sys.exit(1)
 
 
-# ---------------- hex / quant yardimcilari ----------------
 def hexbytes(path):
     out = []
     with open(path) as f:
@@ -93,7 +66,7 @@ def load_quant_params():
         m = re.search(name + r"\s*\[\s*8\s*\]\s*=\s*\{([^}]*)\}", src)
         if not m:
             die("quant_params.h icinde %s bulunamadi" % name)
-        # kelime-siniri korumasi: '(int32_t)' icindeki '32' sayilmasin
+        # '(int32_t)' icindeki '32' sayilmasin diye kelime-siniri
         vals = re.findall(r"(?<![\w])(?:0x[0-9A-Fa-f]+|-?\d+)(?![\w])",
                           m.group(1))
         vals = [int(v, 0) for v in vals]
@@ -119,7 +92,6 @@ def load_quant_params():
     return qp
 
 
-# ------------- RTL-birebir kosimulasyon (dogrulanmis) -------------
 def s32(v):
     v &= 0xFFFFFFFF
     return v - (1 << 32) if v >= (1 << 31) else v
@@ -162,7 +134,6 @@ def run_model(inp, cw, cb, fw, fb, qp):
     return co, fc
 
 
-# ---------------- C dizisi ayristirma ----------------
 def parse_cc(blob, label):
     text = blob.decode("utf-8", errors="replace")
     m = re.search(r"\[\]\s*(?:\w+\s*)*=\s*\{(.*?)\};", text, re.S)
@@ -241,7 +212,7 @@ def main():
               % (hashlib.sha256(blob).hexdigest(), len(blob)))
         raw[name] = parse_cc(blob, name)
 
-    # Kodlama adaylarini iki dosyada TUTARLI sekilde dogrula
+    # ayni kodlamayi iki dosyada da dene
     chosen = None
     for mode, _ in int8_candidates(raw["yes"]):
         cand = {}
@@ -278,7 +249,7 @@ def main():
         print("[YAZ] input/conv_out/output_%s_real.hex  fc_out=%s -> %s"
               % (name, fc, CLS[am]))
 
-    # golden_summary.txt EK-3 bolumu (varsa yenile)
+    # golden_summary.txt EK-3 bolumu (varsa yenilenir)
     spath = os.path.join(G, "golden_summary.txt")
     marker = "--- EK-3 gercek ses oznitelikleri ---"
     body = ""
@@ -299,7 +270,7 @@ def main():
         f.write(body + "\n".join(lines) + "\n")
     print("[YAZ] golden_summary.txt EK-3 bolumu guncellendi")
 
-    # SoC on-yukleme imajini yeniden uret (TEST_SCENARIO=yes_real)
+    # SoC on-yukleme imajini yeniden uret
     print("\n[CALISTIR] generate_ai_sram_init.py")
     rc = subprocess.call([sys.executable,
                           "sw/ai_model/generate_ai_sram_init.py"])

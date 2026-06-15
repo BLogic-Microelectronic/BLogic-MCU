@@ -1,19 +1,13 @@
-# ================================================================
-# BLogic MCU — UVM Testbench Makefile (Verilator)
-# TEKNOFEST 2026 Cip Tasarim Yarismasi
-# ================================================================
-# Kullanim:
-#   make -f Makefile.uvm directed    GPIO directed test
-#   make -f Makefile.uvm random      GPIO random test
-#   make -f Makefile.uvm all         Tum UVM testleri kos
-#   make -f Makefile.uvm clean       Temizle
-# ================================================================
+# ============================================
+# Ostim BLogic Mikroelektronik
+# Makefile.uvm  -  UVM testbench derleme akisi
+# ============================================
 
 VERILATOR  = verilator
-UVM_JOBS  ?= 2   # WSL OOM korumasi: 5.8GB RAM'de -j12 cokerten paralellik
+UVM_JOBS  ?= 2   # WSL'de fazla paralellik OOM yapiyor
 TOP_MODULE = uvm_pkg
 
-# UVM Kutuphanesi — yerinde vendor edilmistir, clone GEREKMEZ (bkz. verif/uvm-lib/KAYNAK.md)
+# UVM kutuphanesi vendor edilmis, clone gerekmez
 UVM_HOME   = verif/uvm-lib/src
 UVM_PKG    = $(UVM_HOME)/uvm_pkg.sv
 
@@ -41,7 +35,7 @@ VERILATOR_FLAGS = \
     -j $(UVM_JOBS) \
     --timescale 1ns/1ns
 
-# UVM kutuphanesi cok sayida uyari uretir — bunlari sustur
+# UVM kutuphanesinin uyarilarini sustur
 DISABLED_WARNINGS = \
     -Wno-DECLFILENAME -Wno-CONSTRAINTIGN -Wno-MISINDENT \
     -Wno-VARHIDDEN -Wno-WIDTHTRUNC -Wno-CASTCONST \
@@ -58,9 +52,7 @@ INCDIRS = +incdir+"$(UVM_HOME)" \
 DEFINES = +define+UVM_NO_DPI \
           +define+UVM_REPORT_DISABLE_FILE_LINE
 
-# ================================================================
-# HEDEFLER
-# ================================================================
+# Hedefler
 .PHONY: all directed random compile run_one run_all clean help
 
 help:
@@ -74,7 +66,7 @@ help:
 	@echo "  make -f Makefile.uvm clean      Temizle"
 	@echo "============================================="
 
-# --- Derleme ---
+# Derleme
 compile: $(OBJ_DIR)/V$(TOP_MODULE)
 
 $(OBJ_DIR)/V$(TOP_MODULE): $(SV_SOURCES)
@@ -87,7 +79,7 @@ $(OBJ_DIR)/V$(TOP_MODULE): $(SV_SOURCES)
 		2>&1 | tee $(LOG_DIR)/compile.log
 	@echo ">>> Derleme tamam: $(OBJ_DIR)/V$(TOP_MODULE)"
 
-# --- Tek test kos ---
+# Tek test kos
 run_one: $(OBJ_DIR)/V$(TOP_MODULE)
 	@echo ""
 	@echo ">>> UVM Test: $(UVM_TESTNAME)"
@@ -103,7 +95,7 @@ run_one: $(OBJ_DIR)/V$(TOP_MODULE)
 		$(LOG_DIR)/$(UVM_TESTNAME).log || true
 	@echo ""
 
-# --- Tum testleri kos ---
+# Tum testleri kos
 run_all: $(OBJ_DIR)/V$(TOP_MODULE)
 	@echo ""
 	@echo ">>> Tum UVM testleri kosuluyor..."
@@ -131,7 +123,7 @@ run_all: $(OBJ_DIR)/V$(TOP_MODULE)
 	echo " UVM Regression: $$pass PASS, $$fail FAIL"; \
 	echo "============================================"
 
-# --- Kisa yollar ---
+# Kisa yollar
 directed: UVM_TESTNAME=gpio_directed_test
 directed: run_one
 
@@ -140,7 +132,7 @@ random: run_one
 
 all: clean compile run_all
 
-# --- Temizlik ---
+# Temizlik
 clean:
 	rm -rf $(OBJ_DIR) $(LOG_DIR)
 	@echo ">>> UVM temizlendi"

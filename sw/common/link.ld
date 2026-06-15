@@ -1,10 +1,7 @@
-/* BLogic MCU - Linker Script
- * Memory map'e göre bölümlerin yerleşimi.
- *
- * FIX: .rodata DATA_RAM'e taşındı.
- * Sebep: Data portu Instruction SRAM'e erişemiyor,
- * string sabitleri Data SRAM'de olmalı.
- */
+/* ============================================
+   Ostim BLogic Mikroelektronik
+   link.ld - SoC linker betigi (bellek yerlesimi)
+   ============================================ */
 
 OUTPUT_ARCH("riscv")
 ENTRY(_start)
@@ -17,27 +14,24 @@ MEMORY
 
 SECTIONS
 {
-    /* === KOD BÖLÜMÜ (Instruction SRAM) === */
     .text : {
-        *(.text.init)    /* crt0.S başlangıç kodu - en başta olmalı */
-        *(.text*)        /* Diğer tüm fonksiyonlar */
+        *(.text.init)    /* en basta olmali */
+        *(.text*)
     } > INST_RAM
 
-    /* === VERİ BÖLÜMLERİ (Data SRAM) === */
-
-    /* Salt okunur veriler (string sabitleri vb.) */
+    /* salt okunur veriler */
     .rodata : {
         *(.rodata*)
     } > DATA_RAM
 
-    /* Başlangıç değeri olan global değişkenler */
+    /* baslangic degeri olan globaller */
     .data : {
         _data_start = .;
         *(.data*)
         _data_end = .;
     } > DATA_RAM
 
-    /* Sıfırlanması gereken değişkenler (C standardı gereği 0 olmalı) */
+    /* sifirlanmasi gereken degiskenler */
     .bss : {
         _bss_start = .;
         *(.bss*)
@@ -45,7 +39,7 @@ SECTIONS
         _bss_end = .;
     } > DATA_RAM
 
-    /* Stack: Data SRAM'in en üstünden aşağı doğru büyür */
+    /* stack en ustten asagi buyur */
     _stack_top = ORIGIN(DATA_RAM) + LENGTH(DATA_RAM);
 }
 

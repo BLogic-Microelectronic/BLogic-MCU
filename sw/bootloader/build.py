@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# ============================================
+# Ostim BLogic Mikroelektronik
+# build.py  -  bootloader derleyip hex uretir
+# ============================================
 import os, subprocess, sys
 from pathlib import Path
 

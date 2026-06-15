@@ -1,3 +1,7 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// qspi.h  -  QSPI flash okuma surucusu
+// ============================================
 #ifndef QSPI_H
 #define QSPI_H
 
@@ -13,7 +17,7 @@ static inline uint8_t qspi_get_flash_byte(uint32_t addr) {
     // Adres ayarla
     QSPI->ADR = addr & 0x00FFFFFFU;
     
-    // Instruction=0x03, data_mode=1 (x1), dir=0 (read), dummy=0, data_len=0 (1 byte)
+    // 0x03 read, x1 mod, 1 byte
     uint32_t ccr_val = (0x03U) | (1U << 8) | (0U << 10) | (0U << 12) | (0U << 16);
     QSPI->CCR = ccr_val; 
     

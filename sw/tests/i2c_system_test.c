@@ -1,6 +1,7 @@
-// I2C sistem testi (sartname EK-2): NBY yuvarlama, ADR maskesi,
-// 1B/4B TX + echo RX (RDR bayt paketleme), transfer-ortasi latch, NACK.
-// Slave: TB'deki i2c_slave_model @0x42 (echo).
+// ============================================
+// Ostim BLogic Mikroelektronik
+// i2c_system_test.c  -  I2C sistem testi
+// ============================================
 #include "../drivers/blogic_mcu.h"
 
 #ifndef CPB_VAL
@@ -25,7 +26,7 @@ static uint32_t i2c_tx(void) {
     I2C->CFG = CFG_TXEN;
     while (!(I2C->CFG & CFG_TXDN)) { }
     uint32_t nack = I2C->CFG & CFG_NACK;
-    I2C->CFG = 0;                 /* enable dusur + 0-yaz-temizle */
+    I2C->CFG = 0;                 /* enable dusur, temizle */
     return nack;
 }
 static uint32_t i2c_rx(void) {
@@ -59,7 +60,7 @@ int main(void) {
 
     I2C->NBY = 4; I2C->TDR = 0x778899AAU;
     I2C->CFG = CFG_TXEN;
-    I2C->TDR = 0;                  /* islem ortasi yazimlar — latch testi */
+    I2C->TDR = 0;                  /* islem ortasi yazim, latch testi */
     I2C->NBY = 1;
     while (!(I2C->CFG & CFG_TXDN)) { }
     I2C->CFG = 0;

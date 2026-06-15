@@ -1,44 +1,18 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// uart_stream_axil.sv  -  YZ veri akışı UART DMA
+// ============================================
 `timescale 1ns / 1ps
 
-// ============================================================
-// BLogic MCU — UART-STREAM (YZ veri akışı UART'ı) — AXI4-Lite + AXI4 Master DMA
-// ============================================================
-// Şartname (EK-1 / 4.2.2.1): "2x UART (biri genel kullanım, biri YZ veri
-// akışı (stream) amaçlı)". YZ iş akışı:
-//   "...UART-stream çevresel birimi çıkarım yapılacak veriyi iletecek ve bu
-//    veri istenilen hızlandırıcı bellek adresine yazılacaktır. Modelin veri
-//    girişi, YZ hızlandırıcısı tarafından kendi UART-stream arayüzü üzerinden
-//    alınacaktır."
-//
-// Bu modül DONANIM DMA yaklaşımıyla şartnameyi birebir gerçekler:
-//   UART RX → [byte→word packer] → AXI4 Master → AI SRAM (DMA)
-// CPU yalnızca konfigüre eder (STRM_ADDR/LEN/CTRL); veriyi TAŞIMAZ.
-//
-// Register haritası (offset, [11:8]=0x3 → base 0x4000_0300):
-//   0x00 UART_CPB  RW  baud bölücü (baud = clk / CPB)          [EK-2]
-//   0x04 UART_STP  RW  stop-bit [1:0]                          [EK-2]
-//   0x08 UART_RDR  RO  son alınan bayt (DMA kapalıyken)        [EK-2]
-//   0x0C UART_TDR  RW  TX verisi                               [EK-2]
-//   0x10 UART_CFG  RW  [0]tx_en [1]rx_done [2]tx_done          [EK-2]
-//   0x14 STRM_ADDR RW  DMA hedef başlangıç adresi (def 0x0003_0000)
-//   0x18 STRM_LEN  RW  alınacak/DMA'lanacak bayt sayısı (def 1960)
-//   0x1C STRM_CTRL RW  [0]=START (pulse), [1]=ABORT (pulse)
-//   0x20 STRM_STAT RO  [0]=BUSY [1]=DONE  [31:16]=alınan bayt sayısı
-//
-// NOT (byte sıralaması): paketleme little-endian'dır — ilk gelen bayt
-//   word[7:0]'a yazılır. Bu, `generate_ai_sram_init.py` / golden hex
-//   üretimindeki (od -tx4) düzenle bire bir uyumlu olmalıdır.
-// ============================================================
-
 module uart_stream_axil #(
-    parameter logic [31:0] DEFAULT_STRM_ADDR = 32'h0003_0000, // AI SRAM INPUT
+    parameter logic [31:0] DEFAULT_STRM_ADDR = 32'h0003_0000, // AI SRAM giriş
     parameter logic [31:0] DEFAULT_STRM_LEN  = 32'd1960,      // 49*40*1 INT8
     parameter logic [ 3:0] DMA_AXI_ID        = 4'h3
 )(
     input  logic        clk_i,
     input  logic        rst_ni,
 
-    // ---- AXI4-Lite Slave (CPU CSR) ----
+    // AXI4-Lite slave (CPU CSR)
     input  logic [31:0] s_axi_awaddr,
     input  logic        s_axi_awvalid,
     output logic        s_axi_awready,
@@ -57,7 +31,7 @@ module uart_stream_axil #(
     output logic        s_axi_rvalid,
     input  logic        s_axi_rready,
 
-    // ---- AXI4 Master (AI SRAM DMA — yalnızca yazma) ----
+    // AXI4 master (AI SRAM DMA, yalnızca yazma)
     output logic [ 3:0] m_axi_awid,
     output logic [31:0] m_axi_awaddr,
     output logic [ 7:0] m_axi_awlen,
@@ -74,7 +48,7 @@ module uart_stream_axil #(
     input  logic [ 1:0] m_axi_bresp,
     input  logic        m_axi_bvalid,
     output logic        m_axi_bready,
-    // (Okuma kanalı kullanılmaz — tieoff)
+    // Okuma kanalı kullanılmaz, tieoff
     output logic [ 3:0] m_axi_arid,
     output logic [31:0] m_axi_araddr,
     output logic [ 7:0] m_axi_arlen,
@@ -89,18 +63,16 @@ module uart_stream_axil #(
     input  logic        m_axi_rvalid,
     output logic        m_axi_rready,
 
-    // ---- Fiziksel Pinler ----
+    // Fiziksel pinler
     input  logic        rxd_i,
     output logic        txd_o,
 
-    // ---- Durum / Kesme ----
+    // Durum / kesme
     output logic        stream_active_o, // DMA sahipliği (arbiter'a)
-    output logic        irq_o            // DMA tamamlandı kesmesi
+    output logic        irq_o            // DMA bitti kesmesi
 );
 
-    // =========================================================
-    // Okuma kanalı tieoff (bu master hiç okuma yapmaz)
-    // =========================================================
+    // Okuma kanalı tieoff
     assign m_axi_arid    = '0;
     assign m_axi_araddr  = '0;
     assign m_axi_arlen   = '0;
@@ -109,9 +81,7 @@ module uart_stream_axil #(
     assign m_axi_arvalid = 1'b0;
     assign m_axi_rready  = 1'b0;
 
-    // =========================================================
-    // 1. REGISTER ADRESLERİ
-    // =========================================================
+    // Register adresleri
     localparam logic [5:0] ADDR_CPB  = 6'h00;
     localparam logic [5:0] ADDR_STP  = 6'h04;
     localparam logic [5:0] ADDR_RDR  = 6'h08;
@@ -128,9 +98,9 @@ module uart_stream_axil #(
     logic [ 7:0] uart_rdr;
     logic [ 7:0] uart_tdr;
     logic        cfg_tx_en, cfg_rx_done, cfg_tx_done;
-    logic [31:0] strm_base;   // CSR: DMA başlangıç adresi (sabit)
-    logic [31:0] strm_addr;   // DMA çalışan adres (ilerler)
-    logic [31:0] strm_len;    // konfigüre edilen toplam bayt
+    logic [31:0] strm_base;   // DMA başlangıç adresi (sabit)
+    logic [31:0] strm_addr;   // ilerleyen DMA adresi
+    logic [31:0] strm_len;    // toplam bayt
     logic [31:0] strm_rxcnt;  // alınan bayt sayacı
 
     // UART core sinyalleri
@@ -149,13 +119,11 @@ module uart_stream_axil #(
     // DMA durum
     logic        dma_busy;
     logic        dma_done;
-    logic        abort_req;   // zarif abort: in-flight yazma bitince sonlan
+    logic        abort_req;   // uçuştaki yazma bitince durur
 
     assign stream_active_o = dma_busy;
 
-    // =========================================================
-    // 2. AXI-LITE YAZMA (WRITE) FSM
-    // =========================================================
+    // AXI-Lite yazma FSM
     logic       aw_en;
     logic [5:0] write_addr;
 
@@ -204,7 +172,7 @@ module uart_stream_axil #(
                         strm_start <= s_axi_wdata[0];
                         strm_abort <= s_axi_wdata[1];
                     end
-                    // ADDR_SADR: DMA adres bloğunda yazılır (aşağıda)
+                    // ADDR_SADR DMA bloğunda yazılır
                     default: ;
                 endcase
             end
@@ -218,13 +186,11 @@ module uart_stream_axil #(
         end
     end
 
-    // STRM_ADDR yazma tespiti (DMA bloğunda strm_addr'i set etmek için)
+    // STRM_ADDR yazma tespiti
     wire wr_fire   = s_axi_wready && s_axi_wvalid && s_axi_awready && s_axi_awvalid;
     wire wr_sadr   = wr_fire && (write_addr == ADDR_SADR);
 
-    // =========================================================
-    // 3. AXI-LITE OKUMA (READ) FSM
-    // =========================================================
+    // AXI-Lite okuma FSM
     assign s_axi_rresp = 2'b00;
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -257,10 +223,7 @@ module uart_stream_axil #(
         end
     end
 
-    // =========================================================
-    // 4. TX / RX BAYRAK KONTROLÜ (normal UART davranışı)
-    //    DMA aktifken RX baytları packer'a gider, RDR'yi güncellemez.
-    // =========================================================
+    // TX/RX bayrak kontrolü. DMA aktifken RX baytları packer'a gider, RDR güncellenmez.
     logic tx_start;
     assign tx_start = wr_tdr_hit;
 
@@ -274,11 +237,11 @@ module uart_stream_axil #(
         end else begin
             prev_tx_busy <= tx_busy;
 
-            // TX tamamlandı (1 stop, core busy düştüğünde)
+            // TX bitti (busy düşünce)
             if (prev_tx_busy && !tx_busy)
                 cfg_tx_done <= 1'b1;
 
-            // RX: DMA kapalıyken normal UART gibi RDR'ye al
+            // DMA kapalıyken RX'i RDR'ye al
             if (rx_valid && !dma_busy) begin
                 uart_rdr    <= rx_data_out;
                 cfg_rx_done <= 1'b1;
@@ -292,16 +255,13 @@ module uart_stream_axil #(
         end
     end
 
-    // =========================================================
-    // 5. DMA: byte→word packer + AXI4 master yazma
-    // =========================================================
-    // Paketleme registerları
+    // DMA: byte->word packer + AXI4 master yazma
     logic [31:0] word_buf;
     logic [ 3:0] strb_buf;
     logic [ 1:0] bcnt;          // word içi bayt indeksi (0..3)
     logic [31:0] bytes_left;    // kalan bayt
 
-    // Master FSM'e iş kuyruğu (tek-derinlik; UART RX yavaş olduğu için yeterli)
+    // Master FSM kuyruğu (tek derinlik, UART RX yavaş)
     logic        wr_pending;
     logic [31:0] wr_word;
     logic [ 3:0] wr_strb;
@@ -321,7 +281,7 @@ module uart_stream_axil #(
     assign m_axi_wvalid  = (mst == M_W);
     assign m_axi_bready  = (mst == M_B);
 
-    // Bir baytın bu transfer için son bayt olup olmadığı
+    // Bu baytın transferin son baytı olup olmadığı
     wire last_byte    = (bytes_left == 32'd1);
     wire flush_now    = rx_valid && dma_busy && (bcnt == 2'd3 || last_byte);
 
@@ -343,13 +303,13 @@ module uart_stream_axil #(
             wr_strb    <= 4'd0;
             mst        <= M_IDLE;
         end else begin
-            irq_o <= 1'b0;  // tek-cycle pulse
+            irq_o <= 1'b0;  // tek cycle pulse
 
-            // --- CSR yan etkileri ---
+            // CSR yan etkileri
             if (wr_sadr && !dma_busy)
-                strm_base <= s_axi_wdata;    // DMA boştayken base ayarlanır
+                strm_base <= s_axi_wdata;    // base sadece DMA boştayken
 
-            // --- START: DMA'yı kur (pointer base'e döner) ---
+            // START: DMA'yı kur
             if (strm_start && !dma_busy && (strm_len != 32'd0)) begin
                 dma_busy   <= 1'b1;
                 dma_done   <= 1'b0;
@@ -361,13 +321,12 @@ module uart_stream_axil #(
                 bcnt       <= 2'd0;
             end
 
-            // --- ABORT: zarif durdurma. dma_busy (= arbiter sahipliği) ancak
-            //     uçuştaki AXI yazması bitince bırakılır; aksi halde AW/W
-            //     valid yüksekken sahiplik çekilir ve protokol ihlali olur. ---
+            // ABORT: sahiplik ancak uçuştaki yazma bitince bırakılır, yoksa AW/W
+            // valid yüksekken çekilirse protokol ihlali olur.
             if (strm_abort && dma_busy)
                 abort_req <= 1'b1;
 
-            // --- RX baytını packer'a yerleştir ---
+            // RX baytını packer'a koy
             if (rx_valid && dma_busy && !abort_req && (bytes_left != 32'd0)) begin
                 word_buf[bcnt*8 +: 8] <= rx_data_out;
                 strb_buf[bcnt]        <= 1'b1;
@@ -375,7 +334,7 @@ module uart_stream_axil #(
                 strm_rxcnt            <= strm_rxcnt + 32'd1;
 
                 if (flush_now) begin
-                    // Tamamlanan word'ü master kuyruğuna gönder
+                    // dolu word'ü kuyruğa ver
                     wr_word    <= word_buf    | ({24'd0, rx_data_out} << (bcnt*8));
                     wr_strb    <= strb_buf    | (4'd1 << bcnt);
                     wr_pending <= 1'b1;
@@ -388,7 +347,7 @@ module uart_stream_axil #(
                 end
             end
 
-            // --- AXI master yazma FSM ---
+            // AXI master yazma FSM
             case (mst)
                 M_IDLE: if (wr_pending) mst <= M_AW;
                 M_AW:   if (m_axi_awready) mst <= M_W;
@@ -401,7 +360,7 @@ module uart_stream_axil #(
                 default: mst <= M_IDLE;
             endcase
 
-            // --- TAMAMLANMA / ABORT SONLANDIRMA: bus idle iken ---
+            // Tamamlanma / abort sonlandırma, bus boştayken
             if (dma_busy && !wr_pending && (mst == M_IDLE) &&
                 (abort_req || (bytes_left == 32'd0))) begin
                 dma_busy  <= 1'b0;
@@ -410,15 +369,13 @@ module uart_stream_axil #(
                 strb_buf  <= 4'd0;
                 if (!abort_req) begin
                     dma_done <= 1'b1;
-                    irq_o    <= 1'b1;   // CPU'ya kesme (abort'ta yok)
+                    irq_o    <= 1'b1;   // abort'ta kesme yok
                 end
             end
         end
     end
 
-    // =========================================================
-    // 6. UART ÇEKİRDEKLERİ (Alex Forencich)
-    // =========================================================
+    // UART çekirdekleri (Alex Forencich)
     uart_tx i_uart_tx (
         .clk           ( clk_i          ),
         .rst           ( !rst_ni        ),

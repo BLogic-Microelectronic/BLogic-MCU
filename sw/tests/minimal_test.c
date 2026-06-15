@@ -1,19 +1,12 @@
-/*
- * BLogic MCU - Minimal Test
- *
- * Bu program UART veya herhangi bir çevre birimi kullanmaz.
- * Sadece bellekte bir değişkene yazıp okuyarak işlemcinin
- * temel load/store komutlarını test eder.
- *
- * Simülasyonda waveform'dan veya Spike trace'den
- * doğru çalıştığını doğrulayabiliriz.
- */
+/* ============================================
+   Ostim BLogic Mikroelektronik
+   minimal_test.c  -  temel load/store testi
+   ============================================ */
 
-/* İleride UART driver hazır olduğunda buradan mesaj yazacağız */
 #define PASS_VALUE 0xCAFEBABE
 #define FAIL_VALUE 0xDEADBEEF
 
-/* Volatile: derleyici bu erişimleri optimize edip kaldırmasın */
+/* volatile: derleyici erisimi atmasin */
 volatile unsigned int test_result __attribute__((section(".data")));
 
 int main(void)
@@ -24,14 +17,13 @@ int main(void)
 
     c = a + b;
 
-    /* Basit bir doğruluk kontrolü */
     if (c == 30) {
-        test_result = PASS_VALUE;  /* 0xCAFEBABE görürsek test geçti */
+        test_result = PASS_VALUE;
     } else {
-        test_result = FAIL_VALUE;  /* 0xDEADBEEF görürsek test başarısız */
+        test_result = FAIL_VALUE;
     }
 
-    /* Sonsuz döngü - simülasyonu burada durdurabiliriz */
+    /* sonsuz dongu */
     while (1);
 
     return 0;

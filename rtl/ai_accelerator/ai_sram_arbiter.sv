@@ -1,28 +1,8 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// ai_sram_arbiter.sv  -  AI SRAM 3:1 AXI4 mux
+// ============================================
 `timescale 1ns / 1ps
-
-// ============================================================
-// BLogic MCU - AI SRAM Arbiter (3:1 AXI4 mux)
-// ============================================================
-// ai_sram'e üç erişim yolu var:
-//   - CPU (crossbar üzerinden)              → AXI_BUS interface
-//   - AI accelerator (m_axi_* discrete)     → discrete sinyaller
-//   - UART-stream DMA (strm_* discrete)      → discrete sinyaller (yalnız yazma)
-//
-// Öncelik / sahiplik:
-//   ai_active = 1            → AI accelerator yolu
-//   ai_active=0, strm_active=1 → UART-stream DMA yolu
-//   ikisi de 0              → CPU yolu
-//
-// SW kontratı (şartname iş akışıyla uyumlu): YZ veri akışı SIRALIDIR —
-//   1) CPU stream'i konfigüre eder (STRM_ADDR/LEN) ve START verir,
-//   2) UART-stream DMA veriyi AI SRAM'e yazar (strm_active=1), CPU bu sırada
-//      AI SRAM'e dokunmaz,
-//   3) DMA biter (IRQ), CPU AI accelerator'ı START eder (ai_active=1),
-//      accelerator AI SRAM'i okur/yazar.
-// Bu sıralı kontrat sayesinde sahiplik geçişleri bus idle anlarında olur ve
-// in-flight transaction kalmaz. ai_active genelde accelerator busy_o'ya,
-// strm_active da UART-stream'in DMA busy çıkışına bağlanır.
-// ============================================================
 
 module ai_sram_arbiter (
     input  logic clk_i,
@@ -30,10 +10,10 @@ module ai_sram_arbiter (
     input  logic ai_active,
     input  logic strm_active,
 
-    // ---- CPU yolu (crossbar çıkışından, AXI_BUS interface) ----
+    // CPU yolu (crossbar çıkışı)
     AXI_BUS.Slave  cpu,
 
-    // ---- AI accelerator master (discrete sinyaller, 4-bit ID) ----
+    // AI accelerator master
     input  logic [ 3:0] ai_awid,
     input  logic [31:0] ai_awaddr,
     input  logic [ 7:0] ai_awlen,
@@ -64,7 +44,7 @@ module ai_sram_arbiter (
     output logic        ai_rvalid,
     input  logic        ai_rready,
 
-    // ---- UART-stream DMA master (discrete sinyaller, yalnız yazma) ----
+    // UART-stream DMA master (yalnız yazma)
     input  logic [ 3:0] strm_awid,
     input  logic [31:0] strm_awaddr,
     input  logic [ 7:0] strm_awlen,
@@ -82,20 +62,20 @@ module ai_sram_arbiter (
     output logic        strm_bvalid,
     input  logic        strm_bready,
 
-    // ---- SRAM yolu (AXI_BUS master interface) ----
+    // SRAM yolu
     AXI_BUS.Master sram
 );
 
-    // Unused (clk/rst kontrolü için tutuldu)
+    // clk/rst kullanılmıyor ama bağlı tutuluyor
     logic unused;
     assign unused = clk_i & rst_ni;
 
-    // Sahiplik bayrakları
+    // sahiplik bayrakları
     wire own_cpu  = !ai_active && !strm_active;
     wire own_strm = !ai_active &&  strm_active;
     wire own_ai   =  ai_active;
 
-    // ===================== AW Channel =====================
+    // AW kanalı
     assign sram.aw_id     = own_ai ? ai_awid    : own_strm ? strm_awid    : cpu.aw_id;
     assign sram.aw_addr   = own_ai ? ai_awaddr  : own_strm ? strm_awaddr  : cpu.aw_addr;
     assign sram.aw_len    = own_ai ? ai_awlen   : own_strm ? strm_awlen   : cpu.aw_len;
@@ -114,7 +94,7 @@ module ai_sram_arbiter (
     assign ai_awready     = own_ai   && sram.aw_ready;
     assign strm_awready   = own_strm && sram.aw_ready;
 
-    // ===================== W Channel =====================
+    // W kanalı
     assign sram.w_data    = own_ai ? ai_wdata : own_strm ? strm_wdata : cpu.w_data;
     assign sram.w_strb    = own_ai ? ai_wstrb : own_strm ? strm_wstrb : cpu.w_strb;
     assign sram.w_last    = own_ai ? ai_wlast : own_strm ? strm_wlast : cpu.w_last;
@@ -125,7 +105,7 @@ module ai_sram_arbiter (
     assign ai_wready      = own_ai   && sram.w_ready;
     assign strm_wready    = own_strm && sram.w_ready;
 
-    // ===================== B Channel =====================
+    // B kanalı
     assign cpu.b_id       = sram.b_id;
     assign cpu.b_resp     = sram.b_resp;
     assign cpu.b_user     = sram.b_user;
@@ -141,7 +121,7 @@ module ai_sram_arbiter (
 
     assign sram.b_ready   = own_ai ? ai_bready : own_strm ? strm_bready : cpu.b_ready;
 
-    // ===================== AR Channel (CPU/AI; stream okumaz) =====================
+    // AR kanalı (CPU/AI; stream okumaz)
     assign sram.ar_id     = own_ai ? ai_arid    : cpu.ar_id;
     assign sram.ar_addr   = own_ai ? ai_araddr  : cpu.ar_addr;
     assign sram.ar_len    = own_ai ? ai_arlen   : cpu.ar_len;
@@ -153,14 +133,13 @@ module ai_sram_arbiter (
     assign sram.ar_qos    = own_ai ? 4'b0000   : cpu.ar_qos;
     assign sram.ar_region = own_ai ? 4'b0000   : cpu.ar_region;
     assign sram.ar_user   = own_ai ? 1'b0      : cpu.ar_user;
-    // stream sahipken CPU okuması bloklanır (SW kontratı: stream sırasında
-    // CPU AI SRAM'e dokunmaz)
+    // stream sahipken CPU okuması bloklanır
     assign sram.ar_valid  = own_ai ? ai_arvalid : (own_cpu ? cpu.ar_valid : 1'b0);
 
     assign cpu.ar_ready   = own_cpu && sram.ar_ready;
     assign ai_arready     = own_ai  && sram.ar_ready;
 
-    // ===================== R Channel =====================
+    // R kanalı
     assign cpu.r_id       = sram.r_id;
     assign cpu.r_data     = sram.r_data;
     assign cpu.r_resp     = sram.r_resp;

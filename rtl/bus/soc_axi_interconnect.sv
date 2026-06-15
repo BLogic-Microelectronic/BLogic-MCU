@@ -1,29 +1,8 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// soc_axi_interconnect.sv  -  AXI adres yönlendirici (manuel crossbar)
+// ============================================
 `timescale 1ns / 1ps
-
-// ============================================================
-// BLogic MCU - AXI Adres Yönlendirici (Manual Crossbar)
-// ============================================================
-// QSPI BOOT DESTEKLI v3 — Şartname 4.2.2 min kriter #2
-//
-// Instr port: 2-yollu decode
-//   addr[19:16] == 0x0 → Boot ROM   (0x0000_0000 - 0x0000_FFFF)
-//   addr[19:16] != 0x0 → Instr SRAM (firmware @ 0x0001_0000)
-//
-// Data port: 4-yollu decode (AW/W), 3-yollu decode (AR/R)
-//   high[31:28] == 0x4              → Peripherals (0x4xxx_xxxx)
-//   high==0 && mid[19:16] == 0x1    → Instr SRAM  (bootloader yazıyor — YENI)
-//   high==0 && mid[19:16] == 0x3    → AI SRAM     (0x0003_xxxx)
-//   default                          → Data SRAM   (0x0002_xxxx)
-//
-// TASARIM NOTLARI:
-//  - Boot ROM read-only: AW/W tied off, sadece instr path'ten AR/R
-//  - Instr SRAM dual-port mantığı: AW/W/B sadece data path'ten (bootloader 
-//    yazıyor), AR/R sadece instr path'ten (CPU fetch). Ayrı kanallar = 
-//    çakışma yok, arbiter gerekmiyor. Bootloader Instr SRAM'i okumuyor, 
-//    firmware kendi kodunu data olarak okumuyor.
-//  - OBI bridge AW ve W'yi aynı cycle'da sunar → W kanalı combinational 
-//    decode, B/R registered state.
-// ============================================================
 
 module soc_axi_interconnect (
     input  logic clk_i,
@@ -39,9 +18,7 @@ module soc_axi_interconnect (
     AXI_BUS.Master periph_mst
 );
 
-    // ============================================================
-    // INSTRUCTION PATH: 2-yollu decode (Boot ROM + Instr SRAM)
-    // ============================================================
+    // Instr path: 2-yollu decode (Boot ROM + Instr SRAM)
     logic [31:0] cpu_iar_addr_local;
     logic [3:0]  iar_mid_nib;
 
@@ -52,7 +29,7 @@ module soc_axi_interconnect (
     logic iar_to_boot;
     assign iar_to_boot = (iar_mid_nib == 4'h0);
 
-    // R kanal için registered destination flag
+    // R kanalı için registered hedef bayrağı
     logic ird_from_boot_q;
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni)
@@ -61,8 +38,7 @@ module soc_axi_interconnect (
             ird_from_boot_q <= iar_to_boot;
     end
 
-    // CPU instr port write side: instr port yazmaz, ready=0 ile reddet
-    // (CV32E40P'nin instruction port'u read-only; bridge zaten aw_valid=0 sürer)
+    // Instr port yazmaz, ready=0 ile reddet (CV32E40P fetch portu read-only)
     assign cpu_instr_slv.aw_ready = 1'b0;
     assign cpu_instr_slv.w_ready  = 1'b0;
     assign cpu_instr_slv.b_id     = '0;
@@ -84,7 +60,7 @@ module soc_axi_interconnect (
     assign boot_rom_mst.ar_user   = cpu_instr_slv.ar_user;
     assign boot_rom_mst.ar_valid  = cpu_instr_slv.ar_valid && iar_to_boot;
 
-    // Instr SRAM AR (sadece instr path'ten; data path AR'leri buraya gelmez)
+    // Instr SRAM AR (sadece instr path'ten)
     assign instr_sram_mst.ar_id     = cpu_instr_slv.ar_id;
     assign instr_sram_mst.ar_addr   = cpu_instr_slv.ar_addr;
     assign instr_sram_mst.ar_len    = cpu_instr_slv.ar_len;
@@ -98,11 +74,11 @@ module soc_axi_interconnect (
     assign instr_sram_mst.ar_user   = cpu_instr_slv.ar_user;
     assign instr_sram_mst.ar_valid  = cpu_instr_slv.ar_valid && !iar_to_boot;
 
-    // CPU instr port AR ready (hedef master'a göre)
+    // AR ready hedefe göre
     assign cpu_instr_slv.ar_ready   = iar_to_boot ? boot_rom_mst.ar_ready
                                                   : instr_sram_mst.ar_ready;
 
-    // CPU instr port R kanalı (registered mux)
+    // R kanalı (registered mux)
     assign cpu_instr_slv.r_id    = ird_from_boot_q ? boot_rom_mst.r_id    : instr_sram_mst.r_id;
     assign cpu_instr_slv.r_data  = ird_from_boot_q ? boot_rom_mst.r_data  : instr_sram_mst.r_data;
     assign cpu_instr_slv.r_resp  = ird_from_boot_q ? boot_rom_mst.r_resp  : instr_sram_mst.r_resp;
@@ -112,7 +88,7 @@ module soc_axi_interconnect (
     assign boot_rom_mst.r_ready   = cpu_instr_slv.r_ready &&  ird_from_boot_q;
     assign instr_sram_mst.r_ready = cpu_instr_slv.r_ready && !ird_from_boot_q;
 
-    // Boot ROM AW/W/B tied off — ROM read-only
+    // Boot ROM read-only: AW/W/B tied off
     assign boot_rom_mst.aw_id     = '0;
     assign boot_rom_mst.aw_addr   = '0;
     assign boot_rom_mst.aw_len    = '0;
@@ -133,9 +109,7 @@ module soc_axi_interconnect (
     assign boot_rom_mst.w_valid   = 1'b0;
     assign boot_rom_mst.b_ready   = 1'b1;
 
-    // ============================================================
-    // DATA PATH: 4-yollu decode (AW), 3-yollu decode (AR)
-    // ============================================================
+    // Data path: 4-yollu decode (AW), 3-yollu decode (AR)
     logic [31:0] cpu_aw_addr_local;
     logic [31:0] cpu_ar_addr_local;
     logic [3:0]  aw_addr_high_nib, ar_addr_high_nib;
@@ -154,10 +128,10 @@ module soc_axi_interconnect (
     assign ar_addr_mid_nib  = {cpu_ar_addr_local[19], cpu_ar_addr_local[18],
                                cpu_ar_addr_local[17], cpu_ar_addr_local[16]};
 
-    // Decode flags (mutually exclusive)
+    // Decode bayrakları (birbirini dışlar)
     logic aw_to_periph,    ar_to_periph;
     logic aw_to_ai_sram,   ar_to_ai_sram;
-    logic aw_to_instr_sram;   // AW only (data path Instr SRAM'i okumuyor)
+    logic aw_to_instr_sram;   // sadece AW
 
     assign aw_to_periph     =  (aw_addr_high_nib == 4'h4);
     assign ar_to_periph     =  (ar_addr_high_nib == 4'h4);
@@ -167,13 +141,9 @@ module soc_axi_interconnect (
                                             && (aw_addr_mid_nib  == 4'h3);
     assign ar_to_ai_sram    = !ar_to_periph && (ar_addr_high_nib == 4'h0)
                                             && (ar_addr_mid_nib  == 4'h3);
-    // data_sram = AW: !periph && !ai && !instr; AR: !periph && !ai (default)
+    // data_sram = kalan default
 
-    // ============================================================
-    // Registered destination state
-    //   wr_dest: 4 hedef (00=data, 01=ai, 10=periph, 11=instr_sram)
-    //   rd_dest: 3 hedef (00=data, 01=ai, 10=periph)
-    // ============================================================
+    // Registered hedef: wr_dest (00=data,01=ai,10=periph,11=instr), rd_dest (00=data,01=ai,10=periph)
     logic [1:0] wr_dest, rd_dest;
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
@@ -192,9 +162,7 @@ module soc_axi_interconnect (
         end
     end
 
-    // ============================================================
-    // AW kanal — combinational decode, 4-yollu broadcast
-    // ============================================================
+    // AW kanalı — combinational decode, 4-yollu broadcast
     assign data_sram_mst.aw_id     = cpu_data_slv.aw_id;
     assign data_sram_mst.aw_addr   = cpu_data_slv.aw_addr;
     assign data_sram_mst.aw_len    = cpu_data_slv.aw_len;
@@ -234,7 +202,7 @@ module soc_axi_interconnect (
     assign periph_mst.aw_atop      = cpu_data_slv.aw_atop;
     assign periph_mst.aw_user      = cpu_data_slv.aw_user;
 
-    // YENI: Instr SRAM AW (bootloader yazıyor)
+    // Instr SRAM AW (bootloader yazıyor)
     assign instr_sram_mst.aw_id     = cpu_data_slv.aw_id;
     assign instr_sram_mst.aw_addr   = cpu_data_slv.aw_addr;
     assign instr_sram_mst.aw_len    = cpu_data_slv.aw_len;
@@ -248,7 +216,7 @@ module soc_axi_interconnect (
     assign instr_sram_mst.aw_atop   = cpu_data_slv.aw_atop;
     assign instr_sram_mst.aw_user   = cpu_data_slv.aw_user;
 
-    // Valid sinyalleri — sadece hedef master'a
+    // Valid sadece hedef master'a
     assign data_sram_mst.aw_valid  = cpu_data_slv.aw_valid && !aw_to_periph && !aw_to_ai_sram && !aw_to_instr_sram;
     assign ai_sram_mst.aw_valid    = cpu_data_slv.aw_valid &&  aw_to_ai_sram;
     assign periph_mst.aw_valid     = cpu_data_slv.aw_valid &&  aw_to_periph;
@@ -259,9 +227,7 @@ module soc_axi_interconnect (
                                    : aw_to_instr_sram ? instr_sram_mst.aw_ready
                                                       : data_sram_mst.aw_ready;
 
-    // ============================================================
-    // W kanal — combinational decode, 4-yollu
-    // ============================================================
+    // W kanalı — combinational decode, 4-yollu
     assign data_sram_mst.w_data    = cpu_data_slv.w_data;
     assign data_sram_mst.w_strb    = cpu_data_slv.w_strb;
     assign data_sram_mst.w_last    = cpu_data_slv.w_last;
@@ -277,7 +243,7 @@ module soc_axi_interconnect (
     assign periph_mst.w_last       = cpu_data_slv.w_last;
     assign periph_mst.w_user       = cpu_data_slv.w_user;
 
-    // YENI: Instr SRAM W
+    // Instr SRAM W
     assign instr_sram_mst.w_data   = cpu_data_slv.w_data;
     assign instr_sram_mst.w_strb   = cpu_data_slv.w_strb;
     assign instr_sram_mst.w_last   = cpu_data_slv.w_last;
@@ -293,9 +259,7 @@ module soc_axi_interconnect (
                                    : aw_to_instr_sram ? instr_sram_mst.w_ready
                                                       : data_sram_mst.w_ready;
 
-    // ============================================================
-    // B kanal — registered decode (4-yollu mux)
-    // ============================================================
+    // B kanalı — registered decode (4-yollu mux)
     assign cpu_data_slv.b_id       = (wr_dest == 2'b10) ? periph_mst.b_id
                                    : (wr_dest == 2'b01) ? ai_sram_mst.b_id
                                    : (wr_dest == 2'b11) ? instr_sram_mst.b_id
@@ -317,11 +281,7 @@ module soc_axi_interconnect (
     assign periph_mst.b_ready      = cpu_data_slv.b_ready && (wr_dest == 2'b10);
     assign instr_sram_mst.b_ready  = cpu_data_slv.b_ready && (wr_dest == 2'b11);
 
-    // ============================================================
-    // AR kanal — combinational decode (3-yollu)
-    // (Data path Instr SRAM'i okumuyor — bootloader sadece yazar,
-    //  firmware kendi kodunu data olarak okumaz)
-    // ============================================================
+    // AR kanalı — combinational decode (3-yollu); data path Instr SRAM'i okumaz
     assign data_sram_mst.ar_id     = cpu_data_slv.ar_id;
     assign data_sram_mst.ar_addr   = cpu_data_slv.ar_addr;
     assign data_sram_mst.ar_len    = cpu_data_slv.ar_len;
@@ -366,9 +326,7 @@ module soc_axi_interconnect (
                                    : ar_to_ai_sram ? ai_sram_mst.ar_ready
                                                    : data_sram_mst.ar_ready;
 
-    // ============================================================
-    // R kanal — registered decode (3-yollu mux)
-    // ============================================================
+    // R kanalı — registered decode (3-yollu mux)
     assign cpu_data_slv.r_id       = (rd_dest == 2'b10) ? periph_mst.r_id
                                    : (rd_dest == 2'b01) ? ai_sram_mst.r_id
                                                         : data_sram_mst.r_id;

@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# ============================================
+# Ostim BLogic Mikroelektronik
+# elf_to_mem.py  -  ELF'i Verilog MEM'e cevir
+# ============================================
 import argparse
 import subprocess
 import sys

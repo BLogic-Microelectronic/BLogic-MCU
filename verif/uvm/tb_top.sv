@@ -1,10 +1,7 @@
-// ============================================================
-// BLogic MCU - UVM Testbench Top
-// TEKNOFEST 2026 Cip Tasarim Yarismasi
-// ============================================================
-// DUT: gpio_axil (AXI-Lite slave)
-// UVM Agent: Active mod — constrained random R/W
-// ============================================================
+// ============================================
+// Ostim BLogic Mikroelektronik
+// tb_top.sv  -  UVM testbench ust modulu
+// ============================================
 `timescale 1ns/1ns
 
 module tb_top;
@@ -13,9 +10,7 @@ module tb_top;
     import axi_lite_uvm_pkg::*;
     `include "uvm_macros.svh"
 
-    // =========================================================
-    // Clock & Reset
-    // =========================================================
+    // saat ve reset
     logic clk;
     logic rst_n;
 
@@ -30,18 +25,13 @@ module tb_top;
         rst_n = 1;
     end
 
-    // =========================================================
-    // AXI-Lite Interface
-    // =========================================================
     axi_lite_if axi_if (.clk(clk), .rst_n(rst_n));
 
-    // =========================================================
-    // DUT: GPIO (AXI-Lite Slave)
-    // =========================================================
+    // DUT: GPIO (AXI-Lite slave)
     logic [15:0] gpio_in_stimulus;
     logic [15:0] gpio_out;
 
-    // Sabit giris stimulus (testler sırasında değiştirilebilir)
+    // sabit giris, testlerde degistirilebilir
     initial gpio_in_stimulus = 16'hA5A5;
 
     gpio_axil i_dut (
@@ -71,9 +61,7 @@ module tb_top;
         .gpio_out_o    (gpio_out)
     );
 
-    // =========================================================
-    // UVM Baglanti
-    // =========================================================
+    // UVM baglanti
     initial begin
         uvm_config_db #(virtual axi_lite_if)::set(
             null, "uvm_test_top.env.agent.*", "vif", axi_if);
@@ -81,9 +69,7 @@ module tb_top;
         run_test();
     end
 
-    // =========================================================
-    // Simulasyon zaman asimi korumasi
-    // =========================================================
+    // simulasyon zaman asimi korumasi
     initial begin
         #1_000_000;
         `uvm_fatal("TIMEOUT", "Simulasyon zaman asimina ugradi")

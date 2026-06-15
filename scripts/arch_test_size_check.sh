@@ -1,4 +1,8 @@
 #!/bin/bash
+# ============================================
+# Ostim BLogic Mikroelektronik
+# arch_test_size_check.sh  -  arch-test 8KB sigma kontrolu
+# ============================================
 # Tum rv32 arch-test'leri 8KB link.ld + htif.S ile derlemeyi dener.
 set -e
 cd "$(dirname "$0")/.."
@@ -44,7 +48,7 @@ for src in "${TESTS[@]}"; do
 
         read text data bss _ <<< "$(riscv32-unknown-elf-size "$elf" | tail -1)"
         total=$((text + data + bss))
-        # .text INST_RAM'de (8K), .data + .bss + .tohost DATA_RAM'de (8K, ~50B tohost icin)
+        # .text 8K INST_RAM'e, .data+.bss+.tohost 8K DATA_RAM'e sigmali
         text_room=$((text <= 8192 ? 1 : 0))
         data_room=$(((data + bss + 64) <= 8192 ? 1 : 0))
 

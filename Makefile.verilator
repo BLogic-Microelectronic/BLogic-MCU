@@ -1,6 +1,7 @@
-# =============================================================================
-# BLogic MCU - Verilator Simulasyon Makefile
-# =============================================================================
+# ============================================
+# Ostim BLogic Mikroelektronik
+# Makefile.verilator  -  Verilator simulasyon yapisi
+# ============================================
 
 SHELL := /bin/bash
 .SHELLFLAGS := -o pipefail -c
@@ -32,7 +33,7 @@ LINKER_SCRIPT = $(SW_DIR)/common/link.ld
 STARTUP      = $(SW_DIR)/common/crt0.S
 
 FW_SRC       ?= $(SW_DIR)/tests/uart_hello.c
-# Ek simulasyon plusarg'lari (orn. uart-baud hedefi: +SWEEP=434,50,5208)
+# Ek sim plusarg'lari (orn. +SWEEP=434,50,5208)
 SIM_PLUSARGS ?=
 TEST_NAME    := $(basename $(notdir $(FW_SRC)))
 SIM_LOG_DIR  := $(LOG_ROOT)/sim/$(TEST_NAME)
@@ -128,8 +129,7 @@ logs-clean:
 	rm -rf $(LOG_ROOT)
 	@echo "[CLEAN] logs/ silindi"
 
-# --- Cekirdek-uyumluluk (riscv-arch-test) icin 64 KB instr/data bellekli sim ---
-# Sartname SoC konfigurasyonu (8 KB) DEGISMEZ; yalnizca CORE testleri bu binary ile kosar.
+# riscv-arch-test icin buyuk bellekli sim; SoC konfigi (8 KB) degismez
 verilate-arch:
 	@$(MAKE) -f Makefile.verilator verilate OBJ_DIR=obj_dir_arch \
 	    VLT_EXTRA="-GINSTR_SRAM_BYTES=1048576 -GDATA_SRAM_BYTES=65536"

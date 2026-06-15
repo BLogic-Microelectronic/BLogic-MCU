@@ -1,8 +1,7 @@
-/* BLogic MCU - SAF LED blink teshis firmware'i (SRAM-boot, QSPI baypas)
- * String/rodata YOK -> data SRAM'e bagimli degil. Sadece sunlari test eder:
- *   saat + reset + CPU + GPIO peripheral + LED pinleri.
- * Bu blink ederse CPU'nun temel yolu calisiyor; sorun QSPI boot'ta demektir.
- */
+// ============================================
+// Ostim BLogic Mikroelektronik
+// led_only.c  -  saf LED blink teshis testi
+// ============================================
 #include "../drivers/blogic_mcu.h"
 
 int main(void) {

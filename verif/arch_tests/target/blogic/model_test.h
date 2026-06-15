@@ -1,3 +1,7 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// model_test.h  -  RISC-V uyumluluk testi makrolari
+// ============================================
 #ifndef _COMPLIANCE_TEST_H
 #define _COMPLIANCE_TEST_H
 

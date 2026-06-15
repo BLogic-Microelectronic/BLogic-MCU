@@ -1,3 +1,7 @@
+// ============================================
+// Ostim BLogic Mikroelektronik
+// qspi_debug.c  -  QSPI okuma hata ayiklama testi
+// ============================================
 #include "../drivers/blogic_mcu.h"
 #include "../drivers/qspi.h"
 
@@ -20,13 +24,13 @@ int main(void) {
     QSPI->ADR = 0x000000;
     uart_puts(UART0, "ADR set\n");
 
-    // STA oku (islem oncesi)
+    // STA oku
     uart_puts(UART0, "STA pre=");
     uart_put_hex32(QSPI->STA);
     uart_puts(UART0, "\n");
 
-    // CCR yaz (READ cmd baslar)
-    uint32_t ccr_val = 0x03 | (1 << 8);  // instr=0x03, data_mode=1, dir=0, dummy=0, len=0
+    // CCR yaz, READ baslar
+    uint32_t ccr_val = 0x03 | (1 << 8);  // instr=0x03, data_mode=1
     QSPI->CCR = ccr_val;
     uart_puts(UART0, "CCR=");
     uart_put_hex32(ccr_val);
@@ -38,7 +42,7 @@ int main(void) {
     while ((QSPI->STA & (1 << 1)) && --timeout > 0);
     uart_puts(UART0, "done\n");
 
-    // STA oku (islem sonrasi)
+    // STA oku
     uart_puts(UART0, "STA post=");
     uart_put_hex32(QSPI->STA);
     uart_puts(UART0, "\n");
