@@ -174,8 +174,17 @@ int main(int argc, char** argv) {
 
         top->eval();
 
-        uint32_t current_pc = top->rootp->soc_top__DOT__i_cpu__DOT__core_i__DOT__pc_id;
-        if (current_pc != last_printed_pc && current_pc >= 0x10000 && current_pc < 0x100000) {
+        uint32_t current_pc  = top->rootp->soc_top__DOT__i_cpu__DOT__core_i__DOT__pc_id;
+        // Lockstep icin: pc_id sadece commit-time'da loglansin. id_valid && is_decoding
+        // birlikte HIGH iken instruction retire ediliyor (bkz cv32e40p_id_stage.sv:1639
+        // -> minstret = id_valid_o && is_decoding_o && !illegal/ebrk/ecall).
+        // Aksi takdirde taken branch sonrasi pre-fetch'lenip flush'lanan PC de loga
+        // dusuyor ve Spike (committed-only) ile lockstep ayrisiyor.
+        uint8_t  id_valid    = top->rootp->soc_top__DOT__i_cpu__DOT__core_i__DOT__id_valid;
+        uint8_t  is_decoding = top->rootp->soc_top__DOT__i_cpu__DOT__core_i__DOT__is_decoding;
+        if (id_valid && is_decoding &&
+            current_pc != last_printed_pc &&
+            current_pc >= 0x10000 && current_pc < 0x100000) {
             char buf[32];
             snprintf(buf, sizeof(buf), "RTL_PC: 0x%08X\n", current_pc);
             rtl_trace_log << buf;
