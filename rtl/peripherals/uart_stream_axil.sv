@@ -238,8 +238,11 @@ module uart_stream_axil #(
             prev_tx_busy <= tx_busy;
 
             // TX bitti (busy düşünce)
-            if (prev_tx_busy && !tx_busy)
+            if (prev_tx_busy && !tx_busy) begin
                 cfg_tx_done <= 1'b1;
+                // UART_CFG[0] auto-clear: gonderim bitince HW '0'a ceker (sartname EK-2, v1.3)
+                cfg_tx_en   <= 1'b0;
+            end
 
             // DMA kapalıyken RX'i RDR'ye al
             if (rx_valid && !dma_busy) begin

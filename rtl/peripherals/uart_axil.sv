@@ -189,6 +189,9 @@ module uart_axil (
             end
 
             // yazilim yazmasi
+            // UART_CFG[0] auto-clear: gonderim bitince HW '0'a ceker (sartname EK-2, v1.3)
+            if (tx_done_set) cfg_tx_en <= 1'b0;
+
             if (wr_cfg_hit) begin
                 cfg_tx_en <= wr_cfg_data[0];
                 if (!wr_cfg_data[1]) cfg_rx_done <= 1'b0;

@@ -45,7 +45,7 @@ uart-stp:
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
 	    rtl/peripherals/uart_axil.sv rtl/peripherals/uart_tx.v rtl/peripherals/uart_rx.v \
-	    verif/tb/uart_stp_tb.sv
+	    verif/tb/uart_stp_tb.sv verif/sva/uart_func_cov.sv
 	cd $(UARTSTP_DIR) && ./uart_stp_sim 2>&1 | tee uart_stp_run.log
 	@grep -aq "TEST SUCCESS" $(UARTSTP_DIR)/uart_stp_run.log \
 	    && echo "[UART-STP] PASS (stop 1 / 1.5 / 2)" || { echo "[UART-STP] FAIL"; exit 1; }

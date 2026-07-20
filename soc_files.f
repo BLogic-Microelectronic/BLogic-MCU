@@ -88,6 +88,10 @@ rtl/peripherals/uart_stream_axil.sv
 verif/sva/axi_lite_protocol_checker.sv
 verif/sva/axi4_protocol_checker.sv
 verif/sva/soc_protocol_bind.sv
+verif/sva/uart_func_cov.sv
+verif/sva/qspi_func_cov.sv
+verif/sva/irq_func_cov.sv
+verif/sva/ai_func_cov.sv
 
 # en ust seviye
 rtl/soc_top.sv
