@@ -286,7 +286,7 @@ module ai_accel_tb;
   endtask
 
   // Senaryo girisini yukle. 0x0000 ofsetinden 490 word.
-  // Verilator dinamik string yol kabul etmiyor, case ile literal yol.
+  // NOT: Verilator dinamik string yol kabul etmiyor, case ile literal yol.
   task automatic preload_input(input string scenario);
     int unsigned base;
     base = word_idx(AI_SRAM_BASE + 32'h0000);
