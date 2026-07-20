@@ -169,7 +169,7 @@ module uart_stream_tb;
         end
     end
 
-    // Verilator NBA'yi blocking yapiyor; race olmasin diye master negedge'de surulur
+    // NOT: Verilator NBA'yi blocking yapiyor; race olmasin diye master negedge'de surulur
     task automatic axi_write(input logic [5:0] addr, input logic [31:0] data);
         @(negedge clk);
         awaddr  = {26'd0, addr};
