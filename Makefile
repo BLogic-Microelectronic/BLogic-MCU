@@ -10,7 +10,7 @@ PASSTHROUGH = $(if $(TRACE),TRACE=1) $(if $(COVERAGE),COVERAGE=1)
 
 BOOT_DIR  = obj_dir_boot
 AI_DIR    = obj_dir_ai
-ARCH_EXT ?= I
+ARCH_EXT ?= I M
 
 .PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq
 
@@ -127,11 +127,10 @@ soc-perf:
 
 # riscv-arch-test (ISA uyumluluk)
 arch-test:
-	@test -d verif/arch_tests/riscv-arch-test \
-	    || { echo "[ARCH] riscv-arch-test repo eksik:"; \
-	         echo "  git clone --depth 1 https://github.com/riscv-non-isa/riscv-arch-test verif/arch_tests/riscv-arch-test"; \
+	@test -d verif/arch_tests/suite/rv32i_m \
+	    || { echo "[ARCH] vendor edilmis arch-test suite eksik: verif/arch_tests/suite/"; \
 	         exit 1; }
-	bash verif/arch_tests/run_arch_test.sh $(ARCH_EXT)
+	bash verif/arch_tests/run_arch_test.sh "$(ARCH_EXT)"
 
 # line coverage: test seti + rapor
 coverage:
