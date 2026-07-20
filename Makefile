@@ -125,6 +125,14 @@ soc-perf:
 	@grep -q "^result=PASS" logs/sim/ai_sw_reference/result.log \
 	    && echo "[SOC-PERF] PASS" || { echo "[SOC-PERF] FAIL"; exit 1; }
 
+# ISA uyumluluk C testi (self-checking, DTR bolum 4)
+isa-compliance:
+	rm -rf build
+	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/isa_compliance_test.c $(PASSTHROUGH)
+	@grep -q "^result=PASS" logs/sim/isa_compliance_test/result.log \
+	    && grep -q ">>> ISA COMPLIANCE PASSED <<<" logs/sim/isa_compliance_test/uart.log \
+	    && echo "[ISA-C] PASS" || { echo "[ISA-C] FAIL"; exit 1; }
+
 # riscv-arch-test (ISA uyumluluk)
 arch-test:
 	@test -d verif/arch_tests/suite/rv32i_m \
@@ -206,7 +214,7 @@ test-all:
 	echo "  boot       (QSPI boot akisi)      : $$b"; \
 	echo "  qspi-modes (x1/x2/x4 + 4B adres)   : $$q"; \
 	echo "  i2c-sys    (NBY/ADR+TX/RX echo)    : $$i2"; \
-	echo "  ai         (standalone 4 senaryo) : $$a"; \
+	echo "  ai         (standalone 6 senaryo) : $$a"; \
 	echo "  soc-ai     (SoC AI C testi)       : $$s"; \
 	echo "  soc-perf   (HW vs SW hizlanma)    : $$p"; \
 	echo "  soc-ai-irq (kesme/ISR akisi)      : $$ir"; \
