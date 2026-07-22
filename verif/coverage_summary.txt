@@ -1,22 +1,22 @@
 BLogic MCU - line coverage ozeti (make coverage)
-tarih     : 2026-06-13
+tarih     : 2026-07-22
 verilator : Verilator 5.049 devel rev v5.048-135-g99a35fee8
-testler   : uart_hello qspi_test gpio_led_test ai_micro_speech_test
+testler   : uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test
 olcum     : --coverage-line; CV32E40P vendor dosyalari verif/coverage_waivers.vlt ile haric
 ------------------------------------------------------------
 Coverage Summary:
-  line      : 56.3% ( 291/ 517)
+  line      : 56.6% ( 305/ 539)
   toggle    : 0.0% (   0/   0)
-  branch    : 64.4% ( 876/1360)
+  branch    : 65.3% ( 936/1434)
   expr      : 0.0% (   0/   0)
   fsm_state : 0.0% (   0/   0)
   fsm_arc   : 0.0% (   0/   0)
 Annotation Summary:
-  lines with all attached points covered : 46.00%  (964/2084)
+  lines with all attached points covered : 47.00%  (1023/2175)
 See lines with '%00' in logs/coverage/annotate
 
 --- Ekip RTL: kapsanmamis nokta-satir sayilari ---
-  ai_accelerator.sv            : 121
+  ai_accelerator.sv            : 107
   ai_sram_arbiter.sv           : 0
   soc_axi_interconnect.sv      : 0
   periph_decoder.sv            : 0

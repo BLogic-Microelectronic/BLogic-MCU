@@ -6,7 +6,7 @@
 set -e
 cd "$(dirname "$0")/.."
 PROJ=$(pwd)
-TESTS="uart_hello qspi_test gpio_led_test ai_micro_speech_test"
+TESTS="uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test"
 BLOG="$PROJ/logs/build/coverage_build.log"
 mkdir -p "$PROJ/logs/build" "$PROJ/logs/coverage"
 
@@ -17,10 +17,15 @@ make -f Makefile.verilator verilate COVERAGE=1 >"$BLOG" 2>&1 \
 
 DATS=""
 for T in $TESTS; do
+    EXTRA=()
+    case $T in
+      uart_baud_sweep)
+        EXTRA=(EXTRA_CFLAGS="-DSWEEP_CPB0=434 -DSWEEP_CPB1=50 -DSWEEP_CPB2=5208" SIM_PLUSARGS="+SWEEP=434,50,5208") ;;
+    esac
     echo ">>> sim: $T"
     rm -rf build
     [ "$T" = "qspi_test" ] && printf 'AA\nBB\nCC\nDD\n' > obj_dir/flash.hex
-    make -f Makefile.verilator sim COVERAGE=1 FW_SRC=sw/tests/$T.c \
+    make -f Makefile.verilator sim COVERAGE=1 FW_SRC=sw/tests/$T.c "${EXTRA[@]}" \
         >"$PROJ/logs/coverage/${T}_sim.log" 2>&1 \
         || { echo "    $T FAIL - bkz: logs/coverage/${T}_sim.log"; exit 1; }
     echo "    PASS"
