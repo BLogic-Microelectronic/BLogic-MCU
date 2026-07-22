@@ -6,7 +6,7 @@
 set -e
 cd "$(dirname "$0")/.."
 PROJ=$(pwd)
-TESTS="uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test timer_irq_test uart_stp_reg_test"
+TESTS="uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test timer_irq_test uart_stp_reg_test uart1_strm_test"
 BLOG="$PROJ/logs/build/coverage_build.log"
 mkdir -p "$PROJ/logs/build" "$PROJ/logs/coverage"
 
@@ -39,7 +39,7 @@ echo "" | tee -a logs/coverage/summary.txt
 echo "--- Ekip RTL: kapsanmamis nokta-satir sayilari ---" | tee -a logs/coverage/summary.txt
 for F in ai_accelerator.sv ai_sram_arbiter.sv soc_top.sv soc_axi_interconnect.sv \
          periph_decoder.sv axi4_to_axilite_bridge.sv obi_to_axi.sv \
-         uart_axil.sv gpio_axil.sv timer_axil.sv qspi_master_axil.sv; do
+         uart_axil.sv uart_stream_axil.sv gpio_axil.sv timer_axil.sv qspi_master_axil.sv; do
     A="logs/coverage/annotate/$F"
     [ -f "$A" ] && printf "  %-28s : %s\n" "$F" "$(grep -c '^%' "$A")" | tee -a logs/coverage/summary.txt
 done

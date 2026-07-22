@@ -269,7 +269,7 @@ module uart_stream_axil #(
     logic [31:0] wr_word;
     logic [ 3:0] wr_strb;
 
-    typedef enum logic [1:0] { M_IDLE, M_AW, M_W, M_B } mst_t;
+    typedef enum logic [1:0] { M_IDLE, M_AW, M_B } mst_t;
     mst_t mst;
 
     assign m_axi_awid    = DMA_AXI_ID;
@@ -280,8 +280,11 @@ module uart_stream_axil #(
     assign m_axi_awaddr  = strm_addr;
     assign m_axi_wdata   = wr_word;
     assign m_axi_wstrb   = wr_strb;
+    // AW+W ayni cevrimde surulur: axi_sram_wrapper yazmayi ancak
+    // aw_valid && w_valid birlikteyken isler (write_en); iki ready ayni
+    // ifade oldugundan handshake'ler hep es zamanli tamamlanir.
     assign m_axi_awvalid = (mst == M_AW);
-    assign m_axi_wvalid  = (mst == M_W);
+    assign m_axi_wvalid  = (mst == M_AW);
     assign m_axi_bready  = (mst == M_B);
 
     // Bu baytın transferin son baytı olup olmadığı
@@ -353,8 +356,7 @@ module uart_stream_axil #(
             // AXI master yazma FSM
             case (mst)
                 M_IDLE: if (wr_pending) mst <= M_AW;
-                M_AW:   if (m_axi_awready) mst <= M_W;
-                M_W:    if (m_axi_wready)  mst <= M_B;
+                M_AW:   if (m_axi_awready && m_axi_wready) mst <= M_B;
                 M_B:    if (m_axi_bvalid) begin
                             mst        <= M_IDLE;
                             wr_pending <= 1'b0;

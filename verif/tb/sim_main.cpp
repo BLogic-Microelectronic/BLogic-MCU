@@ -142,6 +142,7 @@ int main(int argc, char** argv) {
     while (cyc < max_cycles) {
         top->clk_i = 1;
         top->uart_rxd_i = top->uart_txd_o;
+        top->uart1_rxd_i = top->uart1_txd_o;   // UART_1 TX->RX loopback (strm DMA testi)
 
         if (top->qspi_cs_no == 0) {
             bool current_sclk = top->qspi_sclk_o;
