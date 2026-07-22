@@ -64,6 +64,8 @@ int main(void) {
 
     AI_ACC->DATA_ADDR = AI_SRAM_BASE + AI_INPUT_OFF;
     AI_ACC->OUT_ADDR  = AI_SRAM_BASE + AI_RESULT_OFF;
+    (void)AI_ACC->CTRL;        // CTRL okuma kolu (0 okunur)
+    (void)AI_ACC->DATA_ADDR;   // DATA_ADDR readback kolu
 
     // mie[17] + mstatus.MIE; binutils>=2.38 icin zicsr sarmasi sart
     __asm__ volatile(

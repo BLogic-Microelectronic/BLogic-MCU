@@ -97,11 +97,6 @@ module timer_axil (
                     prescale_cnt <= prescale_cnt + 1;
                 end
             end
-            // tim_ena=0 iken TIM_CLR=1 olursa sıfırla
-            else if (wr_clr_hit) begin
-                tim_cnt      <= 32'd0;
-                prescale_cnt <= 32'd0;
-            end
         end
     end
  

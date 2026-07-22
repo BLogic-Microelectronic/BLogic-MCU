@@ -12,7 +12,7 @@ BOOT_DIR  = obj_dir_boot
 AI_DIR    = obj_dir_ai
 ARCH_EXT ?= I M
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -117,6 +117,13 @@ soc-ai-irq:
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_irq_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/ai_irq_test/result.log \
 	    && echo "[SOC-AI-IRQ] PASS" || { echo "[SOC-AI-IRQ] FAIL"; exit 1; }
+
+# Timer cevre birimi: sayma/reload/prescale + irq16 ISR akisi
+soc-timer:
+	rm -rf build
+	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/timer_irq_test.c $(PASSTHROUGH)
+	@grep -q "^result=PASS" logs/sim/timer_irq_test/result.log \
+	    && echo "[SOC-TIMER] PASS" || { echo "[SOC-TIMER] FAIL"; exit 1; }
 
 # hizlanma olcumu: HW vs SW referans
 soc-perf:

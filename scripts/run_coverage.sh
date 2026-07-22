@@ -6,7 +6,7 @@
 set -e
 cd "$(dirname "$0")/.."
 PROJ=$(pwd)
-TESTS="uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test"
+TESTS="uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test timer_irq_test uart_stp_reg_test"
 BLOG="$PROJ/logs/build/coverage_build.log"
 mkdir -p "$PROJ/logs/build" "$PROJ/logs/coverage"
 
@@ -33,7 +33,7 @@ for T in $TESTS; do
 done
 
 rm -rf logs/coverage/annotate
-verilator_coverage --annotate logs/coverage/annotate $DATS | tee logs/coverage/summary.txt
+verilator_coverage --annotate logs/coverage/annotate --annotate-min 1 $DATS | tee logs/coverage/summary.txt
 
 echo "" | tee -a logs/coverage/summary.txt
 echo "--- Ekip RTL: kapsanmamis nokta-satir sayilari ---" | tee -a logs/coverage/summary.txt

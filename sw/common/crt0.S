@@ -13,9 +13,10 @@
 .option norvc
 _start:
     j   _trap_entry            # slot 0    : tum exception'lar + (direct modda) irq'lar
-    .rept 16
-    j   _trap_hang             # slot 1-16 : kullanilmiyor
+    .rept 15
+    j   _trap_hang             # slot 1-15 : kullanilmiyor
     .endr
+    j   timer_isr              # slot 16   : timer_irq (vectored mod yolu)
     j   ai_isr                 # slot 17   : ai_irq (vectored mod yolu)
     .rept 14
     j   _trap_hang             # slot 18-31: kullanilmiyor
@@ -38,7 +39,10 @@ _te_exc:
     csrr t0, mscratch
     j    _real_start
 _te_other_irq:
-    j    _trap_hang
+    addi t0, t0, 1             # cause==16 (timer_irq) ise t0 simdi 0
+    bnez t0, _trap_hang
+    csrr t0, mscratch          # t0'i geri al
+    j    timer_isr
 .option pop
 
 _trap_hang:
@@ -46,6 +50,7 @@ _trap_hang:
 
 # ai_isr tanimsizsa zayif sembol kalir, linker C tarafindaki guclu sembole baglar.
 .weak ai_isr
+.weak timer_isr
 .option pop
 
 _real_start:
