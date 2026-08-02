@@ -5,9 +5,14 @@
 # ============================================
 import os, subprocess, sys
 from pathlib import Path
+from shutil import which
 
 HERE = Path(__file__).resolve().parent
-TC = "/opt/riscv-toolchain/bin/riscv32-unknown-elf-"
+# Toolchain onceligi: RISCV_PREFIX ortam degiskeni > PATH > /opt/riscv-toolchain
+TC = os.environ.get("RISCV_PREFIX")
+if not TC:
+    TC = "riscv32-unknown-elf-" if which("riscv32-unknown-elf-gcc") \
+         else "/opt/riscv-toolchain/bin/riscv32-unknown-elf-"
 
 def run(c):
     print(">>", " ".join(c))

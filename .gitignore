@@ -66,3 +66,12 @@ verif/arch_tests/riscv-arch-test/
 !sw/bootloader/flash_helloworld.hex
 !teknotest/**/*.hex
 !teknotest/**/*.mem
+!bootrom.hex
+!rtl/fpga/firmware_flash.bin
+
+# ============================================================
+# KISISEL / DAHILI - ASLA PUSHLANMAYACAK
+# (Turkce karakterden kacinmak icin joker kullanildi)
+# ============================================================
+docs/soru_cevap_*
+images/teknofest_toplanti_31072026.png

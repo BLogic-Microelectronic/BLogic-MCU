@@ -55,7 +55,8 @@ add_files ../rtl/core/cv32e40p/rtl/cv32e40p_popcnt.sv
 add_files ../rtl/core/cv32e40p/rtl/cv32e40p_prefetch_buffer.sv
 add_files ../rtl/core/cv32e40p/rtl/cv32e40p_prefetch_controller.sv
 add_files ../rtl/core/cv32e40p/rtl/cv32e40p_register_file_ff.sv
-add_files ../rtl/core/cv32e40p/rtl/cv32e40p_register_file_latch.sv
+# NOT: register_file_latch.sv bilerek derlenmiyor - ayni modul adini tanimlar,
+# xsim'de son tanim kazanir ve FF varyantini ezer (kart-dogrulamali build FF kullanir).
 add_files ../rtl/core/cv32e40p/rtl/cv32e40p_sleep_unit.sv
 add_files ../rtl/core/cv32e40p/rtl/cv32e40p_core.sv
 add_files ../rtl/core/cv32e40p/rtl/cv32e40p_top.sv

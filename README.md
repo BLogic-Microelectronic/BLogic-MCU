@@ -281,7 +281,7 @@ sudo apt-get update
 sudo apt-get install -y \
     build-essential gcc g++ make autoconf automake libtool \
     bison flex git ccache help2man perl python3 python3-pip python3-venv \
-    libfl-dev libfl2 zlibc zlib1g zlib1g-dev libgoogle-perftools-dev \
+    libfl-dev libfl2 zlib1g zlib1g-dev libgoogle-perftools-dev \
     numactl perl-doc libssl-dev curl wget unzip xz-utils \
     device-tree-compiler libboost-regex-dev gtkwave
 ```
@@ -575,7 +575,7 @@ The `uart-baud` sweep proves the UART works across the spec range **9600 → 115
 
 ![I²C System Test](images/qspi_page_program.png)
 
-`make i2c-sys` instantiates the I²C master against `verif/modelsave_model.sv` (echo slave) and exercises:
+`make i2c-sys` instantiates the I²C master against `verif/models/i2c_slave_model.sv` (echo slave) and exercises:
 
 - `NBY` byte-count rounding (0/1/3/4)
 - `ADR` 7-bit mask
@@ -643,7 +643,7 @@ The custom AI Accelerator implements Google's **TensorFlow Lite Micro Speech "Ti
 | **Local RAMs** | `input_mem` (1960 B), `conv_w` (640 B), `conv_bias` (32 B), `conv_out` (4000 B), `fc_bias` (16 B), `fc_out` (4 B) |
 | **Datapath** | INT8 × INT8 → INT32 MAC, ReLU, `>>> CONV_SHIFT (11)`, saturation to INT8 |
 | **Main FSM** | `IDLE → LOAD → CONV → WRITE_CONV → LOAD_FC → FC → ARGMAX → DONE` |
-| **Interrupt** | `irq_o` raised level-hion `STATUS.DONE`, deasserted by `CTRL.CLEAR_DONE` |
+| **Interrupt** | `irq_o` raised level-high on `STATUS.DONE`, deasserted by `CTRL.CLEAR_DONE` |
 
 ### 11.2 Model Topology
 
@@ -677,7 +677,7 @@ The custom AI Accelerator implements Google's **TensorFlow Lite Micro Speech "Ti
 | Flow | Command | Verdict |
 |---|---|---|
 | Standalone TB (6 scenarios: 2 real + 4 synthetic) | `make ai` | `[ADIM E] PASS — 6/6 senaryo` |
-| SoC pollinsoc-ai` | `[SOC-AI] PASS` (argmax = 2 `yes`) |
+| SoC polling flow | `make soc-ai` | `[SOC-AI] PASS` (argmax = 2 → `yes`) |
 | SoC interrupt / ISR | `make soc-ai-irq` | `[SOC-AI-IRQ] PASS` (ISR fires exactly once, argmax 2, DONE cleared) |
 | HW vs SW speedup | `make soc-perf` | `[SOC-PERF] PASS` |
 | EK-1 accuracy window | `make ai-acc` | **40 / 40 sample match**, `|acc_SW − acc_RTL| = 0` (full 10-point window) |
@@ -732,7 +732,7 @@ make ai-acc
 
 The SoC stays in reset until both the user reset button is released **and** the MMCM has repo `LOCKED`, eliminating metastability on bring-up.
 
-### 12.3 Pin Plan (extract — full file: `fpga/genesys2.xdc`)
+### 12.3 Pin Plan (extract — full file: `rtl/fpga/genesys2.xdc`)
 
 | Signal | FPGA Pin | I/O Standard | Function |
 |---|---|---|---|
@@ -740,7 +740,7 @@ The SoC stays in reset until both the user reset button is released **and** the 
 | `cpu_resetn` | `R19` | LVCMOS33 | Active-low reset button (BTNR) |
 | `uart_tx_in` | `Y20` | LVCMOS33 | FT232 host TX → SoC UART_0 RXD |
 | `uart_rx_out` | `Y23` | LVCMOS33 | SoC UART_0 TXD → FT232 host RX |
-| `led[7:0]` | `T28 / V19 / U30 / U29 / V20 / V24 / W23` | LVCMOS33 | GPIO `ODR[7:0]` |
+| `led[7:0]` | `T28 / V19 / U30 / U29 / V20 / V26 / W24 / W23` | LVCMOS33 | GPIO `ODR[7:0]` |
 | `ja[0..7]` | Pmod JA | LVCMOS33 | UART_1, I²C SCL / SDA |
 | `QSPI` | U19 (CS) + R21 / R20 / R25 / P24 (D[3:0]) | LVCMOS33 | Onboard S25FL256S flash + STARTUPE2 CCLK |
 
@@ -749,22 +749,25 @@ The SoC stays in reset until both the user reset button is released **and** the 
 ![FPGA Utilization](images/fpga_utilization.png)
 ![Vivado Design Runs](images/vivado_design_runs.png)
 
+> All values below come from the committed signoff reports under `rtl/fpga/reports/`,
+> regenerated end-to-end by `vivado -mode batch -source rtl/fpga/build_genesys2.tcl`.
+
 | Resource | Used (Impl) | Used (Synth) | Available | Utilization |
 |---|---|---|---|---|
-| **LUT** | 46,485 | 47,180 | 203,800 | **23 %** |
-| **F** | 61,682 | 61,666 | 407,600 | **15 %** |
-| **BRAM (36k tiles)** | 12.5 | 12.5 | 445 | **3 %** |
-| **DSP48E1** | 17 | 17 | 840 | **2 %** |
-| **IO** | — | — | 500 | **9 %** |
-| **BUFG** | — | — | 32 | **6 %** |
+| **LUT** | 46,087 | 46,784 | 203,800 | **22.6 %** |
+| **FF** | 61,731 | 61,717 | 407,600 | **15.1 %** |
+| **BRAM (36k tiles)** | 12.5 | 12.5 | 445 | **2.8 %** |
+| **DSP48E1** | 17 | 17 | 840 | **2.0 %** |
+| **IO (bonded IOB)** | 43 | 43 | 500 | **8.6 %** |
+| **BUFG** | 2 | 2 | 32 | **6.3 %** |
 | **MMCM** | 1 | 1 | 10 | **10 %** |
-| **Total estimated power** | — | — | — | **0.487 W** |
-| **WNS / TNS / WHS / THS** | **+2.208 ns / 0 / +0.040 ns / 0** (timing met, positive slack) | | | |
+| **Total estimated power** | — | — | — | **0.484 W** |
+| **WNS / TNS / WHS / THS** | **+1.744 ns / 0 / +0.054 ns / 0** (timing met, positive slack) | | | |
 | **Failed routes** | **0** | | | |
 
 ### 12.5 Placed & Routed Design
 
-![FPGA Implemented Desga_implemented_design.png)
+![FPGA Implemented Design](images/fpga_implemented_design.png)
 
 ### 12.6 FPGA Demos — Live Board
 
@@ -781,7 +784,7 @@ The SoC continuously emits `Hello World from BLogic MCU!` on UART_0 at 115200-8-
 
 #### Calculator over UART (interactive)
 
-![FPGA Calculatoremo](images/fpga_calc_demo.jpg)
+![FPGA Calculator Demo](images/fpga_calc_demo.jpg)
 
 The firmware `sw/tests/uart_add_test.c` reads two digits from the host, computes the sum on the CV32E40P core, and prints the result over UART_0 — fully exercising the OBI → AXI4 → AXI-Lite path on real silicon (FPGA).
 
@@ -789,7 +792,7 @@ The firmware `sw/tests/uart_add_test.c` reads two digits from the host, computes
 
 ![QSPI Boot Live](images/uart_timing_signaltap.png)
 
-Internal Boot ROM trace shows the QSPI flash being read into Instruction SRAM (`adr=001ff8 / 001ffc`), the firmware-loaded character `'R'` arriving, and the user `*** TCCESS ***` golden string emitted on UART_0.
+Internal Boot ROM trace shows the QSPI flash being read into Instruction SRAM (`adr=001ff8 / 001ffc`), the firmware-loaded character `'R'` arriving, and the user `*** TEST SUCCESS ***` golden string emitted on UART_0.
 
 ### 12.7 FPGA Build Instructions
 
@@ -799,31 +802,33 @@ Internal Boot ROM trace shows the QSPI flash being read into Instruction SRAM (`
 # Open a shell with Vivado on PATH
 source /tools/Xilinx/Vivado/2021.2/settings64.sh
 
-# Batch mode (recommended)
-vivado -mode batch -source fpga/build_genesys2.tcl
+# Batch mode (recommended) — works from any directory
+vivado -mode batch -source rtl/fpga/build_genesys2.tcl
 
 # Or from inside the Vivado Tcl Console:
-#   cd <repo-root>
-#   source fpga/build_genesys2.tcl
+#   source rtl/fpga/build_genesys2.tcl
 ```
 
-Output: `C:/bl_fpga_build/fpga_genesys2/fpga_genesys2.runs/impl_1/fpga_top.bit`
+Output: `rtl/fpga/fpga_top.bit` (bitstream) + `rtl/fpga/reports/*.rpt` (synthesis / timing / utilization / power / DRC signoff reports). Intermediate files and routed checkpoints go to `build/fpga_genesys2/`.
 
 > The build uses `BOOT_ADDR_HEX = 00000000` (M3 flash-boot mode). For SRAM-direct boot (M2), edit `build_genesys2.tcl` to `BOOT_ADDR_HEX = 00010000` and rebuild.
 
 #### B. Program the QSPI Flash + load the bitstream
 
 ```bash
-# In the Vivado Tcl Console, with the bitstream already built:
-source fpga/flash_firmware.tcl
+# First produce the raw firmware binary for the flash (offset 0x0):
+riscv32-unknown-elf-objcopy -O binary <firmware.elf> rtl/fpga/firmware_flash.bin
+
+# Then, with the bitstream already built and the board connected:
+vivado -mode batch -source rtl/fpga/flash_firmware.tcl
 ```
 
 This one-shot script:
 
 1. Opens Hardware Manager and connects to the JTAG target.
-2. Auto-detects the Genesys 2 onboard flash device.
-3. Converts `fpga/firmware_flash.bin` → `firmware_flash.mcs`.
-4. Erases → programs → verifies the.
+2. Auto-detects the Genesys 2 onboard flash device (S25FL256S).
+3. Converts `rtl/fpga/firmware_flash.bin` → `firmware_flash.mcs`.
+4. Erases → programs → verifies the flash.
 5. Re-programs `fpga_top.bit` so the design picks up the new flash contents.
 
 > Once programmed, press the **R19 reset button** to release CPU reset and start firmware execution.
