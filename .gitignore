@@ -70,6 +70,29 @@ verif/arch_tests/riscv-arch-test/
 !rtl/fpga/firmware_flash.bin
 
 # ============================================================
+# ASIC AKIS CIKTILARI (LibreLane)
+# Her kosu ~100 MB / 1000+ dosya uretiyor - repoya girmemeli.
+# Teslim icin secilen raporlar asic/reports/ altina ELLE kopyalanacak.
+# ============================================================
+asic/blocks/*/runs/
+asic/**/runs/
+*.AppImage
+
+# Teslimde istenen generate-edilmis raporlar HARIC (jury "elle degistirilmemis" istiyor)
+!asic/reports/**
+
+# ============================================================
+# docs/ TAMAMI YEREL - repoya girmez
+# Plan, defter, duyuru metinleri, DTR/OTR dosyalari... hepsi yerelde kalir.
+# Bilerek bir dosyayi commit'lemek istersen: git add -f docs/<dosya>
+# ============================================================
+docs/
+
+# FPGA bitstream (5.9 MB build ciktisi) - "git add -A" surekli topluyordu.
+# Bilerek commit'lemek istersen: git add -f rtl/fpga/fpga_top.bit
+rtl/fpga/*.bit
+
+# ============================================================
 # KISISEL / DAHILI - ASLA PUSHLANMAYACAK
 # (Turkce karakterden kacinmak icin joker kullanildi)
 # ============================================================

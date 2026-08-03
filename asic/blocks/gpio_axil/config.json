@@ -1,0 +1,17 @@
+{
+  "DESIGN_NAME": "gpio_axil",
+  "VERILOG_FILES": ["dir::../../../rtl/peripherals/gpio_axil.sv"],
+
+  "USE_SLANG": true,
+  "SLANG_ARGUMENTS": ["--keep-hierarchy"],
+
+  "CLOCK_PORT": "clk_i",
+  "CLOCK_PERIOD": 20,
+
+  "FP_CORE_UTIL": 40,
+  "PL_TARGET_DENSITY_PCT": 55,
+
+  "pdk::sky130A": {
+    "MAX_FANOUT_CONSTRAINT": 10
+  }
+}
