@@ -29,10 +29,11 @@
 10. [Verification](#10-verification)
 11. [AI Accelerator](#11-ai-accelerator)
 12. [FPGA Prototyping](#12-fpga-prototyping)
-13. [Software Test Suite](#13-software-test-suite)
-14. [Design Tools](#14-design-tools)
-15. [References](#15-references)
-16. [License & Acknowledgments](#16-license--acknowledgments)
+13. [ASIC Flow (sky130)](#13-asic-flow-sky130)
+14. [Software Test Suite](#14-software-test-suite)
+15. [Design Tools](#15-design-tools)
+16. [References](#16-references)
+17. [License & Acknowledgments](#17-license--acknowledgments)
 
 ---
 
@@ -158,7 +159,7 @@ The design has been verified through Verilator-based directed and randomized sim
 | `irq_i[17]` | **AI Accelerator** | `STATUS.DONE` rising edge (level-sensitive) | `CTRL.CLEAR_DONE` |
 | `irq_i[18]` | **UART_1 Stream DMA** | DMA word transfer complete | DMA CFG clear |
 
-> The IRQ vector is built in `soc_top.sv` as `{13'd0, strm_irq, ai_irq, timer_irq, 16'd0}` and routed to `CV32E40P.irq_i`. The `crt0.S` startup file installs the vector table at `mtvec = 0x0001_0000`.
+> The IRQ vector is built in `soc_top.sv` as `{13'd0, strm_irq, ai_irq, timer_irq, 16'd0}` and routed to `CV32E40P.irq_i`. `mtvec_addr_i` is tied to `0x0001_0000` in `soc_top.sv`; `crt0.S` does **not** write `mtvec` at run time — it places the vector table at the start of instruction memory (slot 0 = exceptions, slot 16 = timer, slot 17 = AI, slot 18 = stream) and also provides a `mcause`-decoding dispatcher so the design works in both direct and vectored trap modes.
 
 ---
 
@@ -587,31 +588,63 @@ Verdict: `*** TEST SUCCESS *** I2C SISTEM YOLU DOGRULANDI` with `9716` AXI-Lite 
 
 ### 10.8 Coverage Report
 
-```bash
-make coverage
-```
+Coverage is measured at **two levels**, because Verilator merges `.dat` files by
+hierarchical path: in the SoC build a peripheral lives under `TOP.soc_top.i_qspi`,
+while in its standalone bench it lives under `TOP.qspi_modes_tb`. Merging both into
+one percentage double-counts the same lines and understates the result, so the two
+levels are reported separately.
 
-Verilator line + branch coverage across the team's RTL (CV32E40P vendor files waived in `verif/coverage_waivers.vlt`):
+#### SoC level — `make coverage`
+
+Ten self-checking C tests on a single instrumented SoC build, fixed denominator.
+
+**Scope:** design RTL only (14 files). Excluded via `verif/coverage_waivers.vlt`:
+CV32E40P / PULP vendor code, testbenches, behavioural models, SVA checkers and
+covergroup binds — these are verification infrastructure, not design under test.
 
 | Metric | Result |
 |---|---|
-| **Line coverage** | **56.3 %** (291 / 517) |
-| **Branch coverage** | **64.4 %** (876 / 1360) |
-| Lines fully covered (annotation) | 46.0 % (964 / 2084) |
+| **Line coverage** | **67.2 %** (248 / 369) |
+| **Branch coverage** | **79.5 %** (644 / 810) |
+| Lines fully covered (annotation) | 76.0 % (1323 / 1719) |
 
 Per-file uncovered point counts:
 
-| RTL file | Uncovered points |
-|---|---|
-| `ai_accelerator.sv` | 121 |
-| `qspi_master_axil.sv` | 203 |
-| `timer_axil.sv` | 49 |
-| `obi_to_axi.sv` | 23 |
-| `uart_axil.sv` | 23 |
-| `gpio_axil.sv` | 3 |
-| `ai_sram_arbiter.sv` / `periph_decoder.sv` / `soc_axi_interconnect.sv` | 0 |
+| RTL file | Uncovered points | Note |
+|---|---|---|
+| `qspi_master_axil.sv` | 122 | write/erase paths not excitable with a read-only flash model; x2/x4 read modes covered by the standalone bench below |
+| `obi_to_axi.sv` | 23 | AW/W channel-skew states — structurally unreachable, every AXI-Lite slave asserts ready in the same cycle |
+| `ai_accelerator.sv` | 12 | saturation branches and SAME-pad path not reached with the real quantised weights |
+| `uart_stream_axil.sv` | 2 | read-decoder defaults |
+| `gpio_axil.sv` | 2 | decoder defaults |
+| `uart_axil.sv` / `timer_axil.sv` | 1 each | read-decoder default (unreachable on a word-aligned bus) |
+| `ai_sram_arbiter.sv` / `periph_decoder.sv` / `soc_axi_interconnect.sv` | 0 | fully covered |
 
-Detailed annotated source: `logs/coverage/annotate/` (lines prefixed with `%` are uncovered).
+Annotated sources: `logs/coverage/annotate/` (`%`-prefixed lines are uncovered).
+Committed summary: `verif/coverage_summary.txt`.
+
+#### Module level — `make coverage-tb`
+
+Each standalone testbench exercises its target module with the scenarios that
+module was designed for, so this table reflects how thoroughly each block is
+actually verified.
+
+| Testbench | Target module | Covered / total | Ratio |
+|---|---|---|---|
+| `boot` | `axi_sram_wrapper.sv` | 16 / 16 | **100.0 %** |
+| `i2c-sys` | `i2c_master_axil.sv` | 180 / 184 | **97.8 %** |
+| `ai` | `ai_accelerator.sv` | 373 / 388 | **96.1 %** |
+| `uart-stream` | `uart_stream_axil.sv` | 140 / 147 | **95.2 %** |
+| `uart-stp` | `uart_axil.sv` | 98 / 105 | **93.3 %** |
+| `qspi-modes` | `qspi_master_axil.sv` | 220 / 305 | **72.1 %** |
+
+Committed summary: `verif/coverage_tb_summary.txt`.
+
+#### Functional coverage
+
+SVA-based covergroups are bound to the UART, QSPI, AI-accelerator CSR and IRQ
+interfaces (`verif/sva/*_func_cov.sv`). The IRQ covergroup reaches **3 / 3 bins**
+(timer irq16, AI irq17, stream irq18) over a full `make coverage` run.
 
 ### 10.9 UVM Testbench
 
@@ -835,7 +868,97 @@ This one-shot script:
 
 ---
 
-## 13. Software Test Suite
+## 13. ASIC Flow (sky130)
+
+The design targets a sky130 tape-out through **LibreLane 3.0.5**. Everything below is
+reproducible from a clean clone; no step depends on a commercial EDA licence.
+
+### 13.1 Environment
+
+| Component | Version / hash |
+|---|---|
+| LibreLane | 3.0.5 |
+| Yosys (in LibreLane) | 0.62 (`7326bb7d`) |
+| yosys-slang | bundled with LibreLane |
+| sky130 PDK (ciel) | `8afc8346a57fe1ab7934ba5a6056ea8b43078e71` |
+| Standard cells | `sky130_fd_sc_hd` |
+| SRAM macros | `sky130_sram_macros` (ships with the PDK) |
+
+### 13.2 Files
+
+| Path | Purpose |
+|---|---|
+| `asic/soc_files_asic.f` | synthesis file list (SVA/TB excluded, top = `asic_top`) |
+| `asic/soc_top.sdc` | timing constraints (50 MHz) |
+| `asic/BELLEK_ENVANTERI.md` | memory inventory, macro/banking plan, corner analysis |
+| `rtl/asic/asic_top.sv` | ASIC top level — no MMCM/BUFG/IOBUF, clock and reset from pads |
+| `rtl/asic/sram_macro_bank.sv` | 512-word banked SRAM macro wrapper |
+| `rtl/asic/sram_macro_blackbox.sv` | macro port contracts (timing from `.lib`, layout from `.lef`/`.gds`) |
+| `rtl/asic/boot_rom.sv` | synthesised boot ROM (content generated from `bootrom.hex`) |
+| `rtl/asic/cv32e40p_clock_gate_asic.sv` | ASIC clock gate replacing the simulation-only vendor cell |
+| `scripts/asic_elab.sh` | elaboration gate (`make asic-elab`) |
+
+### 13.3 Frontend: yosys-slang, not sv2v
+
+Yosys cannot read SystemVerilog interfaces (`AXI_BUS.Slave`) directly. Two paths were
+evaluated:
+
+| Path | Elaboration | Hierarchy |
+|---|---|---|
+| sv2v → Yosys | 19 min, 2 GB | flattened — `axi_sram_wrapper` inlined into `soc_top`, macros not separable in floorplan |
+| **yosys-slang `--keep-hierarchy`** | **1.5 s, 100 MB** | **49 modules preserved** |
+
+`--keep-hierarchy` is mandatory; without it slang also collapses the design into a
+single module.
+
+### 13.4 Memory strategy
+
+The design holds **410,336 bits** of memory. Left as flip-flops that alone would be on
+the order of 11 mm² in sky130 (there is no BRAM equivalent), which would dominate the
+area score. `axi_sram_wrapper` therefore has two modes selected by `ASIC_SRAM_MACRO`:
+behavioural arrays for simulation and FPGA, real macros for ASIC. Read latency is
+identical in both (address at T, data at T+1); only the position of the register
+differs, so `slv.r_data` is driven from a common `rdata_src`.
+
+| Memory | Words | Macro plan |
+|---|---|---|
+| AI SRAM | 7,680 | 15 × `sky130_sram_2kbyte_1rw1r_32x512_8` |
+| Instruction SRAM | 2,048 | 4 × `32x512` |
+| Data SRAM | 2,048 | 4 × `32x512` |
+| Boot ROM | 32 used / 256 addressed | synthesised `case` ROM |
+
+7,680 is not a power of two but divides evenly by 512 (15 banks), so no tie-off decode
+or rounding waste is needed. Result: **410,336 → 25,312 bits** of logic memory,
+**23 macros**; the remainder is AI-accelerator local buffers (21,216) and QSPI FIFOs (4,096).
+
+### 13.5 Resolved blockers
+
+| # | Issue | Resolution |
+|---|---|---|
+| 1 | `cv32e40p_register_file` declared twice | latch variant removed from the ASIC file list |
+| 2 | `soc_protocol_bind` leaking into synthesis | wrapped in `` `ifndef SYNTHESIS `` in addition to `translate_off` |
+| 3 | `$readmemh` / `INIT_FILE` unsynthesisable | guarded; ASIC path uses macros, simulation path unchanged |
+| 4 | 410 kbit of memory as flip-flops | SRAM macro integration (13.4) |
+| 5 | Yosys memory blow-up (14 min, 2.67 GB) | yosys-slang frontend (13.3) |
+| 6 | Vendor clock gate is the only latch in the design | `rtl/asic/cv32e40p_clock_gate_asic.sv`. The vendor file states *"It must not be used for ASIC synthesis"*; it is a latch + AND and `cv32e40p_sleep_unit.sv` instantiates it unconditionally, so the whole CPU clock passes through it. By default gating is disabled (`clk_o = clk_i`) — `clock_en` is a power optimisation, not a functional requirement, so leaving the clock free-running is safe, removes the latch and keeps a single clock domain with no extra CTS/STA constraints. Defining `USE_SKY130_ICG` selects a real `sky130_fd_sc_hd__dlclkp_1` cell instead, at the cost of gated-clock constraints in the SDC. |
+
+After these, the design contains **no latches** and elaborates cleanly.
+
+### 13.6 Running the flow
+
+```bash
+make lint                    # ASIC lint (MODDUP / PINMISSING deliberately NOT waived)
+make asic-elab               # slang elaboration gate, behavioural memories
+ASIC_SRAM=1 make asic-elab   # same, with SRAM macros bound
+make bootrom                 # regenerate boot ROM content from bootrom.hex
+```
+
+`make asic-elab` fails if `$display` / `$readmemh` residue reaches the synthesis view,
+and reports any latch it finds — both are regression gates, not one-off checks.
+
+---
+
+## 14. Software Test Suite
 
 All firmware tests live in `sw/tests/` and link against `sw/drivers/blogic_mcu.h` + `sw/common/{crt0.S, link.ld}`. Each test prints a golden string (`Hello World from BLogic MCU!`) on UART_0 when it passes; the Verilator harness (`verif/tb/sim_main.cpp`) matches this string and writes `result=PASS` to `logs/sim/<test>/result.log`.
 
@@ -866,7 +989,7 @@ make sim FW_SRC=sw/tests/ai_irq_test.c TRACE=1
 
 ---
 
-## 14. Design Tools
+## 15. Design Tools
 
 | Tool | Version (verified) | Purpose |
 |---|---|---|
@@ -885,7 +1008,7 @@ make sim FW_SRC=sw/tests/ai_irq_test.c TRACE=1
 
 ---
 
-## 15. References
+## 16. References
 
 1. RISC-V International — *RISC-V Instruction Set Manual, Volume I: Unprivileged ISA*, [https://riscv.org/specifications/](https://riscv.org/specifications/)
 2. OpenHW Group — *CV32E40P User Manual*, [https://docs.openhwgroup.org/projects/cv32e40p-user-manual/](https://docs.openhwgroup.org/projects/cv32e40p-user-manual/)
@@ -904,7 +1027,7 @@ make sim FW_SRC=sw/tests/ai_irq_test.c TRACE=1
 
 ---
 
-## 16. License & Acknowledgments
+## 17. License & Acknowledgments
 
 This project was developed by **BLogic Mikroelektronik** for the **TEKNOFEST 2026 Chip Design Competition**, hosted at **Ostim Technical University**.
 
