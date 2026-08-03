@@ -94,7 +94,10 @@ module qspi_master_axil (
     logic [ 7:0] shift_out;
     logic [ 7:0] shift_in;
     logic [ 1:0] rx_byte_pos;
-    logic [31:0] rx_word_acc;
+    // Yalniz 3 bayt biriktirilir; 4. bayt (nsh) dogrudan FIFO'ya yazilir,
+    // bu nedenle 24 bit yeterlidir. Eskiden 32 bit idi ve [31:24] hicbir
+    // zaman surulmuyordu -> sentezde 'used but has no driver' uyarisi.
+    logic [23:0] rx_word_acc;
     logic [ 1:0] tx_byte_pos;
     logic [31:0] tx_current_word;
     logic        sta_done;
@@ -374,7 +377,9 @@ module qspi_master_axil (
                                             2'd0: rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= {24'd0, nsh};
                                             2'd1: rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= {16'd0, nsh, rx_word_acc[7:0]};
                                             2'd2: rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= {8'd0, nsh, rx_word_acc[15:0]};
-                                            default: rx_fifo[rx_wr_ptr[FIFO_AW-1:0]] <= rx_word_acc;
+                                            // rx_byte_pos == 2'd3 disaridaki guard ile zaten elenmistir;
+                                            // bu dal erisilemez (eskiden rx_word_acc[31:24]'u okuyan tek yerdi).
+                                            default: ;
                                         endcase
                                         rx_wr_ptr <= rx_wr_ptr + 1;
                                 end
