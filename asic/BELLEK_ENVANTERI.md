@@ -55,3 +55,20 @@ sv2v yolu terk edildi: hem hiyerarsiyi inline ediyordu hem de ayni elaborasyon
 `cv32e40p_sim_clock_gate` tasarimdaki **tek latch** (`$dlatch 1`). Dosyanin kendi
 basligi "It must not be used for ASIC synthesis" der; `cv32e40p_sleep_unit.sv:154`'te
 kosulsuz instantiate edilir, yani CPU'nun tum saati buradan gecer. Blokaj 6.
+
+## Kose (corner) uyarisi — karar gerektirir
+
+`sky130_sram_2kbyte_1rw1r_32x512_8` PDK'da **yalnizca `TT_1p8V_25C`** lib'i ile gelir.
+`sram_1rw1r_32_256_8_sky130` ise 7 kose tasir (FF/SS/TT, 1p7-1p9V, 0-100C).
+
+LibreLane STA'yi 9 kosede kosar. Secenekler:
+
+| Secenek | Makro | Adet | Kose kapsami |
+|---|---|---|---|
+| A | `32x512` (2 KB) | 23 | yalniz TT — SS/FF icin TT modeli eslenir (waiver) |
+| B | `32x256` (1 KB) | 46 | tam kose kapsami, iki kat makro |
+
+Oneri: **A + belgelenmis waiver**. Gerekce: 46 makronun yerlesim/route riski ve
+alan puaninin kose hassasiyetinden daha belirleyici olmasi. Imza raporuna
+"OpenRAM makrolari tek kose ile dagitilir; SS/FF analizi TT modeli uzerinden
+yaklasiktir" notu dusulecek. Nihai karar Berk (floorplan) ile ortak.
