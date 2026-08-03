@@ -26,6 +26,9 @@ module axi_sram_wrapper #(
     logic [31:0] mem [0:SRAM_WORDS-1];
 
     // --- Memory Init (Simülasyon + FPGA) ---
+`ifndef SYNTHESIS
+    // Simulasyon/FPGA yolu: ASIC sentezinde bu blok yoktur.
+    // ASIC'te bellek icerigi SRAM makrolarina bootloader ile yuklenir.
     initial begin
         // Önce tüm belleği sıfırla (X propagation'ı önle)
         for (int i = 0; i < SRAM_WORDS; i++) begin
@@ -37,6 +40,7 @@ module axi_sram_wrapper #(
             $display("[SRAM_INIT %m] %s yuklendi, mem[0]=%08x mem[1]=%08x", INIT_FILE, mem[0], mem[1]);
         end
     end
+`endif
 
     // ============================================================
     // 3. ADRES HESAPLAMA (Bit Maskeleme)

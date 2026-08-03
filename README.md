@@ -288,17 +288,17 @@ sudo apt-get install -y \
 
 ### 8.2 Verilator (≥ 5.0)
 
-The repository is verified with **Verilator 5.049 devel**. UVM and `--timing` require a 5.x build, so packaged Ubuntu 24.04 versions (4.x) are **not sufficient**.
+The repository is verified with **Verilator 5.049 devel (rev `v5.048-135-g99a35fee8`)**. UVM and `--timing` require a 5.x build, so packaged Ubuntu 24.04 versions (4.x) are **not sufficient**. Releases **older than v5.048 will not build the CV32E40P core**: `cv32e40p_cs_registers.sv` triggers `%Error-BLKANDNBLK` (blocking + non-blocking assignment to `mhpmcounter_q`). Check out the exact commit below so that coverage figures match the ones reported in this README.
 
 ```bash
 git clone https://github.com/verilator/verilator.git
 cd verilator
-git checkout v5.024              # or any v5.x ≥ 5.020
+git checkout 99a35fee8           # v5.049 devel - exact revision used for all reported results
 autoconf
 ./configure --prefix=/usr/local
 make -j$(nproc)
 sudo make install
-verilator --version              # should print "Verilator 5.x.x"
+verilator --version              # -> Verilator 5.049 devel rev v5.048-135-g99a35fee8
 ```
 
 ### 8.3 RISC-V GNU Toolchain (rv32imc / ilp32)
@@ -487,7 +487,7 @@ cd obj_dir && ./blogic_sim +CPB=434
 
 | Layer | Tool / Style | Purpose |
 |---|---|---|
-| **Unit RTL sim** | Verilator 5.x, SystemVerilog | Per-module testbenches (`verif/tb/`) |
+| **Unit RTL sim** | Verilator 5.049 devel, SystemVerilog | Per-module testbenches (`verif/tb/`) |
 | **SoC integration sim** | Verilator + `sim_main.cpp` | Full SoC, UART golden-string monitor |
 | **ISA compliance** | `riscv-arch-test` repo | RV32I / M extension self-tests |
 | **Lockstep** | Spike ISS + Python diff (`verif/spike/compare_traces.py`) | Cycle-by-cycle PC + commit trace |

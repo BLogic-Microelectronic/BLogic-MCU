@@ -27,7 +27,6 @@ rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/rr_arb_tree.sv
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/spill_register.sv
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/counter.sv
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/delta_counter.sv
-rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/id_queue.sv
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/stream_arbiter.sv
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/stream_arbiter_flushable.sv
 rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/fall_through_register.sv
@@ -57,7 +56,6 @@ rtl/core/cv32e40p/rtl/cv32e40p_popcnt.sv
 rtl/core/cv32e40p/rtl/cv32e40p_prefetch_buffer.sv
 rtl/core/cv32e40p/rtl/cv32e40p_prefetch_controller.sv
 rtl/core/cv32e40p/rtl/cv32e40p_register_file_ff.sv
-rtl/core/cv32e40p/rtl/cv32e40p_register_file_latch.sv
 rtl/core/cv32e40p/rtl/cv32e40p_sleep_unit.sv
 rtl/core/cv32e40p/rtl/cv32e40p_core.sv
 rtl/core/cv32e40p/rtl/cv32e40p_top.sv

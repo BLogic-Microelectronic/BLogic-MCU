@@ -487,6 +487,7 @@ module soc_top #(
 
     // Protocol checker'lar (sentezde cikarilir, EK-3 zorunlu)
     // synthesis translate_off
+`ifndef SYNTHESIS
     // verilator lint_off UNUSED
     // verilator lint_off UNDRIVEN
 
@@ -592,6 +593,7 @@ module soc_top #(
 
     // verilator lint_on UNUSED
     // verilator lint_on UNDRIVEN
+`endif
     // synthesis translate_on
 
 

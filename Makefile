@@ -12,7 +12,7 @@ BOOT_DIR  = obj_dir_boot
 AI_DIR    = obj_dir_ai
 ARCH_EXT ?= I M
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -131,6 +131,22 @@ soc-strm:
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/uart1_strm_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/uart1_strm_test/result.log \
 	    && echo "[SOC-STRM] PASS" || { echo "[SOC-STRM] FAIL"; exit 1; }
+
+# ASIC lint kapisi. DIKKAT: sim waiver seti KOPYALANMAZ.
+# -Wno-MODDUP ve -Wno-PINMISSING kasitli olarak YOK: modul duplikasyonunu ve
+# baglanmamis pinleri yakalamasi gereken tam da bu iki uyaridir.
+lint:
+	verilator --lint-only -DSYNTHESIS -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND \
+	    -Wno-WIDTHTRUNC -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-UNOPTFLAT \
+	    --top-module asic_top -f asic/soc_files_asic.f 2>&1 | tail -25
+
+# sv2v -> yosys elaborasyon kapisi: sentez oncesi erken uyari
+asic-elab:
+	bash scripts/gen_asic_verilog.sh
+	@if grep -nE '\$$display|\$$fatal|\$$error|\$$finish|\$$readmemh' build/asic/soc_asic.v; then \
+	    echo "[ASIC-ELAB] FAIL: sv2v ciktisinda sim-only kalinti var"; exit 1; \
+	 else echo "[ASIC-ELAB] sim-only kalinti yok"; fi
+	yosys -p "read_verilog -sv build/asic/soc_asic.v; hierarchy -top asic_top; stat" 2>&1 | tail -30
 
 # hizlanma olcumu: HW vs SW referans
 soc-perf:

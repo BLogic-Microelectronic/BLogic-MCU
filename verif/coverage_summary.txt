@@ -1,5 +1,5 @@
 BLogic MCU - line coverage ozeti (make coverage)
-tarih     : 2026-07-22
+tarih     : 2026-08-03
 verilator : Verilator 5.049 devel rev v5.048-135-g99a35fee8
 testler   : uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test timer_irq_test uart_stp_reg_test uart1_strm_test
 olcum     : --coverage-line; CV32E40P vendor dosyalari verif/coverage_waivers.vlt ile haric
