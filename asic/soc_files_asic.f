@@ -1,3 +1,4 @@
++define+BOOTROM_CONTENT
 +incdir+rtl/asic
 # ============================================
 # Ostim BLogic Mikroelektronik
@@ -18,7 +19,7 @@ rtl/core/cv32e40p/rtl/include/cv32e40p_pkg.sv
 rtl/core/cv32e40p/rtl/include/cv32e40p_apu_core_pkg.sv
 rtl/core/cv32e40p/rtl/include/cv32e40p_fpu_pkg.sv
 # generic ICG (latch+AND); hedef kutuphanenin ICG hucresiyle degistirilebilir
-rtl/core/cv32e40p/bhv/cv32e40p_sim_clock_gate.sv
+rtl/asic/cv32e40p_clock_gate_asic.sv
 
 rtl/bus/axi/src/axi_intf.sv
 

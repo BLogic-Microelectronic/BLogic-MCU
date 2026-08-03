@@ -12,6 +12,9 @@ BOOT_DIR  = obj_dir_boot
 AI_DIR    = obj_dir_ai
 ARCH_EXT ?= I M
 
+# Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
+TBCOV ?=
+
 .PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm
 
 compile:
@@ -40,7 +43,7 @@ uart-baud:
 UARTSTP_DIR = obj_dir_uart_stp
 uart-stp:
 	rm -rf $(UARTSTP_DIR)
-	verilator --binary --timing --top-module uart_stp_tb \
+	verilator --binary $(TBCOV) --timing --top-module uart_stp_tb \
 	    -Mdir $(UARTSTP_DIR) -o uart_stp_sim \
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
@@ -54,7 +57,7 @@ uart-stp:
 UARTSTRM_DIR = obj_dir_uart_stream
 uart-stream:
 	rm -rf $(UARTSTRM_DIR)
-	verilator --binary --timing --top-module uart_stream_tb \
+	verilator --binary $(TBCOV) --timing --top-module uart_stream_tb \
 	    -Mdir $(UARTSTRM_DIR) -o uart_stream_sim \
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
@@ -67,7 +70,7 @@ uart-stream:
 # QSPI boot akisi (her kosuda temiz build)
 boot:
 	rm -rf $(BOOT_DIR)
-	verilator --binary --timing --top-module boot_flow_test_tb \
+	verilator --binary $(TBCOV) +define+BOOTROM_CONTENT --timing --top-module boot_flow_test_tb \
 	    -Mdir $(BOOT_DIR) -o boot_flow_test_sim \
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
@@ -86,7 +89,7 @@ ai:
 	@test -f sw/ai_model/golden_vectors/weights_conv.hex -a -f sw/ai_model/golden_vectors/input_yes.hex -a -f sw/ai_model/golden_vectors/input_yes_real.hex \
 	    || { echo "[AI] golden_vectors eksik - once: python3 sw/ai_model/extract_weights.py && python3 sw/ai_model/generate_golden.py && python3 sw/ai_model/fetch_real_features.py"; exit 1; }
 	rm -rf $(AI_DIR)
-	verilator --binary -j 0 -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-CASEINCOMPLETE \
+	verilator --binary $(TBCOV) -j 0 -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-CASEINCOMPLETE \
 	    --top-module ai_accel_tb -Mdir $(AI_DIR) -o ai_accel_tb_sim \
 	    verif/tb/ai_accel_tb.sv rtl/ai_accelerator/ai_accelerator.sv
 	./$(AI_DIR)/ai_accel_tb_sim 2>&1 | tee $(AI_DIR)/ai_run.log
@@ -180,7 +183,7 @@ qspi-modes:
 	rm -rf build
 	$(MAKE) -f Makefile.verilator sw FW_SRC=sw/tests/qspi_modes_test.c
 	rm -rf $(MODES_DIR)
-	verilator --binary --timing --top-module qspi_modes_tb \
+	verilator --binary $(TBCOV) --timing --top-module qspi_modes_tb \
 	    -Mdir $(MODES_DIR) -o qspi_modes_sim \
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
@@ -200,7 +203,7 @@ i2c-sys:
 	rm -rf build
 	$(MAKE) -f Makefile.verilator sw FW_SRC=sw/tests/i2c_system_test.c
 	rm -rf $(I2C_DIR)
-	verilator --binary --timing --top-module i2c_system_tb \
+	verilator --binary $(TBCOV) --timing --top-module i2c_system_tb \
 	    -Mdir $(I2C_DIR) -o i2c_sys_sim \
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \

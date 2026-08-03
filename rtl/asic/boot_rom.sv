@@ -28,7 +28,9 @@ module boot_rom #(
     always_comb begin
         rom_word = 32'h0000_0000;
         case (rd_word_idx)
+`ifdef BOOTROM_CONTENT
 `include "bootrom_content.svh"
+`endif
             default: rom_word = 32'h0000_0000;
         endcase
     end

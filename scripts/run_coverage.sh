@@ -32,6 +32,26 @@ for T in $TESTS; do
     DATS="$DATS logs/sim/$T/coverage.dat"
 done
 
+# --- Ayri testbench'ler (kendi top modulleriyle kosarlar) ---
+# Bunlar C testleriyle ayni RTL dosyalarina vurur; verilator_coverage
+# dosya/satir bazinda birlestirir.
+TB_TARGETS="uart-stp uart-stream qspi-modes i2c-sys ai boot"
+for TB in $TB_TARGETS; do
+    echo ">>> tb: $TB"
+    rm -f coverage.dat
+    if make $TB TBCOV=--coverage-line >"$PROJ/logs/coverage/tb_${TB}.log" 2>&1; then
+        if [ -f coverage.dat ]; then
+            mv coverage.dat "$PROJ/logs/coverage/tb_${TB}.dat"
+            DATS="$DATS logs/coverage/tb_${TB}.dat"
+            echo "    PASS (coverage alindi)"
+        else
+            echo "    PASS (coverage.dat uretilmedi - atlandi)"
+        fi
+    else
+        echo "    ATLANDI - bkz: logs/coverage/tb_${TB}.log"
+    fi
+done
+
 rm -rf logs/coverage/annotate
 verilator_coverage --annotate logs/coverage/annotate --annotate-min 1 $DATS | tee logs/coverage/summary.txt
 

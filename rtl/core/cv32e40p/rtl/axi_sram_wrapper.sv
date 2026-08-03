@@ -87,8 +87,9 @@ module axi_sram_wrapper #(
     end
 
     logic [31:0] rdata_q;
-    always_ff @(posedge clk_i) begin
-        if (read_en) rdata_q <= mem[rd_word_idx];
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni)      rdata_q <= 32'h0;
+        else if (read_en) rdata_q <= mem[rd_word_idx];
     end
     assign rdata_src = rdata_q;
 `else

@@ -1,4 +1,3 @@
-+incdir+rtl/asic
 # ============================================
 # Ostim BLogic Mikroelektronik
 # soc_files.f  -  Verilator/sentez dosya listesi
@@ -99,3 +98,4 @@ rtl/asic/boot_rom.sv
 rtl/soc_top.sv
 rtl/ai_accelerator/ai_accelerator.sv
 rtl/ai_accelerator/ai_sram_arbiter.sv
++incdir+rtl/asic
