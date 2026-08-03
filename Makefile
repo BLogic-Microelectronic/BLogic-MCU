@@ -142,11 +142,7 @@ lint:
 
 # sv2v -> yosys elaborasyon kapisi: sentez oncesi erken uyari
 asic-elab:
-	bash scripts/gen_asic_verilog.sh
-	@if grep -nE '\$$display|\$$fatal|\$$error|\$$finish|\$$readmemh' build/asic/soc_asic.v; then \
-	    echo "[ASIC-ELAB] FAIL: sv2v ciktisinda sim-only kalinti var"; exit 1; \
-	 else echo "[ASIC-ELAB] sim-only kalinti yok"; fi
-	yosys -p "read_verilog -sv build/asic/soc_asic.v; hierarchy -top asic_top; stat" 2>&1 | tail -30
+	@bash scripts/asic_elab.sh
 
 # hizlanma olcumu: HW vs SW referans
 soc-perf:

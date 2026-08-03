@@ -232,7 +232,9 @@ module qspi_master_axil (
                     sta_busy <= 1'b0;
                     if (cmd_start) begin
                         // cmd_start burada surulmez, Vivado xelab multi-driver hatasi cikmasin
+                        // synthesis translate_off
                         $display("[%0t QSPI] IDLE->CS_ASSERT instr=%02x adr=%06x", $time, ccr_instr, qspi_adr);
+                        // synthesis translate_on
                         spi_state     <= SPI_CS_ASSERT;
                         sta_busy      <= 1'b1;
                         sta_done      <= 1'b0;
@@ -419,7 +421,9 @@ module qspi_master_axil (
                 SPI_DONE: begin
                     sta_done  <= 1'b1;
                     sta_busy  <= 1'b0;
+                    // synthesis translate_off
                     $display("[%0t QSPI] DONE", $time);
+                    // synthesis translate_on
                     spi_state <= SPI_IDLE;
                 end
 
@@ -487,7 +491,9 @@ module qspi_master_axil (
                         if (s_axi_wdata[31]) cmd_clr_sta <= 1'b1;
                         else if (!sta_busy) begin
                             cmd_start   <= 1'b1;
+                            // synthesis translate_off
                             $display("[%0t QSPI] CCR write ccr=%08x adr=%08x", $time, s_axi_wdata, qspi_adr);
+                            // synthesis translate_on
                         end
                     end
                     ADDR_ADR: qspi_adr <= s_axi_wdata;
