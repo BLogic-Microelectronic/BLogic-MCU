@@ -161,6 +161,7 @@ soc-perf:
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_sw_reference.c SIM_PLUSARGS=+MAX_CYCLES=25000000 $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/ai_sw_reference/result.log \
 	    && echo "[SOC-PERF] PASS" || { echo "[SOC-PERF] FAIL"; exit 1; }
+	@python3 scripts/gen_perf_report.py
 
 # ISA uyumluluk C testi (self-checking, DTR bolum 4)
 isa-compliance:
