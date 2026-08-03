@@ -2,17 +2,21 @@ BLogic MCU - line coverage ozeti (make coverage)
 tarih     : 2026-08-03
 verilator : Verilator 5.049 devel rev v5.048-135-g99a35fee8
 testler   : uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test timer_irq_test uart_stp_reg_test uart1_strm_test
-olcum     : --coverage-line; CV32E40P vendor dosyalari verif/coverage_waivers.vlt ile haric
+olcum     : --coverage-line, SoC seviyesi (10 C testi, tek build, sabit payda)
+kapsam    : tasarim RTL'i (14 dosya). Haric: CV32E40P/PULP vendor kodu,
+            testbench'ler, davranissal modeller, SVA checker ve covergroup
+            bind'leri - bunlar dogrulama altyapisidir, tasarim degil.
+modul bazli TB kapsamasi: verif/coverage_tb_summary.txt (make coverage-tb)
 ------------------------------------------------------------
 Coverage Summary:
-  line      : 65.5% ( 352/ 537)
-  toggle    : 0.0% (   0/   0)
-  branch    : 73.0% (1046/1432)
-  expr      : 0.0% (   0/   0)
-  fsm_state : 0.0% (   0/   0)
-  fsm_arc   : 0.0% (   0/   0)
+  line      : 67.2% (248/369)
+  toggle    : 0.0% (  0/  0)
+  branch    : 79.5% (644/810)
+  expr      : 0.0% (  0/  0)
+  fsm_state : 0.0% (  0/  0)
+  fsm_arc   : 0.0% (  0/  0)
 Annotation Summary:
-  lines with all attached points covered : 68.00%  (1488/2171)
+  lines with all attached points covered : 76.00%  (1323/1719)
 See lines with '%00' in logs/coverage/annotate
 
 --- Ekip RTL: kapsanmamis nokta-satir sayilari ---

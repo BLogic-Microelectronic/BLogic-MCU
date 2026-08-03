@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -138,6 +138,10 @@ soc-strm:
 # bootrom.hex -> sentezlenebilir case icerigi
 bootrom:
 	python3 scripts/gen_bootrom_svh.py
+
+# Testbench bazli modul kapsamasi (SoC seviyesi: make coverage)
+coverage-tb:
+	bash scripts/run_coverage_tb.sh
 
 # ASIC lint kapisi. DIKKAT: sim waiver seti KOPYALANMAZ.
 # -Wno-MODDUP ve -Wno-PINMISSING kasitli olarak YOK: modul duplikasyonunu ve

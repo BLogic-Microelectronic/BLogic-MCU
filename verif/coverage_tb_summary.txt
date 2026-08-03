@@ -1,0 +1,12 @@
+BLogic MCU - testbench bazli modul kapsamasi (make coverage-tb)
+tarih     : 2026-08-03
+verilator : Verilator 5.049 devel rev v5.048-135-g99a35fee8
+olcum     : her TB kendi top modulu ile kosar; hedef modulun satir kapsamasi
+------------------------------------------------------------
+TB             HEDEF MODUL              KAPSANAN   TOPLAM    ORAN
+uart-stp       uart_axil.sv                   98      105   93.3%
+uart-stream    uart_stream_axil.sv           140      147   95.2%
+qspi-modes     qspi_master_axil.sv           220      305   72.1%
+i2c-sys        i2c_master_axil.sv            180      184   97.8%
+ai             ai_accelerator.sv             373      388   96.1%
+boot           axi_sram_wrapper.sv            16       16  100.0%

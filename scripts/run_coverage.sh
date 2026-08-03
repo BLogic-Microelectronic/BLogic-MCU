@@ -32,26 +32,6 @@ for T in $TESTS; do
     DATS="$DATS logs/sim/$T/coverage.dat"
 done
 
-# --- Ayri testbench'ler (kendi top modulleriyle kosarlar) ---
-# Bunlar C testleriyle ayni RTL dosyalarina vurur; verilator_coverage
-# dosya/satir bazinda birlestirir.
-TB_TARGETS="uart-stp uart-stream qspi-modes i2c-sys ai boot"
-for TB in $TB_TARGETS; do
-    echo ">>> tb: $TB"
-    rm -f coverage.dat
-    if make $TB TBCOV=--coverage-line >"$PROJ/logs/coverage/tb_${TB}.log" 2>&1; then
-        if [ -f coverage.dat ]; then
-            mv coverage.dat "$PROJ/logs/coverage/tb_${TB}.dat"
-            DATS="$DATS logs/coverage/tb_${TB}.dat"
-            echo "    PASS (coverage alindi)"
-        else
-            echo "    PASS (coverage.dat uretilmedi - atlandi)"
-        fi
-    else
-        echo "    ATLANDI - bkz: logs/coverage/tb_${TB}.log"
-    fi
-done
-
 rm -rf logs/coverage/annotate
 verilator_coverage --annotate logs/coverage/annotate --annotate-min 1 $DATS | tee logs/coverage/summary.txt
 
@@ -73,7 +53,11 @@ SUM="$PROJ/verif/coverage_summary.txt"
     echo "tarih     : $(date +%Y-%m-%d)"
     echo "verilator : $(verilator --version 2>/dev/null | head -1)"
     echo "testler   : $TESTS"
-    echo "olcum     : --coverage-line; CV32E40P vendor dosyalari verif/coverage_waivers.vlt ile haric"
+    echo "olcum     : --coverage-line, SoC seviyesi (10 C testi, tek build, sabit payda)"
+    echo "kapsam    : tasarim RTL'i (14 dosya). Haric: CV32E40P/PULP vendor kodu,"
+    echo "            testbench'ler, davranissal modeller, SVA checker ve covergroup"
+    echo "            bind'leri - bunlar dogrulama altyapisidir, tasarim degil."
+    echo "modul bazli TB kapsamasi: verif/coverage_tb_summary.txt (make coverage-tb)"
     echo "------------------------------------------------------------"
     cat "$PROJ/logs/coverage/summary.txt"
 } > "$SUM"
