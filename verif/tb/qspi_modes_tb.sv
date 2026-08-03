@@ -24,7 +24,7 @@ module qspi_modes_tb;
     );
 
     wire [3:0] flash_out, flash_oe;
-    spi_flash_model #(.INIT_FILE("flash.hex")) flash (
+    spi_flash_model #(.FLASH_SIZE(131072), .INIT_FILE("flash.hex")) flash (
         .sclk(qspi_sclk), .cs_n(qspi_cs_n),
         .io_in (qspi_io_o & qspi_io_oe),
         .io_out(flash_out), .io_oe_out(flash_oe)

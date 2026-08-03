@@ -26,7 +26,7 @@ module boot_flow_test_tb;
 
     // flash model: 4-lane arayuz
     wire [3:0] flash_out, flash_oe;
-    spi_flash_model #(.INIT_FILE("flash.hex")) flash (
+    spi_flash_model #(.FLASH_SIZE(131072), .INIT_FILE("flash.hex")) flash (
         .sclk(qspi_sclk), .cs_n(qspi_cs_n),
         .io_in (qspi_io_o & qspi_io_oe),
         .io_out(flash_out), .io_oe_out(flash_oe)
@@ -76,5 +76,6 @@ module boot_flow_test_tb;
         $finish;
     end
 
-    initial #60_000_000 begin $error("TIMEOUT"); $finish; end
+    // iki asamali boot (firmware + 23 KB YZ agirligi) ~51 ms surer
+    initial #120_000_000 begin $error("TIMEOUT"); $finish; end
 endmodule

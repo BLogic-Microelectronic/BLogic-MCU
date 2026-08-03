@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -76,7 +76,8 @@ boot:
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
 	    -f soc_files.f verif/models/spi_flash_model.sv verif/tb/boot_flow_test_tb.sv
 	cp sw/bootloader/bootrom.hex $(BOOT_DIR)/
-	cp sw/bootloader/flash_helloworld.hex $(BOOT_DIR)/flash.hex
+	@python3 scripts/gen_flash_image.py --fw sw/bootloader/flash_helloworld.hex \
+	    --out $(BOOT_DIR)/flash.hex
 	echo "00000000" > $(BOOT_DIR)/firmware.hex
 	echo "00000000" > $(BOOT_DIR)/data_mem.hex
 	echo "00000000" > $(BOOT_DIR)/ai_sram_init.hex
@@ -142,6 +143,11 @@ bootrom:
 # Testbench bazli modul kapsamasi (SoC seviyesi: make coverage)
 coverage-tb:
 	bash scripts/run_coverage_tb.sh
+
+# Uygulama firmware'i + YZ agirliklari -> tek flash imaji (kart/cip icin)
+flash-image:
+	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
+	python3 scripts/gen_flash_image.py --fw build/instr_mem.hex --out build/flash.hex
 
 # ASIC lint kapisi. DIKKAT: sim waiver seti KOPYALANMAZ.
 # -Wno-MODDUP ve -Wno-PINMISSING kasitli olarak YOK: modul duplikasyonunu ve
