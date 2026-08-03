@@ -472,7 +472,9 @@ module soc_top #(
     );
 
     // Bellek modulleri
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(1024),  .INIT_FILE("bootrom.hex"))
+    // Boot ROM: icerik sabit -> SRAM makrosu yerine mantiga sentezlenir.
+    // Icerik rtl/asic/bootrom_content.svh (make bootrom ile uretilir).
+    boot_rom #(.AXI_ID_WIDTH(5), .ROM_WORDS(32))
         i_boot_rom  (.clk_i(clk_i), .rst_ni(rst_ni), .slv(boot_rom_bus));
 
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(INSTR_SRAM_BYTES),  .INIT_FILE("firmware.hex"))

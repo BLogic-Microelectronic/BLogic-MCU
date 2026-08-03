@@ -23,6 +23,8 @@ module axi_sram_wrapper #(
     // ============================================================
     // 2. HAFIZA (MEMORY) TANIMLAMASI
     // ============================================================
+`ifndef ASIC_SRAM_MACRO
+    // Davranissal bellek: simulasyon ve FPGA yolu
     logic [31:0] mem [0:SRAM_WORDS-1];
 
     // --- Memory Init (Simülasyon + FPGA) ---
@@ -40,6 +42,7 @@ module axi_sram_wrapper #(
             $display("[SRAM_INIT %m] %s yuklendi, mem[0]=%08x mem[1]=%08x", INIT_FILE, mem[0], mem[1]);
         end
     end
+`endif
 `endif
 
     // ============================================================
@@ -60,11 +63,20 @@ module axi_sram_wrapper #(
     logic write_en;
     assign write_en = slv.aw_valid && slv.w_valid && slv.aw_ready && slv.w_ready;
 
+    logic read_en;
+    assign read_en = slv.ar_valid && slv.ar_ready;
+
     // AW ve W kanalları: Yanıt kanalı boşsa veya tüketiliyorsa kabul et
     assign slv.aw_ready = !slv.b_valid || slv.b_ready;
     assign slv.w_ready  = !slv.b_valid || slv.b_ready;
 
-    // Byte-enable maskelemeli yazma
+    // Okuma verisi kaynagi: iki yolda register'in yeri farklidir.
+    //   davranissal -> kombinasyonel dizi okumasi disarida kaydedilir
+    //   makro       -> adres iceride kaydedilir, dout bir cevrim sonra gecerli
+    logic [31:0] rdata_src;
+
+`ifndef ASIC_SRAM_MACRO
+    // Byte-enable maskelemeli yazma (davranissal)
     always_ff @(posedge clk_i) begin
         if (write_en) begin
             if (slv.w_strb[0]) mem[wr_word_idx][ 7: 0] <= slv.w_data[ 7: 0];
@@ -73,6 +85,25 @@ module axi_sram_wrapper #(
             if (slv.w_strb[3]) mem[wr_word_idx][31:24] <= slv.w_data[31:24];
         end
     end
+
+    logic [31:0] rdata_q;
+    always_ff @(posedge clk_i) begin
+        if (read_en) rdata_q <= mem[rd_word_idx];
+    end
+    assign rdata_src = rdata_q;
+`else
+    // ASIC yolu: sky130 SRAM makro bankasi (512-word bankalar)
+    sram_macro_bank #(.WORDS(SRAM_WORDS)) u_sram (
+        .clk_i   (clk_i),
+        .we_i    (write_en),
+        .waddr_i (wr_word_idx),
+        .wmask_i (slv.w_strb),
+        .wdata_i (slv.w_data),
+        .re_i    (read_en),
+        .raddr_i (rd_word_idx),
+        .rdata_o (rdata_src)
+    );
+`endif
 
     // Yazma Yanıtı (B Channel)
     always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -93,8 +124,6 @@ module axi_sram_wrapper #(
     // ============================================================
     // 5. OKUMA (READ) KONTROLÜ
     // ============================================================
-    logic read_en;
-    assign read_en = slv.ar_valid && slv.ar_ready;
 
     assign slv.ar_ready = !slv.r_valid || slv.r_ready;
 
@@ -102,16 +131,15 @@ module axi_sram_wrapper #(
         if (!rst_ni) begin
             slv.r_valid <= 1'b0;
             slv.r_id    <= '0;
-            slv.r_data  <= '0;
         end else if (read_en) begin
             slv.r_valid <= 1'b1;
             slv.r_id    <= slv.ar_id;
-            slv.r_data  <= mem[rd_word_idx];
         end else if (slv.r_valid && slv.r_ready) begin
             slv.r_valid <= 1'b0;
         end
     end
 
+    assign slv.r_data = rdata_src;
     assign slv.r_resp = 2'b00;  // OKAY
     assign slv.r_last = 1'b1;   // Tek beat (burst yok)
     assign slv.r_user = '0;

@@ -10,10 +10,13 @@ set -e
 cd "$(dirname "$0")/.."
 REPO=$PWD
 LL=${LIBRELANE_SHELL:-"$HOME/librelane"}
+# ASIC_SRAM=1 -> SRAM makrolari baglanir (varsayilan: davranissal)
+MACRO_DEF=""
+[ "${ASIC_SRAM:-0}" = "1" ] && MACRO_DEF="-DASIC_SRAM_MACRO"
 FLIST=$(grep -v '^#' asic/soc_files_asic.f | grep -v '^+' | grep -v '^$' | grep -v 'verif/' | tr '\n' ' ')
 mkdir -p build/asic
 cd "$LL"
-nix-shell --run "cd $REPO && yosys -m slang -p \"read_slang --keep-hierarchy -DSYNTHESIS \
+nix-shell --run "cd $REPO && yosys -m slang -p \"read_slang --keep-hierarchy -DSYNTHESIS $MACRO_DEF \
    -Irtl/core/cv32e40p/rtl/include \
    -Irtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include \
    -Irtl/bus/axi/include \

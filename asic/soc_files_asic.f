@@ -1,3 +1,4 @@
++incdir+rtl/asic
 # ============================================
 # Ostim BLogic Mikroelektronik
 # soc_files_asic.f  -  ASIC sentez dosya listesi
@@ -87,6 +88,11 @@ rtl/ai_accelerator/ai_sram_arbiter.sv
 # NOT: soc_top icindeki protocol checker instance'i 'synthesis translate_off'
 # pragmasiyla korunur - sentez araclari otomatik dislar, listeye SVA eklenmez.
 # (Verilator lint bu pragmayi tanimaz; lint icin SVA dosyalari komuta eklenir.)
+
+# SRAM makro bankasi (ASIC_SRAM_MACRO tanimliyken devreye girer)
+rtl/asic/boot_rom.sv
+rtl/asic/sram_macro_blackbox.sv
+rtl/asic/sram_macro_bank.sv
 
 # ASIC ust seviye
 rtl/asic/asic_top.sv
