@@ -109,28 +109,28 @@ ai-acc:
 
 # SoC seviyesi AI C testi
 soc-ai:
-	rm -rf build
+	rm -rf obj_dir build   # RTL degisince model yeniden derlensin
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_micro_speech_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/ai_micro_speech_test/result.log \
 	    && echo "[SOC-AI] PASS" || { echo "[SOC-AI] FAIL"; exit 1; }
 
 # AI kesme (ISR) akisi testi
 soc-ai-irq:
-	rm -rf build
+	rm -rf obj_dir build   # RTL degisince model yeniden derlensin
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_irq_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/ai_irq_test/result.log \
 	    && echo "[SOC-AI-IRQ] PASS" || { echo "[SOC-AI-IRQ] FAIL"; exit 1; }
 
 # Timer cevre birimi: sayma/reload/prescale + irq16 ISR akisi
 soc-timer:
-	rm -rf build
+	rm -rf obj_dir build   # RTL degisince model yeniden derlensin
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/timer_irq_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/timer_irq_test/result.log \
 	    && echo "[SOC-TIMER] PASS" || { echo "[SOC-TIMER] FAIL"; exit 1; }
 
 # UART_1 stream DMA: RX -> bellek + irq18 pulse (covergroup bini)
 soc-strm:
-	rm -rf build
+	rm -rf obj_dir build   # RTL degisince model yeniden derlensin
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/uart1_strm_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/uart1_strm_test/result.log \
 	    && echo "[SOC-STRM] PASS" || { echo "[SOC-STRM] FAIL"; exit 1; }
@@ -157,7 +157,7 @@ asic-elab:
 
 # hizlanma olcumu: HW vs SW referans
 soc-perf:
-	rm -rf build
+	rm -rf obj_dir build   # RTL degisince model yeniden derlensin
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_sw_reference.c SIM_PLUSARGS=+MAX_CYCLES=25000000 $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/ai_sw_reference/result.log \
 	    && echo "[SOC-PERF] PASS" || { echo "[SOC-PERF] FAIL"; exit 1; }
@@ -165,7 +165,7 @@ soc-perf:
 
 # ISA uyumluluk C testi (self-checking, DTR bolum 4)
 isa-compliance:
-	rm -rf build
+	rm -rf obj_dir build   # RTL degisince model yeniden derlensin
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/isa_compliance_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/isa_compliance_test/result.log \
 	    && grep -q ">>> ISA COMPLIANCE PASSED <<<" logs/sim/isa_compliance_test/uart.log \

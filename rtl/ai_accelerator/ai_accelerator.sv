@@ -136,7 +136,41 @@ module ai_accelerator #(
     logic [31:0] input_mem    [0:INPUT_WORDS-1];
     logic [31:0] conv_w_mem   [0:CONV_W_WORDS-1];
     logic signed [31:0] conv_bias_mem [0:NUM_FILTERS-1];
+    // conv_out depolamasi: tek senkron port + byte maskesi.
+    // ESKIDEN: 3 kombinasyonel okuma portu (RMW + WCONV drain + FC) vardi,
+    // Yosys bunu bellek olarak cikaramayip 32.000 bit flop uretiyordu.
+    // Zamanlama iki modda AYNI: adres T'de, veri T+1'de.
+    localparam int CO_AW = 10;   // 1000 word -> 10 bit
+    logic               co_we, co_re;
+    logic [CO_AW-1:0]   co_waddr, co_raddr;
+    logic [3:0]         co_wmask;
+    logic [31:0]        co_wdata, co_rdata;
+
+`ifndef ASIC_SRAM_MACRO
     logic [31:0] conv_out_mem [0:CONV_OUT_WORDS-1];
+    logic [31:0] co_rdata_q;
+    always_ff @(posedge clk_i) begin
+        if (co_we) begin
+            if (co_wmask[0]) conv_out_mem[co_waddr][ 7: 0] <= co_wdata[ 7: 0];
+            if (co_wmask[1]) conv_out_mem[co_waddr][15: 8] <= co_wdata[15: 8];
+            if (co_wmask[2]) conv_out_mem[co_waddr][23:16] <= co_wdata[23:16];
+            if (co_wmask[3]) conv_out_mem[co_waddr][31:24] <= co_wdata[31:24];
+        end
+        if (co_re) co_rdata_q <= conv_out_mem[co_raddr];
+    end
+    assign co_rdata = co_rdata_q;
+`else
+    sram_macro_bank #(.WORDS(1024)) u_conv_out (
+        .clk_i(clk_i),
+        .we_i(co_we), .waddr_i(co_waddr), .wmask_i(co_wmask), .wdata_i(co_wdata),
+        .re_i(co_re), .raddr_i(co_raddr), .rdata_o(co_rdata)
+    );
+`endif
+
+    // (r,c,f) -> conv_out byte indeksi
+    function automatic int conv_out_bidx(input int r, input int c, input int f);
+        return r * (CONV_OUT_W * NUM_FILTERS) + c * NUM_FILTERS + f;
+    endfunction
     logic signed [31:0] fc_bias_mem [0:FC_OUT-1];
     logic signed [ 7:0] fc_out_mem  [0:FC_OUT-1];
 
@@ -197,6 +231,8 @@ module ai_accelerator #(
         ST_CONV_MAC,       // cycle basina 1 MAC
         ST_CONV_DRAIN,     // pipeline bosalt
         ST_CONV_STORE,     // requant + conv_out_mem'e yaz
+        ST_WCONV_RD,
+        ST_WCONV_RD2,
         ST_WCONV_ISSUE,
         ST_WCONV_WAIT,
         ST_LOAD_FB,
@@ -357,39 +393,6 @@ module ai_accelerator #(
         );
     endfunction
 
-    // conv_out_mem'e byte yaz (RMW)
-    task automatic write_conv_out_byte(
-        input int                 r,
-        input int                 c,
-        input int                 f,
-        input logic signed [7:0]  val
-    );
-        int byte_idx;
-        int word_idx;
-        logic [1:0] byte_off;
-        logic [31:0] w;
-        byte_idx = r * (CONV_OUT_W * NUM_FILTERS) + c * NUM_FILTERS + f;
-        word_idx = byte_idx >> 2;
-        byte_off = byte_idx[1:0];
-        w        = conv_out_mem[word_idx];
-        case (byte_off)
-            2'd0: w[ 7: 0] = val;
-            2'd1: w[15: 8] = val;
-            2'd2: w[23:16] = val;
-            2'd3: w[31:24] = val;
-        endcase
-        conv_out_mem[word_idx] = w;
-    endtask
-
-    // conv_out_mem'den byte oku (FC icin)
-    function automatic logic signed [7:0] read_conv_out_byte(
-        input int i
-    );
-        return get_byte_from_word(
-            conv_out_mem[i >> 2],
-            i[1:0]
-        );
-    endfunction
 
     // Ana FSM
     int ir, ic;           // padding hesabi icin gecici
@@ -423,12 +426,20 @@ module ai_accelerator #(
             mem_addr       <= '0;
             mem_wdata_q    <= '0;
             mem_wstrb_q    <= 4'b1111;
+            co_we          <= 1'b0;
+            co_re          <= 1'b0;
+            co_waddr       <= '0;
+            co_raddr       <= '0;
+            co_wmask       <= 4'd0;
+            co_wdata       <= '0;
         end else begin
             // pulse'lari varsayilan temizle
             mac_clear     <= 1'b0;
             mac_en        <= 1'b0;
             mem_read_req  <= 1'b0;
             mem_write_req <= 1'b0;
+            co_we         <= 1'b0;
+            co_re         <= 1'b0;
 
 
             // SW DONE temizleme (tek surucu icin burada)
@@ -561,7 +572,10 @@ module ai_accelerator #(
                         CONV_OUT_ZP,
                         1'b1
                     );
-                    write_conv_out_byte(r_idx, c_idx, f_idx, result_byte);
+                    co_we    <= 1'b1;
+                    co_waddr  <= CO_AW'(conv_out_bidx(r_idx, c_idx, f_idx) >> 2);
+                    co_wmask  <= 4'b0001 << conv_out_bidx(r_idx, c_idx, f_idx) % 4;
+                    co_wdata  <= {4{result_byte}};
 
                     // (f, r, c) ilerlet: f dis, r orta, c ic
                     if (c_idx == CONV_OUT_W - 1) begin
@@ -572,7 +586,7 @@ module ai_accelerator #(
                                 // conv2d bitti, conv_out'u SRAM'e yaz
                                 f_idx    <= '0;
                                 load_idx <= '0;
-                                state    <= ST_WCONV_ISSUE;
+                                state    <= ST_WCONV_RD;
                             end else begin
                                 f_idx <= f_idx + 1;
                                 state <= ST_CONV_INIT;
@@ -588,9 +602,18 @@ module ai_accelerator #(
                 end
 
                 // conv_out yerel bellegi SRAM'e yaz (1000 word)
+                ST_WCONV_RD: begin
+                    co_re    <= 1'b1;
+                    co_raddr <= CO_AW'(load_idx);
+                    state    <= ST_WCONV_RD2;
+                end
+                // co_re bu cevrimde yuksek; veri ISSUE'da gecerli olur
+                ST_WCONV_RD2: begin
+                    state    <= ST_WCONV_ISSUE;
+                end
                 ST_WCONV_ISSUE: begin
                     mem_addr      <= AI_SRAM_BASE + CONV_OUT_OFF + (load_idx << 2);
-                    mem_wdata_q   <= conv_out_mem[load_idx];
+                    mem_wdata_q   <= co_rdata;
                     mem_wstrb_q   <= 4'b1111;     // tam word
                     mem_write_req <= 1'b1;
                     state         <= ST_WCONV_WAIT;
@@ -602,7 +625,7 @@ module ai_accelerator #(
                             state    <= ST_LOAD_FB;
                         end else begin
                             load_idx <= load_idx + 1;
-                            state    <= ST_WCONV_ISSUE;
+                            state    <= ST_WCONV_RD;
                         end
                     end
                 end
@@ -640,6 +663,8 @@ module ai_accelerator #(
                     // FC agirligi oku (word oku, sonra byte cek)
                     mem_addr     <= fc_w_row_base + {20'd0, in_idx};
                     mem_read_req <= 1'b1;
+                    co_re        <= 1'b1;              // conv_out okumasi boru hattinda
+                    co_raddr     <= CO_AW'(in_idx >> 2);
                     state        <= ST_FC_FETCH_W_WAIT;
                 end
                 ST_FC_FETCH_W_WAIT: begin
@@ -647,7 +672,7 @@ module ai_accelerator #(
                 end
 
                 ST_FC_MAC: begin
-                    conv_out_pix = read_conv_out_byte(in_idx);
+                    conv_out_pix = get_byte_from_word(co_rdata, in_idx[1:0]);
                     fc_w_pix     = get_byte_from_word(mem_rdata, in_idx[1:0]);
                     // (conv_out - conv_out_zp) * fc_w, fc_w_zp=0
                     mac_a  <= 16'($signed(conv_out_pix) - $signed(CONV_OUT_ZP));

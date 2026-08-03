@@ -7,16 +7,16 @@ girdi     : yes_real (TFLite Micro Speech gercek ses ozniteligi)
 kaynak    : sw/tests/ai_sw_reference.c  ·  log: logs/sim/ai_sw_reference/uart.log
 ------------------------------------------------------------
 
-  Donanim (YZ hizlandirici) :    436,344 cevrim   argmax=2 (yes)
+  Donanim (YZ hizlandirici) :    438,344 cevrim   argmax=2 (yes)
   Yazilim (CV32E40P)        :  9,683,882 cevrim   argmax=2 (yes)
-  HIZLANMA                  : 22.1x
+  HIZLANMA                  : 22.0x
 
   Dogruluk: conv_out 1000/1000 word birebir esit (bit-exact)
 
   Cikti hizi (sistem saatine gore):
     Saat      HW inference/s      HW B/s      SW inference/s      SW B/s
      50 MHz              114     223,440                5       9,800
-    100 MHz              229     448,840               10      19,600
+    100 MHz              228     446,880               10      19,600
 
   Not: hedef sistem saati 50 MHz'dir; 100 MHz satiri olcek referansidir.
        ASIC imzasindan farkli bir fmax cikarsa bu tablo yenilenmelidir.
