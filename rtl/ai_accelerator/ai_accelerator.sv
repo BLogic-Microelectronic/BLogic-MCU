@@ -133,8 +133,43 @@ module ai_accelerator #(
     logic [ 3:0] status_result;
 
     // Yerel bellekler
-    logic [31:0] input_mem    [0:INPUT_WORDS-1];
-    logic [31:0] conv_w_mem   [0:CONV_W_WORDS-1];
+    // input_mem / conv_w_mem: senkron tek port (MAC her cevrimde ikisinden okur).
+    // Adresler KOMBINASYONEL surulur ve bir SONRAKI iterasyonu gosterir; boylece
+    // veri tam kullanilacagi cevrimde hazir olur -> ek cevrim maliyeti YOK.
+    logic        im_we, im_re;
+    logic [8:0]  im_waddr, im_raddr;
+    logic [31:0] im_wdata, im_rdata;
+    logic        cw_we, cw_re;
+    logic [7:0]  cw_waddr, cw_raddr;
+    logic [31:0] cw_wdata, cw_rdata;
+
+`ifndef ASIC_SRAM_MACRO
+    logic [31:0] input_mem  [0:INPUT_WORDS-1];
+    logic [31:0] conv_w_mem [0:CONV_W_WORDS-1];
+    logic [31:0] im_rdata_q, cw_rdata_q;
+    always_ff @(posedge clk_i) begin
+        if (im_we) input_mem[im_waddr]  <= im_wdata;
+        if (im_re) im_rdata_q           <= input_mem[im_raddr];
+        if (cw_we) conv_w_mem[cw_waddr] <= cw_wdata;
+        if (cw_re) cw_rdata_q           <= conv_w_mem[cw_raddr];
+    end
+    assign im_rdata = im_rdata_q;
+    assign cw_rdata = cw_rdata_q;
+`else
+    sky130_sram_2kbyte_1rw1r_32x512_8 u_input_mem (
+        .clk0(clk_i), .csb0(!im_we), .web0(1'b0), .wmask0(4'b1111),
+        .addr0(im_waddr), .din0(im_wdata), .dout0(),
+        .clk1(clk_i), .csb1(!im_re), .addr1(im_raddr), .dout1(im_rdata)
+    );
+    // 7 koseli varyant: SS/FF STA'si bu banka icin gercek kutuphaneden gelir
+    sram_1rw1r_32_256_8_sky130 u_conv_w_mem (
+        .clk0(clk_i), .csb0(!cw_we), .web0(1'b0), .wmask0(4'b1111),
+        .addr0(cw_waddr), .din0(cw_wdata), .dout0(),
+        .clk1(clk_i), .csb1(!cw_re), .addr1(cw_raddr), .dout1(cw_rdata)
+    );
+`endif
+
+
     logic signed [31:0] conv_bias_mem [0:NUM_FILTERS-1];
     // conv_out depolamasi: tek senkron port + byte maskesi.
     // ESKIDEN: 3 kombinasyonel okuma portu (RMW + WCONV drain + FC) vardi,
@@ -257,6 +292,49 @@ module ai_accelerator #(
     logic [ 4:0] c_idx;        // 0..19
     logic [ 3:0] kh_idx;       // 0..9
     logic [ 2:0] kw_idx;       // 0..7
+
+
+    // --- Okuma yolu: bir sonraki (kh,kw) icin adres onceden surulur ---
+    int nx_ir, nx_ic, ibx, wbx;
+    logic [3:0] nx_kh, nx_kw;
+    logic       nx_pad;
+    logic [1:0] nx_ib, nx_wb;
+    logic [1:0] cur_ib, cur_wb;
+    logic       cur_pad;
+
+    always_comb begin
+        nx_kh = kh_idx; nx_kw = kw_idx;
+        if (state == ST_CONV_INIT) begin
+            nx_kh = '0; nx_kw = '0;
+        end else if (state == ST_CONV_MAC) begin
+            if (kw_idx == KERNEL_W - 1) begin
+                nx_kw = '0;
+                nx_kh = kh_idx + 1;   // pencere sonunda tasar, okuma zararsiz
+            end else begin
+                nx_kw = kw_idx + 1;
+            end
+        end
+        nx_ir  = (int'(r_idx) * STRIDE) + int'(nx_kh) - PAD_TOP;
+        nx_ic  = (int'(c_idx) * STRIDE) + int'(nx_kw) - PAD_LEFT;
+        nx_pad = (nx_ir < 0) || (nx_ir >= INPUT_H) || (nx_ic < 0) || (nx_ic >= INPUT_W);
+        ibx    = nx_pad ? 0 : (nx_ir * INPUT_W + nx_ic);
+        nx_ib  = ibx[1:0];
+        wbx    = (int'(f_idx) * (KERNEL_H * KERNEL_W)) + (int'(nx_kh) * KERNEL_W) + int'(nx_kw);
+        nx_wb  = wbx[1:0];
+    end
+
+    assign im_re    = (state == ST_CONV_INIT) || (state == ST_CONV_MAC);
+    assign cw_re    = im_re;
+    assign im_raddr = 9'((ibx >> 2) % INPUT_WORDS);
+    assign cw_raddr = 8'((wbx >> 2) % CONV_W_WORDS);
+
+    always_ff @(posedge clk_i) begin
+        if (im_re) begin
+            cur_ib  <= nx_ib;
+            cur_wb  <= nx_wb;
+            cur_pad <= nx_pad;
+        end
+    end
     logic [ 1:0] out_idx;      // 0..3
     logic [11:0] in_idx;       // 0..3999
 
@@ -367,31 +445,6 @@ module ai_accelerator #(
         endcase
     endfunction
 
-    // input_mem'den (ir, ic) pikseli, padding kontrollu
-    function automatic logic signed [7:0] read_input_pixel(
-        input int ir, input int ic
-    );
-        int byte_idx;
-        if (ir < 0 || ir >= INPUT_H || ic < 0 || ic >= INPUT_W)
-            return INPUT_ZP;   // SAME pad icin input_zp
-        byte_idx = ir * INPUT_W + ic;
-        return get_byte_from_word(
-            input_mem[byte_idx >> 2],
-            byte_idx[1:0]
-        );
-    endfunction
-
-    // conv_w_mem'den (f, kh, kw) agirlik byte'i
-    function automatic logic signed [7:0] read_conv_weight(
-        input int f, input int kh, input int kw
-    );
-        int byte_idx;
-        byte_idx = f * (KERNEL_H * KERNEL_W) + kh * KERNEL_W + kw;
-        return get_byte_from_word(
-            conv_w_mem[byte_idx >> 2],
-            byte_idx[1:0]
-        );
-    endfunction
 
 
     // Ana FSM
@@ -401,6 +454,14 @@ module ai_accelerator #(
     int idx_tmp;
     int best_idx;
     logic signed [7:0] best_val;
+
+    // --- Yazma yolu: yukleme fazi (zamanlama eskisiyle ayni kenar) ---
+    assign im_we    = (state == ST_LOAD_IN_WAIT) && mem_done;
+    assign im_waddr = 9'(load_idx);
+    assign im_wdata = mem_rdata;
+    assign cw_we    = (state == ST_LOAD_CW_WAIT) && mem_done;
+    assign cw_waddr = 8'(load_idx);
+    assign cw_wdata = mem_rdata;
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
@@ -469,7 +530,6 @@ module ai_accelerator #(
                 end
                 ST_LOAD_CW_WAIT: begin
                     if (mem_done) begin
-                        conv_w_mem[load_idx] <= mem_rdata;
                         if (load_idx == CONV_W_WORDS - 1) begin
                             load_idx <= '0;
                             state    <= ST_LOAD_CB;
@@ -507,7 +567,6 @@ module ai_accelerator #(
                 end
                 ST_LOAD_IN_WAIT: begin
                     if (mem_done) begin
-                        input_mem[load_idx] <= mem_rdata;
                         if (load_idx == INPUT_WORDS - 1) begin
                             load_idx <= '0;
                             // Conv2D basla
@@ -535,10 +594,10 @@ module ai_accelerator #(
 
                 ST_CONV_MAC: begin
                     // (ir, ic) = (r*2 + kh - PAD_TOP, c*2 + kw - PAD_LEFT)
-                    ir = (r_idx * STRIDE) + kh_idx - PAD_TOP;
-                    ic = (c_idx * STRIDE) + kw_idx - PAD_LEFT;
-                    input_pix  = read_input_pixel(ir, ic);
-                    weight_pix = read_conv_weight(f_idx, kh_idx, kw_idx);
+                    // veri onceki cevrimde adreslendi; offset/pad kayitli
+                    input_pix  = cur_pad ? INPUT_ZP
+                                         : get_byte_from_word(im_rdata, cur_ib);
+                    weight_pix = get_byte_from_word(cw_rdata, cur_wb);
                     // (input - input_zp) * weight, weight_zp=0
                     mac_a  <= 16'($signed(input_pix) - $signed(INPUT_ZP));
                     mac_b  <= weight_pix;
