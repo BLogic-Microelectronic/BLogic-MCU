@@ -15,7 +15,12 @@
 #   00010000 = M2 SRAM-direct boot (firmware.hex ile)
 # ============================================================
 
-set BOOT_ADDR_HEX 00000000
+# DIKKAT (4 Agustos 2026): varsayilan gecici olarak M2'ye alindi.
+# M3 (flash-boot) GERCEK DONANIMDA CALISMIYOR: bootrom firmware'i QSPI'dan
+# cekemiyor (led_only.c ile dogrulandi - LED'ler hic yanmadi). Ayrica .rodata
+# DATA_RAM'e hicbir yoldan ulasmiyor (bkz. sw/common/link_flash.ld).
+# Flash-boot duzeltilince buradaki deger 00000000'a geri alinmalidir.
+set BOOT_ADDR_HEX 00010000
 
 set PART xc7k325tffg900-2
 
@@ -37,6 +42,34 @@ file mkdir $rpt_dir
 # firmware flash'tan yuklendigi icin icerik onemsizdir).
 # ------------------------------------------------------------
 file copy -force [file join $repo_root bootrom.hex] $build_dir
+
+# AI agirliklari flash'tan YUKLENMEZ - bitstream'e gomulmek zorunda.
+# Gercek hex sw/ai_model/golden_vectors/ altinda uretiliyor
+# (generate_ai_sram_init.py, 7680 satir). Onceki surumde bu dosya
+# kopyalanmiyordu; sonuc olarak kartta AI SRAM sifir kaliyor ve
+# hizlandirici demosu calismiyordu.
+set ai_src [file join $repo_root sw ai_model golden_vectors ai_sram_init.hex]
+if {[file exists $ai_src]} {
+    file copy -force $ai_src [file join $build_dir ai_sram_init.hex]
+    set n [llength [split [string trim [read [set fh [open $ai_src r]]]] "\n"]]
+    close $fh
+    puts "BILGI: ai_sram_init.hex kopyalandi ($n satir) - AI agirliklari bitstream'e gomuluyor."
+} else {
+    puts "UYARI: $ai_src bulunamadi!"
+    puts "UYARI: Kartta AI hizlandirici demosu CALISMAYACAK."
+    puts "UYARI: Once 'python3 sw/ai_model/generate_ai_sram_init.py' kosturun."
+}
+
+# M2 (SRAM-direct boot) icin firmware ve veri imajlari bitstream'e gomulur.
+# Bunlari 'make -f Makefile.verilator sw FW_SRC=<test>' uretir ve build/ altina koyar.
+# M3 (flash-boot) modunda gerekmezler; yer tutucu yeterlidir.
+foreach {src dst} {instr_mem.hex firmware.hex data_mem.hex data_mem.hex} {
+    set s [file join $repo_root build $src]
+    if {[file exists $s]} {
+        file copy -force $s [file join $build_dir $dst]
+        puts "BILGI: $dst kopyalandi (build/$src)."
+    }
+}
 
 foreach f {firmware.hex data_mem.hex ai_sram_init.hex} {
     set dst [file join $build_dir $f]

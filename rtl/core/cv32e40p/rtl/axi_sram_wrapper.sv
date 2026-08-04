@@ -28,9 +28,15 @@ module axi_sram_wrapper #(
     logic [31:0] mem [0:SRAM_WORDS-1];
 
     // --- Memory Init (Simülasyon + FPGA) ---
-`ifndef SYNTHESIS
-    // Simulasyon/FPGA yolu: ASIC sentezinde bu blok yoktur.
-    // ASIC'te bellek icerigi SRAM makrolarina bootloader ile yuklenir.
+    // ASIC sentezinde bu blok yoktur: yukaridaki `ifndef ASIC_SRAM_MACRO
+    // zaten dislar (ASIC'te icerik SRAM makrolarina bootloader ile yuklenir).
+    //
+    // DIKKAT: Burada `ifndef SYNTHESIS KULLANILMAZ. Vivado sentezi SYNTHESIS
+    // makrosunu kendisi tanimlar; o koruma bu blogu FPGA sentezinden de
+    // disliyordu ve bitstream'deki tum BRAM'ler sifir kaliyordu (instr/data
+    // SRAM + AI agirliklari). Sonuc: kartta CPU 0x10000'den sifir getirip
+    // hicbir sey yapmiyordu, UART sessiz kaliyordu. $readmemh'in initial
+    // blogunda BRAM INIT'i uretmesi Vivado'nun desteklenen yontemidir (UG901).
     initial begin
         // Önce tüm belleği sıfırla (X propagation'ı önle)
         for (int i = 0; i < SRAM_WORDS; i++) begin
@@ -42,7 +48,6 @@ module axi_sram_wrapper #(
             $display("[SRAM_INIT %m] %s yuklendi, mem[0]=%08x mem[1]=%08x", INIT_FILE, mem[0], mem[1]);
         end
     end
-`endif
 `endif
 
     // ============================================================
