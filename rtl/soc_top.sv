@@ -480,11 +480,24 @@ module soc_top #(
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(INSTR_SRAM_BYTES),  .INIT_FILE("firmware.hex"))
         i_instr_sram(.clk_i(clk_i), .rst_ni(rst_ni), .slv(instr_sram_bus));
 
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(DATA_SRAM_BYTES),  .INIT_FILE("data_mem.hex"))
+    // REG_RDATA=1 buraya da eklendi (6 Agustos 2026, OLCUM SONRASI).
+    // AI SRAM'e yazmac konunca en kotu yol i_ai_sram'den BURAYA kaydi:
+    //   RUN_2026-08-06_17-12-06 final STA -> Startpoint i_data_sram.u_sram...
+    //   (fall edge), slack -1,112 ns, 87 ihlal - ayni falling_edge sorunu.
+    // Bedeli: CPU'nun HER veri erisimine +1 cevrim. Bu yuzden once
+    // simulasyonda maliyeti olculdu, sonra acildi.
+    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(DATA_SRAM_BYTES),
+                       .INIT_FILE("data_mem.hex"), .REG_RDATA(1'b1))
         i_data_sram (.clk_i(clk_i), .rst_ni(rst_ni), .slv(data_sram_bus));
 
     // ai_sram arbiter cikisina bagli
-    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(30720), .INIT_FILE("ai_sram_init.hex"))
+    // REG_RDATA=1 SADECE burada: sky130 SRAM makrosunun dout'u dusen kenarda
+    // gecerli oldugu icin okuma verisi tuketiciye yarim cevrimde ulasiyordu.
+    // 6 Agustos 2026 olcumu: ai_sram -> CPU yolunda 888 setup ihlali, en kotusu
+    // -3,094 ns (ILK kosusu, yolda short yok - en temiz olcum). Buyruk ve veri
+    // SRAM'inde ACILMADI: orada +1 cevrim CPU'nun her getirmesini yavaslatirdi.
+    axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(30720),
+                       .INIT_FILE("ai_sram_init.hex"), .REG_RDATA(1'b1))
         i_ai_sram   (.clk_i(clk_i), .rst_ni(rst_ni), .slv(ai_sram_bus));
 
     // Protocol checker'lar (sentezde cikarilir, EK-3 zorunlu)

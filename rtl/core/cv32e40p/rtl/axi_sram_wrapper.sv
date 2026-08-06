@@ -3,7 +3,12 @@ module axi_sram_wrapper #(
     parameter int unsigned AXI_ADDR_WIDTH = 32,
     parameter int unsigned AXI_DATA_WIDTH = 32,
     parameter int unsigned SRAM_BYTES     = 8192,          // Varsayılan: 8 KB
-    parameter string       INIT_FILE      = ""             // Hex dosya yolu ("" = sıfırla)
+    parameter string       INIT_FILE      = "",            // Hex dosya yolu ("" = sıfırla)
+    // Okuma verisini bir cevrim kaydet. sky130 SRAM makrosunun dout'u DUSEN
+    // kenarda gecerli oldugu icin tuketiciye yarim cevrim kaliyor; bu yazmac
+    // pencereyi ikiye ayirir. Bedeli +1 cevrim gecikme ve yarim okuma verimi,
+    // o yuzden VARSAYILAN KAPALI - ayrinti asagida, 5. bolum.
+    parameter bit          REG_RDATA      = 1'b0
 )(
     input  logic clk_i,
     input  logic rst_ni,
@@ -130,22 +135,84 @@ module axi_sram_wrapper #(
     // ============================================================
     // 5. OKUMA (READ) KONTROLÜ
     // ============================================================
+    //
+    // REG_RDATA = 0 : okuma verisi dogrudan surulur (varsayilan, eski davranis)
+    // REG_RDATA = 1 : okuma verisi bir cevrim KAYDEDILIR
+    //
+    // NEDEN (6 Agustos 2026, "C kohortu"):
+    // sky130 SRAM makrosunun .lib'inde her iki okuma portu da dusen kenarda:
+    //   bus(dout0) -> related_pin "clk0", timing_type falling_edge
+    //   bus(dout1) -> related_pin "clk1", timing_type falling_edge
+    // Yani okuma verisi cevrimin ORTASINDA gecerli oluyor ve tuketiciye
+    // periyodun sadece YARISI kaliyor. 20 ns periyotta butce 10 ns; olculen
+    // ihtiyac 13,1 ns (ILK kosusu, yolda short yok) -> slack -3,094 ns ve
+    // 888 ihlal. Makronun kendi erisimi 0,383-0,529 ns, yani SRAM yavas degil;
+    // sorun tamamen kenar secimi.
+    //
+    // Bu yazmac pencereyi ikiye ayirir:
+    //   makro dout -> yazmac : yarim cevrim (erisim 0,53 ns, bol bol yeter)
+    //   yazmac     -> tuketici: TAM cevrim
+    //
+    // BEDELI: okuma gecikmesi +1 cevrim ve ar_ready bir cevrim bloke edildigi
+    // icin okuma verimi 1/cevrim -> 1/2 cevrim. Bu yuzden VARSAYILAN KAPALI;
+    // yalnizca AI SRAM ornek(ler)inde acilir (soc_top.sv). Buyruk/veri SRAM'i
+    // acilirsa CPU'nun her getirmesi yavaslar - bilerek disarida birakildi.
+    //
+    // DIKKAT: r_data kaydirilirsa r_valid de AYNI miktarda kaydirilmali,
+    // yoksa tuketici veriyi bir cevrim erken orneklerdi.
 
-    assign slv.ar_ready = !slv.r_valid || slv.r_ready;
+    logic                    rvalid_set;  // r_valid'i kuran olay
+    logic [31:0]             rdata_out;   // tuketiciye giden okuma verisi
+    logic [AXI_ID_WIDTH-1:0] rid_next;    // r_valid ile birlikte yazilan ID
+
+    generate
+    if (REG_RDATA) begin : g_reg_rdata
+        // Makro cikisi yukselen kenarda kaydedilir
+        logic [31:0] rdata_reg;
+        always_ff @(posedge clk_i or negedge rst_ni) begin
+            if (!rst_ni) rdata_reg <= 32'h0;
+            else         rdata_reg <= rdata_src;
+        end
+
+        // read_en bir cevrim geciktirilir -> r_valid de bir cevrim gec kurulur
+        logic read_en_q;
+        logic [AXI_ID_WIDTH-1:0] ar_id_q;
+        always_ff @(posedge clk_i or negedge rst_ni) begin
+            if (!rst_ni) begin
+                read_en_q <= 1'b0;
+                ar_id_q   <= '0;
+            end else begin
+                read_en_q <= read_en;
+                if (read_en) ar_id_q <= slv.ar_id;
+            end
+        end
+
+        assign rvalid_set   = read_en_q;
+        assign rdata_out    = rdata_reg;
+        assign rid_next     = ar_id_q;
+        // Ucustaki okuma varken yeni AR kabul etme - yoksa rdata_reg ezilir
+        assign slv.ar_ready = !read_en_q && (!slv.r_valid || slv.r_ready);
+    end else begin : g_comb_rdata
+        assign rvalid_set   = read_en;
+        assign rdata_out    = rdata_src;
+        assign rid_next     = slv.ar_id;
+        assign slv.ar_ready = !slv.r_valid || slv.r_ready;
+    end
+    endgenerate
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
             slv.r_valid <= 1'b0;
             slv.r_id    <= '0;
-        end else if (read_en) begin
+        end else if (rvalid_set) begin
             slv.r_valid <= 1'b1;
-            slv.r_id    <= slv.ar_id;
+            slv.r_id    <= rid_next;
         end else if (slv.r_valid && slv.r_ready) begin
             slv.r_valid <= 1'b0;
         end
     end
 
-    assign slv.r_data = rdata_src;
+    assign slv.r_data = rdata_out;
     assign slv.r_resp = 2'b00;  // OKAY
     assign slv.r_last = 1'b1;   // Tek beat (burst yok)
     assign slv.r_user = '0;

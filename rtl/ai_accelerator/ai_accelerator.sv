@@ -161,8 +161,14 @@ module ai_accelerator #(
         .addr0(im_waddr), .din0(im_wdata), .dout0(),
         .clk1(clk_i), .csb1(!im_re), .addr1(im_raddr), .dout1(im_rdata)
     );
-    // 7 koseli varyant: SS/FF STA'si bu banka icin gercek kutuphaneden gelir
-    sram_1rw1r_32_256_8_sky130 u_conv_w_mem (
+    // PDK 32x256 (1 KB) makrosu: CONV_W 160 word (640 B) tek bankaya sigar (%62.5).
+    // 5 Agustos 2026'da sram_1rw1r_32_256_8_sky130'dan cevrildi. Eskisinin PDK LEF'i
+    // m1/m3/m4 katman adlariyla geliyordu (sky130A akisi met1..met4 bekler); elle
+    // yamanmisti ve dort ayri adimda patliyordu: PDN baglanamiyor (PSM-0039),
+    // 4930 magic DRC ihlali, 185 VPWR/VGND kisa devresi, 169 LVS hatasi.
+    // Guc pinleri artik vccd1/vssd1 -> diger 26 makroyla ayni PDN sozlesmesi.
+    // Port listesi degismedi: iki makronun arayuzu birebir ayni (123 pin, 32x256).
+    sky130_sram_1kbyte_1rw1r_32x256_8 u_conv_w_mem (
         .clk0(clk_i), .csb0(!cw_we), .web0(1'b0), .wmask0(4'b1111),
         .addr0(cw_waddr), .din0(cw_wdata), .dout0(),
         .clk1(clk_i), .csb1(!cw_re), .addr1(cw_raddr), .dout1(cw_rdata)
@@ -227,9 +233,64 @@ module ai_accelerator #(
 
     // TFLite requant: (acc*M_q31 + round) >>> shift + out_zp, sat.
     // do_relu=1 ise alt sinir out_zp (fused ReLU), degilse -128.
-    function automatic logic signed [7:0] tflite_requant(
+    //
+    // 6 Agustos 2026: IKI ASAMAYA BOLUNDU.
+    // Eskiden tek cevrimde yapiliyordu: 32 bit toplama -> 32x32 carpma ->
+    // 64 bit toplama -> iki 64 bit barrel shifter -> 32 bit toplama -> doyum.
+    // Olculen derinlik ~73 kademe / 38,93 ns. 20 ns butcede kapanmasi icin
+    // kademe basina 0,175 ns gerekirdi; 130 nm'de mumkun degil.
+    //
+    // Kritik yol netlistten DOGRULANDI (tahmin degil):
+    //   final/nl/asic_top.nl.v:98882
+    //   \ANTENNA_i_soc.i_ai_accel._23910__Q (.DIODE(\i_soc.i_ai_accel.co_wdata[17] ))
+    // yani en kotu yolun bitis noktasi co_wdata, o da {4{result_byte}},
+    // result_byte ise bu fonksiyonun cikisi.
+    //
+    // Kesit CARPMADAN SONRA: en derin parca carpma, ondan sonrasi kaydirma
+    // ve doyum. Bedeli cikti pikseli basina +1 cevrim (4000 conv + 4 FC).
+    //
+    // MAC'e (satir ~231) DOKUNULMADI: o zaten kayitli ve cevrim basina
+    // kosuyor; oraya kademe eklemek pahali olurdu.
+
+    // ---- ILK DENEME YANLISTI, KAYIT ICIN ----
+    // Kesiti carpmadan SONRA yapmistim. Olctum, ISE YARAMADI:
+    //   kritik yol derinligi 77 -> 76 kademe (yani degismedi)
+    //   carpici hucreleri neredeyse ayni: 1220 -> 1256 xnor2, 475 -> 494 xor2
+    // Sebep: derinligin TAMAMI 32x32 carpmanin kendisinde; kaydirma ve doyum
+    // onun yaninda kucuk kaliyor. Yolu ikiye boldum ama biri 76, digeri ~10
+    // kademe oldu - kesit yanlis yerdeydi.
+    //
+    // ---- DOGRU KESIT: CARPMANIN ICINDE ----
+    //   acc * M = acc*M_hi*2^16 + acc*M_lo
+    // Iki adet 32x16 carpma, her biri kabaca yari derinlik.
+    //
+    // GUVENLI cunku TUM M sabitleri POZITIF (MSB=0, tek tek dogrulandi):
+    //   CONV: 628A49AF 5A64A4B7 7741C64F 452319CA 594FD417 4CA163E2 7FEC0835 68B36BE8
+    //   FC  : 732B0C78
+    // Yarilar isaretsiz genisletilebilir; aritmetik BIREBIR ayni kalir.
+    // Tasma: |acc| * M_hi <= 2^31 * 0x7FEC ~= 2^46 -> 49 bit isaretli fazlasiyla yeter.
+
+    // 1. asama - ust yari carpimi
+    function automatic logic signed [48:0] rq_mul_hi(
         input logic signed [31:0] acc,
-        input logic signed [31:0] M_q31,
+        input logic        [31:0] M_q31
+    );
+        return $signed(acc) * $signed({1'b0, M_q31[31:16]});
+    endfunction
+
+    // 1. asama - alt yari carpimi
+    function automatic logic signed [48:0] rq_mul_lo(
+        input logic signed [31:0] acc,
+        input logic        [31:0] M_q31
+    );
+        return $signed(acc) * $signed({1'b0, M_q31[15:0]});
+    endfunction
+
+    // 2. asama - yarilari birlestir, yuvarla, kaydir, zero-point, doyum
+    // Aritmetigi eskisiyle BIREBIR ayni.
+    function automatic logic signed [7:0] rq_round_sat(
+        input logic signed [48:0] p_hi,
+        input logic signed [48:0] p_lo,
         input int                 right_shift,
         input logic signed [ 7:0] out_zp,
         input logic               do_relu
@@ -242,7 +303,7 @@ module ai_accelerator #(
         logic signed [31:0] act_min;
 
         zp_ext    = {{24{out_zp[7]}}, out_zp};
-        prod      = $signed(acc) * $signed(M_q31);
+        prod      = (64'(p_hi) <<< 16) + 64'(p_lo);   // yarilari birlestir
         half      = 64'sd1 <<< (right_shift - 1);
         rounded64 = (prod + half) >>> right_shift;
         biased    = rounded64[31:0] + zp_ext;
@@ -252,6 +313,11 @@ module ai_accelerator #(
         else if (biased <  act_min)   return act_min[7:0];
         else                          return biased[7:0];
     endfunction
+
+    // Requant boru hatti yazmaclari (1. asama -> 2. asama)
+    logic signed [48:0] rq_phi, rq_plo;
+    logic [ 5:0]        rq_shift;   // 41..43, 6 bit yeter
+    logic               rq_relu;
 
     // Ana FSM durumlari
     typedef enum logic [4:0] {
@@ -265,7 +331,8 @@ module ai_accelerator #(
         ST_CONV_INIT,
         ST_CONV_MAC,       // cycle basina 1 MAC
         ST_CONV_DRAIN,     // pipeline bosalt
-        ST_CONV_STORE,     // requant + conv_out_mem'e yaz
+        ST_CONV_STORE,     // requant 1. asama: bias + carpma
+        ST_CONV_STORE_2,   // requant 2. asama: yuvarla/doy + conv_out_mem'e yaz
         ST_WCONV_RD,
         ST_WCONV_RD2,
         ST_WCONV_ISSUE,
@@ -277,7 +344,8 @@ module ai_accelerator #(
         ST_FC_FETCH_W_WAIT,
         ST_FC_MAC,
         ST_FC_DRAIN,       // pipeline bosalt
-        ST_FC_STORE,
+        ST_FC_STORE,       // requant 1. asama
+        ST_FC_STORE_2,     // requant 2. asama
         ST_ARGMAX,
         ST_WRITE_RESULT,
         ST_WRITE_WAIT,
@@ -623,14 +691,22 @@ module ai_accelerator #(
                 end
 
                 ST_CONV_STORE: begin
-                    // bias ekle, kanal basina requant + fused ReLU, conv_out_mem'e yaz
-                    result_byte = tflite_requant(
-                        mac_acc + conv_bias_mem[f_idx],
-                        M_CONV_Q31[f_idx],
-                        SHIFT_CONV[f_idx],
-                        CONV_OUT_ZP,
-                        1'b1
-                    );
+                    // 1. asama: bias ekle + kanal basina carpan ile carp.
+                    // Indisler (f,r,c) BU ASAMADA ILERLETILMEZ - 2. asama
+                    // yazma adresini ayni indislerle hesaplayacak.
+                    rq_phi   <= rq_mul_hi(mac_acc + conv_bias_mem[f_idx],
+                                          M_CONV_Q31[f_idx]);
+                    rq_plo   <= rq_mul_lo(mac_acc + conv_bias_mem[f_idx],
+                                          M_CONV_Q31[f_idx]);
+                    rq_shift <= 6'(SHIFT_CONV[f_idx]);
+                    rq_relu  <= 1'b1;                  // conv'da fused ReLU var
+                    state    <= ST_CONV_STORE_2;
+                end
+
+                ST_CONV_STORE_2: begin
+                    // 2. asama: yuvarla, kaydir, doy + conv_out_mem'e yaz
+                    result_byte = rq_round_sat(rq_phi, rq_plo, int'(rq_shift),
+                                               CONV_OUT_ZP, rq_relu);
                     co_we    <= 1'b1;
                     co_waddr  <= CO_AW'(conv_out_bidx(r_idx, c_idx, f_idx) >> 2);
                     co_wmask  <= 4'b0001 << conv_out_bidx(r_idx, c_idx, f_idx) % 4;
@@ -752,14 +828,18 @@ module ai_accelerator #(
                 end
 
                 ST_FC_STORE: begin
-                    // tensor basina requant, ReLU yok (softmax girisi)
-                    fc_out_mem[out_idx] <= tflite_requant(
-                        mac_acc + fc_bias_mem[out_idx],
-                        M_FC_Q31,
-                        SHIFT_FC,
-                        FC_OUT_ZP,
-                        1'b0
-                    );
+                    // 1. asama: bias ekle + tensor carpani ile carp
+                    rq_phi   <= rq_mul_hi(mac_acc + fc_bias_mem[out_idx], M_FC_Q31);
+                    rq_plo   <= rq_mul_lo(mac_acc + fc_bias_mem[out_idx], M_FC_Q31);
+                    rq_shift <= 6'(SHIFT_FC);
+                    rq_relu  <= 1'b0;                  // FC'de ReLU yok (softmax girisi)
+                    state    <= ST_FC_STORE_2;
+                end
+
+                ST_FC_STORE_2: begin
+                    // 2. asama: yuvarla, kaydir, doy + fc_out_mem'e yaz
+                    fc_out_mem[out_idx] <= rq_round_sat(rq_phi, rq_plo, int'(rq_shift),
+                                                        FC_OUT_ZP, rq_relu);
                     if (out_idx == FC_OUT - 1) begin
                         state <= ST_ARGMAX;
                     end else begin
