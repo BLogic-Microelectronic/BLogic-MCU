@@ -225,40 +225,44 @@ module ai_accel_tb;
   end
 
   // AXI-Lite master driver task'leri
+  // K14: DUT'un awready'si kayitli ve aw_en ARM cevriminde temizleniyor
+  // (ai_accelerator.sv:907-916), yakalama bir sonraki kenarda awready && awvalid
+  // istiyor (satir 919). Surme/birakma ve ornekleme negedge'e alindi; transfer
+  // arada gecen posedge'de gerceklesir. RTL'e dokunulmadi.
   task automatic csr_write(input logic [4:0] addr, input logic [31:0] data);
-    fork
-      begin: aw_ph
-        @(posedge clk);
-        s_awaddr  <= {27'd0, addr};
-        s_awvalid <= 1'b1;
-        do @(posedge clk); while (!s_awready);
-        s_awvalid <= 1'b0;
-      end
-      begin: w_ph
-        @(posedge clk);
-        s_wdata  <= data;
-        s_wstrb  <= 4'hF;
-        s_wvalid <= 1'b1;
-        do @(posedge clk); while (!s_wready);
-        s_wvalid <= 1'b0;
-      end
-    join
-    s_bready <= 1'b1;
-    do @(posedge clk); while (!s_bvalid);
-    s_bready <= 1'b0;
+    @(negedge clk);
+    s_awaddr  <= {27'd0, addr};
+    s_awvalid <= 1'b1;
+    s_wdata   <= data;
+    s_wstrb   <= 4'hF;
+    s_wvalid  <= 1'b1;
+    do @(negedge clk); while (!(s_awready && s_wready));
+    @(posedge clk);
+    @(negedge clk);
+    s_awvalid <= 1'b0;
+    s_wvalid  <= 1'b0;
+    s_bready  <= 1'b1;
+    while (!s_bvalid) @(negedge clk);
+    @(posedge clk);
+    @(negedge clk);
+    s_bready  <= 1'b0;
   endtask
 
+  // K14: ayni yaris okuma yolunda da var.
   task automatic csr_read(input logic [4:0] addr, output logic [31:0] data);
-    @(posedge clk);
+    @(negedge clk);
     s_araddr  <= {27'd0, addr};
     s_arvalid <= 1'b1;
     s_rready  <= 1'b1;
-    do @(posedge clk); while (!s_arready);
+    do @(negedge clk); while (!s_arready);
+    @(posedge clk);
+    @(negedge clk);
     s_arvalid <= 1'b0;
-    do @(posedge clk); while (!s_rvalid);
+    while (!s_rvalid) @(negedge clk);
     data = s_rdata;
     @(posedge clk);
-    s_rready <= 1'b0;
+    @(negedge clk);
+    s_rready  <= 1'b0;
   endtask
 
   // Statik agirliklari yukle (her senaryoda ayni).
