@@ -83,26 +83,36 @@ module uart_stp_tb;
     end
 
     // AXI-Lite gorevleri
+    // K14 ile ayni hata: valid transfer kenarindan once birakiliyordu.
+    // uart_axil.sv:103-108 aw_en idiomu, ai_accelerator.sv ile birebir ayni.
+    // Surme/birakma ve ornekleme negedge'de, transfer arada gecen posedge'de.
     task automatic axi_write(input logic [4:0] addr, input logic [31:0] data);
-        @(posedge clk);
+        @(negedge clk);
         awaddr  <= {27'd0, addr};
         wdata   <= data;
         awvalid <= 1'b1;
         wvalid  <= 1'b1;
-        do @(posedge clk); while (!(awready && wready));
+        do @(negedge clk); while (!(awready && wready));
+        @(posedge clk);
+        @(negedge clk);
         awvalid <= 1'b0;
         wvalid  <= 1'b0;
-        do @(posedge clk); while (!bvalid);
+        while (!bvalid) @(negedge clk);
+        @(posedge clk);
     endtask
 
+    // K14: ayni yaris okuma yolunda da var (uart_axil.sv:145-156).
     task automatic axi_read(input logic [4:0] addr, output logic [31:0] data);
-        @(posedge clk);
+        @(negedge clk);
         araddr  <= {27'd0, addr};
         arvalid <= 1'b1;
-        do @(posedge clk); while (!arready);
+        do @(negedge clk); while (!arready);
+        @(posedge clk);
+        @(negedge clk);
         arvalid <= 1'b0;
-        do @(posedge clk); while (!rvalid);
+        while (!rvalid) @(negedge clk);
         data = rdata;
+        @(posedge clk);
     endtask
 
     // Bir STP ayarinda iki bayt gonderir, start->start araligini dondurur
