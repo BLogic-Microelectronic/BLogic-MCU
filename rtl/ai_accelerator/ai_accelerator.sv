@@ -168,6 +168,8 @@ module ai_accelerator #(
     // 4930 magic DRC ihlali, 185 VPWR/VGND kisa devresi, 169 LVS hatasi.
     // Guc pinleri artik vccd1/vssd1 -> diger 26 makroyla ayni PDN sozlesmesi.
     // Port listesi degismedi: iki makronun arayuzu birebir ayni (123 pin, 32x256).
+    // Kose kapsami: bu makro tek koseli (TT) gelir; SS/FF analizi
+    // set_timing_derate ile kotumser olarak kapsanir.
     sky130_sram_1kbyte_1rw1r_32x256_8 u_conv_w_mem (
         .clk0(clk_i), .csb0(!cw_we), .web0(1'b0), .wmask0(4'b1111),
         .addr0(cw_waddr), .din0(cw_wdata), .dout0(),

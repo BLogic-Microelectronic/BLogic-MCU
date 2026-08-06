@@ -42,8 +42,13 @@ int main(void) {
     uart_put_int(toplam);
     uart_puts(UART0, "\n");
     
-    // sim_main.cpp basari algilamasi icin gerekli dize
-    uart_puts(UART0, "Hello World from BLogic MCU!\n");
+    // Kendi kendini kontrol: sonuc yanlissa golden dizge BASILMAZ
+    if (toplam == (sayi1 + sayi2)) {
+        uart_puts(UART0, "[ADD] PASS\n");
+        uart_puts(UART0, "Hello World from BLogic MCU!\n");
+    } else {
+        uart_puts(UART0, "[ADD] FAIL: toplam yanlis\n");
+    }
 
     while (1) {
         __asm__ volatile("nop");

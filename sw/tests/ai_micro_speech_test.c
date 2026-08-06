@@ -85,7 +85,8 @@ int main(void) {
 
     if (timeout == 0U) {
         uart_puts(UART0, "[AI] FAIL: TIMEOUT - DONE bit gelmedi\n");
-        uart_puts(UART0, "Hello World from BLogic MCU!\n");
+        /* golden dizge BASILMAZ: TB onu gorunce PASS yaziyor.
+           Basarisizlikta dizge cikmamali ki kapi kirmizi yansin. */
         while (1) { __asm__ volatile("nop"); }
     }
 
@@ -128,6 +129,8 @@ int main(void) {
     /* PASS/FAIL karar */
     if ((argmax == EXPECTED_ARGMAX) && ((result_word & 0xFU) == EXPECTED_ARGMAX)) {
         uart_puts(UART0, "[AI] PASS\n");
+        /* golden dizge YALNIZ burada: TB'nin PASS kriteri budur */
+        uart_puts(UART0, "Hello World from BLogic MCU!\n");
     } else {
         uart_puts(UART0, "[AI] FAIL: beklenen=");
         uart_putu(UART0, EXPECTED_ARGMAX);
@@ -141,8 +144,6 @@ int main(void) {
     /* DONE bayragini temizle */
     AI_ACC->CTRL = CTRL_CLEAR_DONE;
 
-    /* TB golden_string match -> sim erken bitsin */
-    uart_puts(UART0, "Hello World from BLogic MCU!\n");
 
     /* sonsuz dongu */
     while (1) {

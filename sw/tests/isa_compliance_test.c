@@ -101,12 +101,14 @@ int main(void) {
     uart_put_int(test_count);
     uart_puts(UART0, " PASS ===\n");
 
-    if (fail_count == 0)
+    // golden dizge YALNIZ basarida
+    if (fail_count == 0) {
         uart_puts(UART0, ">>> ISA COMPLIANCE PASSED <<<\n");
-    else
+        uart_puts(UART0, "Hello World from BLogic MCU!\n");
+    } else {
         uart_puts(UART0, ">>> ISA COMPLIANCE FAILED <<<\n");
+    }
 
-    uart_puts(UART0, "Hello World from BLogic MCU!\n");
     while (1) { __asm__ volatile("nop"); }
     return 0;
 }

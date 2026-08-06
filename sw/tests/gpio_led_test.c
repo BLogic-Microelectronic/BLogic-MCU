@@ -56,10 +56,14 @@ int main(void) {
     uart_puts(UART0, "\n");
 
     // Sonuc
-    if (pass) uart_puts(UART0, ">>> GPIO PASS <<<\n");
-    else      uart_puts(UART0, ">>> GPIO FAIL <<<\n");
+    // golden dizge YALNIZ basarida: kosulsuz basilirsa FAIL de PASS raporlanir
+    if (pass) {
+        uart_puts(UART0, ">>> GPIO PASS <<<\n");
+        uart_puts(UART0, "Hello World from BLogic MCU!\n");
+    } else {
+        uart_puts(UART0, ">>> GPIO FAIL <<<\n");
+    }
 
-    uart_puts(UART0, "Hello World from BLogic MCU!\n");
     while (1) { __asm__ volatile("nop"); }
     return 0;
 }
