@@ -53,6 +53,12 @@ def main():
     ap.add_argument("--raw", action="store_true", help="dosyayi ham bayt olarak oku")
     ap.add_argument("--list", action="store_true", help="yerlesik altin vektorleri listele")
     ap.add_argument("--timeout", type=float, default=5.0, help="cevap bekleme (s)")
+    # K13 (docs/oznitelik_vektoru_formati.md): microfrontend uint8 (0..255)
+    # uretir, model int8 (-128..127) bekler. Donusum: int8 = uint8 - 128,
+    # bit duzeyinde byte ^ 0x80. Ham uint8 gonderilirse ornegin 200 degeri
+    # +72 yerine -56 olur ve conv birikimi tamamen kayar.
+    ap.add_argument("--from-uint8", action="store_true",
+                    help="girdi uint8 (0..255) ise int8'e cevir (byte ^ 0x80)")
     args = ap.parse_args()
 
     if args.list:
@@ -81,6 +87,21 @@ def main():
     if len(data) > AI_INPUT_MAX:
         print(f"UYARI: {len(data)} B > {AI_INPUT_MAX} B siniri, kirpiliyor")
         data = data[:AI_INPUT_MAX]
+
+    if args.from_uint8:
+        data = bytes(b ^ 0x80 for b in data)   # uint8 -> int8
+
+    # Sahada en sik hata: yanlis isaret konvansiyonu. Altin vektorlerde
+    # baytlarin ~%64'u negatif (int8 yorumuyla). Hic negatif yoksa gelen veri
+    # buyuk olasilikla uint8'dir ve --from-uint8 gerekir. Yanlis sinif
+    # cikarsa ILK bakilacak yer burasi.
+    neg = sum(1 for b in data if b >= 0x80)
+    oran = 100.0 * neg / len(data)
+    print(f"isaret    : baytlarin %{oran:.1f}'i negatif (int8 yorumu)")
+    if oran < 5.0:
+        print("  UYARI: hic negatif yok -> veri uint8 olabilir, --from-uint8 dene")
+    elif oran > 90.0:
+        print("  UYARI: neredeyse hepsi negatif -> donusum iki kez uygulanmis olabilir")
 
     checksum = sum(data) & 0xFFFFFFFF
     paket = MAGIC + struct.pack("<I", len(data)) + data + struct.pack("<I", checksum)
