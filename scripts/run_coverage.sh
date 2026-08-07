@@ -35,6 +35,39 @@ done
 rm -rf logs/coverage/annotate
 verilator_coverage --annotate logs/coverage/annotate --annotate-min 1 $DATS | tee logs/coverage/summary.txt
 
+# --- Fonksiyonel kapsama (sayac tabanli, verif/sva/*_func_cov.sv) ---
+# Her test farkli bin alt kumesini uyarir; anlamli rakam BIRLESIM'dir.
+python3 - <<'PYEOF' | tee -a logs/coverage/summary.txt
+import glob, re, collections
+PAY = {"UART": 7, "QSPI": 7, "AI-CSR": 5, "IRQ": 3}
+best, ac_k, ac_f = collections.defaultdict(int), 0, 0
+irq_u = set()
+for f in glob.glob("logs/coverage/**/*.log", recursive=True):
+    t = open(f, errors="replace").read()
+    for blok, hit in re.findall(r"\[FUNC-COV\] (\S+).*?bin kapsami\s*:\s*(\d+)/", t, re.S):
+        if blok in PAY:
+            best[blok] = max(best[blok], int(hit))
+    # IRQ: hat bazinda gercek birlesim (max degil - her test farkli hatti uyariyor)
+    for a, b_, c in re.findall(r"timer\(irq16\)=(\d+) ai\(irq17\)=(\d+) strm\(irq18\)=(\d+)", t):
+        if int(a): irq_u.add("timer")
+        if int(b_): irq_u.add("ai")
+        if int(c): irq_u.add("strm")
+    for k, fl in re.findall(r"auto-clear\s*:\s*(\d+) kontrol, (\d+) ihlal", t):
+        ac_k += int(k); ac_f += int(fl)
+print("")
+print("--- Fonksiyonel kapsama (birlesim, verif/sva/*_func_cov.sv) ---")
+best["IRQ"] = max(best.get("IRQ", 0), len(irq_u))
+tot = sum(best.get(b, 0) for b in PAY)
+for b in ("UART", "QSPI", "AI-CSR", "IRQ"):
+    h, n = best.get(b, 0), PAY[b]
+    print("  %-8s : %d/%d  (%.0f%%)" % (b, h, n, 100.0 * h / n))
+print("  %-8s : %d/%d  (%.0f%%)" % ("TOPLAM", tot, sum(PAY.values()),
+                                    100.0 * tot / sum(PAY.values())))
+print("  UART auto-clear (EK-2 v1.3): %d kontrol, %d ihlal" % (ac_k, ac_f))
+if ac_f:
+    raise SystemExit("[HATA] auto-clear ihlali: %d" % ac_f)
+PYEOF
+
 echo "" | tee -a logs/coverage/summary.txt
 echo "--- Ekip RTL: kapsanmamis nokta-satir sayilari ---" | tee -a logs/coverage/summary.txt
 for F in ai_accelerator.sv ai_sram_arbiter.sv soc_top.sv soc_axi_interconnect.sv \

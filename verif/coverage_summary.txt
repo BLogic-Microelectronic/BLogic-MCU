@@ -19,6 +19,14 @@ Annotation Summary:
   lines with all attached points covered : 77.00%  (1365/1758)
 See lines with '%00' in logs/coverage/annotate
 
+--- Fonksiyonel kapsama (birlesim, verif/sva/*_func_cov.sv) ---
+  UART     : 5/7  (71%)
+  QSPI     : 7/7  (100%)
+  AI-CSR   : 5/5  (100%)
+  IRQ      : 3/3  (100%)
+  TOPLAM   : 20/22  (91%)
+  UART auto-clear (EK-2 v1.3): 2452 kontrol, 0 ihlal
+
 --- Ekip RTL: kapsanmamis nokta-satir sayilari ---
   ai_accelerator.sv            : 11
   soc_axi_interconnect.sv      : 0
