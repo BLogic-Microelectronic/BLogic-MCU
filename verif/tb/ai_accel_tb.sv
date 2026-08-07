@@ -522,7 +522,8 @@ module ai_accel_tb;
   // Dogruluk penceresi: SW(tflite) vs RTL toplu kosu.
   // run_accuracy_window.py 40 ornek uretir; SW argmax'i
   // acc_batch_expected.hex word'lerinden gelir. Dosyalar yoksa atlanir.
-  localparam int BATCH_N = 40;
+  parameter  int BATCH_N = 40;   // K3: -GBATCH_N=1000 ile buyutulur
+  parameter  longint SIM_TIMEOUT_MS = 250;   // 64-bit sart: ms*1e6 ns 32-bit'e sigmiyor  // K3: buyuk batch icin -GSIM_TIMEOUT_MS ile artirilir
   localparam int BATCH_W = 490;
 
   logic [31:0] batch_inputs   [0:BATCH_N*BATCH_W-1];
@@ -670,8 +671,9 @@ module ai_accel_tb;
 
   // Genel watchdog: tum simulasyon en fazla 250 ms surer
   initial begin
-    #250_000_000;
-    $display("[WATCHDOG] 250ms genel timeout, $finish");
+    #(SIM_TIMEOUT_MS * 64'd1_000_000);
+    $display("[WATCHDOG] %0d ms genel timeout - SIMULASYON TAMAMLANMADI", SIM_TIMEOUT_MS);
+    $fatal(1, "[WATCHDOG] genel timeout");
     $finish;
   end
 

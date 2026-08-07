@@ -138,6 +138,76 @@ def clamp(v):
     return -128 if v < -128 else (127 if v > 127 else v)
 
 
+def extend_samples(rng, yr, nr, syn, k):
+    """K3: girdi uzayini tarayan ek ornekler.
+
+    Olculen sey tanima dogrulugu DEGIL, SW referansi ile RTL arasindaki
+    sayisal esdegerliktir. Bu yuzden uzatma gercek konusmanin gurultulu
+    kopyalarini cogaltmaz; doyumu, zero-point sinirlarini ve requant
+    yuvarlama esiklerini zorlayan sekiz aile dongusel dagitilir.
+    """
+    out = []
+    base = {"yes": yr, "no": nr, "unk": syn["unknown"], "sil": syn["silence"]}
+    nm = ["yes", "no", "unk", "sil"]
+    while len(out) < k:
+        i = len(out)
+        f = i % 8
+        b = base[nm[i % 4]]
+        if f == 0:                                   # ince genlikli gurultu
+            a = 1 + (i % 40)
+            out.append(("x%04d_nz%02d" % (i, a), None,
+                        [clamp(v + rng.randint(-a, a)) for v in b]))
+        elif f == 1:                                 # zaman/frekans kaydirma
+            d = (i % 24) - 12
+            if i % 2:
+                out.append(("x%04d_ts%+03d" % (i, d), None,
+                            [b[((t - d) % 49) * 40 + q]
+                             for t in range(49) for q in range(40)]))
+            else:
+                out.append(("x%04d_fs%+03d" % (i, d), None,
+                            [b[t * 40 + ((q - d) % 40)]
+                             for t in range(49) for q in range(40)]))
+        elif f == 2:                                 # ince adimli olcekleme
+            kk = 0.05 + 0.05 * (i % 60)
+            out.append(("x%04d_sc%03d" % (i, int(kk * 100)), None,
+                        [clamp(v * kk) for v in b]))
+        elif f == 3:                                 # ikili karisim taramasi
+            b2 = base[nm[(i + 1) % 4]]
+            al = (i % 21) / 20.0
+            out.append(("x%04d_mx%03d" % (i, int(al * 100)), None,
+                        [clamp(al * x + (1 - al) * y) for x, y in zip(b, b2)]))
+        elif f == 4:                                 # gauss taramasi
+            mu = -128 + (i % 17) * 16
+            sg = 5 + (i % 12) * 10
+            out.append(("x%04d_g%+04d" % (i, mu), None,
+                        [clamp(rng.gauss(mu, sg)) for _ in range(1960)]))
+        elif f == 5:                                 # daralan duzgun aralik
+            lo = -128 + (i % 9) * 14
+            hi = max(lo + 1, 127 - (i % 7) * 18)
+            out.append(("x%04d_u%+04d" % (i, lo), None,
+                        [rng.randint(lo, hi) for _ in range(1960)]))
+        elif f == 6:                                 # seyrek: zero-point + uc
+            dn = 1 + (i % 30)
+            v = [-128] * 1960
+            for _ in range(dn * 8):
+                v[rng.randrange(1960)] = rng.choice([127, -127, 126, 0, 63, -64])
+            out.append(("x%04d_sp%02d" % (i, dn), None, v))
+        else:                                        # yapisal desen
+            pr = 1 + (i % 23)
+            md = i % 3
+            if md == 0:
+                v = [(127 if (q // pr) % 2 == 0 else -128)
+                     for t in range(49) for q in range(40)]
+            elif md == 1:
+                v = [(127 if (t // pr) % 2 == 0 else -128)
+                     for t in range(49) for q in range(40)]
+            else:
+                v = [clamp(-128 + ((t * 40 + q) * 255) // 1960)
+                     for t in range(49) for q in range(40)]
+            out.append(("x%04d_pt%d%02d" % (i, md, pr), None, v))
+    return out[:k]
+
+
 def make_samples(rng, yr, nr, syn):
     def noise(vec, amp):
         return [clamp(v + rng.randint(-amp, amp)) for v in vec]
@@ -182,8 +252,12 @@ def make_samples(rng, yr, nr, syn):
     s.append(("checker", None,
               [100 if (i % 2) == 0 else -100 for i in range(1960)]))
     s.append(("ramp", None, [(i % 256) - 128 for i in range(1960)]))
+    if len(s) != 40:
+        die("sabit cekirdek kume %d != 40 (uretim kurali bozulmus)" % len(s))
+    if N > 40:
+        s.extend(extend_samples(rng, yr, nr, syn, N - 40))
     if len(s) != N:
-        die("ornek sayisi %d != N=%d (uretim kurali bozulmus)" % (len(s), N))
+        die("ornek sayisi %d != N=%d" % (len(s), N))
     return s
 
 
@@ -325,10 +399,17 @@ def ingest_rtl(log_path):
 
 # uretim modu
 def main():
+    global N
     if not os.path.isdir(G):
         die("repo kokunden calistirin")
-    if len(sys.argv) == 3 and sys.argv[1] == "--ingest-rtl":
-        return ingest_rtl(sys.argv[2])
+    for a in sys.argv[1:]:
+        if a.startswith("--n="):
+            N = int(a[4:])
+            if N < 40:
+                die("--n en az 40 olmali (sabit cekirdek kume 40 ornek)")
+    args = [a for a in sys.argv[1:] if not a.startswith("--n=")]
+    if len(args) == 2 and args[0] == "--ingest-rtl":
+        return ingest_rtl(args[1])
     no_tflite = "--no-tflite" in sys.argv[1:]
 
     for f in ("input_yes_real.hex", "input_no_real.hex", "input_yes.hex",
@@ -365,7 +446,7 @@ def main():
                         "cikisi kullanildi (argmax esdeger)")
 
     meta, in_lines, exp_lines = [], [], []
-    eq_cnt, max_diff, am_agree, soft_agree = 0, 0, 0, 0
+    eq_cnt, max_diff, am_agree, soft_agree, tie_cnt = 0, 0, 0, 0, 0
     print("[KOSU] %d ornek, SW referansi: %s" % (N, sw_kind))
     for i, (name, label, vec) in enumerate(samples):
         ko = run_model(vec, cw, cb, fw, fb, qp)
@@ -384,6 +465,9 @@ def main():
         if soft is not None and argmax4(soft) == argmax4(ko):
             soft_agree += 1
         sw_am = argmax4(sw)
+        _ss = sorted(sw, reverse=True)
+        if _ss[0] == _ss[1]:
+            tie_cnt += 1
         meta.append((i, name, label if label else "-", sw, sw_am,
                      argmax4(ko), d))
         for k in range(0, 1960, 4):
@@ -409,8 +493,12 @@ def main():
     rep = []
     rep.append("--- uretim bolumu ---")
     rep.append("SW referansi          : " + sw_kind)
-    rep.append("Ornek uretimi         : seed=%d, N=%d (2 gercek ses + 4 "
-               "sentetik + 34 turetilmis)" % (SEED, N))
+    rep.append("Ornek uretimi         : seed=%d, N=%d (sabit cekirdek 40: "
+               "2 gercek ses + 4 sentetik + 34 turetilmis; kalan %d: girdi "
+               "uzayi taramasi, 8 aile)" % (SEED, N, max(0, N - 40)))
+    rep.append("Beraberlik (tie)      : %d/%d ornekte ilk iki logit esit -> "
+               "karar 'ilk maksimum' kuralina bagli (%.1f%%)"
+               % (tie_cnt, N, 100.0 * tie_cnt / N))
     if sw_run and has_logits:
         rep.append("TFLite FC logit vs kosim: birebir %d/%d, max |fark| = "
                    "%d LSB, argmax uyumu %d/%d"

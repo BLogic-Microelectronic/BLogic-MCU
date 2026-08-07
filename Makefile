@@ -184,6 +184,24 @@ arch-test:
 	         exit 1; }
 	bash verif/arch_tests/run_arch_test.sh "$(ARCH_EXT)"
 
+# K3: 1000 ornekli dogruluk penceresi (~4 dk). make ai varsayilan 40'ta kalir.
+ai-batch1000:
+	python3 sw/ai_model/run_accuracy_window.py --n=1000
+	rm -rf obj_dir_ai
+	verilator --binary $(TBCOV) -j 0 -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-CASEINCOMPLETE \
+	    -GBATCH_N=1000 -GSIM_TIMEOUT_MS=20000 --top-module ai_accel_tb \
+	    -Mdir obj_dir_ai -o ai_accel_tb_sim \
+	    verif/tb/ai_accel_tb.sv rtl/ai_accelerator/ai_accelerator.sv
+	./obj_dir_ai/ai_accel_tb_sim > obj_dir_ai/ai_run.log 2>&1 || true
+	@grep -E "sinif eslesmesi|BATCH\] (PASS|FAIL)|WATCHDOG" obj_dir_ai/ai_run.log
+	python3 sw/ai_model/run_accuracy_window.py --n=1000 --ingest-rtl obj_dir_ai/ai_run.log
+	@cp sw/ai_model/accuracy_report.txt sw/ai_model/accuracy_report_n1000.txt
+	@echo "[YAZ] sw/ai_model/accuracy_report_n1000.txt (1000 ornekli kanit)"
+	@echo "[TEMIZLIK] 40'lik set geri yaziliyor (make ai bunu bekler)"
+	@python3 sw/ai_model/run_accuracy_window.py > /dev/null
+	@rm -rf obj_dir_ai && $(MAKE) ai > /dev/null 2>&1 || true
+	@echo "[TEMIZLIK] accuracy_report.txt 40 ornekli haline dondu"
+
 # line coverage: test seti + rapor
 coverage:
 	bash scripts/run_coverage.sh

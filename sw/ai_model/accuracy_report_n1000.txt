@@ -1013,10 +1013,10 @@ SONUC: fark = 0.0 puan <= 10 puan -> EK-1 penceresi SAGLANDI (her test kumesinde
 
 --- uretim bolumu ---
 SW referansi          : GERCEK TFLite interpreter (sw/ai_model/micro_speech_quantized.tflite), FC logitleri (softmax oncesi) karsilastirildi
-Ornek uretimi         : seed=2026, N=40 (sabit cekirdek 40: 2 gercek ses + 4 sentetik + 34 turetilmis; kalan 0: girdi uzayi taramasi, 8 aile)
-Beraberlik (tie)      : 6/40 ornekte ilk iki logit esit -> karar 'ilk maksimum' kuralina bagli (15.0%)
-TFLite FC logit vs kosim: birebir 40/40, max |fark| = 0 LSB, argmax uyumu 40/40
-TFLite Softmax cikisi : argmax uyumu 40/40 (softmax monotonik -> karar esdeger; RTL logit-argmax uygular)
+Ornek uretimi         : seed=2026, N=1000 (sabit cekirdek 40: 2 gercek ses + 4 sentetik + 34 turetilmis; kalan 960: girdi uzayi taramasi, 8 aile)
+Beraberlik (tie)      : 82/1000 ornekte ilk iki logit esit -> karar 'ilk maksimum' kuralina bagli (8.2%)
+TFLite FC logit vs kosim: birebir 1000/1000, max |fark| = 0 LSB, argmax uyumu 1000/1000
+TFLite Softmax cikisi : argmax uyumu 1000/1000 (softmax monotonik -> karar esdeger; RTL logit-argmax uygular)
 Etiketli gercek kume  : SW dogruluk 2/2 (yes_real, no_real)
 RTL sutunu            : make ai kosun, sonra:
   python3 sw/ai_model/run_accuracy_window.py --ingest-rtl obj_dir_ai/ai_run.log
