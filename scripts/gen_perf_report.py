@@ -63,10 +63,10 @@ def _opt_seviyesi():
         mk = pathlib.Path("Makefile.verilator").read_text(errors="ignore")
         m = re.search(r"^RV_CFLAGS\s*=\s*(.*)$", mk, re.M)
         if m:
-            b += re.findall(r"-O[0-9sgz]+", m.group(1))
+            b += re.findall(r"-O(?:fast|[0-9sgz]+)", m.group(1))
     except Exception:
         pass
-    b += re.findall(r"-O[0-9sgz]+", os.environ.get("EXTRA_CFLAGS", ""))
+    b += re.findall(r"-O(?:fast|[0-9sgz]+)", os.environ.get("EXTRA_CFLAGS", ""))
     return b[-1] if b else "bilinmiyor"
 
 gcc_yol, gcc_ver = _rv_gcc_bilgi()

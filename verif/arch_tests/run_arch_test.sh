@@ -19,11 +19,36 @@ INC="-I${REPO}/env -I${TGT}"
 FILT="${1:-I}"; TFILT="${2:-}"
 RED='\033[0;31m'; GRN='\033[0;32m'; YLW='\033[1;33m'; NC='\033[0m'
 
+# zicsr/zifencei ayri uzanti adi olarak binutils 2.36+ (2021) ile geldi. Daha eski
+# zincirler (orn. crosstool-NG gcc 10.2.0) 'zifencei'yi tanimayip derlemeyi kesiyor.
+# fence.i eski spec'te temel I'nin parcasi oldugu icin son ek dusunce islev degismez.
+# Geri dusum SESSIZ OLMAMALI: iki makine farkli -march ile derlerse ve bu hicbir
+# yerde gorunmezse K8/K9/K14'un kalibi tekrarlanir (ortam farki sessizce farkli sonuc
+# uretir). Tetiklendiginde ekrana basilir; kullanilan deger result.log'a da yazilir.
+if ! ${GCC} -march=${MARCH} -mabi=ilp32 -c -x assembler /dev/null -o /dev/null 2>/dev/null; then
+    _march_full="${MARCH}"
+    MARCH="rv32imc_zicsr"
+    _gccv=$(${GCC} -dumpversion 2>/dev/null || echo "?")
+    echo -e "${YLW}  [UYARI] arac zinciri '${_march_full}' dizgesini reddetti -> '${MARCH}' kullaniliyor${NC}"
+    echo -e "${YLW}          (gcc ${_gccv}: zicsr/zifencei ayri uzanti adi binutils 2.36+ ile geldi)${NC}"
+    echo -e "${YLW}          Imza esdegerligi spike'li makinede dogrulanmalidir.${NC}"
+fi
+
 echo -e "${YLW}═══ BLogic MCU riscv-arch-test ═══${NC}"
 echo -e "${YLW}  Cikti: ${LOG_ROOT}${NC}"
 mkdir -p "${LOG_ROOT}"
 
-[ -x "${SIM}" ] || { cd "${PROJ}"; make -f Makefile.verilator verilate-arch; }
+# Yeniden derleme yalnizca "ikili yok" kosuluna baglanirsa, TB/RTL degistiginde
+# bayat ikili sessizce kullanilir ve yeni plusarg'lar (+TOHOST, +SIG_*) yutulur —
+# testler kosar ama kapi hic devreye girmez. Kaynaklardan yeni olani da tetiklesin.
+_stale=0
+[ -x "${SIM}" ] || _stale=1
+if [ -x "${SIM}" ]; then
+    for _s in "${PROJ}/verif/tb/sim_main.cpp" $(find "${PROJ}/rtl" -name '*.sv' -newer "${SIM}" -print -quit 2>/dev/null); do
+        [ "${_s}" -nt "${SIM}" ] && { _stale=1; break; }
+    done
+fi
+[ "${_stale}" -eq 0 ] || { cd "${PROJ}"; make -f Makefile.verilator verilate-arch; }
 echo 00000000 > "${PROJ}/obj_dir_arch/bootrom.hex"   # zero-ROM: PC=0 illegal -> trap -> mtvec(0x10000)
 [ -f "${PROJ}/obj_dir_arch/ai_sram_init.hex" ] || echo 00000000 > "${PROJ}/obj_dir_arch/ai_sram_init.hex"
 
@@ -96,7 +121,6 @@ for EXT in ${FILT}; do
             echo "rtl_pc_lines=${PC}"
             echo "tohost=${TOH_V:-yok}"
             echo "sig_words=${SIGW}"
-            echo "gate=tohost_write"
         } > "${TW}/result.log"
 
         # K4 Kademe 2: spike referans imzasi ile karsilastir.
@@ -131,12 +155,17 @@ for EXT in ${FILT}; do
             fi
         fi
         echo "sig_diff=${SIGDIFF}" >> "${TW}/result.log"
+        echo "march=${MARCH}" >> "${TW}/result.log"
+        if [ "${SIGDIFF}" = "ESIT" ]; then
+            echo "gate=tohost+signature" >> "${TW}/result.log"
+        else
+            echo "gate=tohost_write" >> "${TW}/result.log"
+        fi
 
         if [ -n "${TOH_V}" ] && [ "${TOH_V}" != "0x00000000" ] \
            && { [ "${SIGDIFF}" = "ESIT" ] || [ "${SIGDIFF}" = "atlandi" ]; }; then
             echo -e "  [${GRN}PASS${NC}] ${TN}  (${PC} instr, imza ${SIGW} word, ${SIGDIFF})"
             echo "result=PASS" >> "${TW}/result.log"
-            echo "gate=tohost+signature" >> "${TW}/result.log"
             P=$((P+1))
         elif [ -n "${TOH_V}" ] && [ "${TOH_V}" != "0x00000000" ]; then
             echo -e "  [${RED}FAIL${NC}] ${TN} — imza uyusmuyor (${SIGDIFF})"

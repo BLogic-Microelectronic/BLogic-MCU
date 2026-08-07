@@ -1,0 +1,16 @@
+# Satir sonlari LF'te sabitlensin. Gerekce: Windows arac zinciriyle uretilen
+# yamalar dosyayi CRLF'e cevirip kabuk betiklerini bozdu
+# ("syntax error near unexpected token $'do\r'") ve diff'i okunamaz hale getirdi.
+*.sh   text eol=lf
+*.py   text eol=lf
+*.sv   text eol=lf
+*.v    text eol=lf
+*.c    text eol=lf
+*.h    text eol=lf
+*.ld   text eol=lf
+*.tcl  text eol=lf
+
+# teknotest/ TEKNOFEST DDK'nin verdigi juri referans testbench'i. Juri kendi
+# orijinaliyle karsilastirabilir; yeniden bicimlendirmek butun dosyayi degismis
+# gosterir. Bu agac CRLF'iyle birlikte oldugu gibi birakiliyor.
+teknotest/** -text
