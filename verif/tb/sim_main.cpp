@@ -69,6 +69,11 @@ public:
 };
 
 int main(int argc, char** argv) {
+    // --- K4: riscv-arch-test imza dokumu + tohost kapisi ---
+    const uint32_t K4_DSRAM_BASE = 0x00020000u;
+    uint32_t k4_sig_start = 0, k4_sig_end = 0, k4_tohost = 0;
+    std::string k4_sig_file;
+
     Verilated::commandArgs(argc, argv);
     auto* top = new Vsoc_top;
 
@@ -86,6 +91,10 @@ int main(int argc, char** argv) {
         else if (arg.rfind("+MAX_CYCLES=", 0) == 0) max_cycles = std::stoull(arg.substr(12));
         else if (arg.rfind("+LOGDIR=", 0)    == 0) log_dir = arg.substr(8);
         else if (arg.rfind("+TEST_NAME=", 0) == 0) test_name = arg.substr(11);
+        else if (arg.rfind("+SIG_START=", 0) == 0) k4_sig_start = std::stoul(arg.substr(11), nullptr, 0);
+        else if (arg.rfind("+SIG_END=", 0)   == 0) k4_sig_end   = std::stoul(arg.substr(9),  nullptr, 0);
+        else if (arg.rfind("+SIG_FILE=", 0)  == 0) k4_sig_file  = arg.substr(10);
+        else if (arg.rfind("+TOHOST=", 0)    == 0) k4_tohost    = std::stoul(arg.substr(8),  nullptr, 0);
         else if (arg.rfind("+SWEEP=", 0)     == 0) {
             // virgul ayrili CPB listesi, orn: +SWEEP=434,50,5208
             std::string lst = arg.substr(7);
@@ -217,6 +226,23 @@ int main(int argc, char** argv) {
         ? (full_output.find(golden_string) != std::string::npos)
         : (sweep_done == sweep_cpbs.size());
     const char* result = match ? "PASS" : "FAIL";
+
+    // --- K4: imza bolgesini dok, tohost'u oku (arch-test disinda etkisiz) ---
+    if (k4_tohost >= K4_DSRAM_BASE) {
+        uint32_t tv = top->rootp->soc_top__DOT__i_data_sram__DOT__mem[(k4_tohost - K4_DSRAM_BASE) >> 2];
+        char kb[40];
+        snprintf(kb, sizeof(kb), "tohost=0x%08X\n", tv);
+        result_log << kb;
+    }
+    if (!k4_sig_file.empty() && k4_sig_end > k4_sig_start && k4_sig_start >= K4_DSRAM_BASE) {
+        std::ofstream k4_sig(k4_sig_file);
+        for (uint32_t a = k4_sig_start; a < k4_sig_end; a += 4) {
+            char sb[16];
+            snprintf(sb, sizeof(sb), "%08x\n",
+                     top->rootp->soc_top__DOT__i_data_sram__DOT__mem[(a - K4_DSRAM_BASE) >> 2]);
+            k4_sig << sb;
+        }
+    }
 
     result_log << "test_name="     << test_name        << "\n"
                << "test_logdir="   << log_dir          << "\n"
