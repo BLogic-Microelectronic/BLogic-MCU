@@ -85,6 +85,7 @@ static uint32_t sta_err(void) {
 
 int main(void) {
     UART0->CPB = QSPI_ERR_CPB;
+    uint32_t tmo = 0U;   /* vaka 5-9 ortak zaman asimi sayaci */
 
     uart_puts(UART0, "\n=== QSPI FIFO / status hata yollari ===\n");
 
@@ -127,6 +128,15 @@ int main(void) {
     QSPI->ADR = 0x00ABCDEFU;
     kontrol("ADR", 0x00ABCDEFU, QSPI->ADR);
 
+    /* CCR geri okuma (RTL:550-552). Bit31 komut biti, geri okunmaz;
+       yazilan alanlar (instr/data_mode/dir/dummy/len/presc) donmeli. */
+    QSPI->CCR = CCR_CLR_STA;
+    QSPI->CCR = 0x08040501U;
+    tmo = 200000U;
+    while ((QSPI->STA & STA_BUSY) && --tmo) { }
+    kontrol("CCR", 0x08040501U, QSPI->CCR);
+    QSPI->CCR = CCR_CLR_STA;
+
     QSPI->FCR = FCR_ADDR4B;
     kontrol("FCR addr4b", FCR_ADDR4B, QSPI->FCR & FCR_ADDR4B);
     QSPI->FCR = 0U;
@@ -144,7 +154,7 @@ int main(void) {
     QSPI->DR  = 0x11223344U;
     QSPI->CCR = 0x08040501U;                   /* dir=1 -> SPI_DATA_TX */
 
-    uint32_t tmo = 200000U;
+    tmo = 200000U;
     while ((QSPI->STA & STA_BUSY) && --tmo) { }
     kontrol("yazma tamamlandi (busy dustu)", 0U, QSPI->STA & STA_BUSY);
     kontrol("done kuruldu", STA_DONE, QSPI->STA & STA_DONE);

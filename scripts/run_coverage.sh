@@ -24,14 +24,19 @@ for T in $TESTS; do
       qspi_fifo_err_test)
         # Kendi golden dizgesi var; varsayilan "Hello World" aranirsa FAIL doner.
         # golden.txt "rm -rf build"den SONRA uretiliyor (asagida), yoksa silinir.
-        EXTRA=(SIM_PLUSARGS="+GOLDEN_FILE=../build/qspi_err/golden.txt +MAX_CYCLES=8000000") ;;
+        # CPB=64: 25 kontrolun raporu 1840 bayt; 434'te ~7,8 M cevrim suruyor
+        # ve butceyi asiyor (olculdu: cycles=8000000, log ortada kesildi).
+        # UART burada yalniz raporlama kanali - olculen QSPI yollarinin
+        # hicbiri baud hizina bagli degil.
+        EXTRA=(EXTRA_CFLAGS="-DQSPI_ERR_CPB=64"
+               SIM_PLUSARGS="+CPB=64 +GOLDEN_FILE=../build/qspi_err/golden.txt +MAX_CYCLES=3000000") ;;
     esac
     echo ">>> sim: $T"
     rm -rf build
     [ "$T" = "qspi_test" ] && printf 'AA\nBB\nCC\nDD\n' > obj_dir/flash.hex
     if [ "$T" = "qspi_fifo_err_test" ]; then
         mkdir -p build/qspi_err
-        printf '[QSPI-ERR] gecen=24 kalan=0  SONUC: PASS' > build/qspi_err/golden.txt
+        printf '[QSPI-ERR] gecen=25 kalan=0  SONUC: PASS' > build/qspi_err/golden.txt
     fi
     make -f Makefile.verilator sim COVERAGE=1 FW_SRC=sw/tests/$T.c "${EXTRA[@]}" \
         >"$PROJ/logs/coverage/${T}_sim.log" 2>&1 \
@@ -94,7 +99,7 @@ SUM="$PROJ/verif/coverage_summary.txt"
     echo "tarih     : $(date +%Y-%m-%d)"
     echo "verilator : $(verilator --version 2>/dev/null | head -1)"
     echo "testler   : $TESTS"
-    echo "olcum     : --coverage-line, SoC seviyesi (10 C testi, tek build, sabit payda)"
+    echo "olcum     : --coverage-line, SoC seviyesi (11 C testi, tek build, sabit payda)"
     echo "kapsam    : tasarim RTL'i (14 dosya). Haric: CV32E40P/PULP vendor kodu,"
     echo "            testbench'ler, davranissal modeller, SVA checker ve covergroup"
     echo "            bind'leri - bunlar dogrulama altyapisidir, tasarim degil."
