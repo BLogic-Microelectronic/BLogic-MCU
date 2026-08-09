@@ -45,12 +45,57 @@ def hex_to_bytes(path):
     return bytes(out)
 
 
+def gonder(args, paket):
+    """Paketi seri porta yaz, ya da --dry-run ile dosyaya."""
+    if args.dry_run:
+        with open(args.dry_run, "wb") as f:
+            f.write(paket)
+        print("paket     : %d bayt -> %s (kuru kosu, port acilmadi)"
+              % (len(paket), args.dry_run))
+        return
+
+    try:
+        import serial  # pyserial
+    except ImportError:
+        sys.exit("pyserial yok:  pip install pyserial")
+
+    print("paket     : %d bayt" % len(paket))
+    print("port      : %s @ %d" % (args.port, args.baud))
+    with serial.Serial(args.port, args.baud, timeout=args.timeout) as ser:
+        time.sleep(0.2)
+        ser.reset_input_buffer()
+        ser.write(paket)
+        ser.flush()
+        print("-" * 52)
+        # Karttan gelen raporu, sessizlige dusene kadar bas
+        son = time.time()
+        while time.time() - son < args.timeout:
+            satir = ser.readline()
+            if not satir:
+                continue
+            son = time.time()
+            print(satir.decode("ascii", "replace").rstrip())
+    print("-" * 52)
+
+
 def main():
     ap = argparse.ArgumentParser(description="YZ oznitelik vektorunu karta UART'tan gonder")
     ap.add_argument("--port", default="COM7", help="seri port (varsayilan COM7)")
     ap.add_argument("--baud", type=int, default=115200)
     ap.add_argument("--input", help="gonderilecek dosya (.hex ya da --raw ile ham .bin)")
     ap.add_argument("--raw", action="store_true", help="dosyayi ham bayt olarak oku")
+    ap.add_argument("--frame",
+                    help="hazir cerceve dosyasi (make_uart_frame.py ciktisi). "
+                         "Hicbir sey yeniden uretilmez, baytlar aynen gider - "
+                         "simulasyonda kanitlanan dizinin ta kendisi. "
+                         "--input/--preamble/--from-uint8 yok sayilir.")
+    ap.add_argument("--preamble", type=int, default=8,
+                    help="magic oncesi 0xFF dolgu bayti (varsayilan 8). "
+                         "Kartta host baglanirken hatta cop olusur ve ilk "
+                         "baytlar kaybolur; kaybolan dolgu olur, magic saglam kalir.")
+    ap.add_argument("--dry-run", metavar="DOSYA",
+                    help="seri porta yazmak yerine paketi dosyaya yaz "
+                         "(kart olmadan dogrulama; pyserial gerekmez)")
     ap.add_argument("--list", action="store_true", help="yerlesik altin vektorleri listele")
     ap.add_argument("--timeout", type=float, default=5.0, help="cevap bekleme (s)")
     # K13 (docs/oznitelik_vektoru_formati.md): microfrontend uint8 (0..255)
@@ -71,13 +116,32 @@ def main():
                 print(f"  {f:32s} {os.path.getsize(p):8,} B")
         return
 
-    if not args.input:
-        sys.exit("--input gerekli (ya da --list)")
+    if not args.input and not args.frame:
+        sys.exit("--input ya da --frame gerekli (ya da --list)")
 
-    try:
-        import serial  # pyserial
-    except ImportError:
-        sys.exit("pyserial yok:  pip install pyserial")
+    if args.frame:
+        # Hazir cerceve: hicbir sey yeniden uretilmiyor. Rapor satirlari
+        # da DOSYADAN okunur - ekranda gorunen sayi ile telden gidenin
+        # ayni olmasi bu modun tek anlami.
+        paket = open(args.frame, "rb").read()
+        i = paket.find(MAGIC)
+        if i < 0:
+            sys.exit("cercevede %r basligi yok: %s" % (MAGIC, args.frame))
+        uzunluk  = struct.unpack("<I", paket[i + 4:i + 8])[0]
+        data     = paket[i + 8:i + 8 + uzunluk]
+        checksum = struct.unpack("<I", paket[i + 8 + uzunluk:i + 12 + uzunluk])[0]
+        hesap    = sum(data) & 0xFFFFFFFF
+        print("cerceve   : %s" % args.frame)
+        print("onek      : %d bayt (magic ofseti)" % i)
+        print("uzunluk   : %d bayt" % uzunluk)
+        print("saglama   : 0x%08X  (hesaplanan 0x%08X)" % (checksum, hesap))
+        if checksum != hesap:
+            sys.exit("HATA: cercevedeki saglama tutmuyor - dosya bozuk")
+        if i == 0:
+            print("  UYARI: onek yok. Kartta ilk baytlar kaybolabilir;\n"
+                  "         make_uart_frame.py --preamble 8 ile uret.")
+        gonder(args, paket)
+        return
 
     data = (open(args.input, "rb").read() if args.raw
             else hex_to_bytes(args.input))
@@ -104,29 +168,15 @@ def main():
         print("  UYARI: neredeyse hepsi negatif -> donusum iki kez uygulanmis olabilir")
 
     checksum = sum(data) & 0xFFFFFFFF
-    paket = MAGIC + struct.pack("<I", len(data)) + data + struct.pack("<I", checksum)
+    onek  = b"\xFF" * args.preamble
+    paket = onek + MAGIC + struct.pack("<I", len(data)) + data + struct.pack("<I", checksum)
 
-    print(f"port      : {args.port} @ {args.baud}")
     print(f"dosya     : {args.input}")
+    print(f"onek      : {args.preamble} bayt (0xFF)")
     print(f"uzunluk   : {len(data):,} bayt")
     print(f"saglama   : 0x{checksum:08X}")
-    print(f"paket     : {len(paket):,} bayt")
 
-    with serial.Serial(args.port, args.baud, timeout=args.timeout) as ser:
-        time.sleep(0.2)
-        ser.reset_input_buffer()
-        ser.write(paket)
-        ser.flush()
-        print("-" * 52)
-        # Karttan gelen raporu, sessizlige dusene kadar bas
-        son = time.time()
-        while time.time() - son < args.timeout:
-            satir = ser.readline()
-            if not satir:
-                continue
-            son = time.time()
-            print(satir.decode("ascii", "replace").rstrip())
-    print("-" * 52)
+    gonder(args, paket)
 
 
 if __name__ == "__main__":
