@@ -60,6 +60,10 @@ coverage_html/
 verif/arch_tests/riscv-arch-test/
 *Zone.Identifier*
 *:Zone.Identifier
+# Uretilen artifakt: son --n degerine gore degisir (make ai / ai-batch1000).
+# Deterministik kanit accuracy_report_n1000.txt olarak repoda kalir.
+sw/ai_model/accuracy_report.txt
+
 # --- istisnalar: repo icinde KALACAK dosyalar ---
 !sw/ai_model/golden_vectors/*.hex
 !sw/bootloader/bootrom.hex

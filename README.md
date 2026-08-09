@@ -216,7 +216,7 @@ The design has been verified through Verilator-based directed and randomized sim
 │       ├── generate_ai_sram_init.py      # Single combined ai_sram_init.hex
 │       ├── run_accuracy_window.py        # EK-1 "10% window" 40-sample pipeline
 │       ├── tiny_conv_reference.py        # RTL-accurate Python model
-│       ├── accuracy_report.txt           # Final report
+│       ├── accuracy_report_n1000.txt     # N=1000 accuracy evidence (committed)
 │       └── golden_vectors/               # Generated hex files
 ├── verif/
 │   ├── tb/                               # Verilator testbenches
@@ -379,7 +379,7 @@ The `fetch_real_features.py` and `generate_ai_sram_init.py` scripts only use the
 | `generate_golden.py` | `numpy`, `tensorflow` *or* `tflite-runtime` | `input_{cls}.hex`, `conv_out_{cls}.hex`, `output_{cls}.hex` |
 | `fetch_real_features.py` | stdlib only | `input_{yes,no}_real.hex`, `conv_out_*`, `output_*` |
 | `generate_ai_sram_init.py` | stdlib only | `ai_sram_init.hex` (7680 lines for SoC preload) |
-| `run_accuracy_window.py` | `numpy`, `tensorflow` (preferred) | `accuracy_report.txt`, 40-sample golden batch |
+| `run_accuracy_window.py` | `numpy`, `tensorflow` (preferred) | `accuracy_report.txt` (generated, untracked), 40-sample golden batch; `--n=1000` writes `accuracy_report_n1000.txt` |
 | `tiny_conv_reference.py` | `numpy` | RTL-faithful Python model (debugging) |
 | `scripts/elf2hex.py` | stdlib only | `$readmemh`-compatible hex |
 
@@ -596,7 +596,7 @@ levels are reported separately.
 
 #### SoC level — `make coverage`
 
-Ten self-checking C tests on a single instrumented SoC build, fixed denominator.
+Eleven self-checking C tests on a single instrumented SoC build, fixed denominator.
 
 **Scope:** design RTL only (14 files). Excluded via `verif/coverage_waivers.vlt`:
 CV32E40P / PULP vendor code, testbenches, behavioural models, SVA checkers and
@@ -604,17 +604,17 @@ covergroup binds — these are verification infrastructure, not design under tes
 
 | Metric | Result |
 |---|---|
-| **Line coverage** | **67.2 %** (248 / 369) |
-| **Branch coverage** | **79.5 %** (644 / 810) |
-| Lines fully covered (annotation) | 76.0 % (1323 / 1719) |
+| **Line coverage** | **71.9 %** (271 / 377) |
+| **Branch coverage** | **83.9 %** (713 / 850) |
+| Lines fully covered (annotation) | 81.0 % (1440 / 1758) |
 
 Per-file uncovered point counts:
 
 | RTL file | Uncovered points | Note |
 |---|---|---|
-| `qspi_master_axil.sv` | 122 | write/erase paths not excitable with a read-only flash model; x2/x4 read modes covered by the standalone bench below |
+| `qspi_master_axil.sv` | 55 | 256 / 311 lines covered (**82.3 %**), up from 189 / 311 (60.8 %). FIFO overflow, status clear, TX/RX flush, register read-back and the write direction are closed by `make qspi-err`. What remains is one family: the x2/x4 lane mux and the dummy / multi-lane read states, which the boot path never selects and the standalone `qspi-modes` bench drives instead (module level below). Line 210 (RX FIFO underflow) is structurally unreachable — the read path already gates `cmd_rx_pop` with `!rx_empty` |
 | `obi_to_axi.sv` | 23 | AW/W channel-skew states — structurally unreachable, every AXI-Lite slave asserts ready in the same cycle |
-| `ai_accelerator.sv` | 12 | saturation branches and SAME-pad path not reached with the real quantised weights |
+| `ai_accelerator.sv` | 11 | saturation branches and SAME-pad path not reached with the real quantised weights |
 | `uart_stream_axil.sv` | 2 | read-decoder defaults |
 | `gpio_axil.sv` | 2 | decoder defaults |
 | `uart_axil.sv` / `timer_axil.sv` | 1 each | read-decoder default (unreachable on a word-aligned bus) |
