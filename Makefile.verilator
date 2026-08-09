@@ -84,6 +84,8 @@ $(BUILD_DIR)/test.elf: $(STARTUP) $(FW_SRC) $(LINKER_SCRIPT) | logs-prep
 	@echo "[SW] gcc ($(TEST_NAME)) -> $@"
 	@$(RV_GCC) $(RV_CFLAGS) -T $(LINKER_SCRIPT) $(STARTUP) $(FW_SRC) -o $@ \
 	    2>&1 | tee $(LOG_BUILD)/sw_build.log
+	@# link.ld .srodata/.sdata/.sbss toplamazsa sessizce kaybolur (9 Agu 2026)
+	@bash scripts/check_srodata.sh $@
 
 $(BUILD_DIR)/test.disasm: $(BUILD_DIR)/test.elf
 	@$(RV_OBJDUMP) -d $< > $@
