@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -253,6 +253,21 @@ ai-batch1000:
 coverage:
 	bash scripts/run_coverage.sh
 
+# QSPI hata ve sinir yollari: FIFO tasma, flush, status temizleme, geri okuma
+# UART yalniz raporlama kanali; CPB=64 sim suresi icin, olculen yollar
+# UART hizina bagli degil.
+QSPI_ERR_CPB ?= 64
+qspi-err:
+	rm -rf obj_dir build
+	@mkdir -p build/qspi_err
+	@printf '[QSPI-ERR] gecen=24 kalan=0  SONUC: PASS' > build/qspi_err/golden.txt
+	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/qspi_fifo_err_test.c \
+	    EXTRA_CFLAGS="-DQSPI_ERR_CPB=$(QSPI_ERR_CPB)" \
+	    SIM_PLUSARGS="+CPB=$(QSPI_ERR_CPB) \
+	                  +GOLDEN_FILE=../build/qspi_err/golden.txt \
+	                  +MAX_CYCLES=3000000"
+	@grep -E "PASS|FAIL" logs/sim/qspi_fifo_err_test/uart.log | tail -16
+
 # QSPI mod testi: x1/x2/x4 + 4-bayt adres
 MODES_DIR = obj_dir_qspi_modes
 qspi-modes:
@@ -305,6 +320,7 @@ test-all:
 	ut=PASS; $(MAKE) uart-stream || { ut=FAIL; overall=1; }; \
 	b=PASS; $(MAKE) boot       || { b=FAIL; overall=1; }; \
 	q=PASS; $(MAKE) qspi-modes || { q=FAIL; overall=1; }; \
+	qe=PASS; $(MAKE) qspi-err || { qe=FAIL; overall=1; }; \
 	i2=PASS; $(MAKE) i2c-sys   || { i2=FAIL; overall=1; }; \
 	a=PASS; $(MAKE) ai         || { a=FAIL; overall=1; }; \
 	s=PASS; $(MAKE) soc-ai     || { s=FAIL; overall=1; }; \
@@ -322,6 +338,7 @@ test-all:
 	echo "  uart-stream (DMA → AI SRAM)        : $$ut"; \
 	echo "  boot       (QSPI boot akisi)      : $$b"; \
 	echo "  qspi-modes (x1/x2/x4 + 4B adres)   : $$q"; \
+	echo "  qspi-err  (FIFO/flush/status)      : $$qe"; \
 	echo "  i2c-sys    (NBY/ADR+TX/RX echo)    : $$i2"; \
 	echo "  ai         (standalone 6 senaryo) : $$a"; \
 	echo "  soc-ai     (SoC AI C testi)       : $$s"; \

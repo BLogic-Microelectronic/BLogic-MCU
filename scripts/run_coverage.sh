@@ -6,7 +6,7 @@
 set -e
 cd "$(dirname "$0")/.."
 PROJ=$(pwd)
-TESTS="uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test timer_irq_test uart_stp_reg_test uart1_strm_test"
+TESTS="uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test timer_irq_test uart_stp_reg_test uart1_strm_test qspi_fifo_err_test"
 BLOG="$PROJ/logs/build/coverage_build.log"
 mkdir -p "$PROJ/logs/build" "$PROJ/logs/coverage"
 
@@ -21,10 +21,18 @@ for T in $TESTS; do
     case $T in
       uart_baud_sweep)
         EXTRA=(EXTRA_CFLAGS="-DSWEEP_CPB0=434 -DSWEEP_CPB1=50 -DSWEEP_CPB2=5208" SIM_PLUSARGS="+SWEEP=434,50,5208") ;;
+      qspi_fifo_err_test)
+        # Kendi golden dizgesi var; varsayilan "Hello World" aranirsa FAIL doner.
+        # golden.txt "rm -rf build"den SONRA uretiliyor (asagida), yoksa silinir.
+        EXTRA=(SIM_PLUSARGS="+GOLDEN_FILE=../build/qspi_err/golden.txt +MAX_CYCLES=8000000") ;;
     esac
     echo ">>> sim: $T"
     rm -rf build
     [ "$T" = "qspi_test" ] && printf 'AA\nBB\nCC\nDD\n' > obj_dir/flash.hex
+    if [ "$T" = "qspi_fifo_err_test" ]; then
+        mkdir -p build/qspi_err
+        printf '[QSPI-ERR] gecen=24 kalan=0  SONUC: PASS' > build/qspi_err/golden.txt
+    fi
     make -f Makefile.verilator sim COVERAGE=1 FW_SRC=sw/tests/$T.c "${EXTRA[@]}" \
         >"$PROJ/logs/coverage/${T}_sim.log" 2>&1 \
         || { echo "    $T FAIL - bkz: logs/coverage/${T}_sim.log"; exit 1; }

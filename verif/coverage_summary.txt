@@ -1,7 +1,7 @@
 BLogic MCU - line coverage ozeti (make coverage)
-tarih     : 2026-08-07
+tarih     : 2026-08-09
 verilator : Verilator 5.049 devel rev v5.048-135-g99a35fee8
-testler   : uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test timer_irq_test uart_stp_reg_test uart1_strm_test
+testler   : uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test timer_irq_test uart_stp_reg_test uart1_strm_test qspi_fifo_err_test
 olcum     : --coverage-line, SoC seviyesi (10 C testi, tek build, sabit payda)
 kapsam    : tasarim RTL'i (14 dosya). Haric: CV32E40P/PULP vendor kodu,
             testbench'ler, davranissal modeller, SVA checker ve covergroup
@@ -9,14 +9,14 @@ kapsam    : tasarim RTL'i (14 dosya). Haric: CV32E40P/PULP vendor kodu,
 modul bazli TB kapsamasi: verif/coverage_tb_summary.txt (make coverage-tb)
 ------------------------------------------------------------
 Coverage Summary:
-  line      : 67.9% (256/377)
+  line      : 71.6% (270/377)
   toggle    : 0.0% (  0/  0)
-  branch    : 80.8% (687/850)
+  branch    : 83.8% (712/850)
   expr      : 0.0% (  0/  0)
   fsm_state : 0.0% (  0/  0)
   fsm_arc   : 0.0% (  0/  0)
 Annotation Summary:
-  lines with all attached points covered : 77.00%  (1365/1758)
+  lines with all attached points covered : 81.00%  (1436/1758)
 See lines with '%00' in logs/coverage/annotate
 
 --- Fonksiyonel kapsama (birlesim, verif/sva/*_func_cov.sv) ---
@@ -25,7 +25,7 @@ See lines with '%00' in logs/coverage/annotate
   AI-CSR   : 5/5  (100%)
   IRQ      : 3/3  (100%)
   TOPLAM   : 20/22  (91%)
-  UART auto-clear (EK-2 v1.3): 2452 kontrol, 0 ihlal
+  UART auto-clear (EK-2 v1.3): 4259 kontrol, 0 ihlal
 
 --- Ekip RTL: kapsanmamis nokta-satir sayilari ---
   ai_accelerator.sv            : 11
@@ -36,4 +36,4 @@ See lines with '%00' in logs/coverage/annotate
   uart_stream_axil.sv          : 2
   gpio_axil.sv                 : 2
   timer_axil.sv                : 1
-  qspi_master_axil.sv          : 122
+  qspi_master_axil.sv          : 58
