@@ -2,8 +2,8 @@ BLogic MCU - ASIC akis ortami
 Ostim BLogic Mikroelektronik | TEKNOFEST 2026 Cip Tasarim Yarismasi
 DDK "Final Istenen Ciktilar" bolum 1.4 ve bolum 5.1 geregi.
 
-LibreLane surumu          : TBD
-LibreLane commit / etiket : TBD
+LibreLane surumu          : 3.0.6 (DDK referans surumu)
+LibreLane commit / etiket : 3.0.6 = ba7193bff33d68941683b2963b90aa30cea117d1
 LibreLane akisi           : Classic
 PDK adi                   : sky130A
 Open PDKs commit          : 8afc8346a57fe1ab7934ba5a6056ea8b43078e71
@@ -11,11 +11,14 @@ Standart hucre kutuphanesi: sky130_fd_sc_hd
 OpenRAM surumu            : OpenRAM kullanilmadi
 Akisi calistirma komutu   : cd asic && make asic_run
 
---- acik alanlar ---
-TBD isaretli iki alan Berk'te (BF11). Kaynak: nihai signoff kosusunun
-asic/results/config/resolved.json ve `librelane --version` ciktisi.
-Referans surum 3.0.6; bizde 3.0.5 kurulu. Farkli surum kullanilirsa
-bolum 1.1 geregi bu dosyada VE asic/README.md bolum 9.2'de acikca belirtilecek.
+--- ortam ---
+Ortam Nix flake ile sabit: asic/environment/{flake.nix,flake.lock}.
+Kurulum: nix develop  (ikili onbellek: nix-cache.fossi-foundation.org,
+anahtar LibreLane 3.0.6 resmi kurulum dokumanindan).
+Dogrulama: `librelane --version` -> "LibreLane v3.0.6" ve
+`librelane --smoke-test` -> "Smoke test passed." (10 Agu 2026, WSL2 Ubuntu-24.04).
+Surum/commit kaynagi: flake.lock nodes.librelane.locked.rev; nihai kosunun
+resolved.json'u ile ayrica karsilastirilacak.
 
 --- dogrulama ---
 Bu dosyadaki degerler nihai kosunun resolved.json'u ile karsilastirilmali.
