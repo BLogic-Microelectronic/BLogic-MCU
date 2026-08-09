@@ -37,12 +37,16 @@ SECTIONS
     /* salt okunur veriler - flash-boot icin INST_RAM'de */
     .rodata : ALIGN(4) {
         *(.rodata*)
+        /* GCC kucuk salt-okunur nesneleri .srodata'ya koyar (gp-goreli).
+           Toplanmazsa yuklenmez ve degisken indisli okuma 0 dondurur. */
+        *(.srodata*)
     } > INST_RAM
 
     /* baslangic degeri olan globaller */
     .data : {
         _data_start = .;
         *(.data*)
+        *(.sdata*)
         _data_end = .;
     } > DATA_RAM
 
@@ -50,6 +54,7 @@ SECTIONS
     .bss : {
         _bss_start = .;
         *(.bss*)
+        *(.sbss*)
         *(COMMON)
         _bss_end = .;
     } > DATA_RAM

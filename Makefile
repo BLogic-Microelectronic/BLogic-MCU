@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -168,6 +168,53 @@ soc-perf:
 	@grep -q "^result=PASS" logs/sim/ai_sw_reference/result.log \
 	    && echo "[SOC-PERF] PASS" || { echo "[SOC-PERF] FAIL"; exit 1; }
 	@python3 scripts/gen_perf_report.py
+
+# --- KF5: UART demo yolu (sartname bolum 5.2 ilk odul kriteri) ---------------
+# Gorulmemis bir oznitelik vektorunu host gibi UART0'a surer, firmware'in
+# dogru sinifi raporlamasini bekler. Vektor sabit cekirdek 40 kumesinin
+# disindan secilir; beklenen sinif sw/ai_model kosimulasyonundan gelir.
+AI_UART_INDEX ?= 784
+AI_UART_CPB   ?= 64
+AI_UART_MAXCYC ?= 6000000
+
+ai-uart-load:
+	rm -rf obj_dir build          # temizlik ONCE: cerceve build/ altinda uretiliyor
+	@python3 sw/ai_model/make_uart_frame.py --index $(AI_UART_INDEX) --outdir build/uart_demo
+	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_uart_load_test.c \
+	    EXTRA_CFLAGS="-DAI_UART_CPB=$(AI_UART_CPB)" \
+	    SIM_PLUSARGS="+CPB=$(AI_UART_CPB) +UART_RX_FILE=../build/uart_demo/frame.bin \
+	                  +UART_RX_TRIGGER_FILE=../build/uart_demo/trigger.txt \
+	                  +UART_RX_DELAY=20000 +GOLDEN_FILE=../build/uart_demo/golden.txt \
+	                  +AI_SRAM_DUMP=../build/uart_demo/ai_sram.hex \
+	                  +MAX_CYCLES=$(AI_UART_MAXCYC)"
+	@python3 sw/ai_model/check_ai_sram.py build/uart_demo/frame.bin build/uart_demo/ai_sram.hex || true
+	@grep -E "^result=|^uart_rx_" logs/sim/ai_uart_load_test/result.log
+	@grep -q "^result=PASS" logs/sim/ai_uart_load_test/result.log \
+	    && echo "[UART-DEMO] PASS - gorulmemis vektor UART'tan yuklendi ve dogru siniflandi" \
+	    || { echo "[UART-DEMO] FAIL"; exit 1; }
+
+# Saha zamanlamasiyla ayni kosu (CPB=434). Yavas: ~10 M cevrim.
+ai-uart-load-field:
+	$(MAKE) ai-uart-load AI_UART_CPB=434 AI_UART_MAXCYC=16000000
+
+# --- RX enjeksiyonu teshis: uart_loopback.c'yi BIZIM baytimizla besle -------
+# uart_loopback.c normalde TX->RX tel loopback'iyle calisir. Burada loopback
+# kapali; 'B' baytini surucu veriyor. Gecerse enjeksiyon+RTL RX saglam
+# demektir ve hata ai_uart_load_test.c'dedir.
+uart-rx-bisect:
+	rm -rf obj_dir build
+	@mkdir -p build/rxbisect
+	@if [ -n "$(BISECT_FRAME)" ]; then cp $(BISECT_FRAME) build/rxbisect/frame.bin; echo "[BISECT] cerceve: $(BISECT_FRAME)"; else printf 'B' > build/rxbisect/frame.bin; fi
+	@printf 'B'                 > build/rxbisect/trigger.txt
+	@printf 'LOOPBACK SUCCESS'  > build/rxbisect/golden.txt
+	@echo "[BISECT] 1 bayt ('B') enjekte edilecek, beklenen: LOOPBACK SUCCESS"
+	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/uart_loopback.c \
+	    SIM_PLUSARGS="+CPB=434 +UART_RX_FILE=../build/rxbisect/frame.bin \
+	                  +UART_RX_TRIGGER_FILE=../build/rxbisect/trigger.txt \
+	                  +UART_RX_DELAY=5000 +GOLDEN_FILE=../build/rxbisect/golden.txt \
+	                  +MAX_CYCLES=600000"
+	@grep -E "^result=|^uart_rx_" logs/sim/uart_loopback/result.log
+	@echo "--- MCU ciktisi ---" && cat logs/sim/uart_loopback/uart.log
 
 # ISA uyumluluk C testi (self-checking, DTR bolum 4)
 isa-compliance:

@@ -45,6 +45,15 @@
 #define RX_TIMEOUT        20000000U    /* ~bayt basina bekleme; sonsuz asilmasin */
 #define HDR_TIMEOUT       60000000U    /* baslik icin daha uzun: juri yaziyor */
 
+/* Saha varsayilani 434 (50 MHz / 115200) - DEGISMEDI.
+   Simulasyonda 1972 baytlik cerceve 434'te ~8,6 M cevrim suruyor;
+   -DAI_UART_CPB=64 ile ~1,3 M'ye iniyor. Protokol mantigi ayni,
+   yalniz bit zamanlamasi degisiyor. Donanim on-bolme CPB>>3 oldugu
+   icin 64 -> bolen 8; DTR'de CPB=50 (1 Mbps) zaten dogrulanmisti. */
+#ifndef AI_UART_CPB
+#define AI_UART_CPB 434U
+#endif
+
 static const char *CLASS_NAMES[4] = {"silence", "unknown", "yes", "no"};
 
 /* ---------------------------------------------------------------- yardimci */
@@ -133,7 +142,7 @@ static void run_inference(const char *etiket) {
 /* --------------------------------------------------------------- ana dongu */
 
 int main(void) {
-    UART0->CPB = 434U;                 /* 50 MHz / 115200 */
+    UART0->CPB = AI_UART_CPB;          /* saha: 434 = 50 MHz / 115200 */
 
     uart_puts(UART0, "\n========================================\n");
     uart_puts(UART0, " BLogic MCU - UART'tan YZ vektor yukleme\n");
@@ -165,9 +174,11 @@ int main(void) {
             continue;
         }
 
-        uart_puts(UART0, "[RX] uzunluk=");
-        putu(len);
-        uart_puts(UART0, " bayt\n");
+        /* DIKKAT: burada TX YAPILMAZ. uart_putc gonderimi beklerken CPU
+           RDR'yi yoklamiyor ve UART'ta FIFO yok; host akisi surdugu icin
+           o sirada gelen her bayt kaybolur. Onceki surumde uzunluk raporu
+           tam burada basiliyordu ve akisin ilk ~20 baytini yiyordu -
+           simulasyonda da donanimda da. Rapor saglamadan SONRA. */
 
         if ((len == 0U) || (len > AI_INPUT_MAX)) {
             uart_puts(UART0, "[RX] HATA: uzunluk gecersiz (1..");
@@ -210,7 +221,9 @@ int main(void) {
             continue;
         }
 
-        uart_puts(UART0, "[RX] saglama OK (");
+        uart_puts(UART0, "[RX] uzunluk=");
+        putu(len);
+        uart_puts(UART0, " bayt  saglama OK (");
         puth(sum);
         uart_puts(UART0, ")\n");
 
