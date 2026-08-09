@@ -43,7 +43,7 @@ uart-baud:
 UARTSTP_DIR = obj_dir_uart_stp
 uart-stp:
 	rm -rf $(UARTSTP_DIR)
-	verilator --binary $(TBCOV) --timing --top-module uart_stp_tb \
+	verilator --binary $(TBCOV) --timing --top-module uart_stp_tb verif/coverage_waivers.vlt \
 	    -Mdir $(UARTSTP_DIR) -o uart_stp_sim \
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
@@ -57,7 +57,7 @@ uart-stp:
 UARTSTRM_DIR = obj_dir_uart_stream
 uart-stream:
 	rm -rf $(UARTSTRM_DIR)
-	verilator --binary $(TBCOV) --timing --top-module uart_stream_tb \
+	verilator --binary $(TBCOV) --timing --top-module uart_stream_tb verif/coverage_waivers.vlt \
 	    -Mdir $(UARTSTRM_DIR) -o uart_stream_sim \
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
@@ -260,7 +260,7 @@ QSPI_ERR_CPB ?= 64
 qspi-err:
 	rm -rf obj_dir build
 	@mkdir -p build/qspi_err
-	@printf '[QSPI-ERR] gecen=24 kalan=0  SONUC: PASS' > build/qspi_err/golden.txt
+	@printf '[QSPI-ERR] gecen=25 kalan=0  SONUC: PASS' > build/qspi_err/golden.txt
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/qspi_fifo_err_test.c \
 	    EXTRA_CFLAGS="-DQSPI_ERR_CPB=$(QSPI_ERR_CPB)" \
 	    SIM_PLUSARGS="+CPB=$(QSPI_ERR_CPB) \
@@ -274,7 +274,7 @@ qspi-modes:
 	rm -rf build
 	$(MAKE) -f Makefile.verilator sw FW_SRC=sw/tests/qspi_modes_test.c
 	rm -rf $(MODES_DIR)
-	verilator --binary $(TBCOV) --timing --top-module qspi_modes_tb \
+	verilator --binary $(TBCOV) --timing --top-module qspi_modes_tb verif/coverage_waivers.vlt \
 	    -Mdir $(MODES_DIR) -o qspi_modes_sim \
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
@@ -294,7 +294,7 @@ i2c-sys:
 	rm -rf build
 	$(MAKE) -f Makefile.verilator sw FW_SRC=sw/tests/i2c_system_test.c
 	rm -rf $(I2C_DIR)
-	verilator --binary $(TBCOV) --timing --top-module i2c_system_tb \
+	verilator --binary $(TBCOV) --timing --top-module i2c_system_tb verif/coverage_waivers.vlt \
 	    -Mdir $(I2C_DIR) -o i2c_sys_sim \
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \

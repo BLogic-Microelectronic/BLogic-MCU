@@ -3,6 +3,9 @@
 Olcum: `make asic-elab` -> yosys-slang `--keep-hierarchy` + `stat`
 Ortam: LibreLane 3.0.5, yosys 0.62 (`7326bb7d`), sky130 `8afc8346`
 Tarih: 3 Agustos 2026 · Ham rapor: `build/asic/elab.log`
+> Bu bir **elaborasyon olcumudur**, teslim raporu degil. Nihai sayilar
+> `asic/reports/synthesis/stat.rpt` ve `asic/results/metrics/metrics.json`
+> dosyalarindan alinir; celiski halinde onlar esastir.
 
 Toplam: **11 bellek / 410.336 bit**
 
@@ -19,7 +22,11 @@ Toplam: **11 bellek / 410.336 bit**
 
 AI SRAM 7680 word ikinin kuvveti degildir ama 512-word bankalarla **tam bolunur**
 (7680 / 512 = 15). Tie-off decode veya 8192'ye yuvarlama israfi gerekmez.
-Toplam makro sayisi: **23** (BootROM haric).
+Toplam makro sayisi: **23** (3 Agustos elaborasyonu, BootROM haric).
+Nihai tasarimda **27**: yukaridaki `i_ai_accel` yerel tamponlarindan
+dordu makroya donustu (`input_mem` 3 x `32x512` + `u_conv_w_mem`
+1 x `32x256`). Kirilim: `asic/environment/versions.txt`.
+Nihai kosunun `stat.rpt`'si ile teyit edilecek.
 
 ## PDK makro envanteri (ciel varsayilaniyla hazir geldi)
 
@@ -56,19 +63,24 @@ sv2v yolu terk edildi: hem hiyerarsiyi inline ediyordu hem de ayni elaborasyon
 basligi "It must not be used for ASIC synthesis" der; `cv32e40p_sleep_unit.sv:154`'te
 kosulsuz instantiate edilir, yani CPU'nun tum saati buradan gecer. Blokaj 6.
 
-## Kose (corner) uyarisi — karar gerektirir
+## Kose (corner) kapsami — karar verildi (5 Agustos 2026)
 
-`sky130_sram_2kbyte_1rw1r_32x512_8` PDK'da **yalnizca `TT_1p8V_25C`** lib'i ile gelir.
-`sram_1rw1r_32_256_8_sky130` ise 7 kose tasir (FF/SS/TT, 1p7-1p9V, 0-100C).
+DDK "Final Istenen Ciktilar" bolum 1.2 nihai STA'yi **tam olarak uc kosede**
+istiyor: `tt_025C_1v80`, `ss_100C_1v60`, `ff_n40C_1v95`. (Bu dosyanin onceki
+surumundeki "LibreLane STA'yi 9 kosede kosar" ifadesi gecersizdir.)
 
-LibreLane STA'yi 9 kosede kosar. Secenekler:
+Kullanilan iki makro da PDK'da yalniz `TT_1p8V_25C` lib'i ile geliyor.
+Bolum 1.2 bunun icin acik yol birakiyor: "Birebir karsilik gelen bir zamanlama
+modelinin bulunmamasi durumunda kullanilan model ve ilgili varsayimlar
+`asic/README.md` dosyasinda aciklanmalidir."
 
-| Secenek | Makro | Adet | Kose kapsami |
-|---|---|---|---|
-| A | `32x512` (2 KB) | 23 | yalniz TT — SS/FF icin TT modeli eslenir (waiver) |
-| B | `32x256` (1 KB) | 46 | tam kose kapsami, iki kat makro |
+**Yaklasimimiz waiver degil, olculmus derate.** Dayanak `sky130_fd_sc_hd__dfxtp_1`
+clk->Q ortanca gecikmesi: TT 0,4376 ns / SS 1,1642 ns -> oran **2,661**.
+`asic/constraints/design.sdc` icinde `set_timing_derate -cell_delay -late 2.661`
+olarak uygulaniyor (early tarafi 0,500). Gerekce ve tam metin:
+`asic/README.md` bolum 9.5.
 
-Oneri: **A + belgelenmis waiver**. Gerekce: 46 makronun yerlesim/route riski ve
-alan puaninin kose hassasiyetinden daha belirleyici olmasi. Imza raporuna
-"OpenRAM makrolari tek kose ile dagitilir; SS/FF analizi TT modeli uzerinden
-yaklasiktir" notu dusulecek. Nihai karar Berk (floorplan) ile ortak.
+Onceki surumde "secenek B" diye gecen `sram_1rw1r_32_256_8_sky130` **dusmustur**:
+LEF katman adi sorunu nedeniyle downstream LVS hatalari uretti (5 Agustos'ta
+denendi ve geri alindi) ve DDK Tablo 5'teki onayli SRAM listesinde bulunmuyor
+- kullanilmasi bolum 1.3 geregi DDK'nin onceden onayina tabi olurdu.

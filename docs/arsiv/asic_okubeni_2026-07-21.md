@@ -1,3 +1,10 @@
+> **ARSIV — GECERSIZ.** 21 Temmuz 2026'da, DDK'nin arac/PDK duyurusundan
+> once yazildi. Ticari EDA (Synopsys/Cadence), pad ring ve 7 adimli akis
+> anlatiyor; DDK "Final Istenen Ciktilar" bolum 1.1 LibreLane Classic'i
+> zorunlu tutuyor ve bolum 2 pad ring'i kapsam disi birakiyor.
+> **Guncel belge: `asic/README.md`.** Bu dosya yalnizca karar gecmisi icin
+> saklaniyor; icerigi teslim iddiasi degildir.
+
 # ASIC (Çip) Akışı — Hazırlık ve Plan
 
 > **Durum (21 Temmuz 2026):** DDK'nın sağlayacağı ticari EDA aracı + PDK + sunucu erişimi
