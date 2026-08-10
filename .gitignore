@@ -102,3 +102,8 @@ rtl/fpga/*.bit
 # ============================================================
 docs/soru_cevap_*
 images/teknofest_toplanti_31072026.png
+
+# ASIC calisma alanlari - yeniden uretilebilir, repoya girmez (DDK Tablo 8: run/ temiz teslim edilir)
+asic/run/*
+!asic/run/.gitkeep
+asic/runs/

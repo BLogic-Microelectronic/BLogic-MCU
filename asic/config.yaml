@@ -1,0 +1,202 @@
+# BLogic MCU - LibreLane Classic ana yapilandirmasi
+# DDK "2026 Final Ciktilar" Tablo 8 geregi: asic/config.yaml
+# Tum yollar depoya gore goreli (dir:: = bu dosyanin dizini). Mutlak yol yok (bolum 3).
+# Referans surum: LibreLane 3.0.6 (asic/environment/flake.lock ile sabit).
+
+DESIGN_NAME: asic_top
+
+# --- RTL kaynaklari (derleme sirasina gore; asic/filelist.f ile ayni liste) ---
+VERILOG_FILES:
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/cf_math_pkg.sv
+  - dir::../rtl/bus/axi/src/axi_pkg.sv
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_fpnew/src/fpnew_pkg.sv
+  - dir::../rtl/core/cv32e40p/rtl/include/cv32e40p_pkg.sv
+  - dir::../rtl/core/cv32e40p/rtl/include/cv32e40p_apu_core_pkg.sv
+  - dir::../rtl/core/cv32e40p/rtl/include/cv32e40p_fpu_pkg.sv
+  - dir::../rtl/asic/cv32e40p_clock_gate_asic.sv
+  - dir::../rtl/bus/axi/src/axi_intf.sv
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/fifo_v3.sv
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/lzc.sv
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/rr_arb_tree.sv
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/spill_register.sv
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/counter.sv
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/delta_counter.sv
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/stream_arbiter.sv
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/stream_arbiter_flushable.sv
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/fall_through_register.sv
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/addr_decode.sv
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/onehot_to_bin.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_aligner.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_alu.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_alu_div.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_apu_disp.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_compressed_decoder.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_controller.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_cs_registers.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_decoder.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_ex_stage.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_ff_one.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_fifo.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_fp_wrapper.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_hwloop_regs.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_id_stage.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_if_stage.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_int_controller.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_load_store_unit.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_mult.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_obi_interface.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_popcnt.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_prefetch_buffer.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_prefetch_controller.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_register_file_ff.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_sleep_unit.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_core.sv
+  - dir::../rtl/core/cv32e40p/rtl/cv32e40p_top.sv
+  - dir::../rtl/core/cv32e40p/rtl/axi_sram_wrapper.sv
+  - dir::../rtl/core/cv32e40p/rtl/axi_slave_tieoff.sv
+  - dir::../rtl/bus/obi_to_axi.sv
+  - dir::../rtl/bus/soc_axi_interconnect.sv
+  - dir::../rtl/bus/axi4_to_axilite_bridge.sv
+  - dir::../rtl/bus/periph_decoder.sv
+  - dir::../rtl/peripherals/uart_axil.sv
+  - dir::../rtl/peripherals/uart.v
+  - dir::../rtl/peripherals/uart_rx.v
+  - dir::../rtl/peripherals/uart_tx.v
+  - dir::../rtl/peripherals/gpio_axil.sv
+  - dir::../rtl/peripherals/timer_axil.sv
+  - dir::../rtl/peripherals/i2c_master_axil.sv
+  - dir::../rtl/peripherals/qspi_master_axil.sv
+  - dir::../rtl/peripherals/uart_stream_axil.sv
+  - dir::../rtl/soc_top.sv
+  - dir::../rtl/ai_accelerator/ai_accelerator.sv
+  - dir::../rtl/ai_accelerator/ai_sram_arbiter.sv
+  - dir::../rtl/asic/boot_rom.sv
+  - dir::../rtl/asic/sram_macro_blackbox.sv
+  - dir::../rtl/asic/sram_macro_bank.sv
+  - dir::../rtl/asic/asic_top.sv
+
+VERILOG_INCLUDE_DIRS:
+  - dir::../rtl/asic
+  - dir::../rtl/core/cv32e40p/rtl/include
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include
+  - dir::../rtl/bus/axi/include
+
+VERILOG_DEFINES:
+  - SYNTHESIS
+  - ASIC_SRAM_MACRO   # SRAM makrolarini secer (ifndef korumali RTL dallari)
+  - BOOTROM_CONTENT   # boot ROM icerigini gomer
+
+USE_SLANG: true
+SLANG_ARGUMENTS:
+  - --keep-hierarchy
+SYNTH_HIERARCHY_MODE: deferred_flatten
+
+# --- Saat ---
+# 20 ns = 50 MHz hedef. SDC dosyasi baglama isi (constraints/design.sdc)
+# Ip-1/Ip-5 kapsaminda; su an LibreLane'in CLOCK_PORT/PERIOD'dan urettigi
+# varsayilan SDC kullaniliyor ve bu README 9.6'da beyan edilecek.
+CLOCK_PORT: clk_i
+CLOCK_PERIOD: 20
+
+# --- SRAM makro gorunumleri (depo ici; Tablo 8 asic/macros yapisi) ---
+# Kaynak: referans PDK kurulumu (Open PDKs 8afc834), Tablo 5 onayli makrolar.
+# PDK dagitimi yalniz TT_1p8V_25C Liberty icerir; SS/FF kapsamasi README 9.5'te
+# aciklanir (bolum 1.2'nin izin verdigi belgeleme yolu).
+EXTRA_LEFS:
+  - dir::macros/sky130_sram_2kbyte_1rw1r_32x512_8/lef/sky130_sram_2kbyte_1rw1r_32x512_8.lef
+  - dir::macros/sky130_sram_1kbyte_1rw1r_32x256_8/lef/sky130_sram_1kbyte_1rw1r_32x256_8.lef
+EXTRA_LIBS:
+  - dir::macros/sky130_sram_2kbyte_1rw1r_32x512_8/lib/sky130_sram_2kbyte_1rw1r_32x512_8_TT_1p8V_25C.lib
+  - dir::macros/sky130_sram_1kbyte_1rw1r_32x256_8/lib/sky130_sram_1kbyte_1rw1r_32x256_8_TT_1p8V_25C.lib
+EXTRA_GDS:   # 3.0.x adi; eski EXTRA_GDS_FILES deprecated
+  - dir::macros/sky130_sram_2kbyte_1rw1r_32x512_8/gds/sky130_sram_2kbyte_1rw1r_32x512_8.gds
+  - dir::macros/sky130_sram_1kbyte_1rw1r_32x256_8/gds/sky130_sram_1kbyte_1rw1r_32x256_8.gds
+
+# --- Floorplan ---
+# PLAN D: 4 sutun x 7 sira makro dizisi + merkezi mantik koridoru.
+# Olcum gecmisi ve gerekce: asic/BELLEK_ENVANTERI.md
+DIE_AREA: [0, 0, 3900, 4290]
+CORE_AREA: [60, 60, 3840, 4230]
+FP_SIZING: absolute
+PL_TARGET_DENSITY_PCT: 35
+PL_MAX_DISPLACEMENT_Y: 300
+MACRO_PLACEMENT_CFG: dir::macro_placement.cfg
+
+# --- PDN ---
+PDN_MULTILAYER: true   # 3.0.x adi; eski FP_PDN_MULTILAYER deprecated
+PDN_MACRO_CONNECTIONS:
+  - .*\.u_macro VPWR VGND vccd1 vssd1
+  - .*\.u_input_mem VPWR VGND vccd1 vssd1
+  - .*\.u_conv_w_mem VPWR VGND vccd1 vssd1
+
+# --- Yonlendirme ---
+# ROUTING_OBSTRUCTIONS gerekcesi: SRAM makro LEF'lerinde OBS bolumu tanimli
+# degil; yonlendirici makro alanini serbest sanip met5'e sinyal atiyor ve
+# PDN'in met5 yatay strap'leriyle kisa devre uretiyordu (olculdu: 1456 DRC'nin
+# tamami met5, tamami makro sutunlarinda). Makro ayak izleri met5'te sinyale
+# kapatildi; met3/met4 acik cunku makro pinleri orada (LEF: 16 met3 + 109 met4).
+# met1/met2 engeli DENENDI ve GERI ALINDI: kapasite cokusu (olculdu: 9498 DRC,
+# yarisi makro disi). Nihai deger K-RUN hukmune gore Ip-5'te kesinlesir.
+GRT_ALLOW_CONGESTION: true
+GRT_OVERFLOW_ITERS: 25
+RUN_ANTENNA_REPAIR: true
+RUN_HEURISTIC_DIODE_INSERTION: true
+ROUTING_OBSTRUCTIONS:
+  - [met5, 270.00, 120.00, 953.10, 536.54]
+  - [met5, 1162.50, 120.00, 1845.60, 536.54]
+  - [met5, 2055.00, 120.00, 2738.10, 536.54]
+  - [met5, 2947.50, 120.00, 3630.60, 536.54]
+  - [met5, 270.00, 596.54, 953.10, 1013.08]
+  - [met5, 1162.50, 596.54, 1845.60, 1013.08]
+  - [met5, 2055.00, 596.54, 2738.10, 1013.08]
+  - [met5, 2947.50, 596.54, 3630.60, 1013.08]
+  - [met5, 270.00, 1073.08, 953.10, 1489.62]
+  - [met5, 1162.50, 1073.08, 1845.60, 1489.62]
+  - [met5, 2055.00, 1073.08, 2738.10, 1489.62]
+  - [met5, 2947.50, 1073.08, 3630.60, 1489.62]
+  - [met5, 270.00, 1549.62, 953.10, 1966.16]
+  - [met5, 1162.50, 1549.62, 1845.60, 1966.16]
+  - [met5, 2055.00, 1549.62, 2738.10, 1966.16]
+  - [met5, 270.00, 2026.16, 953.10, 2442.70]
+  - [met5, 1162.50, 2026.16, 1845.60, 2442.70]
+  - [met5, 2055.00, 2026.16, 2738.10, 2442.70]
+  - [met5, 2947.50, 2026.16, 3427.28, 2423.66]
+  - [met5, 270.00, 3276.92, 953.10, 3693.46]
+  - [met5, 1162.50, 3276.92, 1845.60, 3693.46]
+  - [met5, 2055.00, 3276.92, 2738.10, 3693.46]
+  - [met5, 2947.50, 3276.92, 3630.60, 3693.46]
+  - [met5, 270.00, 3753.46, 953.10, 4170.00]
+  - [met5, 1162.50, 3753.46, 1845.60, 4170.00]
+  - [met5, 2055.00, 3753.46, 2738.10, 4170.00]
+  - [met5, 2947.50, 3753.46, 3630.60, 4170.00]
+
+# --- Zamanlama onarimi ---
+DESIGN_REPAIR_MAX_SLEW_PCT: 10
+DESIGN_REPAIR_MAX_CAP_PCT: 10
+RUN_POST_GRT_RESIZER_TIMING: true   # hold onarimi (63 -> 10 ihlal, olculdu)
+RSZ_CORNERS:   # onarim 3 kosede — DDK bolum 1.2 kose seti
+  - nom_tt_025C_1v80
+  - nom_ss_100C_1v60
+  - nom_ff_n40C_1v95
+
+# --- STA ---
+# Ip-5 (16 Agu ozellik dondurmasi) ile 3 koseye cikarilacak:
+#   nom_tt_025C_1v80, nom_ss_100C_1v60, nom_ff_n40C_1v95  (DDK Tablo 4)
+# Su an tek kose: VM dogrulama kosusuyla birebir kiyas icin.
+STA_CORNERS:
+  - nom_tt_025C_1v80
+DEDUPLICATE_CORNERS: true
+
+# --- Signoff ---
+# Ip-5'te acilacak: RUN_KLAYOUT_DRC: true (bolum 5.6 zorunlu raporu).
+# ERROR_ON_* bayraklari akisi durdurmamak icin kapali; sonuclar gizlenmiyor,
+# raporlar oldugu gibi teslim ediliyor (bolum 7 cercevesi, README 9.9 aciklamasi).
+RUN_MAGIC_WRITE_LEF: true
+MAGIC_DRC_USE_GDS: false
+RUN_KLAYOUT_DRC: false
+KLAYOUT_DRC_THREADS: 8
+ERROR_ON_MAGIC_DRC: false
+ERROR_ON_KLAYOUT_DRC: false
+ERROR_ON_LVS_ERROR: false
+ERROR_ON_XOR_ERROR: false
+ERROR_ON_TR_DRC: false
