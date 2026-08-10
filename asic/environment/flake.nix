@@ -14,8 +14,15 @@
     librelane.url = "github:librelane/librelane/3.0.6";
   };
 
-  outputs = { self, librelane, ... }: {
-    # librelane.devShells.default = librelane-shell: araclarin tamami + librelane
-    devShells.x86_64-linux.default = librelane.devShells.x86_64-linux.default;
-  };
+  outputs = { self, librelane, ... }:
+    let
+      pkgs = librelane.legacyPackages.x86_64-linux;
+    in {
+      # librelane-shell: araclarin tamami + librelane. gnumake eklendi ki
+      # `make asic_run` (bolum 8 zorunlu otomasyonu) hicbir host paketine
+      # bagimli olmadan `nix develop` icinde calissin (minimal imajlarda make yok).
+      devShells.x86_64-linux.default = pkgs.librelane-shell.override {
+        extra-packages = [ pkgs.gnumake ];
+      };
+    };
 }
