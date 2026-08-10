@@ -1,0 +1,123 @@
+# ============================================================
+# Ostim BLogic Mikroelektronik
+# asic/constraints/design.sdc - ASIC zamanlama kisitlari
+# DDK "Final Istenen Ciktilar" Bolum 3.2 zorunlu SDC dosyasi.
+#
+# Ust modul : asic_top  (soc_top.sdc'den tasindi; sarmalayici katman
+#             port adlarini korur, kisit hedefleri birebir gecerli)
+# Hedef     : 50 MHz (20 ns) - config.yaml CLOCK_PERIOD ile AYNI olmak
+#             zorunda (README 9.13 tutarlilik kurali). SD2 karari
+#             frekansi degistirirse UC YERDE birden guncellenir:
+#             config.yaml + bu dosya + README 9.1.
+# Kullanim  : PNR_SDC_FILE ve SIGNOFF_SDC_FILE olarak ayni dosya
+#             (Bolum 6.2: ayni SDC -> tek dosya teslimi yeterli).
+# Birimler  : sky130_fd_sc_hd Liberty birimleri - ns / pF.
+# ============================================================
+
+# ------------------------------------------------------------
+# Birincil saat (Bolum 3.2 ZORUNLU: tanim + periyot)
+# 50 MHz. FPGA'da MMCM uretiyordu; ASIC'te pad'den gelir
+# (PLL entegrasyonu ust seviye karari, tasarim kapsami disi).
+# ------------------------------------------------------------
+create_clock -name clk -period 20.000 [get_ports clk_i]
+
+# Kaynak belirsizligi: jitter + skew butcesi (Bolum 3.2 onerilen).
+set_clock_uncertainty -setup 0.500 [get_clocks clk]
+set_clock_uncertainty -hold  0.100 [get_clocks clk]
+set_clock_transition 0.150 [get_clocks clk]
+
+# Not: soc_top.sdc'deki set_ideal_network kaldirildi - OpenSTA/LibreLane
+# CTS oncesinde saat agini zaten ideal kabul eder, CTS sonrasi
+# propagated'a gecirir; komut bu akista gereksizdir.
+
+# ------------------------------------------------------------
+# Reset istisnasi (tasarimin TEK zamanlama istisnasi)
+# rst_ni: asenkron assert / senkron release. Senkronizasyon cip ust
+# seviyesinde (pad halkasi / reset denetleyicisi) yapilir; bu sinif
+# yol gercek zamanlama gerektirmez -> false path MESRU (Bolum 3.2:
+# "gercekte zamanlanmasi gereken yollar false path yapilamaz" kurali
+# ihlal edilmiyor). Gerekce ve recovery/removal yaklasimi: README 9.6.
+# ------------------------------------------------------------
+set_false_path -from [get_ports rst_ni]
+
+# ------------------------------------------------------------
+# I/O gecikme butceleri (Bolum 3.2: senkron harici arayuzu olan
+# giris/cikislar icin zorunlu). Tum cevre birimleri dusuk hizli
+# (UART, I2C, QSPI, GPIO); kabaca %30 giris / %30 cikis butcesi.
+# Pad hucre gecikmeleri netlesirse rafine edilir.
+# Portlar asic_top arayuzunden acikca listelenir (arac tasinabilirligi
+# icin koleksiyon cebiri yerine acik liste).
+# ------------------------------------------------------------
+set ALL_IN  [get_ports {uart_rxd_i uart1_rxd_i i2c_sda_i gpio_in_i* qspi_io_i*}]
+set ALL_OUT [get_ports {uart_txd_o uart1_txd_o gpio_out_o* qspi_sclk_o \
+                        qspi_cs_no qspi_io_o* qspi_io_oe* i2c_scl_o i2c_sda_oe_o}]
+
+set_input_delay  -clock clk -max 6.000 $ALL_IN
+set_input_delay  -clock clk -min 0.500 $ALL_IN
+set_output_delay -clock clk -max 6.000 $ALL_OUT
+set_output_delay -clock clk -min 0.500 $ALL_OUT
+
+# Cikis yukleri (Bolum 3.2 onerilen): pad + harici hat icin kotumser
+# 5 pF butce; pad modeli netlesirse guncellenir.
+set_load 5.0 $ALL_OUT
+
+# ------------------------------------------------------------
+# Tasarim genel kurallari
+# ------------------------------------------------------------
+set_max_transition 1.000 [current_design]
+set_max_fanout 32 [current_design]
+
+# ------------------------------------------------------------
+# SRAM MAKRO KOSE DERATE'I  (Karar: A + derate, 3 Agustos 2026)
+# ------------------------------------------------------------
+# Sorun: sky130_sram_2kbyte_1rw1r_32x512_8 ve sky130_sram_1kbyte_1rw1r_32x256_8
+# PDK'da YALNIZCA TT_1p8V_25C lib'i ile gelir. SS/FF corner'larinda STA makro
+# icin TT modelini kullanir -> iyimser (yanlis) sayi.
+#
+# Bu bir "waiver" degil, olcum duzeltmesi. Cozum: makro hucrelerine
+# kotumser derate.
+#
+# Katsayinin dayanagi (tahmin degil, olculdu):
+#   sky130_fd_sc_hd__dfxtp_1  clk->Q ortanca gecikme
+#     TT (tt_025C_1v80) : 0.4376 ns
+#     SS (ss_100C_1v60) : 1.1642 ns
+#     oran              : 2.661
+# Standart hucre kutuphanesinin ayni kose ciftindeki orani SRAM icin vekil
+# olarak kullanilir. SRAM erisim suresinin gerilim/sicaklik hassasiyeti mantik
+# kapisiyla birebir ayni degildir; secim BILEREK kotumser.
+#
+# Karar kurali:
+#   * Bu derate ile timing kapaniyorsa -> A secenegi guvenli, makrolar kalir.
+#   * Sadece bu derate yuzunden kapanmiyorsa -> C secenegine gec:
+#     ISRAM/DSRAM'i 7 koseli sram_1rw1r_32_256_8_sky130 ile kur (+0.41 mm2),
+#     AI SRAM tek kosede kalir (hizlandirici erisimi, CPU kritik yolunda degil).
+#
+# README 9.5 notu: "SRAM makrolari tek kose (TT_1p8V_25C) ile dagitilmaktadir.
+# SS/FF analizi, standart hucre kutuphanesinden olculen 2.661x kose oraniyla
+# kotumser derate edilerek yapilmistir."
+# ------------------------------------------------------------
+set _sram_cells [get_cells -hierarchical -filter "ref_name =~ sky130_sram_*"]
+if {[llength $_sram_cells] > 0} {
+    # gec (setup) yolu: kotumser yavaslat
+    set_timing_derate -cell_delay -late  2.661 $_sram_cells
+    # erken (hold) yolu: kotumser hizlandir
+    set_timing_derate -cell_delay -early 0.500 $_sram_cells
+    puts "\[SDC\] SRAM makro derate uygulandi: [llength $_sram_cells] hucre (late 2.661 / early 0.500)"
+} else {
+    puts "\[SDC\] UYARI: SRAM makro hucresi bulunamadi - derate uygulanmadi."
+    puts "\[SDC\]        Sentez oncesi asamada normal (makrolar henuz baglanmadi)."
+}
+
+# ------------------------------------------------------------
+# Notlar (STA sign-off / README 9.6 icin):
+# * Tasarim TEK saat alanlidir (clk_i); CDC yolu YOKTUR. FPGA'daki MMCM
+#   asic_top disindadir (fpga_top), ASIC'e girmez -> saat alani iliskisi
+#   ve asenkron saat grubu tanimi GEREKMEZ (Bolum 3.2 kosullu maddeler).
+# * QSPI SCLK cikisi clk'den register uzerinden uretilir (max clk/2 =
+#   25 MHz); ic saat degildir, veri yollari ayni alandadir -> generated
+#   clock tanimi GEREKMEZ.
+# * Multicycle path: YOK (tum yollar tek cevrim kurali).
+# * False path: yalnizca rst_ni (yukaridaki gerekceyle).
+# * Bellekler: axi_sram_wrapper sinirindan sky130_sram_* makrolariyla
+#   degistirilir; makro zamanlamalari EXTRA_LIBS Liberty'lerinden gelir.
+# ============================================================

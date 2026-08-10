@@ -21,7 +21,7 @@ degistirilmeden korunmustur.
 | sky130A PDK | https://github.com/fossi-foundation/open-pdks | `8afc8346a57fe1ab7934ba5a6056ea8b43078e71` | Apache-2.0 | Yok |
 | `sky130_sram_2kbyte_1rw1r_32x512_8` | PDK `libs.ref/sky130_sram_macros/` | PDK ile birlikte | Apache-2.0 | **Yok** - fiziksel ve mantiksal gorunumler bolum 1.3 geregi degistirilmedi |
 | `sky130_sram_1kbyte_1rw1r_32x256_8` | PDK `libs.ref/sky130_sram_macros/` | PDK ile birlikte | Apache-2.0 | **Yok** - ayni |
-| LibreLane | https://github.com/librelane/librelane | TBD (bkz. `environment/versions.txt`) | Apache-2.0 | Yok - akis araci |
+| LibreLane | https://github.com/librelane/librelane | v3.0.6 / `ba7193bff33d68941683b2963b90aa30cea117d1` | Apache-2.0 | Yok - akis araci |
 
 ## Dogrulama altyapisi (ASIC akisina girmez)
 
