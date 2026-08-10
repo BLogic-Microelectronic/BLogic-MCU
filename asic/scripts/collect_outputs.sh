@@ -198,6 +198,7 @@ opt_cp "$FINAL/mag/*.mag"      results/mag
 opt_cp "$FINAL/mag_gds/*.gds"     results/gds "${DESIGN}_magic.gds"
 opt_cp "$FINAL/klayout_gds/*.gds" results/gds "${DESIGN}_klayout.gds"
 opt_cp "$FINAL/png/*.png"      results/images "${DESIGN}.png"
+opt_cp "$FINAL/render/*.png"   results/images "${DESIGN}.png"
 
 # ------------------------------------------------------------
 # Onerilen: SHA-256 (Bolum 6.3) - zorunlu ciktilar uzerinden
