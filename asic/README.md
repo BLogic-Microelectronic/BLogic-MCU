@@ -1,9 +1,10 @@
 # BLogic MCU - ASIC Fiziksel Tasarim Akisi
 
 > **DURUM.** Basliklar DDK "Final Istenen Ciktilar" bolum 9.1-9.13 ile birebir.
-> Dolu bolumler: 9.2, 9.3, 9.4, 9.5, 9.6, 9.13. Acik bolumler `[ACIK]`
-> etiketli; nihai kosu (Ip-5 dondurmasi sonrasi) ve SD2/K-RUN kararlariyla
-> kapanacak. Teslimden once bu uyari bloku silinecek.
+> Tum bolumler dolu. Kosu-rakam senkron kurali: sayisal sonuclar nihai teslim
+> kosusundan sonra TEK kosu etiketinden yenilenecek (9.1 tablosu, 9.7-9.12
+> olcumleri); 9.12'deki `[NIHAI-TAG]` yer tutuculari o kosuyla dolacak.
+> Teslimden once bu uyari bloku silinecek.
 
 ## 9.1 Tasarim Ozeti
 
@@ -175,25 +176,64 @@ teslimi yeterlidir.
   uygulamasi bir zamanlama istisnasi degil, eksik SS/FF makro modelinin
   kotumser kapatilmasidir; yine de seffaflik icin burada beyan edilir.
 
-## 9.7 Fiziksel Tasarim Yapilandirmasi  `[ACIK - K-RUN/Ip-5]`
+## 9.7 Fiziksel Tasarim Yapilandirmasi
 
-Die/core alanlari veya otomatik floorplan parametreleri; hedef utilization;
-en boy orani; pin yerlesim yontemi; yonlendirme katmanlari; guc/toprak agi
-isimleri; PDN yapilandirmasi; makro guc baglantilari; makro yerlesimi;
-CTS yapilandirmasi; yardimci otomasyon dosyalari.
+Olcum kaynagi: `RUN_teslim_provasi` (11 Agu); nihai kosuyla yenilenecek.
 
-Mevcut calisma degerleri `config.yaml` yorumlarinda (PLAN D floorplan,
-`BELLEK_ENVANTERI.md` olcum gecmisi); ROUTING_OBSTRUCTIONS bolumu K-RUN
-hukmuyle kesinlesip buraya islenecek.
+- **Floorplan (mutlak):** `DIE_AREA` 4180 x 4490 um = **18,77 mm2**,
+  `CORE_AREA` (60,60)-(4120,4430) = 17,72 mm2; `FP_SIZING: absolute`.
+  Kanal-genisletme karari olcumle alindi: makro sutun kanali 209 -> 300 um,
+  satir arasi 60 -> 100 um ile route DRC 1348 -> 0, yakinsama 195 -> 10
+  iterasyon (bedel: die +%12,2). Deney zinciri `config.yaml` yorumlarinda.
+- **Utilization (olculen):** ornek toplami %49,9 (makrolar dahil);
+  std-hucre %12,3. Hedef `PL_TARGET_DENSITY_PCT: 35`,
+  `PL_MAX_DISPLACEMENT_Y: 300`.
+- **Makro yerlesimi:** `macro_placement.cfg` - 27 SRAM makrosu, 4 sutun x
+  alt/ust bant elle yerlesim (koordinatlar dosyada, gerekce 9.5).
+- **Pin yerlesimi:** LibreLane varsayilan otomatik pin yerlestirici;
+  ozel pin sirasi dosyasi kullanilmadi.
+- **Guc/toprak aglari:** ust seviye `VPWR`/`VGND`; SRAM makro pinleri
+  `vccd1`/`vssd1`, `PDN_MACRO_CONNECTIONS` ile eslenir (3 desen, 27 makro).
+  `PDN_MULTILAYER: true` (met4 dikey + met5 yatay strap). PDN dogrulamasi:
+  `reports/pdn/{VPWR,VGND}-grid-errors.rpt` ikisi de BOS (0 hata).
+- **Yonlendirme:** tum katmanlar (li1-met5) yonlendiriciye acik; makro
+  ustlerinde 81 `ROUTING_OBSTRUCTIONS` kutusu (met1/met2/met5 x 27 makro,
+  gerekce config yorumunda: SRAM LEF'inde met5 OBS eksik).
+  `GRT_ALLOW_CONGESTION: true`, `GRT_OVERFLOW_ITERS: 25`. Olculen sonuc:
+  route DRC 0, toplam tel 6,13 m, via 740.817.
+- **CTS:** LibreLane varsayilan CTS yapilandirmasi; olculen saat agaci
+  1.785 clock buffer + 280 clock inverter. Yonlendirme sonrasi hold
+  onarimi `RUN_POST_GRT_RESIZER_TIMING: true` (ihlal 63 -> 10, olculdu;
+  kalan mekanizma 9.9/2).
+- **Yardimci dosyalar:** `macro_placement.cfg`, `constraints/design.sdc`,
+  `scripts/` (filelist denetimi, cikti toplama, ortam sarici).
 
-## 9.8 Lint Sonuclari ve Istisnalari  `[ACIK - nihai kosu]`
+## 9.8 Lint Sonuclari ve Istisnalari
 
-Kullanilan waiver ve yapilandirma dosyalari; kapatilan/kabul edilen
-uyarilar ve gerekceleri; inferred latch aciklamalari.
-Waiver yoksa bu durum kisaca belirtilecek (su an waiver dosyasi yok;
-nihai kosunun lint ciktisiyla beyan yazilacak).
+Olcum kaynagi: akisin Verilator lint adimi (Verilator 5.044),
+`reports/lint/verilator_lint.log`, `RUN_teslim_provasi`.
 
-## 9.9 Bilinen Sorunlar ve Kabul Edilmis Istisnalar  `[ACIK - K-RUN]`
+- **Hata: 0. Uyari: 933. Waiver dosyasi KULLANILMADI** - hicbir uyari
+  bastirilmadi, log ham haliyle teslim edilir
+  (`reports/lint/waivers/` bos, bilincli).
+- **Inferred latch yok:** LATCH sinifi uyari 0.
+- Uyari dagilimi ve degerlendirme:
+  - `TIMESCALEMOD` 452: timescale direktifi iceren/icermeyen dosya karisimi;
+    simulasyon tarafinda derleyici bayragiyla cozulur, sentez sonucunu
+    etkilemez.
+  - `UNUSEDSIGNAL` 231 / `UNUSEDPARAM` 62: cogunlugu arayuz demetlerinin
+    kullanilmayan alanlari ve yapilandirma sabitleri (ornek: AXI'nin
+    kullanilmayan yan sinyalleri). Sentezde otomatik budanir.
+  - `WIDTHEXPAND` 63 / `WIDTHTRUNC` 31: bilincli genislik donusumleri;
+    kritik aritmetik yollar regresyonla dogrulandi (kok `README.md`
+    dogrulama bolumu: 14/14 test, kapsama olcumleri).
+  - `PINCONNECTEMPTY` 28: bilincli bos birakilan cikis pinleri.
+  - Kalanlar (`PROCASSINIT` 15, `BLKSEQ` 13, `VARHIDDEN` 9,
+    `CASEINCOMPLETE` 8, `ASCRANGE` 7, `GENUNNAMED` 5, `UNDRIVEN` 4,
+    `PINMISSING` 3, `UNOPTFLAT` 2): stil/bilgi seviyesi; islevsel dogruluk
+    14/14 regresyon + 46/46 arch-test imza esitligiyle gosterildi.
+
+## 9.9 Bilinen Sorunlar ve Kabul Edilmis Istisnalar
 
 Bilinen hata/uyari/ihlaller; sonuclari etkileyebilecek arac veya akis
 sorunlari; takim degerlendirmesi.
@@ -225,12 +265,32 @@ Bilinen ve kabul edilmis sinirlar (11 Agu, `RUN_2026-08-11_01-08-11`):
    her zaman tutmayabiliyor (gozlendi: ss -91.57 vs -23.71). **Rapor dosyasi
    esastir**, metrik alani degil.
 
-## 9.10 Guc ve IR-Drop Analizi  `[ACIK - nihai kosu]`
+## 9.10 Guc ve IR-Drop Analizi
 
-Saat frekansi; timing/guc corner'lari; besleme gerilimi; switching activity
-girdisi veya varsayimlar; ozel gerilim kaynagi konum dosyasi kullanilmadiysa
-bu durum. Acik switching activity girdisi yoksa sonuclar **tahmini** olarak
-isaretlenecek (bolum 5.7).
+Olcum kaynagi: `RUN_teslim_provasi` (11 Agu); nihai kosuyla yenilenecek.
+
+- **Kosullar:** saat 50 MHz (`create_clock` 20 ns); besleme 1,80 V nominal;
+  guc raporlari uc imza kosesinde (Tablo 4).
+- **Switching activity girdisi YOK** (VCD/SAIF verilmedi); OpenSTA
+  varsayilan anahtarlama aktivitesi kullanildi. Bolum 5.7 geregi asagidaki
+  sonuclar **TAHMINI** olarak isaretlenir.
+- **Toplam guc (tahmini):**
+
+  | Kose | Toplam | Dagilim |
+  |---|---|---|
+  | tt_025C_1v80 | **112,3 mW** | internal %89,6 / switching %10,0 / leakage %0,4 |
+  | ss_100C_1v60 | 104,6 mW | leakage %1,0 |
+  | ff_n40C_1v95 | 118,5 mW | leakage %0,4 |
+
+  TT kirilimi (grup): SRAM makrolari %66,1; saat agi %17,0; sequential
+  %16,1; kombinasyonel %0,9. Guc butcesinin baskin kalemi bellek -
+  27 makro icin beklenen tablo.
+- **IR-drop (OpenROAD PSM, tt kosesi):** VPWR en kotu dusum **1,63 mV**,
+  VGND en kotu yukselme **1,66 mV** -> besleme geriliminin **%0,09**'u
+  (tipik %5 sinirinin cok altinda). Her iki net icin PSM dogrulamasi:
+  "All shapes connected". Rapor: `reports/power/irdrop.rpt`.
+- **Ozel gerilim kaynagi konum dosyasi kullanilmadi** (varsayilan pad/strap
+  beslemesi).
 
 ## 9.11 Signoff Sonuc Ozeti
 
@@ -249,13 +309,40 @@ guncellenecek). Kose seti: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 | Guc (toplam, tahmini) | 0,119 W |
 | Die alani | 18,77 mm2 (4180 x 4490 um) |
 
-## 9.12 Rapor ve Cikti Konumlari  `[ACIK - nihai kosu]`
+## 9.12 Rapor ve Cikti Konumlari
 
-Ciktilarin uretildigi LibreLane kosu etiketi (`make asic_run` ciktisindaki
-`RUN_...`); esas alinan nihai GDSII ve onu ureten arac; bolum 5 raporlarinin
-ve bolum 6 ciktilarinin konumlari (Tablo 8 yerlesimi, `scripts/
-collect_outputs.sh` haritasi); `run/` dizininin kullanimi ve cikti toplama
-islemi (bolum 9.3'te aciklandi).
+- **Kosu etiketi:** `[NIHAI-TAG]` (nihai teslim kosusunda yazilacak;
+  zincir `RUN_teslim_provasi` ile ucdan uca dogrulandi:
+  `make asic_run` -> toplama -> `make asic_verify` TAMAM).
+- **Esas GDSII:** `results/gds/asic_top.gds` - **Magic** streamout ciktisi
+  esas alinir. KLayout streamout (`asic_top_klayout.gds`) karsilastirma
+  icin birlikte teslim edilir; iki cikti arasi **XOR farki 0** (9.11).
+- **`run/` kullanimi:** `make asic_run` calisma alanini temizler, akisi
+  `run/<TAG>/` altinda kosar, ardindan `scripts/collect_outputs.sh`
+  asagidaki kalici konumlara kopyalar (ayrinti 9.3). Butunluk:
+  `reports/SHA256SUMS` + `results/SHA256SUMS`.
+- **Bolum 5 raporlari -> `asic/reports/`:**
+
+  | DDK 5.x | Konum |
+  |---|---|
+  | 5.1 Genel (log/metrik/surumler) | `reports/general/` (`flow.log`, `metrics.json`, `versions.txt`, `resolved.json`) |
+  | 5.2 Lint | `reports/lint/verilator_lint.log` (waiver yok, 9.8) |
+  | 5.3 Sentez | `reports/synthesis/` (`stat.rpt`, `chk.rpt`, `latch.rpt`) |
+  | 5.4 STA (uc kose) | `reports/timing/nom_<kose>/` (wns/tns/ws, min/max, `checks.rpt`, `skew.*`, `violator_list.rpt`) |
+  | 5.5 Yerlesim/CTS/Yonlendirme | `reports/routing/` (`asic_top.drc`, `wire_lengths.csv`); yerlesim/CTS olcumleri `reports/general/metrics.json` icinde (utilization, saat agaci hucre sayilari, skew) |
+  | 5.6 PDN | `reports/pdn/` (grid hata raporlari; ikisi de bos) |
+  | 5.7 Guc + IR-drop | `reports/power/` (kose basina `power.rpt`, `irdrop.rpt`) |
+  | 5.8 DRC | `reports/drc/` (KLayout json/lyrdb + Magic rpt/lyrdb) |
+  | 5.9 LVS | `reports/lvs/lvs.netgen.rpt` (+ json) |
+  | 5.10 Anten | `reports/antenna/` |
+  | Signoff ozeti | `reports/signoff/` (`metrics.json`, `manufacturability.rpt`) |
+
+- **Bolum 6 ciktilari -> `asic/results/`:** `gds/` (esas + karsilastirma),
+  `def/`, `lef/`, `odb/`, `netlist/` (sentez / PnR / powered),
+  `sdc/`, `sdf/`, `spef/`, `lib/`, `mag/`, `spice/`, `config/resolved.json`,
+  `metrics/`, `images/asic_top.png` (Tablo 8 yerlesimi).
+- Toplama haritasinin tek kaynagi `scripts/collect_outputs.sh`;
+  dogrulama `make asic_verify` (`scripts/verify_outputs.sh`).
 
 ## 9.13 Ucuncu Taraf Bilesenler ve Lisanslar
 
