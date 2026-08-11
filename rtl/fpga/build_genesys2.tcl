@@ -15,12 +15,28 @@
 #   00010000 = M2 SRAM-direct boot (firmware.hex ile)
 # ============================================================
 
-# DIKKAT (4 Agustos 2026): varsayilan gecici olarak M2'ye alindi.
-# M3 (flash-boot) GERCEK DONANIMDA CALISMIYOR: bootrom firmware'i QSPI'dan
-# cekemiyor (led_only.c ile dogrulandi - LED'ler hic yanmadi). Ayrica .rodata
-# DATA_RAM'e hicbir yoldan ulasmiyor (bkz. sw/common/link_flash.ld).
-# Flash-boot duzeltilince buradaki deger 00000000'a geri alinmalidir.
-set BOOT_ADDR_HEX 00010000
+# M3 (flash-boot) KOK NEDENI BULUNDU VE COZULDU (11 Agustos 2026).
+#
+# Eski not (4 Agu) "bootrom firmware'i QSPI'dan cekemiyor" diyordu; olcum
+# bunu CURUTTU. Iki ayri sorun vardi:
+#   1) flash-image imaja yalnizca .text koyuyordu (link_flash.ld hicbir build
+#      yolunda kullanilmiyordu) -> string'li firmware'ler kartta sessiz kaliyordu.
+#   2) ASIL KOK: soc_axi_interconnect.sv:284 - data path AR decode 3-YOLLU ve
+#      Instr SRAM'i BILINCLI okumaz (fetch yolunda arbitrasyon olmasin diye).
+#      Bu yuzden 0x10000'deki .rodata okumasi default'a dusup DATA_SRAM'e
+#      gidiyor ve sifir donuyordu.
+#
+# Cozum (B secenegi): bootloader Asama 1.5 - flash 0x8000'deki veri bolgesini
+# DSRAM 0x20000'e kopyalar. Crossbar'a dokunulmadi (A secenegi fetch yoluna
+# ikinci okuyucu + arbitrasyon sokacakti, ASIC tarafinda STA riski).
+# Dogrulandi: make boot-real PASS ('Hello World!' DSRAM'den, 68,6 ms),
+# negatif kontrol (FLASH_DATA=/dev/null) FAIL, eski make boot PASS.
+#
+# ARTIK M3 VARSAYILAN. Kart denemesi icin flash imaji:
+#   make flash-image   ->  fw@0x0 + veri@0x8000 + YZ agirliklari@0x10000
+# (tek tam imaj; ayrica firmware.hex gomulmesi GEREKMEZ, asagidaki yer
+#  tutucular yeterlidir.)
+set BOOT_ADDR_HEX 00000000
 
 set PART xc7k325tffg900-2
 
