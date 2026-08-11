@@ -1,5 +1,5 @@
 // OTOMATIK URETILDI - elle duzenlemeyin
-// Kaynak: bootrom.hex (45 word)
+// Kaynak: bootrom.hex (50 word)
 // Uretici: scripts/gen_bootrom_svh.py
 
     0: rom_word = 32'h400002b7;
@@ -17,33 +17,38 @@
     12: rom_word = 32'h00000393;
     13: rom_word = 32'h00001e37;
     14: rom_word = 32'h800e0e13;
-    15: rom_word = 32'h024000ef;
-    16: rom_word = 32'h00030337;
-    17: rom_word = 32'h000103b7;
+    15: rom_word = 32'h038000ef;
+    16: rom_word = 32'h00020337;
+    17: rom_word = 32'h000083b7;
     18: rom_word = 32'h00001e37;
-    19: rom_word = 32'h700e0e13;
-    20: rom_word = 32'h010000ef;
-    21: rom_word = 32'h0000100f;
-    22: rom_word = 32'h000102b7;
-    23: rom_word = 32'h00028067;
-    24: rom_word = 32'h400002b7;
-    25: rom_word = 32'h50028293;
-    26: rom_word = 32'h040e0263;
-    27: rom_word = 32'h0072a223;
-    28: rom_word = 32'h08ff0eb7;
-    29: rom_word = 32'h103e8e93;
-    30: rom_word = 32'h01d2a023;
-    31: rom_word = 32'h00c2ae83;
-    32: rom_word = 32'h001efe93;
-    33: rom_word = 32'hfe0e8ce3;
-    34: rom_word = 32'h04000f93;
-    35: rom_word = 32'h0082ae83;
-    36: rom_word = 32'h01d32023;
-    37: rom_word = 32'h00430313;
-    38: rom_word = 32'hffff8f93;
-    39: rom_word = 32'hfe0f98e3;
-    40: rom_word = 32'h10038393;
-    41: rom_word = 32'hfc0e0e13;
-    42: rom_word = 32'hfc1ff06f;
-    43: rom_word = 32'h00008067;
-    44: rom_word = 32'h0000006f;
+    19: rom_word = 32'h800e0e13;
+    20: rom_word = 32'h024000ef;
+    21: rom_word = 32'h00030337;
+    22: rom_word = 32'h000103b7;
+    23: rom_word = 32'h00001e37;
+    24: rom_word = 32'h700e0e13;
+    25: rom_word = 32'h010000ef;
+    26: rom_word = 32'h0000100f;
+    27: rom_word = 32'h000102b7;
+    28: rom_word = 32'h00028067;
+    29: rom_word = 32'h400002b7;
+    30: rom_word = 32'h50028293;
+    31: rom_word = 32'h040e0263;
+    32: rom_word = 32'h0072a223;
+    33: rom_word = 32'h08ff0eb7;
+    34: rom_word = 32'h103e8e93;
+    35: rom_word = 32'h01d2a023;
+    36: rom_word = 32'h00c2ae83;
+    37: rom_word = 32'h001efe93;
+    38: rom_word = 32'hfe0e8ce3;
+    39: rom_word = 32'h04000f93;
+    40: rom_word = 32'h0082ae83;
+    41: rom_word = 32'h01d32023;
+    42: rom_word = 32'h00430313;
+    43: rom_word = 32'hffff8f93;
+    44: rom_word = 32'hfe0f98e3;
+    45: rom_word = 32'h10038393;
+    46: rom_word = 32'hfc0e0e13;
+    47: rom_word = 32'hfc1ff06f;
+    48: rom_word = 32'h00008067;
+    49: rom_word = 32'h0000006f;

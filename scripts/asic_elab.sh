@@ -5,7 +5,7 @@
 # ============================================
 # sv2v KULLANILMIYOR: modul hiyerarsisini soc_top'a inline ediyor, SRAM makrolari
 # floorplan'da ayri instance olarak gorunmuyordu. yosys-slang hiyerarsiyi korur.
-# LibreLane 3.0.5 ortami gerekir (slang.so hazir gelir).
+# LibreLane 3.0.6 ortami gerekir (slang.so hazir gelir).
 set -e
 cd "$(dirname "$0")/.."
 REPO=$PWD
@@ -14,7 +14,7 @@ APPIMG=${LIBRELANE_APPIMAGE:-"$HOME/librelane-devshell-x86_64.AppImage"}
 # ASIC_SRAM=1 -> SRAM makrolari baglanir (varsayilan: davranissal)
 MACRO_DEF=""
 [ "${ASIC_SRAM:-0}" = "1" ] && MACRO_DEF="-DASIC_SRAM_MACRO"
-FLIST=$(grep -v '^#' asic/soc_files_asic.f | grep -v '^+' | grep -v '^$' | grep -v 'verif/' | tr '\n' ' ')
+FLIST=$(grep -v '^#' asic/filelist.f | grep -v '^+' | grep -v '^$' | grep -v 'verif/' | sed 's#^\.\./##' | tr '\n' ' ')
 mkdir -p build/asic
 
 YS_CMD="yosys -m slang -p \"read_slang --keep-hierarchy -DSYNTHESIS $MACRO_DEF \
@@ -26,7 +26,10 @@ YS_CMD="yosys -m slang -p \"read_slang --keep-hierarchy -DSYNTHESIS $MACRO_DEF \
 # LibreLane iki sekilde kurulmus olabilir - ikisini de destekle:
 #   1) AppImage  (LIBRELANE_APPIMAGE ya da ~/librelane-devshell-x86_64.AppImage)
 #   2) Nix       (LIBRELANE_SHELL ya da ~/librelane icinde nix-shell)
-if [ -x "$APPIMG" ]; then
+if [ -x asic/scripts/run_in_env.sh ] && { command -v librelane >/dev/null 2>&1 || command -v nix >/dev/null 2>&1; }; then
+  echo "[ASIC-ELAB] ortam: asic/environment flake (run_in_env.sh)"
+  asic/scripts/run_in_env.sh bash -c "cd '$REPO' && $YS_CMD"
+elif [ -x "$APPIMG" ]; then
   echo "[ASIC-ELAB] ortam: AppImage ($APPIMG)"
   "$APPIMG" bash -c "cd '$REPO' && $YS_CMD"
 elif [ -d "$LL" ] && command -v nix-shell >/dev/null 2>&1; then

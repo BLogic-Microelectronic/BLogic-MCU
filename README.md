@@ -945,7 +945,7 @@ reproducible from a clean clone; no step depends on a commercial EDA licence.
 
 | Path | Purpose |
 |---|---|
-| `asic/soc_files_asic.f` | synthesis file list (SVA/TB excluded, top = `asic_top`) |
+| `asic/filelist.f` | synthesis file list (kanonik: config.yaml'dan uretilir; SVA/TB excluded, top = `asic_top`) |
 | `asic/soc_top.sdc` | timing constraints (50 MHz) |
 | `asic/BELLEK_ENVANTERI.md` | memory inventory, macro/banking plan, corner analysis |
 | `rtl/asic/asic_top.sv` | ASIC top level — no MMCM/BUFG/IOBUF, clock and reset from pads |

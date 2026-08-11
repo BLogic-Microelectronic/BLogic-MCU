@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -144,18 +144,42 @@ bootrom:
 coverage-tb:
 	bash scripts/run_coverage_tb.sh
 
-# Uygulama firmware'i + YZ agirliklari -> tek flash imaji (kart/cip icin)
+# Uygulama firmware'i + veri bolgesi + YZ agirliklari -> tek flash imaji (kart/cip icin)
+# M3 tesisati v2 (11 Agu): crossbar data-AR ISRAM'i okumaz (soc_axi_interconnect.sv:284);
+# .rodata/.data flash 0x8000'den bootloader'ca DSRAM'e kopyalanir. link.ld degismez,
+# VMA'lar RAM-model testleriyle birebir aynidir. link_flash.ld artik kullanilmiyor.
+FLASH_DATA ?= build/data_mem.hex
 flash-image:
+	rm -rf build
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
-	python3 scripts/gen_flash_image.py --fw build/instr_mem.hex --out build/flash.hex
+	python3 scripts/gen_flash_image.py --fw build/instr_mem.hex --data $(FLASH_DATA) --out build/flash.hex
+
+# M3 sim kaniti: rodata'li GERCEK C firmware flash'tan boot eder (ayni TB).
+# Negatif kontrol: make boot-real FLASH_DATA=/dev/null -> FAIL beklenir (veri bolgesi bos).
+boot-real:
+	$(MAKE) flash-image FW_SRC=sw/tests/boot_flash_hello.c
+	rm -rf $(BOOT_DIR)
+	verilator --binary $(TBCOV) +define+BOOTROM_CONTENT --timing --top-module boot_flow_test_tb \
+	    -Mdir $(BOOT_DIR) -o boot_flow_test_sim \
+	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
+	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
+	    -f soc_files.f verif/models/spi_flash_model.sv verif/tb/boot_flow_test_tb.sv
+	cp sw/bootloader/bootrom.hex $(BOOT_DIR)/
+	cp build/flash.hex $(BOOT_DIR)/flash.hex
+	echo "00000000" > $(BOOT_DIR)/firmware.hex
+	echo "00000000" > $(BOOT_DIR)/data_mem.hex
+	echo "00000000" > $(BOOT_DIR)/ai_sram_init.hex
+	cd $(BOOT_DIR) && ./boot_flow_test_sim 2>&1 | tee boot_real_run.log
+	@grep -aq "TEST SUCCESS" $(BOOT_DIR)/boot_real_run.log \
+	    && echo "[BOOT-REAL] PASS - .rodata flash uzerinden geldi" || { echo "[BOOT-REAL] FAIL"; exit 1; }
 
 # ASIC lint kapisi. DIKKAT: sim waiver seti KOPYALANMAZ.
 # -Wno-MODDUP ve -Wno-PINMISSING kasitli olarak YOK: modul duplikasyonunu ve
 # baglanmamis pinleri yakalamasi gereken tam da bu iki uyaridir.
 lint:
-	verilator --lint-only -DSYNTHESIS -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND \
+	cd asic && verilator --lint-only -DSYNTHESIS -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND \
 	    -Wno-WIDTHTRUNC -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-UNOPTFLAT \
-	    --top-module asic_top -f asic/soc_files_asic.f 2>&1 | tail -25
+	    --top-module asic_top -f filelist.f 2>&1 | tail -25
 
 # sv2v -> yosys elaborasyon kapisi: sentez oncesi erken uyari
 asic-elab:
@@ -349,7 +373,11 @@ test-all:
 	echo "====================================================="; \
 	exit $$overall
 
-spike: compile
+# DIKKAT: ELF'te HTIF (tohost/fromhost) yok -> spike KENDI KENDINE CIKMAZ (Ctrl+C).
+# Otomatik spike kaniti: make test-all (lockstep TEST 4 + arch-test imzalari).
+spike:
+	rm -rf build
+	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
 	spike --isa=rv32imc -m0x10000:0x2000,0x20000:0x2000 build/test.elf
 
 clean:

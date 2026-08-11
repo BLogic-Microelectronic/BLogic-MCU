@@ -36,6 +36,13 @@
     .equ FW_DST,     0x00010000
     .equ FW_WORDS,   2048         # 8 KB
 
+    # Veri bolgesi: crossbar data-AR ISRAM'i okumaz (soc_axi_interconnect.sv:284),
+    # .rodata/.data DSRAM'e bu kopyayla gider. gen_flash_image.py'deki
+    # DATA_FLASH_OFF/DATA_MAX ile ayni kalmali.
+    .equ DATA_SRC,   0x00008000   # flash veri bolgesi
+    .equ DATA_DST,   0x00020000   # DATA_RAM
+    .equ DATA_WORDS, 2048         # 8 KB - DSRAM'in tamami (64'un kati)
+
     .equ AI_SRC,     0x00010000   # flash sektor siniri (firmware'den bagimsiz)
     .equ AI_DST,     0x00030000
     .equ AI_WORDS,   5888         # 23 KB - AI SRAM'in fiilen kullanilan bolgesi
@@ -61,6 +68,12 @@ dummy_wait:
     li      t1, FW_DST
     li      t2, FW_SRC
     li      t3, FW_WORDS
+    jal     ra, copy_burst
+
+    # --- Asama 1.5: veri bolgesi (.rodata/.data) -> DSRAM ---
+    li      t1, DATA_DST
+    li      t2, DATA_SRC
+    li      t3, DATA_WORDS
     jal     ra, copy_burst
 
     # --- Asama 2: YZ agirliklari ---

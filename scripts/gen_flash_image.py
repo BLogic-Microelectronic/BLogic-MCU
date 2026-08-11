@@ -10,7 +10,9 @@
 # ai_sram_init.hex WORD/satir formatindadir. Donusum burada yapilir.
 import argparse, pathlib, sys
 
-AI_FLASH_OFF = 0x10000   # bootloader.S icindeki AI_SRC ile ayni olmali
+AI_FLASH_OFF   = 0x10000   # bootloader.S icindeki AI_SRC ile ayni olmali
+DATA_FLASH_OFF = 0x08000   # bootloader.S icindeki DATA_SRC ile ayni olmali
+DATA_MAX       = 0x02000   # DSRAM 8 KB (bootloader DATA_WORDS ile ayni)
 
 def read_hex(path):
     toks = [l.strip() for l in pathlib.Path(path).read_text().split() if l.strip()]
@@ -28,14 +30,21 @@ def read_hex(path):
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--fw", required=True)
+ap.add_argument("--data", default=None)
 ap.add_argument("--ai", default="sw/ai_model/golden_vectors/ai_sram_init.hex")
 ap.add_argument("--out", required=True)
 a = ap.parse_args()
 
 fw = read_hex(a.fw)
-if len(fw) > AI_FLASH_OFF:
-    sys.exit(f"firmware {len(fw)} bayt, AI bolgesine ({AI_FLASH_OFF:#x}) tasiyor")
-img = bytearray(fw) + bytearray(AI_FLASH_OFF - len(fw))
+if len(fw) > DATA_FLASH_OFF:
+    sys.exit(f"firmware {len(fw)} bayt, veri bolgesine ({DATA_FLASH_OFF:#x}) tasiyor")
+img = bytearray(fw) + bytearray(DATA_FLASH_OFF - len(fw))
+
+data = read_hex(a.data) if a.data else bytearray()
+if len(data) > DATA_MAX:
+    sys.exit(f"veri bolgesi {len(data)} bayt, DSRAM sinirini ({DATA_MAX:#x}) asiyor")
+img += bytearray(data) + bytearray(AI_FLASH_OFF - DATA_FLASH_OFF - len(data))
+print(f"[+] veri {len(data)} bayt @{DATA_FLASH_OFF:#x} -> DSRAM (bootloader kopyalar)")
 
 ai_path = pathlib.Path(a.ai)
 if ai_path.exists():
