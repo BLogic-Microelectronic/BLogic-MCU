@@ -95,7 +95,8 @@ run_test() {
 }
 
 spike_lockstep_test() {
-    local test_name="lockstep_minimal"
+    local test_name="$1"
+    local fw_src="$2"
     local logdir="$PROJ/logs/sim/$test_name"
     local spike_log="$PROJ/logs/spike/$test_name.log"
     local lock_log="$PROJ/logs/lockstep/$test_name.log"
@@ -110,7 +111,7 @@ spike_lockstep_test() {
     } | tee -a "$SUMMARY"
 
     rm -rf "$PROJ/build"
-    make -f Makefile.verilator sw FW_SRC=sw/tests/minimal_test.c \
+    make -f Makefile.verilator sw FW_SRC="$fw_src" \
         EXTRA_CFLAGS="-DCPB_VAL=434" \
         >"$REG_DIR/${test_name}_build.log" 2>&1
 
@@ -141,7 +142,8 @@ spike_lockstep_test() {
 run_test "UART_TX_115200" 434 434 "sw/tests/uart_hello.c"
 run_test "UART_TX_1M"     50   50   "sw/tests/uart_hello.c"
 run_test "UART_TX_9600"   5208 5208 "sw/tests/uart_hello.c"
-spike_lockstep_test
+spike_lockstep_test "lockstep_minimal" "sw/tests/minimal_test.c"
+spike_lockstep_test "lockstep_deep"    "sw/tests/lockstep_deep.c"
 
 mkdir -p "$PROJ/obj_dir"
 cat << 'FLASHEOF' > "$PROJ/obj_dir/flash.hex"
