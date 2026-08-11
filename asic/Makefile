@@ -44,9 +44,14 @@ asic_run: check_filelist
 	rc=$$?; \
 	echo "[asic_run] Rapor ve ciktilar toplaniyor (akis cikis kodu: $$rc)..."; \
 	ALLOW_MISSING=1 ./scripts/collect_outputs.sh "$(RUN_DIR)" "$(DESIGN)"; \
+	crc=$$?; \
+	if [ $$crc -ne 0 ]; then \
+		echo "[asic_run] HATA: cikti toplama $$crc ile basarisiz - reports/results EKSIK olabilir."; \
+	fi; \
+	if [ $$rc -eq 0 ]; then rc=$$crc; fi; \
 	if [ $$rc -ne 0 ]; then \
-		echo "[asic_run] Akis $$rc ile bitti (bilinen ihlaller icin bkz. README 9.9)."; \
-		echo "[asic_run] Raporlar ve ciktilar yine de toplandi. Kosu etiketi: $(TAG)"; \
+		echo "[asic_run] $$rc ile bitti (akis ihlalleri icin bkz. README 9.9)."; \
+		echo "[asic_run] Kosu etiketi: $(TAG)"; \
 	else \
 		echo "[asic_run] TAMAM. Kosu etiketi: $(TAG)  (README 9.12'ye islenecek)"; \
 	fi; \
