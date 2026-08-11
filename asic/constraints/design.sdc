@@ -48,7 +48,19 @@ set_false_path -from [get_ports rst_ni]
 # Portlar asic_top arayuzunden acikca listelenir (arac tasinabilirligi
 # icin koleksiyon cebiri yerine acik liste).
 # ------------------------------------------------------------
-set ALL_IN  [get_ports {uart_rxd_i uart1_rxd_i i2c_sda_i gpio_in_i* qspi_io_i*}]
+# ASENKRON girisler (11 Agu duzeltmesi): gpio_in_i 2FF senkronizatorden gecer
+# (gpio_axil.sv:44-50), uart*_rxd_i harici asenkron seri hat olup rxd_reg ile
+# orneklenir. Bu portlarin clk'ye gore anlamli bir varis penceresi YOKTUR;
+# senkron input_delay ile kisitlamak sahte setup/hold ihlali uretir (olculdu:
+# TT en kotu hold yolu gpio_in_i[0] cikmisti). Bolum 3.2 kurali ihlal edilmez:
+# bunlar "gercekte zamanlanmasi gereken" yollar degil, senkronizator girisleridir;
+# gerekce README 9.6'da.
+set ASYNC_IN [get_ports {gpio_in_i* uart_rxd_i uart1_rxd_i}]
+set_false_path -from $ASYNC_IN
+
+# Senkron kalan girisler: i2c_sda_i (senkronizatorsuz orneklenir - kisit korunur,
+# gozden gecirme notu README 9.9'da), qspi_io_i* (kaynagi bizim urettigimiz SCLK).
+set ALL_IN  [get_ports {i2c_sda_i qspi_io_i*}]
 set ALL_OUT [get_ports {uart_txd_o uart1_txd_o gpio_out_o* qspi_sclk_o \
                         qspi_cs_no qspi_io_o* qspi_io_oe* i2c_scl_o i2c_sda_oe_o}]
 
@@ -96,13 +108,38 @@ set_max_fanout 32 [current_design]
 # SS/FF analizi, standart hucre kutuphanesinden olculen 2.661x kose oraniyla
 # kotumser derate edilerek yapilmistir."
 # ------------------------------------------------------------
+# KOSE-KOSULLU DERATE (11 Agu duzeltmesi). Onceki surum derate'i kosulsuz
+# uyguluyordu; bu TT kosesinde HATALIYDI (TT lib SRAM'in dogru modelidir,
+# 2,661x yapay yavaslatma TT setup'ini -0,205'e dusurdu). Dogru tablo:
+#   TT: 1.0/1.0   TT lib birebir dogru model, derate gerekmez
+#   SS: late 2.661 (olculen TT->SS vekil orani), early 1.0
+#       (TT lib SS gercekliginden HIZLI oldugu icin erken yol zaten kotumser)
+#   FF: late 1.0 (TT lib FF'ten YAVAS oldugu icin gec yol zaten kotumser),
+#       early 0.500 (TT lib FF'ten yavas = erken yol icin iyimser; bilerek
+#       guclu kotumser katsayi — README 9.5/9.6)
+# PnR baglaminda (_CURRENT_CORNER_NAME tanimsiz) ESKI kosulsuz davranis
+# korunur: 0-DRC fiziksel sonuc o kisitlarla uretildi, dondurma disiplini
+# geregi optimizasyon hedefi degistirilmez. Bu blok yalniz ANALIZI duzeltir;
+# netlist/GDS'e etkisi yoktur.
 set _sram_cells [get_cells -hierarchical -filter "ref_name =~ sky130_sram_*"]
 if {[llength $_sram_cells] > 0} {
-    # gec (setup) yolu: kotumser yavaslat
-    set_timing_derate -cell_delay -late  2.661 $_sram_cells
-    # erken (hold) yolu: kotumser hizlandir
-    set_timing_derate -cell_delay -early 0.500 $_sram_cells
-    puts "\[SDC\] SRAM makro derate uygulandi: [llength $_sram_cells] hucre (late 2.661 / early 0.500)"
+    set _corner ""
+    if { [info exists ::env(_CURRENT_CORNER_NAME)] } {
+        set _corner $::env(_CURRENT_CORNER_NAME)
+    }
+    if { [string match "*ss_100C*" $_corner] } {
+        set _late 2.661 ; set _early 1.0
+    } elseif { [string match "*ff_n40C*" $_corner] } {
+        set _late 1.0   ; set _early 0.500
+    } elseif { [string match "*tt_025C*" $_corner] } {
+        set _late 1.0   ; set _early 1.0
+    } else {
+        # PnR / kose-adi tasimayan baglam: kosulsuz kotumser (eski davranis)
+        set _late 2.661 ; set _early 0.500
+    }
+    if { $_late != 1.0 } { set_timing_derate -cell_delay -late  $_late  $_sram_cells }
+    if { $_early != 1.0 } { set_timing_derate -cell_delay -early $_early $_sram_cells }
+    puts "\[SDC\] SRAM makro derate uygulandi: [llength $_sram_cells] hucre (kose='$_corner' late $_late / early $_early)"
 } else {
     puts "\[SDC\] UYARI: SRAM makro hucresi bulunamadi - derate uygulanmadi."
     puts "\[SDC\]        Sentez oncesi asamada normal (makrolar henuz baglanmadi)."
