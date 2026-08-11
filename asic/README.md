@@ -5,15 +5,29 @@
 > etiketli; nihai kosu (Ip-5 dondurmasi sonrasi) ve SD2/K-RUN kararlariyla
 > kapanacak. Teslimden once bu uyari bloku silinecek.
 
-## 9.1 Tasarim Ozeti  `[ACIK - SD2]`
+## 9.1 Tasarim Ozeti
 
-Tasarimin kisa aciklamasi ve amaci; en ust seviye modul adi (`asic_top`);
-temel giris/cikis arayuzleri; saat ve reset portlari (`clk_i`, `rst_ni`);
-hedef saat frekanslari.
+RISC-V (CV32E40P) tabanli mikrodenetleyici SoC: AXI4/AXI4-Lite ara baglanti,
+QSPI boot, UART/GPIO/Timer/I2C cevre birimleri ve TFLite Micro Speech
+(2B evrisim + tam bagli katman) YZ hizlandiricisi. En ust seviye modul:
+`asic_top`. Saat: `clk_i` (tek saat alani), reset: `rst_ni` (asenkron,
+senkron birakma). Giris/cikislar nihai LEF/DEF'te makro pinleridir (bolum 2).
 
-TBD - hedef frekans SD2 karariyla kesinlesecek; `config.yaml` CLOCK_PERIOD,
-`constraints/design.sdc` create_clock, bu bolum ve sunum AYNI sayiyi
-soylemek zorunda (bolum 9.13). Su anki calisma degeri: 50 MHz (20 ns).
+**Hedef saat frekansi ve kose bazli kapanis (11 Agu olcumu,
+`RUN_2026-08-11_01-08-11` + duzeltilmis SDC ile STA):**
+
+| Kose | Setup WS | Kapanan frekans |
+|---|---|---|
+| tt_025C_1v80 | +2,14 ns | 50 MHz hedef KAPANIR (fmax ~56 MHz) |
+| ss_100C_1v60 | -8,45 ns | ~35 MHz (28,5 ns esdegeri) |
+| ff_n40C_1v95 | +4,26 ns | KAPANIR |
+
+Beyan: hedef saat **50 MHz**; TT kosesinde +2,14 ns marjla kapanir. SS
+(1,6 V / 100 C) kosesinde 50 MHz kapanmaz — bu kosede kapanan frekans
+**~35 MHz**'dir ve en kotu yol saf standart-hucre CPU yoludur (SRAM/derate
+kaynakli degildir; kose fiziginin sonucudur). Uc kosenin STA raporlari
+eksiksiz teslim edilmistir (`reports/timing/`); ayrinti: bolum 9.9 ve 9.11.
+`config.yaml` CLOCK_PERIOD = 20 ns, `design.sdc` create_clock ile ayni.
 
 ## 9.2 Arac ve Ortam Bilgileri
 
@@ -177,15 +191,32 @@ nihai kosunun lint ciktisiyla beyan yazilacak).
 Bilinen hata/uyari/ihlaller; sonuclari etkileyebilecek arac veya akis
 sorunlari; takim degerlendirmesi.
 
-Su an bilinenler:
+Bilinen ve kabul edilmis sinirlar (11 Agu, `RUN_2026-08-11_01-08-11`):
 
-- `metrics.json`'in ss/ff alanlari kosunun kendi `max.rpt`'si ile
-  tutmuyor (ss icin -91.57 vs -23.71). **Rapor dosyasi esastir**, metrik
-  alani degil.
-- LVS 205 hata: yapisal kaynaklar (antenna diyotlarinin VPWR muhasebesi +
-  `gpio[31:16]` bag pinleri); GDS'ten cikarilan 1.795.705 elemanli gercek
-  netlist ile soyut cikarim BIREBIR ayni 205'i veriyor - cikarim artefakti
-  degil, bilinen ve aciklanan yapisal fark. (Nihai metin K-RUN sonrasi.)
+1. **SS kosesinde 50 MHz kapanmaz.** `ss_100C_1v60` (1,6 V / 100 C) kosesinde
+   setup WS -8,45 ns (1.933 yol); en kotu yol saf standart-hucre CPU yoludur
+   (`id_stage` ici; SRAM/derate etkisi YOK). Bu kose fiziginin sonucudur;
+   RTL degisikligi kapsam disi oldugundan cift beyan yapilmistir (bolum 9.1):
+   TT 50 MHz / SS ~35 MHz. Uc kosenin raporlari eksiksizdir.
+2. **Kalan hold ihlalleri: tt -0,41 ns (50 yol), ff -0,44 ns.** Tumu
+   `i_ai_accel -> u_input_mem` dusen-kenar SRAM arayuzunde; kok neden makro
+   saat carpikligi (CTS makro saat pinlerine ~1 ns gec variyor). Marj tabanli
+   onarim OLCULEREK elendi (0,3 marj: hold degismedi, SS setup -10,3'e coktu;
+   0,5: arac cokmesi). FF degeri bilerek kotumser early-0.5 derate modelinin
+   sonucudur. Teslim makro seviyesidir (bolum 2); sinir mekanizmasiyla beyan
+   edilmistir.
+3. **`i2c_sda_i` senkronizatorsuz orneklenir** (RTL gozden gecirme notu);
+   SDC'de senkron kisitli tutulmustur. `gpio_in_i` (2FF senkronizator) ve
+   `uart*_rxd_i` asenkron giris olarak false path'tir (bolum 9.6).
+4. **Magic DRC ~7,5k "hata"**: satici SRAM makro GDS'inin bilinen okuma/
+   geometri gurultusu (cift kontak vb.); ayni GDS KLayout DRC'de 0 hata verir.
+   `MAGIC_CAPTURE_ERRORS=false` gerekcesi bolum 9.7/config yorumunda.
+5. LVS = 0 (gercek GDS cikarimi, 1.795.705 eleman). Onceki 197/205 farklar
+   dar kanalli eski floorplanin diyot yerlesiminden geliyordu; genis kanalli
+   nihai floorplanda tamamen kapanmistir.
+6. `metrics.json`'in ss/ff timing alanlari kosunun kendi `max.rpt`'si ile
+   her zaman tutmayabiliyor (gozlendi: ss -91.57 vs -23.71). **Rapor dosyasi
+   esastir**, metrik alani degil.
 
 ## 9.10 Guc ve IR-Drop Analizi  `[ACIK - nihai kosu]`
 
@@ -194,11 +225,22 @@ girdisi veya varsayimlar; ozel gerilim kaynagi konum dosyasi kullanilmadiysa
 bu durum. Acik switching activity girdisi yoksa sonuclar **tahmini** olarak
 isaretlenecek (bolum 5.7).
 
-## 9.11 Signoff Sonuc Ozeti  `[ACIK - nihai kosu]`
+## 9.11 Signoff Sonuc Ozeti
 
-Kullanilan signoff PVT corner'lari (tt_025C_1v80 / ss_100C_1v60 /
-ff_n40C_1v95); setup ve hold WNS/TNS; Magic ve KLayout DRC; Netgen LVS;
-anten, XOR, PDN ve baglantisiz pin sonuclari.
+Kaynak kosu: `RUN_2026-08-11_01-08-11` (dogrulama; nihai teslim kosusuyla
+guncellenecek). Kose seti: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
+
+| Kalem | Sonuc |
+|---|---|
+| Route (TritonRoute) DRC | **0** |
+| Magic DRC | ~7,5k (satici makro gurultusu, bolum 9.9/4) |
+| KLayout DRC | **0** |
+| Netgen LVS (gercek GDS cikarimi) | **0** |
+| XOR (Magic vs KLayout GDS) | **0** |
+| Setup WS (tt / ss / ff) | +2,14 / -8,45 / +4,26 ns (bolum 9.1 beyani) |
+| Hold WS (tt / ss / ff) | -0,41 / +0,08 / -0,44 ns (bolum 9.9/2) |
+| Guc (toplam, tahmini) | 0,119 W |
+| Die alani | 18,77 mm2 (4180 x 4490 um) |
 
 ## 9.12 Rapor ve Cikti Konumlari  `[ACIK - nihai kosu]`
 

@@ -33,13 +33,24 @@ PDK_COMMIT   = 8afc8346a57fe1ab7934ba5a6056ea8b43078e71
 asic_run: check_filelist
 	@echo "[asic_run] run/ temiz calisma alani olarak hazirlaniyor..."
 	find run -mindepth 1 ! -name '.gitkeep' -delete
+	mkdir -p $(RUN_DIR)
 	@echo "[asic_run] LibreLane Classic basliyor: $(RUN_DIR)"
-	$(ENV) librelane config.yaml \
-		--flow Classic \
-		--force-run-dir $(RUN_DIR)
-	@echo "[asic_run] Rapor ve ciktilar toplaniyor (Bolum 5 -> reports/, Bolum 6 -> results/)..."
-	./scripts/collect_outputs.sh "$(RUN_DIR)" "$(DESIGN)"
-	@echo "[asic_run] TAMAM. Kosu etiketi: $(TAG)  (README 9.12'ye islenecek)"
+# Akis bilinen/kabul edilmis ihlallerle (README 9.9) sifir-disi cikabilir.
+# Bolum 8 IKISINI birden istiyor: raporlar toplanacak VE hata durumunda cikis
+# kodu sifir-disi olacak. Bu yuzden collect cikis kodundan BAGIMSIZ kosar,
+# ardindan librelane'in kodu aynen yeniden yukseltilir.
+	@set +e; \
+	$(ENV) librelane config.yaml --flow Classic --force-run-dir $(RUN_DIR); \
+	rc=$$?; \
+	echo "[asic_run] Rapor ve ciktilar toplaniyor (akis cikis kodu: $$rc)..."; \
+	ALLOW_MISSING=1 ./scripts/collect_outputs.sh "$(RUN_DIR)" "$(DESIGN)"; \
+	if [ $$rc -ne 0 ]; then \
+		echo "[asic_run] Akis $$rc ile bitti (bilinen ihlaller icin bkz. README 9.9)."; \
+		echo "[asic_run] Raporlar ve ciktilar yine de toplandi. Kosu etiketi: $(TAG)"; \
+	else \
+		echo "[asic_run] TAMAM. Kosu etiketi: $(TAG)  (README 9.12'ye islenecek)"; \
+	fi; \
+	exit $$rc
 
 # ------------------------------------------------------------
 # ONERILEN HEDEFLER (Bolum 8)
