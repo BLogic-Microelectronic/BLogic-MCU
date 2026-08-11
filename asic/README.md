@@ -157,12 +157,19 @@ teslimi yeterlidir.
 - **Clock uncertainty:** setup 0.500 ns, hold 0.100 ns.
   **Input transition:** saat gecisi 0.150 ns. **Output load:** 5 pF
   (kotumser pad + hat butcesi). (Bolum 3.2 "onerilen" kalemleri.)
-- **False path:** TEK istisna `set_false_path -from [get_ports rst_ni]`.
+- **False path (reset):** `set_false_path -from [get_ports rst_ni]`.
   Gerekce: `rst_ni` asenkron assert / senkron release'dir; release
   senkronizasyonu cip ust seviyesinde (pad halkasi / reset denetleyicisi)
   yapilir, bu sinif yol gercek veri zamanlamasi tasimaz. Recovery/removal
   davranisi release senkronizasyonuyla garanti edilir. Gercekte
   zamanlanmasi gereken hicbir yol istisnaya alinmamistir.
+- **False path (asenkron girisler):** `set_false_path -from` ile
+  `gpio_in_i*` (2FF senkronizator, `gpio_axil.sv:44-50`), `uart_rxd_i` ve
+  `uart1_rxd_i` (asenkron seri hat, `rxd_reg` ile orneklenir). Bu portlarin
+  `clk`e gore anlamli varis penceresi yoktur; senkron input_delay sahte
+  setup/hold ihlali uretir (olculdu: TT en kotu hold yolu `gpio_in_i[0]`).
+  Gercekte zamanlanan yol degildir, Bolum 3.2 kurali korunur; bkz. 9.9/3.
+  `i2c_sda_i` ve `qspi_io_i*` senkron kisitli KALIR.
 - **Multicycle path:** YOK (tum yollar tek cevrim kurali).
 - **SRAM derate:** bolum 9.5'teki 2.661x/0.5x `set_timing_derate`
   uygulamasi bir zamanlama istisnasi degil, eksik SS/FF makro modelinin

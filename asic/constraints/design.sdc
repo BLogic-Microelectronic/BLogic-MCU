@@ -154,7 +154,7 @@ if {[llength $_sram_cells] > 0} {
 #   25 MHz); ic saat degildir, veri yollari ayni alandadir -> generated
 #   clock tanimi GEREKMEZ.
 # * Multicycle path: YOK (tum yollar tek cevrim kurali).
-# * False path: yalnizca rst_ni (yukaridaki gerekceyle).
+# * False path: rst_ni + asenkron girisler (gpio_in_i*, uart*_rxd_i); bkz. README 9.6.
 # * Bellekler: axi_sram_wrapper sinirindan sky130_sram_* makrolariyla
 #   degistirilir; makro zamanlamalari EXTRA_LIBS Liberty'lerinden gelir.
 # ============================================================
