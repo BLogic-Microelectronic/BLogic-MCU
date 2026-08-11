@@ -906,12 +906,18 @@ Output: `rtl/fpga/fpga_top.bit` (bitstream) + `rtl/fpga/reports/*.rpt` (synthesi
 #### B. Program the QSPI Flash + load the bitstream
 
 ```bash
-# First produce the raw firmware binary for the flash (offset 0x0):
-riscv32-unknown-elf-objcopy -O binary <firmware.elf> rtl/fpga/firmware_flash.bin
+# First produce the FULL flash image as a raw binary
+# (fw@0x0 + data@0x8000 + AI weights@0x10000 — see scripts/gen_flash_image.py):
+make flash-bin FW_SRC=sw/tests/hello_blink.c
 
 # Then, with the bitstream already built and the board connected:
 vivado -mode batch -source rtl/fpga/flash_firmware.tcl
 ```
+
+> Do **not** use the old `objcopy -O binary` recipe: it emits only `.text`,
+> so the data region never reaches the flash and any firmware with string
+> literals prints NULs (this was one of the two root causes of the silent
+> board, fixed 11 Aug).
 
 This one-shot script:
 

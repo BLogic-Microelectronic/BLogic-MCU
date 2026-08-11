@@ -154,6 +154,12 @@ flash-image:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
 	python3 scripts/gen_flash_image.py --fw build/instr_mem.hex --data $(FLASH_DATA) --out build/flash.hex
 
+# Kart icin: TAM imaji flash_firmware.tcl'in bekledigi ham binary'ye cevirir.
+# (Eski objcopy tarifi yalnizca .text yazardi - veri bolgesi flash'a girmez,
+# string'li firmware kartta NUL basardi. Tek dogru kaynak build/flash.hex'tir.)
+flash-bin: flash-image
+	python3 scripts/flash_hex2bin.py build/flash.hex rtl/fpga/firmware_flash.bin
+
 # M3 sim kaniti: rodata'li GERCEK C firmware flash'tan boot eder (ayni TB).
 # Negatif kontrol: make boot-real FLASH_DATA=/dev/null -> FAIL beklenir (veri bolgesi bos).
 boot-real:

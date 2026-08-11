@@ -4,9 +4,14 @@
 #
 # On kosullar:
 #   1) rtl/fpga/fpga_top.bit uretilmis olmali (build_genesys2.tcl)
-#   2) rtl/fpga/firmware_flash.bin mevcut olmali. Uretimi:
-#        riscv32-unknown-elf-objcopy -O binary <firmware.elf> rtl/fpga/firmware_flash.bin
-#      (Bootloader, flash offset 0x0'dan Instruction SRAM'e kopyalar.)
+#   2) rtl/fpga/firmware_flash.bin mevcut olmali. Uretimi (11 Agu, M3 v2):
+#        make flash-bin FW_SRC=sw/tests/<firmware>.c
+#      Bu TAM imaji uretir: fw@0x0 + veri@0x8000 + YZ@0x10000. Bootloader
+#      Asama 1'de fw'yi ISRAM'e, Asama 1.5'te veriyi DSRAM'e, Asama 2'de
+#      YZ agirliklarini AI SRAM'e kopyalar.
+#      DIKKAT: eski `objcopy -O binary <elf>` tarifi KULLANILMAZ - yalnizca
+#      .text yazar, veri bolgesi flash'a girmez, string'li firmware NUL basar
+#      (4 Agu kart sessizliginin 1. nedeni buydu).
 #   3) Genesys 2 USB-JTAG ile bagli ve acik olmali.
 #
 # Kullanim:
