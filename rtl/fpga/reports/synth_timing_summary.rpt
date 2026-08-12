@@ -1,7 +1,7 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
 ---------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version : Vivado v.2023.2 (win64) Build 4029153 Fri Oct 13 20:14:34 MDT 2023
-| Date         : Thu Aug 13 00:03:54 2026
+| Date         : Thu Aug 13 01:11:40 2026
 | Host         : Berk66 running 64-bit major release  (build 9200)
 | Command      : report_timing_summary -file C:/Users/Lenovo/blogic_fpga/rtl/fpga/reports/synth_timing_summary.rpt
 | Design       : fpga_top
@@ -138,7 +138,7 @@ Table of Contents
 
     WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
     -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
-      5.965        0.000                      0                21541       -1.008     -296.595                   1243                21541        1.100        0.000                       0                  8656  
+      5.965        0.000                      0                21631       -1.008     -296.743                   1243                21631        1.100        0.000                       0                  8686  
 
 
 Timing constraints are not met.
@@ -164,7 +164,7 @@ sysclk         {0.000 2.500}        5.000           200.000
 Clock              WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
 -----              -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
 sysclk                                                                                                                                                           1.100        0.000                       0                     1  
-  clk_50_mmcm        5.965        0.000                      0                17670       -1.008     -296.595                   1243                17670        9.650        0.000                       0                  8653  
+  clk_50_mmcm        5.965        0.000                      0                17760       -1.008     -296.743                   1243                17760        9.650        0.000                       0                  8683  
   clk_fb                                                                                                                                                         3.929        0.000                       0                     2  
 
 
@@ -223,7 +223,7 @@ From Clock:  clk_50_mmcm
   To Clock:  clk_50_mmcm
 
 Setup :            0  Failing Endpoints,  Worst Slack        5.965ns,  Total Violation        0.000ns
-Hold  :         1243  Failing Endpoints,  Worst Slack       -1.008ns,  Total Violation     -296.595ns
+Hold  :         1243  Failing Endpoints,  Worst Slack       -1.008ns,  Total Violation     -296.743ns
 PW    :            0  Failing Endpoints,  Worst Slack        9.650ns,  Total Violation        0.000ns
 ---------------------------------------------------------------------------------------------------
 
@@ -261,7 +261,7 @@ Slack (MET) :             5.965ns  (required time - arrival time)
                                                       0.077     1.567 r  i_mmcm/CLKOUT0
                          net (fo=1, unplaced)         0.466     2.032    clk_50_mmcm
                          BUFG (Prop_bufg_I_O)         0.093     2.125 r  i_bufg_50/O
-                         net (fo=6571, unplaced)      0.584     2.709    i_soc/i_cpu/core_i/sleep_unit_i/core_clock_gate_i/clk_50
+                         net (fo=6601, unplaced)      0.584     2.709    i_soc/i_cpu/core_i/sleep_unit_i/core_clock_gate_i/clk_50
                          LUT2 (Prop_lut2_I0_O)        0.043     2.752 r  i_soc/i_cpu/core_i/sleep_unit_i/core_clock_gate_i/cnt_q[1]_i_5/O
                          net (fo=1, unplaced)         0.466     3.218    i_soc_n_4
                          BUFG (Prop_bufg_I_O)         0.093     3.311 r  cnt_q_reg[1]_i_2/O
@@ -295,7 +295,7 @@ Slack (MET) :             5.965ns  (required time - arrival time)
                                                       0.073    11.315 f  i_mmcm/CLKOUT0
                          net (fo=1, unplaced)         0.442    11.758    clk_50_mmcm
                          BUFG (Prop_bufg_I_O)         0.083    11.841 f  i_bufg_50/O
-                         net (fo=6571, unplaced)      0.439    12.280    i_soc/i_cpu/core_i/sleep_unit_i/core_clock_gate_i/clk_50
+                         net (fo=6601, unplaced)      0.439    12.280    i_soc/i_cpu/core_i/sleep_unit_i/core_clock_gate_i/clk_50
                          LDCE                                         r  i_soc/i_cpu/core_i/sleep_unit_i/core_clock_gate_i/clk_en_reg/G  (IS_INVERTED)
                          clock pessimism              0.284    12.564    
                          clock uncertainty           -0.073    12.491    
@@ -338,7 +338,7 @@ Slack (VIOLATED) :        -1.008ns  (arrival time - required time)
                                                       0.073     1.315 r  i_mmcm/CLKOUT0
                          net (fo=1, unplaced)         0.442     1.758    clk_50_mmcm
                          BUFG (Prop_bufg_I_O)         0.083     1.841 r  i_bufg_50/O
-                         net (fo=6571, unplaced)      0.439     2.280    i_soc/i_uart_1/clk_50
+                         net (fo=6601, unplaced)      0.439     2.280    i_soc/i_uart_1/clk_50
                          FDCE                                         r  i_soc/i_uart_1/irq_o_reg/C
   -------------------------------------------------------------------    -------------------
                          FDCE (Prop_fdce_C_Q)         0.178     2.458 r  i_soc/i_uart_1/irq_o_reg/Q
@@ -356,7 +356,7 @@ Slack (VIOLATED) :        -1.008ns  (arrival time - required time)
                                                       0.077     1.567 r  i_mmcm/CLKOUT0
                          net (fo=1, unplaced)         0.466     2.032    clk_50_mmcm
                          BUFG (Prop_bufg_I_O)         0.093     2.125 r  i_bufg_50/O
-                         net (fo=6571, unplaced)      0.584     2.709    i_soc/i_cpu/core_i/sleep_unit_i/core_clock_gate_i/clk_50
+                         net (fo=6601, unplaced)      0.584     2.709    i_soc/i_cpu/core_i/sleep_unit_i/core_clock_gate_i/clk_50
                          LUT2 (Prop_lut2_I0_O)        0.043     2.752 r  i_soc/i_cpu/core_i/sleep_unit_i/core_clock_gate_i/cnt_q[1]_i_5/O
                          net (fo=1, unplaced)         0.466     3.218    i_soc_n_4
                          BUFG (Prop_bufg_I_O)         0.093     3.311 r  cnt_q_reg[1]_i_2/O
@@ -455,7 +455,7 @@ Slack (MET) :             18.230ns  (required time - arrival time)
                                                       0.077     1.567 r  i_mmcm/CLKOUT0
                          net (fo=1, unplaced)         0.466     2.032    clk_50_mmcm
                          BUFG (Prop_bufg_I_O)         0.093     2.125 r  i_bufg_50/O
-                         net (fo=6571, unplaced)      0.584     2.709    clk_50
+                         net (fo=6601, unplaced)      0.584     2.709    clk_50
                          FDCE                                         r  rst_sync_n_reg/C
   -------------------------------------------------------------------    -------------------
                          FDCE (Prop_fdce_C_Q)         0.223     2.932 r  rst_sync_n_reg/Q
@@ -475,7 +475,7 @@ Slack (MET) :             18.230ns  (required time - arrival time)
                                                       0.073    21.315 r  i_mmcm/CLKOUT0
                          net (fo=1, unplaced)         0.442    21.758    clk_50_mmcm
                          BUFG (Prop_bufg_I_O)         0.083    21.841 r  i_bufg_50/O
-                         net (fo=6571, unplaced)      0.439    22.280    i_soc/i_ai_accel/clk_50
+                         net (fo=6601, unplaced)      0.439    22.280    i_soc/i_ai_accel/clk_50
                          FDCE                                         r  i_soc/i_ai_accel/FSM_onehot_mem_state_reg[1]/C
                          clock pessimism              0.284    22.564    
                          clock uncertainty           -0.073    22.491    
@@ -519,7 +519,7 @@ Slack (MET) :             0.015ns  (arrival time - required time)
                                                       0.050     0.552 r  i_mmcm/CLKOUT0
                          net (fo=1, unplaced)         0.231     0.783    clk_50_mmcm
                          BUFG (Prop_bufg_I_O)         0.026     0.809 r  i_bufg_50/O
-                         net (fo=6571, unplaced)      0.114     0.923    clk_50
+                         net (fo=6601, unplaced)      0.114     0.923    clk_50
                          FDCE                                         r  rst_sync_n_reg/C
   -------------------------------------------------------------------    -------------------
                          FDCE (Prop_fdce_C_Q)         0.100     1.023 r  rst_sync_n_reg/Q
@@ -539,7 +539,7 @@ Slack (MET) :             0.015ns  (arrival time - required time)
                                                       0.053     0.782 r  i_mmcm/CLKOUT0
                          net (fo=1, unplaced)         0.243     1.025    clk_50_mmcm
                          BUFG (Prop_bufg_I_O)         0.030     1.055 r  i_bufg_50/O
-                         net (fo=6571, unplaced)      0.259     1.314    i_soc/i_cpu/core_i/sleep_unit_i/core_clock_gate_i/clk_50
+                         net (fo=6601, unplaced)      0.259     1.314    i_soc/i_cpu/core_i/sleep_unit_i/core_clock_gate_i/clk_50
                          LUT2 (Prop_lut2_I0_O)        0.035     1.349 r  i_soc/i_cpu/core_i/sleep_unit_i/core_clock_gate_i/cnt_q[1]_i_5/O
                          net (fo=1, unplaced)         0.243     1.592    i_soc_n_4
                          BUFG (Prop_bufg_I_O)         0.030     1.622 r  cnt_q_reg[1]_i_2/O
