@@ -143,8 +143,18 @@ puts "BILGI: BOOT_ADDR = 32'h$BOOT_ADDR_HEX"
 # ------------------------------------------------------------
 # Sentez
 # ------------------------------------------------------------
+# -verilog_define BOOTROM_CONTENT SART (13 Agu kok neden #3, kart olcumuyle):
+# boot_rom.sv icerigi bu makroya baglidir (`ifdef BOOTROM_CONTENT `include
+# bootrom_content.svh). Verilator (+define+BOOTROM_CONTENT) ve ASIC akisi
+# (filelist.f/config.yaml) tanimlar; burada tanimlanmayinca ROM tum adresler
+# icin 32'h0 sentezleniyordu -> CPU 0x0'da illegal instr -> trap dongusu ->
+# QSPI'ya hic sira gelmiyordu. M3'un kartta 4 Agustos'tan beri sessiz
+# kalmasinin kok nedeni buydu (axi_sram_wrapper.sv'deki BRAM-sifir emsalinin
+# aynisi). Kanit zinciri: flash icerigi readback ile dogru + M2 hello_blink
+# UART/LED calisiyor + bootrom'suz bitstream'de CS# hic dusmuyor.
 synth_design -top fpga_top -part $PART \
     -include_dirs $incdirs \
+    -verilog_define BOOTROM_CONTENT \
     -generic BOOT_ADDR=32'h$BOOT_ADDR_HEX
 
 write_checkpoint -force [file join $build_dir post_synth.dcp]
