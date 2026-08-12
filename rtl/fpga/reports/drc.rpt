@@ -1,14 +1,14 @@
-Copyright 1986-2021 Xilinx, Inc. All Rights Reserved.
-------------------------------------------------------------------------------------------
-| Tool Version : Vivado v.2021.2 (win64) Build 3367213 Tue Oct 19 02:48:09 MDT 2021
-| Date         : Tue Aug  4 17:52:26 2026
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (win64) Build 4029153 Fri Oct 13 20:14:34 MDT 2023
+| Date         : Thu Aug 13 00:06:14 2026
 | Host         : Berk66 running 64-bit major release  (build 9200)
-| Command      : report_drc -file C:/bl_fpga_build/build_m2_sram/rtl/fpga/reports/drc.rpt
+| Command      : report_drc -file C:/Users/Lenovo/blogic_fpga/rtl/fpga/reports/drc.rpt
 | Design       : fpga_top
 | Device       : xc7k325tffg900-2
 | Speed File   : -2
 | Design State : Fully Routed
-------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------
 
 Report DRC
 
@@ -24,14 +24,14 @@ Table of Contents
       Design limits: <entire design considered>
            Ruledeck: default
              Max violations: <unlimited>
-             Violations found: 91
+             Violations found: 80
 +-----------+----------+---------------------------------+------------+
 | Rule      | Severity | Description                     | Violations |
 +-----------+----------+---------------------------------+------------+
 | CHECK-3   | Warning  | Report rule limit reached       | 2          |
-| DPIP-1    | Warning  | Input pipelining                | 21         |
-| DPOP-1    | Warning  | PREG Output pipelining          | 13         |
-| DPOP-2    | Warning  | MREG Output pipelining          | 12         |
+| DPIP-1    | Warning  | Input pipelining                | 19         |
+| DPOP-1    | Warning  | PREG Output pipelining          | 8          |
+| DPOP-2    | Warning  | MREG Output pipelining          | 8          |
 | REQP-1839 | Warning  | RAMB36 async control check      | 20         |
 | REQP-1840 | Warning  | RAMB18 async control check      | 20         |
 | RPBF-3    | Warning  | IO port buffering is incomplete | 3          |
@@ -66,90 +66,80 @@ Related violations: <none>
 
 DPIP-1#4 Warning
 Input pipelining  
-DSP i_soc/i_ai_accel/p_0_out input i_soc/i_ai_accel/p_0_out/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_ai_accel/rq_mul_lo_return input i_soc/i_ai_accel/rq_mul_lo_return/A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#5 Warning
 Input pipelining  
-DSP i_soc/i_ai_accel/p_0_out__0 input i_soc/i_ai_accel/p_0_out__0/A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_ai_accel/rq_mul_lo_return input i_soc/i_ai_accel/rq_mul_lo_return/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#6 Warning
 Input pipelining  
-DSP i_soc/i_ai_accel/p_0_out__1 input i_soc/i_ai_accel/p_0_out__1/A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_ai_accel/rq_mul_lo_return__0 input i_soc/i_ai_accel/rq_mul_lo_return__0/A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#7 Warning
 Input pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6 input i_soc/i_ai_accel/tflite_requant6/A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_ai_accel/rq_mul_lo_return__0 input i_soc/i_ai_accel/rq_mul_lo_return__0/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#8 Warning
 Input pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6 input i_soc/i_ai_accel/tflite_requant6/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_ai_accel/rq_phi0 input i_soc/i_ai_accel/rq_phi0/A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#9 Warning
 Input pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6__0 input i_soc/i_ai_accel/tflite_requant6__0/A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_ai_accel/rq_phi0 input i_soc/i_ai_accel/rq_phi0/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#10 Warning
 Input pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6__0 input i_soc/i_ai_accel/tflite_requant6__0/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_ai_accel/rq_phi0__0 input i_soc/i_ai_accel/rq_phi0__0/A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#11 Warning
 Input pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6__1 input i_soc/i_ai_accel/tflite_requant6__1/A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_ai_accel/rq_phi0__0 input i_soc/i_ai_accel/rq_phi0__0/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#12 Warning
 Input pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6__1 input i_soc/i_ai_accel/tflite_requant6__1/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/ input i_soc/i_cpu/core_i/ex_stage_i/mult_i//A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#13 Warning
 Input pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6__2 input i_soc/i_ai_accel/tflite_requant6__2/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/ input i_soc/i_cpu/core_i/ex_stage_i/mult_i//B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#14 Warning
 Input pipelining  
-DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/ input i_soc/i_cpu/core_i/ex_stage_i/mult_i//A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0 input i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0/A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#15 Warning
 Input pipelining  
-DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/ input i_soc/i_cpu/core_i/ex_stage_i/mult_i//B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0 input i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#16 Warning
 Input pipelining  
-DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0 input i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0/A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/__1 input i_soc/i_cpu/core_i/ex_stage_i/mult_i/__1/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#17 Warning
 Input pipelining  
-DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0 input i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
+DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/short_mac input i_soc/i_cpu/core_i/ex_stage_i/mult_i/short_mac/C[47:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
 DPIP-1#18 Warning
 Input pipelining  
-DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/__1 input i_soc/i_cpu/core_i/ex_stage_i/mult_i/__1/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
-Related violations: <none>
-
-DPIP-1#19 Warning
-Input pipelining  
-DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/short_mac input i_soc/i_cpu/core_i/ex_stage_i/mult_i/short_mac/C[47:0] is not pipelined. Pipelining DSP48 input will improve performance.
-Related violations: <none>
-
-DPIP-1#20 Warning
-Input pipelining  
 DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/short_mul input i_soc/i_cpu/core_i/ex_stage_i/mult_i/short_mul/A[29:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
 
-DPIP-1#21 Warning
+DPIP-1#19 Warning
 Input pipelining  
 DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/short_mul input i_soc/i_cpu/core_i/ex_stage_i/mult_i/short_mul/B[17:0] is not pipelined. Pipelining DSP48 input will improve performance.
 Related violations: <none>
@@ -161,60 +151,35 @@ Related violations: <none>
 
 DPOP-1#2 Warning
 PREG Output pipelining  
-DSP i_soc/i_ai_accel/p_0_out output i_soc/i_ai_accel/p_0_out/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
+DSP i_soc/i_ai_accel/rq_mul_lo_return output i_soc/i_ai_accel/rq_mul_lo_return/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
 Related violations: <none>
 
 DPOP-1#3 Warning
 PREG Output pipelining  
-DSP i_soc/i_ai_accel/p_0_out__0 output i_soc/i_ai_accel/p_0_out__0/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
+DSP i_soc/i_ai_accel/rq_mul_lo_return__0 output i_soc/i_ai_accel/rq_mul_lo_return__0/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
 Related violations: <none>
 
 DPOP-1#4 Warning
 PREG Output pipelining  
-DSP i_soc/i_ai_accel/p_0_out__1 output i_soc/i_ai_accel/p_0_out__1/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
+DSP i_soc/i_ai_accel/rq_phi0 output i_soc/i_ai_accel/rq_phi0/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
 Related violations: <none>
 
 DPOP-1#5 Warning
 PREG Output pipelining  
-DSP i_soc/i_ai_accel/p_0_out__2 output i_soc/i_ai_accel/p_0_out__2/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
+DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/ output i_soc/i_cpu/core_i/ex_stage_i/mult_i//P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
 Related violations: <none>
 
 DPOP-1#6 Warning
 PREG Output pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6 output i_soc/i_ai_accel/tflite_requant6/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
+DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0 output i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
 Related violations: <none>
 
 DPOP-1#7 Warning
 PREG Output pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6__0 output i_soc/i_ai_accel/tflite_requant6__0/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
-Related violations: <none>
-
-DPOP-1#8 Warning
-PREG Output pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6__1 output i_soc/i_ai_accel/tflite_requant6__1/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
-Related violations: <none>
-
-DPOP-1#9 Warning
-PREG Output pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6__2 output i_soc/i_ai_accel/tflite_requant6__2/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
-Related violations: <none>
-
-DPOP-1#10 Warning
-PREG Output pipelining  
-DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/ output i_soc/i_cpu/core_i/ex_stage_i/mult_i//P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
-Related violations: <none>
-
-DPOP-1#11 Warning
-PREG Output pipelining  
-DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0 output i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
-Related violations: <none>
-
-DPOP-1#12 Warning
-PREG Output pipelining  
 DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/__1 output i_soc/i_cpu/core_i/ex_stage_i/mult_i/__1/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
 Related violations: <none>
 
-DPOP-1#13 Warning
+DPOP-1#8 Warning
 PREG Output pipelining  
 DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/short_mac output i_soc/i_cpu/core_i/ex_stage_i/mult_i/short_mac/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
 Related violations: <none>
@@ -226,55 +191,35 @@ Related violations: <none>
 
 DPOP-2#2 Warning
 MREG Output pipelining  
-DSP i_soc/i_ai_accel/p_0_out multiplier stage i_soc/i_ai_accel/p_0_out/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
+DSP i_soc/i_ai_accel/rq_mul_lo_return multiplier stage i_soc/i_ai_accel/rq_mul_lo_return/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
 Related violations: <none>
 
 DPOP-2#3 Warning
 MREG Output pipelining  
-DSP i_soc/i_ai_accel/p_0_out__0 multiplier stage i_soc/i_ai_accel/p_0_out__0/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
+DSP i_soc/i_ai_accel/rq_mul_lo_return__0 multiplier stage i_soc/i_ai_accel/rq_mul_lo_return__0/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
 Related violations: <none>
 
 DPOP-2#4 Warning
 MREG Output pipelining  
-DSP i_soc/i_ai_accel/p_0_out__1 multiplier stage i_soc/i_ai_accel/p_0_out__1/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
+DSP i_soc/i_ai_accel/rq_phi0 multiplier stage i_soc/i_ai_accel/rq_phi0/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
 Related violations: <none>
 
 DPOP-2#5 Warning
 MREG Output pipelining  
-DSP i_soc/i_ai_accel/p_0_out__2 multiplier stage i_soc/i_ai_accel/p_0_out__2/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
+DSP i_soc/i_ai_accel/rq_phi0__0 multiplier stage i_soc/i_ai_accel/rq_phi0__0/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
 Related violations: <none>
 
 DPOP-2#6 Warning
 MREG Output pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6 multiplier stage i_soc/i_ai_accel/tflite_requant6/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
+DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/ multiplier stage i_soc/i_cpu/core_i/ex_stage_i/mult_i//P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
 Related violations: <none>
 
 DPOP-2#7 Warning
 MREG Output pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6__0 multiplier stage i_soc/i_ai_accel/tflite_requant6__0/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
-Related violations: <none>
-
-DPOP-2#8 Warning
-MREG Output pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6__1 multiplier stage i_soc/i_ai_accel/tflite_requant6__1/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
-Related violations: <none>
-
-DPOP-2#9 Warning
-MREG Output pipelining  
-DSP i_soc/i_ai_accel/tflite_requant6__2 multiplier stage i_soc/i_ai_accel/tflite_requant6__2/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
-Related violations: <none>
-
-DPOP-2#10 Warning
-MREG Output pipelining  
-DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/ multiplier stage i_soc/i_cpu/core_i/ex_stage_i/mult_i//P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
-Related violations: <none>
-
-DPOP-2#11 Warning
-MREG Output pipelining  
 DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0 multiplier stage i_soc/i_cpu/core_i/ex_stage_i/mult_i/__0/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
 Related violations: <none>
 
-DPOP-2#12 Warning
+DPOP-2#8 Warning
 MREG Output pipelining  
 DSP i_soc/i_cpu/core_i/ex_stage_i/mult_i/__1 multiplier stage i_soc/i_cpu/core_i/ex_stage_i/mult_i/__1/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
 Related violations: <none>
@@ -381,27 +326,27 @@ Related violations: <none>
 
 REQP-1840#1 Warning
 RAMB18 async control check  
-The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/kw_idx_reg[0]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
+The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/f_idx_reg[1]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
 Related violations: <none>
 
 REQP-1840#2 Warning
 RAMB18 async control check  
-The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/kw_idx_reg[1]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
+The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/kw_idx_reg[0]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
 Related violations: <none>
 
 REQP-1840#3 Warning
 RAMB18 async control check  
-The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/kw_idx_reg[2]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
+The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/kw_idx_reg[1]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
 Related violations: <none>
 
 REQP-1840#4 Warning
 RAMB18 async control check  
-The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/state_reg[2]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
+The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/kw_idx_reg[2]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
 Related violations: <none>
 
 REQP-1840#5 Warning
 RAMB18 async control check  
-The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/state_reg[4]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
+The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/state_reg[1]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
 Related violations: <none>
 
 REQP-1840#6 Warning
@@ -476,7 +421,7 @@ Related violations: <none>
 
 REQP-1840#20 Warning
 RAMB18 async control check  
-The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[12] (net: i_soc/i_ai_accel/cw_raddr[7]) which is driven by a register (i_soc/i_ai_accel/state_reg[4]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
+The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[12] (net: i_soc/i_ai_accel/cw_raddr[7]) which is driven by a register (i_soc/i_ai_accel/state_reg[4]_rep) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
 Related violations: <none>
 
 RPBF-3#1 Warning
