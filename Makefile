@@ -356,6 +356,8 @@ test-all:
 	s=PASS; $(MAKE) soc-ai     || { s=FAIL; overall=1; }; \
 	p=PASS; $(MAKE) soc-perf   || { p=FAIL; overall=1; }; \
 	ir=PASS; $(MAKE) soc-ai-irq || { ir=FAIL; overall=1; }; \
+	st=PASS; $(MAKE) soc-timer || { st=FAIL; overall=1; }; \
+	ss=PASS; $(MAKE) soc-strm  || { ss=FAIL; overall=1; }; \
 	c=PASS; $(MAKE) arch-test  || { c=FAIL; overall=1; }; \
 	u=PASS; $(MAKE) uvm        || { u=FAIL; overall=1; }; \
 	echo ""; \
@@ -374,6 +376,8 @@ test-all:
 	echo "  soc-ai     (SoC AI C testi)       : $$s"; \
 	echo "  soc-perf   (HW vs SW hizlanma)    : $$p"; \
 	echo "  soc-ai-irq (kesme/ISR akisi)      : $$ir"; \
+	echo "  soc-timer  (Timer cevre birimi)   : $$st"; \
+	echo "  soc-strm   (UART_1 stream SoC yolu): $$ss"; \
 	echo "  arch-test  (riscv-arch-test $(ARCH_EXT))   : $$c"; \
 	echo "  uvm        (GPIO directed+random)  : $$u"; \
 	echo "====================================================="; \
@@ -394,19 +398,31 @@ logs-clean:
 
 help:
 	@echo "=== Test hedefleri (ana Makefile) ==="
-	@echo "  make regression  - 5'li fonksiyonel + protokol regresyonu (1 Mbps dahil)"
+	@echo "  make test-all    - TUM suit; sonda ozet tablo (tek komutluk kanit)"
+	@echo "  make regression  - fonksiyonel+protokol regresyonu (UARTx3 + lockstep minimal/deep + QSPI)"
 	@echo "  make uart-baud   - EK-2 cok-baud kaniti (115200 -> 1 Mbps -> 9600)"
 	@echo "  make uart-stp    - EK-2 stop-bit 1/1.5/2 dogrulamasi (uart_axil TB)"
 	@echo "  make uart-stream - UART_1 YZ stream DMA → AI SRAM (uart_stream_axil TB)"
-	@echo "  make boot        - QSPI boot akisi (boot_flow_test_tb)"
+	@echo "  make boot        - QSPI boot akisi (flash_helloworld imaji)"
+	@echo "  make boot-real   - GERCEK C firmware ile flash boot (.rodata/.data DSRAM kaniti)"
+	@echo "                     negatif kontrol: FLASH_DATA=/dev/null -> FAIL beklenir"
+	@echo "  make qspi-modes  - QSPI x1/x2/x4 veri fazi + 4-bayt adres testi"
+	@echo "  make qspi-err    - QSPI FIFO/flush/status hata yollari"
+	@echo "  make i2c-sys     - I2C sistem testi (echo slave: TX/RX/latch/NACK)"
+	@echo "  make soc-timer   - Timer cevre birimi SoC testi (zorunlu ister kaniti)"
+	@echo "  make soc-strm    - UART_1 stream SoC yolu testi"
 	@echo "  make ai          - AI accel standalone TB (6 senaryo: 2 gercek ses + 4 sentetik)"
 	@echo "  make soc-ai      - SoC seviyesi AI C testi"
-	@echo "  make arch-test   - riscv-arch-test (varsayilan ARCH_EXT=\"I M\", 46 test)"
-	@echo "  make uvm         - UVM GPIO testleri"
-	@echo "  make qspi-modes  - QSPI x1/x2/x4 veri fazi + 4-bayt adres testi"
-	@echo "  make i2c-sys     - I2C sistem testi (echo slave: TX/RX/latch/NACK)"
-	@echo "  make coverage    - line coverage raporu (logs/coverage/)"
+	@echo "  make soc-perf    - HW vs SW hizlanma olcumu (verif/perf_summary.txt)"
 	@echo "  make soc-ai-irq  - AI kesme (ISR) akisi testi"
-	@echo "  make test-all    - tum suitler (regression+uart-baud+uart-stp+boot+qspi-modes+i2c-sys+ai+soc-ai+arch-test+uvm)"
+	@echo "  make arch-test   - riscv-arch-test (varsayilan ARCH_EXT=\"I M\", spike imzasi)"
+	@echo "  make uvm         - UVM GPIO testleri (directed + random)"
+	@echo "  make spike       - etkilesimli spike; HTIF yok -> KENDI KENDINE CIKMAZ (Ctrl+C)"
+	@echo "  make coverage    - line coverage raporu (logs/coverage/)"
+	@echo "  make coverage-tb - modul kapsama kosusu (satir/dal)"
+	@echo "=== Imaj / kart hedefleri ==="
+	@echo "  make flash-image - tam imaj: fw@0x0 + veri@0x8000 + YZ@0x10000 (FW_SRC=..., FLASH_DATA=...)"
+	@echo "  make flash-bin   - kart icin imaj .bin (flash_firmware.tcl ile yazilir)"
+	@echo "  Demo firmware    : make flash-image FW_SRC=sw/demo/demo_main.c (acilis cikarim + h/v/r menu)"
 	@echo ""
 	$(MAKE) -f Makefile.verilator help
