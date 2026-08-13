@@ -217,7 +217,7 @@ ai-uart-load:
 	                  +UART_RX_DELAY=20000 +GOLDEN_FILE=../build/uart_demo/golden.txt \
 	                  +AI_SRAM_DUMP=../build/uart_demo/ai_sram.hex \
 	                  +MAX_CYCLES=$(AI_UART_MAXCYC)"
-	@python3 sw/ai_model/check_ai_sram.py build/uart_demo/frame.bin build/uart_demo/ai_sram.hex || true
+	@python3 sw/ai_model/check_ai_sram.py build/uart_demo/frame.bin build/uart_demo/ai_sram.hex
 	@grep -E "^result=|^uart_rx_" logs/sim/ai_uart_load_test/result.log
 	@grep -q "^result=PASS" logs/sim/ai_uart_load_test/result.log \
 	    && echo "[UART-DEMO] PASS - gorulmemis vektor UART'tan yuklendi ve dogru siniflandi" \

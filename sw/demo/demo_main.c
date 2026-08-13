@@ -78,16 +78,51 @@ static void run_hw(void) {
     GPIO->ODR = (1U << argmax);       /* sinif -> LED biti */
 }
 
+/* BLG1 alimi - send_vector.py ile ayni protokol:
+   'B''L''G''1' + uzunluk[4 LE] + veri + toplam-saglama[4 LE].
+   rx_byte deseni ai_uart_load_test.c ile birebir (CFG=0 sart). */
+static uint32_t rx_byte(uint32_t *out, uint32_t timeout) {
+    while ((UART0->CFG & UART_CFG_RX_READY) == 0U) {
+        if (timeout-- == 0U) return 0U;
+    }
+    *out       = UART0->RDR & 0xFFU;
+    UART0->CFG = 0U;
+    return 1U;
+}
+static uint32_t rx_u32(uint32_t *out, uint32_t timeout) {
+    uint32_t v = 0U, b;
+    for (uint32_t i = 0U; i < 4U; i++) {
+        if (!rx_byte(&b, timeout)) return 0U;
+        v |= (b << (8U * i));
+    }
+    *out = v; return 1U;
+}
+#define RX_TMO 60000000U
+
 static void load_vector_uart(void) {
-    uart_puts(UART0, "[DEMO] 1960 ham bayt bekleniyor (115200)...\n");
+    uart_puts(UART0, "[DEMO] BLG1 cercevesi bekleniyor (send_vector.py)...\n");
+    static const char MAGIC[4] = {'B','L','G','1'};
+    uint32_t got = 0U, b, len = 0U, sum = 0U, chk = 0U;
+    while (got < 4U) {
+        if (!rx_byte(&b, RX_TMO)) { uart_puts(UART0, "[DEMO] RX timeout (magic)\n"); return; }
+        got = ((char)b == MAGIC[got]) ? got + 1U : (((char)b == MAGIC[0]) ? 1U : 0U);
+    }
+    if (!rx_u32(&len, RX_TMO)) { uart_puts(UART0, "[DEMO] RX timeout (uzunluk)\n"); return; }
+    if (len == 0U || len > AI_INPUT_BYTES) { uart_puts(UART0, "[DEMO] gecersiz uzunluk\n"); return; }
     volatile uint8_t *dst = (volatile uint8_t *)(AI_SRAM_BASE + AI_INPUT_OFF);
-    for (uint32_t i = 0U; i < AI_INPUT_BYTES; i++) dst[i] = (uint8_t)uart_getc(UART0);
-    uart_puts(UART0, "[DEMO] girdi alindi, cikarim:\n");
+    for (uint32_t i = 0U; i < len; i++) {
+        if (!rx_byte(&b, RX_TMO)) { uart_puts(UART0, "[DEMO] RX timeout (veri)\n"); return; }
+        dst[i] = (uint8_t)b; sum += b;
+    }
+    if (!rx_u32(&chk, RX_TMO)) { uart_puts(UART0, "[DEMO] RX timeout (saglama)\n"); return; }
+    if (chk != sum) { uart_puts(UART0, "[DEMO] SAGLAMA HATASI - cikarim yapilmadi\n"); return; }
+    uart_puts(UART0, "[DEMO] girdi dogrulandi ("); uart_putu(UART0, len);
+    uart_puts(UART0, " bayt), cikarim:\n");
     run_hw();
 }
 
 static void menu(void) {
-    uart_puts(UART0, "[DEMO] h=HW cikarim  v=UART'tan yeni girdi  r=rapor  ?=menu\n");
+    uart_puts(UART0, "[DEMO] h=HW cikarim  v=BLG1 ile yeni girdi (send_vector.py)  r=rapor  ?=menu\n");
 }
 
 int main(void) {

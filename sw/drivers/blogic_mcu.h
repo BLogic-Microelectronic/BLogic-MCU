@@ -112,11 +112,16 @@ static inline void uart_puts(UART_TypeDef *uart, const char *s)
 }
 
 
-/* UART'tan bir byte al (polling) */
+/* UART'tan bir byte al (polling).
+   DUZELTME (13 Agu): RDR okumak RX bayragini DUSURMUYORDU (uart_axil.sv:197
+   - bayrak yalniz CFG bit1=0 yazilinca duser); art arda okumalar ayni bayti
+   donduruyordu. ai_uart_load_test.c bunu kesfedip yerel rx_byte ile cozmus,
+   surucude ayni kanitli desen: okuma sonrasi CFG=0. */
 static inline char uart_getc(UART_TypeDef *uart)
 {
     while (!(uart->CFG & UART_CFG_RX_READY)); /* veri gelene kadar bekle */
     char c = (char)(uart->RDR & 0xFF);
+    uart->CFG = 0;                            /* rx_done temizle - sart */
     return c;
 }
 
