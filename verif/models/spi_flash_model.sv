@@ -66,9 +66,13 @@ module spi_flash_model #(
                         endcase
                     end
                     if (in_bit_cnt == cap_total - 6'd1) begin
-                        // adres tamamen in_sr icinde
-                        read_addr <= (abytes == 3'd4) ? in_sr[31:0]
-                                                      : {8'd0, in_sr[23:0]};
+                        // adres = onceki ornekler + BU kenardaki CANLI bit.
+                        // Eski hal son biti kaciriyor, cmd bit0'i adres
+                        // MSB'sine sizdiriyordu (read_addr=0x800000|A>>1);
+                        // bir-gec cerceve bunu maskeliyordu. T1 kaniti:
+                        // A=0x100 -> 0x800080 -> hi_byte 43,42,41,40.
+                        read_addr <= (abytes == 3'd4) ? {in_sr[30:0], io_in[0]}
+                                                      : {8'd0, in_sr[22:0], io_in[0]};
                         out_step  <= '0;
                         phase     <= (dummy_left != 0) ? PH_DUMMY : PH_DATA;
                     end

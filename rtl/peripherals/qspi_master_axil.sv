@@ -111,22 +111,35 @@ module qspi_master_axil (
     assign sclk_o = sclk_reg;
     assign cs_no  = (spi_state == SPI_IDLE || spi_state == SPI_DONE);
 
-    // veri fazinda x1/x2/x4 lane suruculeri; quad: MSB->IO3, dual: MSB->IO1
+    // MODE-0 DUZELTMESI (13 Agu): cikis DUSEN kenarda yazmaclanir.
+    // Eski hal io_o'yu bit_cnt/shift_out'tan kombinasyonel suruyordu; ikisi de
+    // sclk_rising'de degistigi icin MOSI tam ornekleme aninda degisiyordu
+    // (hold~0, kartta sans eseri calisiyordu). Sertlestirilmis spi_flash_model
+    // bunu 0x06 (0x03'un 1-bit kaymasi) olarak yakalamisti. tx_io_now ayni
+    // deseni hesaplar; tx_io_q dusen kenarda orneklenir, ILK bit CS_ASSERT
+    // sirasinda (ilk yukselen kenardan ONCE) yuklenir. RX ve oe degismedi.
+    logic [3:0] tx_io_now, tx_io_q;
     always_comb begin
-        io_o[0] = shift_out[bit_cnt];
-        io_o[1] = 1'b1;
-        io_o[2] = 1'b1;   // WP#   (quad veri fazi disinda tieoff)
-        io_o[3] = 1'b1;   // HOLD# (quad veri fazi disinda tieoff)
+        tx_io_now[0] = shift_out[bit_cnt];
+        tx_io_now[1] = 1'b1;
+        tx_io_now[2] = 1'b1;   // WP#   (quad veri fazi disinda tieoff)
+        tx_io_now[3] = 1'b1;   // HOLD# (quad veri fazi disinda tieoff)
         if (spi_state == SPI_DATA_TX && ccr_data_mode == 2'b10) begin
-            io_o[0] = shift_out[bit_cnt-3'd1];
-            io_o[1] = shift_out[bit_cnt];
+            tx_io_now[0] = shift_out[bit_cnt-3'd1];
+            tx_io_now[1] = shift_out[bit_cnt];
         end else if (spi_state == SPI_DATA_TX && ccr_data_mode == 2'b11) begin
-            io_o[0] = shift_out[bit_cnt-3'd3];
-            io_o[1] = shift_out[bit_cnt-3'd2];
-            io_o[2] = shift_out[bit_cnt-3'd1];
-            io_o[3] = shift_out[bit_cnt];
+            tx_io_now[0] = shift_out[bit_cnt-3'd3];
+            tx_io_now[1] = shift_out[bit_cnt-3'd2];
+            tx_io_now[2] = shift_out[bit_cnt-3'd1];
+            tx_io_now[3] = shift_out[bit_cnt];
         end
     end
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni)                          tx_io_q <= 4'hF;
+        else if (spi_state == SPI_CS_ASSERT)  tx_io_q <= {3'b111, shift_out[7]};
+        else if (sclk_falling)                tx_io_q <= tx_io_now;
+    end
+    assign io_o = tx_io_q;
     always_comb begin
         io_oe[0] = (spi_state == SPI_SEND_CMD || spi_state == SPI_SEND_ADDR ||
                     spi_state == SPI_DATA_TX  || spi_state == SPI_DUMMY);
