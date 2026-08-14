@@ -1,12 +1,10 @@
-NOT (13 Agu, birlestirme sonrasi): asagidaki kosu, demo 'v' komutunun HAM
-1960-bayt surumuyle alindi. Sonrasinda demo BLG1 cercevesine gecti
-(506cd4f, sihir+uzunluk+saglama) ve kart_sweep.py da BLG1 konusacak sekilde
-guncellendi. Sinif sonuclari aktarim cercevesinden bagimsizdir; yine de
-BLG1 yolunda tarama TEKRARLANACAK ve bu dosya o kosuyla degistirilecek.
+NOT: Bu kosu, RTL degisikliklerinden (QSPI mode-0 + WP#/HOLD# tieoff) SONRAKI
+bitstream ve BLG1 protokollu demo ile alinmistir; ayni zamanda o RTL
+degisikliklerinin kart-seviyesi regresyon testidir.
 ======================================================================
 KART RASTGELE-SINIFLANDIRMA TARAMASI (juri UART provasi)
-Tarih: 2026-08-13 02:30 | N=60 | seed=31082026 | port=COM7 | sure=15.4 sn
-Yol: PC -> UART 115200 -> demo 'v' -> AI SRAM -> HW cikarim -> irq17 -> UART sonuc
+Tarih: 2026-08-14 15:29 | N=60 | seed=31082026 | port=COM7 | sure=15.9 sn
+Yol: PC -> UART 115200 -> demo 'v' (BLG1 cerceve + saglama) -> AI SRAM -> HW cikarim -> irq17 -> UART sonuc
 Referans: run_accuracy_window.run_model (sim N=1000'de RTL ile birebir dogrulanmis bit-exact SW modeli)
 ======================================================================
 i    ornek            etiket   SW fc_out              SW  KART durum
