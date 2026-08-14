@@ -138,6 +138,15 @@ module qspi_master_axil (
         if (!rst_ni)                          tx_io_q <= 4'hF;
         else if (spi_state == SPI_CS_ASSERT)  tx_io_q <= {3'b111, shift_out[7]};
         else if (sclk_falling)                tx_io_q <= tx_io_now;
+        // Yazmaca alma yan etkisi: x4 yazmadan sonra son nibble tx_io_q'da
+        // ASILI kalir; io_oe[3:2] aktif faz disinda 1 oldugu icin WP#/HOLD#
+        // eski VERI bitleriyle surulur (kombinasyonel surumde bu iki hat
+        // quad DATA_TX disinda sabit 1'di). Gercek cipte CS# dusukken /HOLD
+        // dususu transferi dondurur, /WP dususu koruma durumunu degistirir.
+        // Aktif olmayan durumlarda tieoff'a don:
+        else if (spi_state == SPI_IDLE || spi_state == SPI_DONE ||
+                 spi_state == SPI_CS_DEASSERT)
+                                              tx_io_q <= 4'hF;
     end
     assign io_o = tx_io_q;
     always_comb begin
