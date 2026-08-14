@@ -1,10 +1,9 @@
 # BLogic MCU - ASIC Fiziksel Tasarim Akisi
 
 > **DURUM.** Basliklar DDK "Final Istenen Ciktilar" bolum 9.1-9.13 ile birebir.
-> Tum bolumler dolu. Kosu-rakam senkron kurali: sayisal sonuclar nihai teslim
-> kosusundan sonra TEK kosu etiketinden yenilenecek (9.1 tablosu, 9.7-9.12
-> olcumleri); 9.12'deki `[NIHAI-TAG]` yer tutuculari o kosuyla dolacak.
-> Teslimden once bu uyari bloku silinecek.
+> Tum bolumler dolu ve tum sayisal sonuclar **TEK kosudan** gelir:
+> **`RUN_teslim_2026-08-14`** (temiz klon uzerinde sifirdan `make pdk` +
+> `make asic_run`, 3 sa 28 dk).
 
 ## 9.1 Tasarim Ozeti
 
@@ -14,18 +13,18 @@ QSPI boot, UART/GPIO/Timer/I2C cevre birimleri ve TFLite Micro Speech
 `asic_top`. Saat: `clk_i` (tek saat alani), reset: `rst_ni` (asenkron,
 senkron birakma). Giris/cikislar nihai LEF/DEF'te makro pinleridir (bolum 2).
 
-**Hedef saat frekansi ve kose bazli kapanis (11 Agu olcumu,
-`RUN_2026-08-11_01-08-11` + duzeltilmis SDC ile STA):**
+**Hedef saat frekansi ve kose bazli kapanis (nihai teslim kosusu
+`RUN_teslim_2026-08-14`):**
 
-| Kose | Setup WS | Kapanan frekans |
-|---|---|---|
-| tt_025C_1v80 | +2,14 ns | 50 MHz hedef KAPANIR (fmax ~56 MHz) |
-| ss_100C_1v60 | -8,45 ns | ~35 MHz (28,5 ns esdegeri) |
-| ff_n40C_1v95 | +4,26 ns | KAPANIR |
+| Kose | Setup WS | Setup TNS | Kapanan frekans |
+|---|---|---|---|
+| tt_025C_1v80 | **+2,210 ns** | 0 | 50 MHz hedef KAPANIR (fmax ~56,2 MHz) |
+| ss_100C_1v60 | -9,083 ns | -10.639,4 ns | ~34,4 MHz (29,08 ns esdegeri) |
+| ff_n40C_1v95 | **+4,375 ns** | 0 | KAPANIR (fmax ~64,0 MHz) |
 
-Beyan: hedef saat **50 MHz**; TT kosesinde +2,14 ns marjla kapanir. SS
+Beyan: hedef saat **50 MHz**; TT kosesinde +2,210 ns marjla kapanir. SS
 (1,6 V / 100 C) kosesinde 50 MHz kapanmaz — bu kosede kapanan frekans
-**~35 MHz**'dir ve en kotu yol saf standart-hucre CPU yoludur (SRAM/derate
+**~34,4 MHz**'dir ve en kotu yol saf standart-hucre CPU yoludur (SRAM/derate
 kaynakli degildir; kose fiziginin sonucudur). Uc kosenin STA raporlari
 eksiksiz teslim edilmistir (`reports/timing/`); ayrinti: bolum 9.9 ve 9.11.
 `config.yaml` CLOCK_PERIOD = 20 ns, `design.sdc` create_clock ile ayni.
@@ -74,7 +73,8 @@ Zorunlu bir kalem eksikse betik sifir disi kodla biter.
 (config.yaml <-> filelist.f uyumu).
 
 **Yaklasik calisma suresi ve kaynaklar:** dogrulanmis ortam GCP 8 vCPU /
-60 GB RAM; toplam sure TBD (10-11 Agu gece kosusu olcumuyle yazilacak).
+60 GB RAM; nihai kosu **3 saat 28 dakika** surdu (temiz klon, `make pdk`
+haric; VM: 8 vCPU / 60 GB RAM / NVMe).
 Dusuk RAM'li makinelerde `magic-writelef` adimi OOM verebilir; 60 GB ile
 sorunsuz. Disk: kosu basina ~1-2 GB (`run/` altinda, teslimde silinir).
 
@@ -178,7 +178,7 @@ teslimi yeterlidir.
 
 ## 9.7 Fiziksel Tasarim Yapilandirmasi
 
-Olcum kaynagi: `RUN_teslim_provasi` (11 Agu); nihai kosuyla yenilenecek.
+Olcum kaynagi: **`RUN_teslim_2026-08-14`** (nihai teslim kosusu).
 
 - **Floorplan (mutlak):** `DIE_AREA` 4180 x 4490 um = **18,77 mm2**,
   `CORE_AREA` (60,60)-(4120,4430) = 17,72 mm2; `FP_SIZING: absolute`.
@@ -211,9 +211,9 @@ Olcum kaynagi: `RUN_teslim_provasi` (11 Agu); nihai kosuyla yenilenecek.
 ## 9.8 Lint Sonuclari ve Istisnalari
 
 Olcum kaynagi: akisin Verilator lint adimi (Verilator 5.044),
-`reports/lint/verilator_lint.log`, `RUN_teslim_provasi`.
+`reports/lint/verilator_lint.log`, `RUN_teslim_2026-08-14`.
 
-- **Hata: 0. Uyari: 933. Waiver dosyasi KULLANILMADI** - hicbir uyari
+- **Hata: 0. Uyari: 932. Waiver dosyasi KULLANILMADI** - hicbir uyari
   bastirilmadi, log ham haliyle teslim edilir
   (`reports/lint/waivers/` bos, bilincli).
 - **Inferred latch yok:** LATCH sinifi uyari 0.
@@ -238,14 +238,15 @@ Olcum kaynagi: akisin Verilator lint adimi (Verilator 5.044),
 Bilinen hata/uyari/ihlaller; sonuclari etkileyebilecek arac veya akis
 sorunlari; takim degerlendirmesi.
 
-Bilinen ve kabul edilmis sinirlar (11 Agu, `RUN_2026-08-11_01-08-11`):
+Bilinen ve kabul edilmis sinirlar (nihai kosu `RUN_teslim_2026-08-14`):
 
 1. **SS kosesinde 50 MHz kapanmaz.** `ss_100C_1v60` (1,6 V / 100 C) kosesinde
-   setup WS -8,45 ns (1.933 yol); en kotu yol saf standart-hucre CPU yoludur
+   setup WS -9,083 ns (2.521 yol); en kotu yol saf standart-hucre CPU yoludur
    (`id_stage` ici; SRAM/derate etkisi YOK). Bu kose fiziginin sonucudur;
    RTL degisikligi kapsam disi oldugundan cift beyan yapilmistir (bolum 9.1):
    TT 50 MHz / SS ~35 MHz. Uc kosenin raporlari eksiksizdir.
-2. **Kalan hold ihlalleri: tt -0,41 ns (50 yol), ff -0,44 ns.** Tumu
+2. **Kalan hold ihlalleri: tt -0,323 ns (48 yol), ff -0,382 ns (112 yol);
+   ss kosesinde hold ihlali YOK (+0,227 ns).** Tumu
    `i_ai_accel -> u_input_mem` dusen-kenar SRAM arayuzunde; kok neden makro
    saat carpikligi (CTS makro saat pinlerine ~1 ns gec variyor). Marj tabanli
    onarim OLCULEREK elendi (0,3 marj: hold degismedi, SS setup -10,3'e coktu;
@@ -284,13 +285,18 @@ Bilinen ve kabul edilmis sinirlar (11 Agu, `RUN_2026-08-11_01-08-11`):
      zamanlamasini degistirir; dondurma gunu alinacak taze-regresyon riski
      degildir (ayni gun `tx_io_q`'nun yazmaca alinmasi WP#/HOLD# tieoff
      regresyonu uretmisti - bkz. commit `285698b`).
-   **Takip:** nihai kosunun `ff_n40C_1v95` kosesi min-path raporunda
-   `qspi_io_o[3:0]` uc noktalari kontrol edilir; bulgular bu maddeye
-   islenir.
+   **Takip SONUCU (nihai kosu, kapatildi):** `ff_n40C_1v95` kosesindeki
+   112 hold ihlalinin **hicbiri** `qspi_io_o` degildir
+   (`grep -c qspi_io_o reports/timing/nom_ff_n40C_1v95/violator_list.rpt`
+   -> 0). Ihlallerin tamami SRAM makro veri girisleridir
+   (`u_input_mem` 32, `i_ai_sram` 34, `u_conv_out` 27, `u_conv_w_mem` 18)
+   ve mekanizmasi 9.9/2'de aciklanan makro dusen-kenar arayuzudur.
+   Karar dogrulanmistir: `io_oe`'nin kombinasyonel birakilmasi hizli
+   kosede olculebilir bir hold riski uretmemistir.
 
 ## 9.10 Guc ve IR-Drop Analizi
 
-Olcum kaynagi: `RUN_teslim_provasi` (11 Agu); nihai kosuyla yenilenecek.
+Olcum kaynagi: **`RUN_teslim_2026-08-14`** (nihai teslim kosusu).
 
 - **Kosullar:** saat 50 MHz (`create_clock` 20 ns); besleme 1,80 V nominal;
   guc raporlari uc imza kosesinde (Tablo 4).
@@ -299,17 +305,18 @@ Olcum kaynagi: `RUN_teslim_provasi` (11 Agu); nihai kosuyla yenilenecek.
   sonuclar **TAHMINI** olarak isaretlenir.
 - **Toplam guc (tahmini):**
 
-  | Kose | Toplam | Dagilim |
+  | Kose | Besleme | Toplam |
   |---|---|---|
-  | tt_025C_1v80 | **112,3 mW** | internal %89,6 / switching %10,0 / leakage %0,4 |
-  | ss_100C_1v60 | 104,6 mW | leakage %1,0 |
-  | ff_n40C_1v95 | 118,5 mW | leakage %0,4 |
+  | tt_025C_1v80 | 1,80 V | **112,1 mW** |
+  | ss_100C_1v60 | 1,60 V | 104,4 mW |
+  | ff_n40C_1v95 | 1,95 V | 118,3 mW |
 
   TT kirilimi (grup): SRAM makrolari %66,1; saat agi %17,0; sequential
   %16,1; kombinasyonel %0,9. Guc butcesinin baskin kalemi bellek -
-  27 makro icin beklenen tablo.
-- **IR-drop (OpenROAD PSM, tt kosesi):** VPWR en kotu dusum **1,63 mV**,
-  VGND en kotu yukselme **1,66 mV** -> besleme geriliminin **%0,09**'u
+  27 makro icin beklenen tablo. Beyan edilen tek rakam TT kosesidir
+  (**112,1 mW**); 9.11 tablosu da ayni degeri tasir.
+- **IR-drop (OpenROAD PSM, tt kosesi):** VPWR en kotu dusum **1,54 mV**,
+  VGND en kotu yukselme **1,57 mV** -> besleme geriliminin **%0,09**'u
   (tipik %5 sinirinin cok altinda). Her iki net icin PSM dogrulamasi:
   "All shapes connected". Rapor: `reports/power/irdrop.rpt`.
 - **Ozel gerilim kaynagi konum dosyasi kullanilmadi** (varsayilan pad/strap
@@ -317,25 +324,36 @@ Olcum kaynagi: `RUN_teslim_provasi` (11 Agu); nihai kosuyla yenilenecek.
 
 ## 9.11 Signoff Sonuc Ozeti
 
-Kaynak kosu: `RUN_2026-08-11_01-08-11` (dogrulama; nihai teslim kosusuyla
-guncellenecek). Kose seti: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
+Kaynak kosu: **`RUN_teslim_2026-08-14`** (nihai teslim kosusu; temiz klon
+uzerinde sifirdan `make pdk` + `make asic_run`).
+Kose seti: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 
 | Kalem | Sonuc |
 |---|---|
 | Route (TritonRoute) DRC | **0** |
-| Magic DRC | ~7,5k (satici makro gurultusu, bolum 9.9/4) |
-| KLayout DRC | **0** |
-| Netgen LVS (gercek GDS cikarimi) | **0** |
+| KLayout DRC | **0** (257 kural, tumu sifir) |
+| Magic DRC | 9.201 (satici makro gurultusu, bolum 9.9/4) |
+| Netgen LVS (gercek GDS cikarimi) | **0 hata / 0 cihaz farki** |
 | XOR (Magic vs KLayout GDS) | **0** |
-| Setup WS (tt / ss / ff) | +2,14 / -8,45 / +4,26 ns (bolum 9.1 beyani) |
-| Hold WS (tt / ss / ff) | -0,41 / +0,08 / -0,44 ns (bolum 9.9/2) |
-| Guc (toplam, tahmini) | 0,119 W |
+| Anten ihlali | **0 net / 0 pin** |
+| Baglantisiz pin | **0** |
+| PDN grid hatasi (VPWR / VGND) | **0 / 0** (rapor dosyalari bos) |
+| Setup WS (tt / ss / ff) | **+2,210** / -9,083 / **+4,375** ns |
+| Setup TNS (tt / ss / ff) | 0 / -10.639,4 / 0 ns |
+| Setup ihlal sayisi (tt / ss / ff) | 0 / 2.521 / 0 |
+| Hold WS (tt / ss / ff) | -0,323 / **+0,227** / -0,382 ns (bolum 9.9/2) |
+| Hold TNS (tt / ss / ff) | -7,00 / 0 / -14,68 ns |
+| Hold ihlal sayisi (tt / ss / ff) | 48 / 0 / 112 |
+| Guc (toplam, tahmini, tt kosesi) | **112,1 mW** |
+| IR-drop (tt) | %0,09 (en kotu 1,57 mV) |
 | Die alani | 18,77 mm2 (4180 x 4490 um) |
+| Ornek sayisi / std hucre | 2.588.379 / 296.010 |
+| Doluluk (utilization) | %49,87 |
 
 ## 9.12 Rapor ve Cikti Konumlari
 
-- **Kosu etiketi:** `[NIHAI-TAG]` (nihai teslim kosusunda yazilacak;
-  zincir `RUN_teslim_provasi` ile ucdan uca dogrulandi:
+- **Kosu etiketi:** **`RUN_teslim_2026-08-14`** (temiz klon uzerinde
+  sifirdan uretildi; zincir ucdan uca dogrulandi:
   `make asic_run` -> toplama -> `make asic_verify` TAMAM).
 - **Esas GDSII:** `results/gds/asic_top.gds` - **Magic** streamout ciktisi
   esas alinir. KLayout streamout (`asic_top_klayout.gds`) karsilastirma
