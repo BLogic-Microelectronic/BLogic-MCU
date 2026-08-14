@@ -94,13 +94,21 @@ typedef struct {
 
 #define AI_ACC  ((AI_ACC_TypeDef *) AI_ACC_BASE)
 
-/* UART'tan bir byte gonder (polling) */
+/* UART'tan bir byte gonder (polling).
+   RX BAYRAGI KORUNUR (14 Agu): uart_axil.sv:197 bayragi "CFG bit1'e 0 yaz"
+   ile temizler; eski kod her iki CFG yazmasinda da bit1=0 birakiyordu, yani
+   BASILAN HER KARAKTER o sirada gelmis bir RX baytini imha ediyordu. Yazdirip
+   hemen okuyan akislarda (demo 'v': prompt bas -> cerceve al) gonderen taraf
+   prompt'u beklemezse bayt SESSIZCE kaybolur - juri kendi araciyla veri
+   basacagi icin gercek risk. bit1=1 yazmak rx_done'i KORUR (set etmez). */
 static inline void uart_putc(UART_TypeDef *uart, char c)
 {
     uart->TDR = (uint32_t)c;
-    uart->CFG = UART_CFG_TX_START;           /* gonderimi baslat */
+    /* tx_en=1, tx_done temizle, rx_done'a DOKUNMA */
+    uart->CFG = UART_CFG_TX_START | UART_CFG_RX_READY;
     while (!(uart->CFG & UART_CFG_TX_DONE));
-    uart->CFG = 0x00;                        /* sonraki edge icin temizle */
+    /* tx_en=0, tx_done temizle, rx_done'a DOKUNMA */
+    uart->CFG = UART_CFG_RX_READY;
 }
 
 /* UART'tan string gonder */

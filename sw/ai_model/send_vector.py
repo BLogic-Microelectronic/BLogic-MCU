@@ -64,6 +64,24 @@ def gonder(args, paket):
     with serial.Serial(args.port, args.baud, timeout=args.timeout) as ser:
         time.sleep(0.2)
         ser.reset_input_buffer()
+        # EL SIKISMA (14 Agu, kart olcumu): UART'ta RX FIFO YOK - tek RDR
+        # yazmaci var. Kart "bekleniyor" satirini basarken (~50 karakter =
+        # ~4,3 ms) gelen baytlar uzerine yazilir ve KAYBOLUR. Bu yuzden veri
+        # ancak kart okuma dongusune girdikten SONRA gonderilebilir.
+        # Karsi taraf komut kabuklu bir firmware ise (demo 'v') once komutu
+        # gonder, prompt'u bekle; prompt basmayan firmware'lerde
+        # (ai_uart_load_test) kisa zaman asimiyla dogrudan devam edilir.
+        if args.komut:
+            ser.write(args.komut.encode())
+            ser.flush()
+        bitis = time.time() + args.bekleme
+        while time.time() < bitis:
+            satir = ser.readline()
+            if not satir:
+                continue
+            if b"bekleniyor" in satir or b"BLG1" in satir:
+                print("el sikisma: %s" % satir.decode("ascii", "replace").strip())
+                break
         ser.write(paket)
         ser.flush()
         print("-" * 52)
@@ -98,6 +116,11 @@ def main():
                          "(kart olmadan dogrulama; pyserial gerekmez)")
     ap.add_argument("--list", action="store_true", help="yerlesik altin vektorleri listele")
     ap.add_argument("--timeout", type=float, default=5.0, help="cevap bekleme (s)")
+    ap.add_argument("--komut", default="",
+                    help="veriden once gonderilecek menu komutu (demo icin 'v')")
+    ap.add_argument("--bekleme", type=float, default=1.5,
+                    help="veri oncesi 'hazir' satirini bekleme suresi (s); "
+                         "UART'ta RX FIFO olmadigi icin gereklidir")
     # K13 (docs/oznitelik_vektoru_formati.md): microfrontend uint8 (0..255)
     # uretir, model int8 (-128..127) bekler. Donusum: int8 = uint8 - 128,
     # bit duzeyinde byte ^ 0x80. Ham uint8 gonderilirse ornegin 200 degeri

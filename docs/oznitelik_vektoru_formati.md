@@ -61,3 +61,28 @@ görünmez (tüm baytlar 0…255 aralığında ve ortalama ~128'dir).
 | RESULT | 0x5A58 | 4 B |
 
 Kaynak: `rtl/ai_accelerator/ai_accelerator.sv:89-93`
+
+## UART Aktarım Protokolü ve El Sıkışma (14 Ağustos, kart ölçümü)
+
+**Kritik:** UART alıcısında FIFO **yoktur** — tek bir `RDR` yazmacı vardır
+(`rtl/peripherals/uart_axil.sv`). CPU okuma döngüsünde değilken gelen baytlar
+üzerine yazılır ve kaybolur. Bu yüzden gönderen taraf, kartın okumaya hazır
+olduğunu bildiren satırı **beklemek zorundadır**.
+
+### Demo firmware ile doğru akış (`sw/demo/demo_main.c`)
+
+1. Host `v` karakterini gönderir.
+2. Kart `[DEMO] BLG1 cercevesi bekleniyor (send_vector.py)...` satırını basar.
+3. Host **bu satırı gördükten sonra** BLG1 çerçevesini gönderir:
+   `'B','L','G','1'` + uzunluk[4, little-endian] + veri + toplam-sağlama[4, LE].
+4. Kart sağlamayı doğrular; tutmazsa çıkarım yapmaz ve hata basar.
+
+Adım 2 atlanırsa (`v` ile veri ardışık gönderilirse) prompt basılırken gelen
+~50 bayt kaybolur ve çerçeve başlığı yakalanamaz — kartta ölçülmüştür.
+
+### Hazır araçlar
+
+| Araç | Kullanım |
+|---|---|
+| `sw/ai_model/send_vector.py` | `--input <hex> --komut v --port <COM>` — el sıkışmayı kendisi yapar |
+| `sw/ai_model/kart_sweep.py` | `--n <N>` — N vektörü sırayla gönderip donanım sonucunu yazılım referansıyla karşılaştırır |
