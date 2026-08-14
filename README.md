@@ -41,7 +41,7 @@
 
 **BLogic MCU** is a 32-bit RISC-V based System-on-Chip (SoC) developed by **BLogic Mikroelektronik (Ostim Technical University)** for the **TEKNOFEST 2026 Chip Design Competition, Microcontroller Design Category**. The system is built around the open-source **CV32E40P** processor core (RV32IMC, 4-stage in-order pipeline) and integrates an AXI4 / AXI4-Lite bus fabric, on-chip SRAMs, a Boot ROM with QSPI boot loader, a full set of peripherals (UART × 2, GPIO, Timer, I²C Master, QSPI Master), and a custom **TFLite Micro Speech** hardware AI accelerator.
 
-The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, UVM-based testbenches, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite, and end-to-end AI accuracy regression (40/40 samples; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +1.744 ns` / `WHS = +0.054 ns` (timing met; the synchronous `clk_50_mmcm` group closes at +2.722 ns) and `0.484 W` total estimated on-chip power. All figures are taken verbatim from `impl_timing_summary.rpt` / `impl_power.rpt`.
+The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, UVM-based testbenches, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite, and end-to-end AI accuracy regression (40/40 samples; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +3.089 ns` / `WHS = +0.068 ns` (timing met, zero failing endpoints in the synchronous `clk_50_mmcm` domain) and `0.328 W` total estimated on-chip power. On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
 
 ---
 
@@ -836,28 +836,56 @@ The SoC stays in reset until both the user reset button is released **and** the 
 
 ### 12.4 Post-Implementation Resource Utilization
 
-![FPGA Utilization](images/fpga_utilization.png)
-![Vivado Design Runs](images/vivado_design_runs.png)
-
 > All values below come from the committed signoff reports under `rtl/fpga/reports/`,
 > regenerated end-to-end by `vivado -mode batch -source rtl/fpga/build_genesys2.tcl`.
+> The reports in the repository were produced by the current bitstream
+> (`rtl/fpga/fpga_top.bit`), which is the image running on the board.
 
 | Resource | Used (Impl) | Used (Synth) | Available | Utilization |
 |---|---|---|---|---|
-| **LUT** | 46,087 | 46,784 | 203,800 | **22.6 %** |
-| **FF** | 61,731 | 61,717 | 407,600 | **15.1 %** |
-| **BRAM (36k tiles)** | 12.5 | 12.5 | 445 | **2.8 %** |
-| **DSP48E1** | 17 | 17 | 840 | **2.0 %** |
+| **LUT** (all as logic) | 12,340 | 12,546 | 203,800 | **6.05 %** |
+| **FF** | 8,639 | 8,625 | 407,600 | **2.12 %** |
+| **BRAM (36k tiles)** | 14 (13× RAMB36 + 2× RAMB18) | 14 | 445 | **3.15 %** |
+| **DSP48E1** | 10 | 10 | 840 | **1.19 %** |
 | **IO (bonded IOB)** | 43 | 43 | 500 | **8.6 %** |
 | **BUFG** | 2 | 2 | 32 | **6.3 %** |
 | **MMCM** | 1 | 1 | 10 | **10 %** |
-| **Total estimated power** | — | — | — | **0.484 W** |
-| **WNS / TNS / WHS / THS** | **+1.744 ns / 0 / +0.054 ns / 0** (timing met, positive slack) | | | |
-| **Failed routes** | **0** | | | |
+| **Total estimated power** | — | — | — | **0.328 W** (dynamic 0.167 + static 0.161) |
+| **WNS / TNS / WHS / THS** | **+3.089 ns / 0 / +0.068 ns / 0** (timing met, positive slack) | | | |
+| **Failed routes** | **0** (17,720 / 17,720 routable nets fully routed) | | | |
+| **Implementation DRC** | **0 errors**, 80 warnings (see 12.4.1) | | | |
+
+All timing endpoints belong to the synchronous `clk_50_mmcm` domain
+(17,741 endpoints, WNS +3.089 ns / WHS +0.068 ns, zero failing). With a 20 ns
+period and +3.089 ns of setup slack the design closes with **~59 MHz of
+achievable headroom** while running at 50 MHz.
+
+Note on the drop versus earlier revisions: the accelerator's `conv_out`
+storage originally presented three combinational read ports, which Yosys could
+not infer as memory and implemented as ~32,000 flip-flops. Rewriting it as a
+single synchronous port with a byte mask (see `rtl/ai_accelerator/ai_accelerator.sv`)
+let the tools map every array to Block RAM — `LUT as Memory` is now **0** and
+all storage sits in the 14 BRAM tiles above.
+
+#### 12.4.1 Implementation DRC
+
+`report_drc` reports **no errors and no critical warnings**; the 80 warnings
+break down as follows and are all benign for this design:
+
+| Rule | Count | Meaning |
+|---|---|---|
+| `REQP-1839` / `REQP-1840` | 20 + 20 | Asynchronous control on RAMB36 / RAMB18. Our memories use synchronous reads and are reset only through the synchronous SoC reset; the check fires on the shared asynchronous reset net. |
+| `DPIP-1`, `DPOP-1`, `DPOP-2` | 19 + 8 + 8 | DSP48 input / output pipelining advisories. Adding those pipeline stages would raise DSP `Fmax`; at 50 MHz the multiplier path already has +3.089 ns of slack, so the extra latency is not worth taking. |
+| `RPBF-3` | 3 | Incomplete IO buffering. Expected: the QSPI clock does not use a regular IO buffer — it reaches the flash through `STARTUPE2`/`USRCCLKO` (see 12.3). |
+| `CHECK-3` | 2 | Vivado stopped listing after 20 violations of the two `REQP` rules above. |
 
 ### 12.5 Placed & Routed Design
 
 ![FPGA Implemented Design](images/fpga_implemented_design.png)
+
+> Illustrative device view captured from an earlier revision; the numeric
+> signoff data for the current bitstream is the table in 12.4 and the reports
+> under `rtl/fpga/reports/`.
 
 ### 12.6 FPGA Demos — Live Board
 
