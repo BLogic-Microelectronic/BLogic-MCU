@@ -265,6 +265,29 @@ Bilinen ve kabul edilmis sinirlar (11 Agu, `RUN_2026-08-11_01-08-11`):
    her zaman tutmayabiliyor (gozlendi: ss -91.57 vs -23.71). **Rapor dosyasi
    esastir**, metrik alani degil.
 
+7. **QSPI cikis-etkinlestirme (`io_oe`) yazmaclanmadi - bilincli karar.**
+   `qspi_master_axil.sv` veri cikisini mode-0 geregi dusen kenarda
+   yazmaclar (`tx_io_q`), ancak `io_oe` kombinasyoneldir ve bir cikis
+   fazinin SON bitinde ornekleme kenariyla ayni anda birakilir; yani o tek
+   bitin RTL hold marji sifirdir. `io_oe`'yi de yazmaclamamayi secmemizin
+   gerekceleri:
+   - Etki **sistematik degil**, yalnizca son-bit kenar marjidir; her
+     transferin diger tum bitleri yarim periyot setup + yarim periyot hold
+     alir.
+   - **Olculdu:** kartta QSPI flash-boot calisiyor ve 60/60 rastgele
+     siniflandirma taramasinda sifir sapma var (`sw/ai_model/
+     kart_sweep_raporu_n60.txt`); `qspi-modes` 6/6 ve `qspi-err` 25/25
+     simulasyonda yesil.
+   - Gercek cipte pad'in **output-disable gecikmesi** fiili hold marjini
+     pozitife tasir; RTL'deki sifir marj kotumser bir ust sinirdir.
+   - `io_oe`'yi yazmaclamak x2/x4 modlarindaki **bus turnaround**
+     zamanlamasini degistirir; dondurma gunu alinacak taze-regresyon riski
+     degildir (ayni gun `tx_io_q`'nun yazmaca alinmasi WP#/HOLD# tieoff
+     regresyonu uretmisti - bkz. commit `285698b`).
+   **Takip:** nihai kosunun `ff_n40C_1v95` kosesi min-path raporunda
+   `qspi_io_o[3:0]` uc noktalari kontrol edilir; bulgular bu maddeye
+   islenir.
+
 ## 9.10 Guc ve IR-Drop Analizi
 
 Olcum kaynagi: `RUN_teslim_provasi` (11 Agu); nihai kosuyla yenilenecek.
