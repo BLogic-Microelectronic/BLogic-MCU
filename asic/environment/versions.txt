@@ -26,7 +26,7 @@ Celiski bolum 9.13 geregi kabul edilmiyor.
 
 --- SRAM ---
 Tasarimda iki hazir PDK makrosu kullaniliyor, ikisi de bolum 1.3 onayli listede:
-  sky130_sram_2kbyte_1rw1r_32x512_8   ISRAM 4 + DSRAM 4 + AI 15 + input_mem
+  sky130_sram_2kbyte_1rw1r_32x512_8   ISRAM 4 + DSRAM 4 + AI 15 + input_mem 1 + conv_out 2 = 26
   sky130_sram_1kbyte_1rw1r_32x256_8   u_conv_w_mem
 OpenRAM ile yeni makro uretilmedi; bolum 1.3 geregi hazir makrolar icin uretim
 yapilandirmasi, calisma gunlugu ve DRC/LVS raporlari yeniden uretilmedi.

@@ -43,15 +43,15 @@ need reports/signoff/manufacturability.rpt
 compgen -G "reports/pdn/*-grid-errors.rpt" >/dev/null || MISSING+=("reports/pdn/*-grid-errors.rpt")
 
 echo "== Bolum 6 zorunlu ciktilar =="
-compgen -G "results/gds/*.gds" >/dev/null || MISSING+=("results/gds/*.gds")
+{ compgen -G "results/gds/*.gds" >/dev/null || compgen -G "results/gds/*.gds.gz*" >/dev/null; } || MISSING+=("results/gds/*.gds[.gz]")
 compgen -G "results/lef/*.lef" >/dev/null || MISSING+=("results/lef/*.lef")
-compgen -G "results/def/*.def" >/dev/null || MISSING+=("results/def/*.def")
+{ compgen -G "results/def/*.def" >/dev/null || compgen -G "results/def/*.def.gz*" >/dev/null; } || MISSING+=("results/def/*.def[.gz]")
 need "results/netlist/${DESIGN}_synth.v"
 need "results/netlist/${DESIGN}_pnr.v"
 need "results/netlist/${DESIGN}_powered.v"
 compgen -G "results/sdc/*"  >/dev/null || MISSING+=("results/sdc/*")
 compgen -G "results/spef/*" >/dev/null || MISSING+=("results/spef/*")
-compgen -G "results/spice/*.spice" >/dev/null || MISSING+=("results/spice/*.spice")
+{ compgen -G "results/spice/*.spice" >/dev/null || compgen -G "results/spice/*.spice.gz*" >/dev/null; } || MISSING+=("results/spice/*.spice[.gz]")
 need results/config/resolved.json
 need results/metrics/metrics.csv
 need results/metrics/metrics.json

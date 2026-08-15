@@ -84,6 +84,8 @@ asic/**/runs/
 
 # Teslimde istenen generate-edilmis raporlar HARIC (jury "elle degistirilmemis" istiyor)
 !asic/reports/**
+!asic/results/**
+!asic/checksums/**
 
 # ============================================================
 # docs/ TAMAMI YEREL - repoya girmez

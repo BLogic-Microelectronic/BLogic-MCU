@@ -186,9 +186,11 @@ The design has been verified through Verilator-based directed and randomized sim
 │   │   ├── i2c_master_axil.sv            # I²C Master
 │   │   ├── qspi_master_axil.sv           # QSPI Master (x1/x2/x4 + 3B/4B)
 │   │   └── verilog-uart/                 # Alex Forencich UART (reference)
-│   └── ai_accelerator/
-│       ├── ai_accelerator.sv             # Tiny Conv hardware
-│       └── ai_sram_arbiter.sv            # CPU / Accel / DMA arbiter
+│   ├── ai_accelerator/
+│   │   ├── ai_accelerator.sv             # Tiny Conv hardware
+│   │   └── ai_sram_arbiter.sv            # CPU / Accel / DMA arbiter
+│   ├── asic/                             # ASIC-only RTL (asic_top, boot ROM, SRAM macro wrappers)
+│   └── fpga/                             # FPGA build & board files (xdc, tcl, committed bitstream)
 ├── sw/
 │   ├── common/
 │   │   ├── crt0.S                        # C runtime + IRQ vector table
@@ -246,14 +248,19 @@ The design has been verified through Verilator-based directed and randomized sim
 │   │   └── xilinx_prims_stub.sv          # IBUFDS/MMCM stubs (Verilator)
 │   ├── coverage_summary.txt              # Line + branch coverage report
 │   └── coverage_waivers.vlt              # Vendor (CV32E40P) waivers
-├── fpga/
-│   ├── build_genesys2.tcl                # End-to-end Vivado build script
-│   ├── flash_firmware.tcl                # Program QSPI flash + re-program bit
-│   └── genesys2.xdc                      # Pin / timing constraints
 ├── teknotest/                            # TEKNOFEST jury reference DDK testbench
 │   ├── tb/teknotest_tb.sv
 │   ├── user_files/                       # Wrapper + RTL list for jury sim
 │   └── scripts/create_vivado_proj.tcl
+├── asic/                                 # DDK "Final İstenen Çıktılar" delivery tree (Tablo 8)
+│   ├── README.md                         # §9.1–9.13 master delivery document
+│   ├── Makefile                          # make pdk / asic_run / asic_verify / asic_clean
+│   ├── config.yaml + filelist.f          # LibreLane Classic config + RTL file list
+│   ├── constraints/design.sdc            # single SDC (PnR = signoff)
+│   ├── environment/                      # flake.nix + flake.lock + versions.txt
+│   ├── macros/                           # SRAM GDS / LEF / LIB / Verilog / SPICE views
+│   ├── reports/ + results/ + checksums/  # filled by collect_outputs.sh after the run
+│   └── run/                              # transient LibreLane workspace (.gitkeep only)
 ├── scripts/
 │   ├── elf2hex.py                        # ELF → $readmemh hex
 │   ├── run_regression.sh                 # 4-test smoke regression
@@ -961,15 +968,15 @@ This one-shot script:
 
 ## 13. ASIC Flow (sky130)
 
-The design targets a sky130 tape-out through **LibreLane 3.0.5**. Everything below is
+The design targets a sky130 tape-out through **LibreLane 3.0.6**. Everything below is
 reproducible from a clean clone; no step depends on a commercial EDA licence.
 
 ### 13.1 Environment
 
 | Component | Version / hash |
 |---|---|
-| LibreLane | 3.0.5 |
-| Yosys (in LibreLane) | 0.62 (`7326bb7d`) |
+| LibreLane | 3.0.6 (`ba7193b`, DDK reference version) |
+| Yosys (in LibreLane) | bundled with LibreLane 3.0.6 (see `asic/environment/versions.txt`) |
 | yosys-slang | bundled with LibreLane |
 | sky130 PDK (ciel) | `8afc8346a57fe1ab7934ba5a6056ea8b43078e71` |
 | Standard cells | `sky130_fd_sc_hd` |
@@ -980,7 +987,10 @@ reproducible from a clean clone; no step depends on a commercial EDA licence.
 | Path | Purpose |
 |---|---|
 | `asic/filelist.f` | synthesis file list (kanonik: config.yaml'dan uretilir; SVA/TB excluded, top = `asic_top`) |
-| `asic/soc_top.sdc` | timing constraints (50 MHz) |
+| `asic/config.yaml` | LibreLane Classic master configuration (floorplan, PDN, obstructions, STA corners) |
+| `asic/Makefile` | `make pdk` / `make asic_run` / `make asic_verify` — DDK §8 automation |
+| `asic/README.md` | DDK §9.1–9.13 master delivery document (run tag, results, known issues) |
+| `asic/constraints/design.sdc` | timing constraints — 50 MHz, single SDC for PnR + signoff |
 | `asic/BELLEK_ENVANTERI.md` | memory inventory, macro/banking plan, corner analysis |
 | `rtl/asic/asic_top.sv` | ASIC top level — no MMCM/BUFG/IOBUF, clock and reset from pads |
 | `rtl/asic/sram_macro_bank.sv` | 512-word banked SRAM macro wrapper |
@@ -1019,8 +1029,11 @@ differs, so `slv.r_data` is driven from a common `rdata_src`.
 | Boot ROM | 32 used / 256 addressed | synthesised `case` ROM |
 
 7,680 is not a power of two but divides evenly by 512 (15 banks), so no tie-off decode
-or rounding waste is needed. Result: **410,336 → 25,312 bits** of logic memory,
-**23 macros**; the remainder is AI-accelerator local buffers (21,216) and QSPI FIFOs (4,096).
+or rounding waste is needed. Result at the 3 Aug elaboration: **410,336 → 25,312 bits** of
+logic memory, **23 macros**; the remainder was AI-accelerator local buffers (21,216) and
+QSPI FIFOs (4,096). In the **final design** four of those local buffers were also converted
+to macros (`u_input_mem` 1 × 2 KB, `u_conv_out` 2 × 2 KB, `u_conv_w_mem` 1 × 1 KB),
+bringing the total to **27 macros** — see `asic/README.md` §9.5.
 
 ### 13.5 Resolved blockers
 
@@ -1042,6 +1055,10 @@ make lint                    # ASIC lint (MODDUP / PINMISSING deliberately NOT w
 make asic-elab               # slang elaboration gate, behavioural memories
 ASIC_SRAM=1 make asic-elab   # same, with SRAM macros bound
 make bootrom                 # regenerate boot ROM content from bootrom.hex
+
+# Full physical flow — DDK "Final İstenen Çıktılar" §8 mandatory target:
+cd asic && make pdk          # one-time: enable the reference PDK via ciel
+cd asic && make asic_run     # LibreLane Classic; fills reports/ + results/ (asic/README.md §9.3)
 ```
 
 `make asic-elab` fails if `$display` / `$readmemh` residue reaches the synthesis view,

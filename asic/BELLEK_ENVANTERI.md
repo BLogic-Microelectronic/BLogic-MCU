@@ -24,8 +24,9 @@ AI SRAM 7680 word ikinin kuvveti degildir ama 512-word bankalarla **tam bolunur*
 (7680 / 512 = 15). Tie-off decode veya 8192'ye yuvarlama israfi gerekmez.
 Toplam makro sayisi: **23** (3 Agustos elaborasyonu, BootROM haric).
 Nihai tasarimda **27**: yukaridaki `i_ai_accel` yerel tamponlarindan
-dordu makroya donustu (`input_mem` 3 x `32x512` + `u_conv_w_mem`
-1 x `32x256`). Kirilim: `asic/environment/versions.txt`.
+dordu makroya donustu (`u_input_mem` 1 x `32x512` + `u_conv_out`
+2 x `32x512` + `u_conv_w_mem` 1 x `32x256`). Kirilim:
+`asic/environment/versions.txt`.
 Nihai kosunun `stat.rpt`'si ile teyit edilecek.
 
 ## PDK makro envanteri (ciel varsayilaniyla hazir geldi)

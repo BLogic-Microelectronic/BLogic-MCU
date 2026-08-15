@@ -114,7 +114,7 @@ ve mantiksal gorunumler DEGISTIRILMEMISTIR (Bolum 1.3).
 |---|---|---|
 | Kapasite / derinlik / genislik | 2 KiB / 512 / 32 bit | 1 KiB / 256 / 32 bit |
 | Port yapisi / yazma | 1RW + 1R / 8-bit | 1RW + 1R / 8-bit |
-| Instance yollari | `i_soc.i_instr_sram.*.u_macro`, `i_soc.i_data_sram.*.u_macro`, `i_soc.i_ai_sram.*.u_macro` (bank dizileri, `sram_macro_bank.sv`), `i_soc.i_ai_accel.u_input_mem` | `i_soc.i_ai_accel.u_conv_w_mem` |
+| Instance yollari | `i_soc.i_instr_sram.*.u_macro`, `i_soc.i_data_sram.*.u_macro`, `i_soc.i_ai_sram.*.u_macro` (bank dizileri, `sram_macro_bank.sv`), `i_soc.i_ai_accel.u_input_mem`, `i_soc.i_ai_accel.u_conv_out.*.u_macro` (2 banka) | `i_soc.i_ai_accel.u_conv_w_mem` |
 | GDSII | `macros/<ad>/gds/<ad>.gds` | ayni kalip |
 | LEF | `macros/<ad>/lef/<ad>.lef` | ayni kalip |
 | Liberty | `macros/<ad>/lib/<ad>_TT_1p8V_25C.lib` | ayni kalip |
@@ -361,7 +361,11 @@ Kose seti: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 - **`run/` kullanimi:** `make asic_run` calisma alanini temizler, akisi
   `run/<TAG>/` altinda kosar, ardindan `scripts/collect_outputs.sh`
   asagidaki kalici konumlara kopyalar (ayrinti 9.3). Butunluk:
-  `reports/SHA256SUMS` + `results/SHA256SUMS`.
+  `checksums/SHA256SUMS` — results/ altindaki zorunlu ciktilarin SHA-256
+  ozeti, `collect_outputs.sh` uretir (DDK 6.3 kapsami). GitHub 100 MB
+  limitini asan sonuc dosyalari commit oncesi
+  `scripts/guard_large_files.sh` ile paketlenir; olusursa ayrinti
+  `results/BUYUK_DOSYALAR.md` dosyasindadir.
 - **Bolum 5 raporlari -> `asic/reports/`:**
 
   | DDK 5.x | Konum |
