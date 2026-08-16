@@ -336,7 +336,7 @@ Kose seti: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 | Netgen LVS (gercek GDS cikarimi) | **0 hata / 0 cihaz farki** |
 | XOR (Magic vs KLayout GDS) | **0** |
 | Anten ihlali | **0 net / 0 pin** |
-| Baglantisiz pin | **0** |
+| Baglantisiz pin | 880 (siniflandirma: tablo alti not) |
 | PDN grid hatasi (VPWR / VGND) | **0 / 0** (rapor dosyalari bos) |
 | Setup WS (tt / ss / ff) | **+2,210** / -9,083 / **+4,375** ns |
 | Setup TNS (tt / ss / ff) | 0 / -10.639,4 / 0 ns |
@@ -344,11 +344,33 @@ Kose seti: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 | Hold WS (tt / ss / ff) | -0,323 / **+0,227** / -0,382 ns (bolum 9.9/2) |
 | Hold TNS (tt / ss / ff) | -7,00 / 0 / -14,68 ns |
 | Hold ihlal sayisi (tt / ss / ff) | 48 / 0 / 112 |
+| Max cap ihlal sayisi (tt / ss / ff) | 266 / 662 / 219 |
+| Max slew ihlal sayisi (tt / ss / ff) | 6.848 / 30.668 / 3.396 |
 | Guc (toplam, tahmini, tt kosesi) | **112,1 mW** |
 | IR-drop (tt) | %0,09 (en kotu 1,57 mV) |
 | Die alani | 18,77 mm2 (4180 x 4490 um) |
 | Ornek sayisi / std hucre | 2.588.379 / 296.010 |
 | Doluluk (utilization) | %49,87 |
+
+**Tablo notlari:**
+
+- **Baglantisiz pin (880):** dokum
+  `reports/signoff/full_disconnected_pins_table.txt`, toplam
+  `metrics.json` -> `design__disconnected_pin__count = 880`. Kaynagi iki
+  tasarim ozelligidir: (a) 27 SRAM makrosunun tumunde Port0 yalniz yazma
+  icin kullanilir, tum okumalar Port1 uzerindendir; bu nedenle her makroda
+  `dout0[31:0]` bilincli bos birakilmistir (`rtl/asic/sram_macro_bank.sv`,
+  `rtl/ai_accelerator/ai_accelerator.sv`) -> 27 x 32 = 864 pin. (b) Ust
+  seviye `gpio_in_i` portu 32 bit tanimlidir; sartname EK-2 geregi GPIO
+  16 giris kullanir ve ust yarim (`gpio_in_i[31:16]`) yuk gormez -> 16 pin.
+  Toplam 864 + 16 = 880. Guc pinlerinde kopukluk yoktur (LVS = 0 ve
+  XOR = 0 ile tutarli).
+- **Max cap / max slew ihlal sayilari:** `reports/timing/summary.rpt`
+  sutunlaridir; kutuphane karakterizasyon sinirlarinin (max cap / max slew)
+  asildigi uc noktalarin sayimidir. Ihlaller agirlikla SS (1,6 V / 100 C)
+  kosesinde yogunlasir; 9.1'deki SS kapanis beyaniyla ayni kose
+  kosullarindan kaynaklanir. TT kosesinde setup/hold kapanisi saglanmistir
+  (WS +2,210 ns, TNS 0).
 
 ## 9.12 Rapor ve Cikti Konumlari
 
