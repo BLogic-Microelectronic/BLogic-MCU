@@ -1,0 +1,36 @@
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell_cap_row" (byte position 2550256): Unknown layer/datatype in boundary, layer=33 type=42
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell_cap_row" (byte position 2550960): Unknown layer/datatype in boundary, layer=33 type=43
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell_cap_row" (byte position 2551920): Unknown layer/datatype in boundary, layer=22 type=21
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell_dummy" (byte position 3031192): Unknown layer/datatype in boundary, layer=33 type=42
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell_dummy" (byte position 3034968): Unknown layer/datatype in boundary, layer=33 type=43
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell_dummy" (byte position 3039160): Unknown layer/datatype in boundary, layer=22 type=21
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell_dummy" (byte position 3040024): Unknown layer/datatype in boundary, layer=22 type=22
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell_dummy" (byte position 3040280): Unknown layer/datatype in boundary, layer=235 type=0
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell_replica" (byte position 3220634): Unknown layer/datatype in boundary, layer=33 type=42
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell_replica" (byte position 3224410): Unknown layer/datatype in boundary, layer=33 type=43
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell_replica" (byte position 3228602): Unknown layer/datatype in boundary, layer=22 type=21
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell_replica" (byte position 3229978): Unknown layer/datatype in boundary, layer=22 type=22
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell_replica" (byte position 3230234): Unknown layer/datatype in boundary, layer=235 type=0
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell" (byte position 3469832): Unknown layer/datatype in boundary, layer=33 type=42
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell" (byte position 3473608): Unknown layer/datatype in boundary, layer=33 type=43
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell" (byte position 3477800): Unknown layer/datatype in boundary, layer=22 type=21
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell" (byte position 3479176): Unknown layer/datatype in boundary, layer=22 type=22
+
+Error while reading cell "sky130_fd_bd_sram__openram_dp_cell" (byte position 3479432): Unknown layer/datatype in boundary, layer=235 type=0
+

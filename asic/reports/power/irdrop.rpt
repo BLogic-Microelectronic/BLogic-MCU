@@ -1,0 +1,26 @@
++ analyze_power_grid -net VPWR -voltage_file /home/blogic2026/temiz_teslim/repo/asic/run/RUN_teslim_2026-08-14/58-openroad-irdropreport/net-VPWR.csv
+[INFO PSM-0040] All shapes on net VPWR are connected.
+########## IR report #################
+Net              : VPWR
+Corner           : nom_tt_025C_1v80
+Total power      : 1.12e-01 W
+Supply voltage   : 1.80e+00 V
+Worstcase voltage: 1.80e+00 V
+Average voltage  : 1.80e+00 V
+Average IR drop  : 9.80e-06 V
+Worstcase IR drop: 1.54e-03 V
+Percentage drop  : 0.09 %
+######################################
++ analyze_power_grid -net VGND -voltage_file /home/blogic2026/temiz_teslim/repo/asic/run/RUN_teslim_2026-08-14/58-openroad-irdropreport/net-VGND.csv
+[INFO PSM-0040] All shapes on net VGND are connected.
+########## IR report #################
+Net              : VGND
+Corner           : nom_tt_025C_1v80
+Total power      : 1.12e-01 W
+Supply voltage   : 0.00e+00 V
+Worstcase voltage: 1.57e-03 V
+Average voltage  : 9.77e-06 V
+Average IR drop  : 9.77e-06 V
+Worstcase IR drop: 1.57e-03 V
+Percentage drop  : 0.09 %
+######################################

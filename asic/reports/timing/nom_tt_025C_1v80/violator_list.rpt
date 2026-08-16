@@ -1,0 +1,52 @@
+
+===========================================================================
+Violator List
+============================================================================
+[hold reg-reg] i_soc.i_ai_accel._23426_/Q -> i_soc.i_ai_accel.u_input_mem/din0[29] : -0.323269
+[hold reg-reg] i_soc.i_ai_accel._23399_/Q -> i_soc.i_ai_accel.u_input_mem/din0[2] : -0.274170
+[hold reg-reg] i_soc.i_ai_accel._23401_/Q -> i_soc.i_ai_accel.u_input_mem/din0[4] : -0.273094
+[hold reg-reg] i_soc.i_ai_accel._23427_/Q -> i_soc.i_ai_accel.u_input_mem/din0[30] : -0.272687
+[hold reg-reg] i_soc.i_ai_accel._23402_/Q -> i_soc.i_ai_accel.u_input_mem/din0[5] : -0.264299
+[hold reg-reg] i_soc.i_ai_accel._23403_/Q -> i_soc.i_ai_accel.u_input_mem/din0[6] : -0.262407
+[hold reg-reg] i_soc.i_ai_accel._23400_/Q -> i_soc.i_ai_accel.u_input_mem/din0[3] : -0.259812
+[hold reg-reg] i_soc.i_ai_accel._23398_/Q -> i_soc.i_ai_accel.u_input_mem/din0[1] : -0.248079
+[hold reg-reg] i_soc.i_ai_accel._23407_/Q -> i_soc.i_ai_accel.u_input_mem/din0[10] : -0.247691
+[hold reg-reg] i_soc.i_ai_accel._23408_/Q -> i_soc.i_ai_accel.u_input_mem/din0[11] : -0.246891
+[hold reg-reg] i_soc.i_ai_accel._23404_/Q -> i_soc.i_ai_accel.u_input_mem/din0[7] : -0.235496
+[hold reg-reg] i_soc.i_ai_accel._23411_/Q -> i_soc.i_ai_accel.u_input_mem/din0[14] : -0.235162
+[hold reg-reg] i_soc.i_ai_accel._23428_/Q -> i_soc.i_ai_accel.u_input_mem/din0[31] : -0.225264
+[hold reg-reg] i_soc.i_ai_accel._23410_/Q -> i_soc.i_ai_accel.u_input_mem/din0[13] : -0.219428
+[hold reg-reg] i_soc.i_ai_accel._23413_/Q -> i_soc.i_ai_accel.u_input_mem/din0[16] : -0.204833
+[hold reg-reg] i_soc.i_ai_accel._23397_/Q -> i_soc.i_ai_accel.u_input_mem/din0[0] : -0.204015
+[hold reg-reg] i_soc.i_ai_accel._23412_/Q -> i_soc.i_ai_accel.u_input_mem/din0[15] : -0.186716
+[hold reg-reg] i_soc.i_ai_accel._23409_/Q -> i_soc.i_ai_accel.u_input_mem/din0[12] : -0.180909
+[hold reg-reg] i_soc.i_ai_accel._23415_/Q -> i_soc.i_ai_accel.u_input_mem/din0[18] : -0.167312
+[hold reg-reg] i_soc.i_ai_accel._23417_/Q -> i_soc.i_ai_accel.u_input_mem/din0[20] : -0.164975
+[hold reg-reg] i_soc.i_ai_accel._23414_/Q -> i_soc.i_ai_accel.u_input_mem/din0[17] : -0.163814
+[hold reg-reg] i_soc.i_ai_accel._23419_/Q -> i_soc.i_ai_accel.u_input_mem/din0[22] : -0.157715
+[hold reg-reg] i_soc.i_ai_accel._23418_/Q -> i_soc.i_ai_accel.u_input_mem/din0[21] : -0.153390
+[hold reg-reg] i_soc.i_ai_accel._23122_/Q -> i_soc.i_ai_sram.u_sram.gen_bank[14].gen_512.u_macro/addr1[8] : -0.149600
+[hold reg-reg] i_soc.i_ai_accel._23416_/Q -> i_soc.i_ai_accel.u_input_mem/din0[19] : -0.143172
+[hold reg-reg] i_soc.i_ai_accel._23421_/Q -> i_soc.i_ai_accel.u_input_mem/din0[24] : -0.142348
+[hold reg-reg] i_soc.i_ai_accel._23125_/Q -> i_soc.i_ai_sram.u_sram.gen_bank[12].gen_512.u_macro/csb1 : -0.115934
+[hold reg-reg] i_soc.i_ai_accel._23565_/Q -> i_soc.i_ai_accel.u_conv_w_mem/csb0 : -0.099124
+[hold reg-reg] i_soc.i_ai_accel._23420_/Q -> i_soc.i_ai_accel.u_input_mem/din0[23] : -0.099060
+[hold reg-reg] i_soc.i_ai_accel._23423_/Q -> i_soc.i_ai_accel.u_input_mem/din0[26] : -0.098609
+[hold reg-reg] i_soc.i_ai_accel._23125_/Q -> i_soc.i_ai_sram.u_sram.gen_bank[14].gen_512.u_macro/csb1 : -0.097471
+[hold reg-reg] i_soc.i_ai_accel._23160_/Q -> i_soc.i_ai_accel.u_conv_out.gen_bank[0].gen_512.u_macro/addr0[1] : -0.092954
+[hold reg-reg] i_soc.i_ai_accel._23425_/Q -> i_soc.i_ai_accel.u_input_mem/din0[28] : -0.091409
+[hold reg-reg] i_soc.i_uart_1._1501_/Q -> i_soc.i_ai_sram.u_sram.gen_bank[14].gen_512.u_macro/addr0[6] : -0.085126
+[hold reg-reg] i_soc.i_uart_1._1503_/Q -> i_soc.i_ai_sram.u_sram.gen_bank[14].gen_512.u_macro/addr0[8] : -0.077490
+[hold reg-reg] i_soc.i_ai_accel._23424_/Q -> i_soc.i_ai_accel.u_input_mem/din0[27] : -0.074045
+[hold reg-reg] i_soc.i_ai_accel._23165_/Q -> i_soc.i_ai_accel.u_conv_out.gen_bank[1].gen_512.u_macro/addr0[6] : -0.072660
+[hold reg-reg] i_soc.i_ai_accel._23422_/Q -> i_soc.i_ai_accel.u_input_mem/din0[25] : -0.071184
+[hold reg-reg] i_soc.i_uart_1._1502_/Q -> i_soc.i_ai_sram.u_sram.gen_bank[14].gen_512.u_macro/addr0[7] : -0.066098
+[hold reg-reg] i_soc.i_ai_accel._23165_/Q -> i_soc.i_ai_accel.u_conv_out.gen_bank[0].gen_512.u_macro/addr0[6] : -0.037804
+[hold reg-reg] i_soc.i_ai_accel._23125_/Q -> i_soc.i_ai_sram.u_sram.gen_bank[8].gen_512.u_macro/csb1 : -0.036739
+[hold reg-reg] i_soc.i_ai_accel._23125_/Q -> i_soc.i_ai_sram.u_sram.gen_bank[10].gen_512.u_macro/csb1 : -0.029805
+[hold reg-reg] i_soc.i_ai_accel._23176_/Q -> i_soc.i_ai_accel.u_conv_out.gen_bank[0].gen_512.u_macro/din0[30] : -0.028545
+[hold reg-reg] i_soc.i_ai_accel._23176_/Q -> i_soc.i_ai_accel.u_conv_out.gen_bank[0].gen_512.u_macro/din0[22] : -0.028211
+[hold reg-reg] i_soc.i_ai_accel._23176_/Q -> i_soc.i_ai_accel.u_conv_out.gen_bank[0].gen_512.u_macro/din0[14] : -0.027986
+[hold reg-reg] i_soc.i_ai_accel._23176_/Q -> i_soc.i_ai_accel.u_conv_out.gen_bank[0].gen_512.u_macro/din0[6] : -0.027886
+[hold reg-reg] i_soc.i_uart_1._1501_/Q -> i_soc.i_ai_sram.u_sram.gen_bank[13].gen_512.u_macro/addr0[6] : -0.027041
+[hold reg-reg] i_soc.i_ai_accel._23163_/Q -> i_soc.i_ai_accel.u_conv_out.gen_bank[1].gen_512.u_macro/addr0[4] : -0.004310
