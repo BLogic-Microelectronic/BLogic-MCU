@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # guard_large_files.sh — GitHub 100 MB tek-dosya limiti korumasi.
 # collect_outputs.sh SONRASI, commit ONCESI kosulur. Idempotent.
-# 95 MB uzeri her results/ dosyasi icin: orijinal SHA-256 kaydet -> gzip -9;
+# 95 MB uzeri her results/ ve reports/ dosyasi icin: orijinal SHA-256 kaydet -> gzip -9;
 # hala 95 MB uzeriyse 90 MB parcalara bol (<ad>.gz.partNN) ve gz'yi sil.
 # Geri birlestirme talimati results/BUYUK_DOSYALAR.md'ye yazilir.
 # git-lfs BILEREK kullanilmiyor (temiz-klon juri sarti, README 9.12).

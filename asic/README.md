@@ -363,7 +363,7 @@ Kose seti: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
   asagidaki kalici konumlara kopyalar (ayrinti 9.3). Butunluk:
   `checksums/SHA256SUMS` — results/ altindaki zorunlu ciktilarin SHA-256
   ozeti, `collect_outputs.sh` uretir (DDK 6.3 kapsami). GitHub 100 MB
-  limitini asan sonuc dosyalari commit oncesi
+  limitini asan rapor ve sonuc dosyalari commit oncesi
   `scripts/guard_large_files.sh` ile paketlenir; olusursa ayrinti
   `results/BUYUK_DOSYALAR.md` dosyasindadir.
 - **Bolum 5 raporlari -> `asic/reports/`:**
