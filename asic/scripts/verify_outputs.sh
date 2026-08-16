@@ -25,9 +25,30 @@ need reports/lint/verilator_lint.log
 need reports/synthesis/stat.json
 need reports/synthesis/pre_synth_chk.rpt
 need reports/synthesis/chk.rpt
+need reports/general/versions.txt
+need reports/synthesis/stat.rpt
+need reports/synthesis/latch.rpt
+need reports/drc/drc.magic.lyrdb
+need reports/drc/drc.klayout.json
+need reports/lvs/lvs.netgen.json
+# DDK 5.4: detailed routing DRC isaretleri (Tablo 12)
+{ compgen -G "reports/routing/*.drc" >/dev/null; } || MISSING+=("reports/routing/*.drc")
+# DDK 5.7: dugum bazli gerilim sonuclari, konum olarak zorunlu
+{ compgen -G "reports/power/net-*.csv" >/dev/null \
+  || compgen -G "reports/power/net-*.csv.gz*" >/dev/null; } \
+  || MISSING+=("reports/power/net-<net>.csv[.gz]")
+
 need reports/timing/summary.rpt
+# DDK 5.5 Tablo 13: kose basina zorunlu rapor seti (dizin varligi yetmez)
+STA_ZORUNLU=(max.rpt min.rpt checks.rpt skew.max.rpt skew.min.rpt
+             ws.max.rpt ws.min.rpt wns.max.rpt wns.min.rpt
+             tns.max.rpt tns.min.rpt violator_list.rpt
+             clock.rpt unpropagated.rpt)
 for c in nom_tt_025C_1v80 nom_ss_100C_1v60 nom_ff_n40C_1v95; do
     need "reports/timing/$c"
+    for r in "${STA_ZORUNLU[@]}"; do
+        need "reports/timing/$c/$r"
+    done
     need "reports/power/$c/power.rpt"
 done
 need reports/power/irdrop.rpt
