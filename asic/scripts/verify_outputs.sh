@@ -13,6 +13,13 @@ cd "$ASIC_DIR"
 
 MISSING=()
 need() { [[ -e $1 ]] || MISSING+=("$1"); }
+# guard_large_files.sh 95 MB ustu ciktilari .gz'ye (gerekirse .gz.partNN'e)
+# cevirir; zorunlu kalem hangi bicimde duruyorsa kabul edilir.
+need_pkg() {
+    [[ -e $1 || -e $1.gz ]] && return 0
+    compgen -G "$1.gz.part*" >/dev/null && return 0
+    MISSING+=("$1[.gz]")
+}
 
 echo "== Bolum 5 zorunlu raporlar =="
 need reports/general/flow.log
@@ -47,7 +54,7 @@ STA_ZORUNLU=(max.rpt min.rpt checks.rpt skew.max.rpt skew.min.rpt
 for c in nom_tt_025C_1v80 nom_ss_100C_1v60 nom_ff_n40C_1v95; do
     need "reports/timing/$c"
     for r in "${STA_ZORUNLU[@]}"; do
-        need "reports/timing/$c/$r"
+        need_pkg "reports/timing/$c/$r"
     done
     need "reports/power/$c/power.rpt"
 done
@@ -67,9 +74,9 @@ echo "== Bolum 6 zorunlu ciktilar =="
 { compgen -G "results/gds/*.gds" >/dev/null || compgen -G "results/gds/*.gds.gz*" >/dev/null; } || MISSING+=("results/gds/*.gds[.gz]")
 compgen -G "results/lef/*.lef" >/dev/null || MISSING+=("results/lef/*.lef")
 { compgen -G "results/def/*.def" >/dev/null || compgen -G "results/def/*.def.gz*" >/dev/null; } || MISSING+=("results/def/*.def[.gz]")
-need "results/netlist/${DESIGN}_synth.v"
-need "results/netlist/${DESIGN}_pnr.v"
-need "results/netlist/${DESIGN}_powered.v"
+need_pkg "results/netlist/${DESIGN}_synth.v"
+need_pkg "results/netlist/${DESIGN}_pnr.v"
+need_pkg "results/netlist/${DESIGN}_powered.v"
 compgen -G "results/sdc/*"  >/dev/null || MISSING+=("results/sdc/*")
 compgen -G "results/spef/*" >/dev/null || MISSING+=("results/spef/*")
 { compgen -G "results/spice/*.spice" >/dev/null || compgen -G "results/spice/*.spice.gz*" >/dev/null; } || MISSING+=("results/spice/*.spice[.gz]")
