@@ -11,7 +11,11 @@ ASIC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ASIC_DIR"
 DOC=results/BUYUK_DOSYALAR.md
 
-mapfile -t BIG < <(find results -type f ! -name '.gitkeep' ! -name '*.gz' \
+# reports/ de taranir: DDK 5.7'nin zorunlu kildigi dugum-bazli gerilim
+# dosyalari (reports/power/net-<net>.csv) bu tasarimda 137 MB'tir ve
+# yalniz results/ taranirsa limite takilip push'u reddettirir (olculdu,
+# RUN_teslim_2026-08-14).
+mapfile -t BIG < <(find results reports -type f ! -name '.gitkeep' ! -name '*.gz' \
     ! -name '*.gz.part*' ! -name '*.sha256' ! -name 'BUYUK_DOSYALAR.md' \
     -size +"${LIMIT_MB}"M | sort)
 
