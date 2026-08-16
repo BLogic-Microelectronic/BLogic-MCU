@@ -28,7 +28,7 @@ degistirilmeden korunmustur.
 | Bilesen | Kaynak | Surum / commit | Lisans | Lisans dosyasi | Bizim degisikligimiz |
 |---|---|---|---|---|---|
 | UVM (Verilator uyarlamasi) | https://github.com/verilator/uvm | `795b5f2` | Apache-2.0 | `verif/uvm-lib/LICENSE.txt`, `NOTICE.txt` | `src/` alt kumesi yerinde vendor edildi (URL'siz gitlink temiz klonda bos kaliyordu); provenance: `verif/uvm-lib/KAYNAK.md` |
-| riscv-arch-test | https://github.com/riscv-non-isa/riscv-arch-test | TBD | BSD-3 / Apache-2.0 / CC | `verif/arch_tests/suite/COPYING.{BSD,APACHE,CC}` | Suite vendor edildi; kosum betigi (`run_arch_test.sh`) bize ait |
+| riscv-arch-test | https://github.com/riscv-non-isa/riscv-arch-test | commit kimligi kayitli degil; vendor edilen surum `env/arch_test.h` basligindan tanimlanir (telif 2020-2023, imzaya instret sayaci ekleyen ve `LA` makrosunu rd=x0'da atlayan surum) | BSD-3 / Apache-2.0 / CC | `verif/arch_tests/suite/COPYING.{BSD,APACHE,CC}` | Suite vendor edildi; kosum betigi (`run_arch_test.sh`) bize ait |
 
 ## Notlar
 
@@ -37,12 +37,20 @@ degistirilmeden korunmustur.
   korunmasi" sarti saglaniyor: her `.sv` dosyasi tam SHL-0.51 basligini
   tasiyor. Ust lisans metni `asic/licenses/` altina eklenmek istenirse
   upstream depodan alinabilir.
-- TBD isaretli commit kimlikleri vendor edilirken kaydedilmemis. Bunlar
-  bolum 10'a gore "mumkun oldugunca" istendigi icin teslimi gecersiz kilmaz,
-  ancak kapatilmasi tercih edilir.
+- Bolum 10 commit kimliklerini "mumkun oldugunca" istemektedir; kaydi
+  bulunamayan tek bilesen icin (riscv-arch-test) kimlik yerine dogrulanabilir
+  surum izi verilmistir (asagiya bakiniz).
 - Bu dosya `asic/README.md` bolum 9.13'ten referans verilir.
 - cv32e40p / axi / verilog-uart commit kimlikleri, submodule->klasor
   donusumu oncesindeki gitlink kayitlarindan kurtarildi
   (`git ls-tree 8808914^`) ve uc SHA'nin da ilgili upstream depolarinin
-  master dalinda oldugu dogrulandi (11 Agu 2026). Kalan tek TBD:
-  riscv-arch-test.
+  master dalinda oldugu dogrulandi (11 Agu 2026).
+- riscv-arch-test icin commit kimligi vendor edilirken kaydedilmemis ve
+  gitlink kaydi da bulunmuyor. Kimlik yerine SURUM IZI belgelendi:
+  `verif/arch_tests/suite/env/arch_test.h` basligi telif 2020-2023 tasir ve
+  uc ayirt edici degisikligi listeler (imzaya instret sayaci eklenmesi,
+  `LA` makrosunun rd=x0'da uretimi atlamasi, CLIC modunda ECALL sebebinin
+  saptanmasi). Suite'in kendisi depoda tam haliyle bulundugu icin
+  kullanilan surum birebir incelenebilir; ayrica kosum ve imza
+  karsilastirmasi `verif/arch_tests/run_arch_test.sh` ile yeniden
+  uretilebilir.
