@@ -15,6 +15,10 @@
 
 ---
 
+<p align="center">
+  <img src="images/blogic_balporsugu_img.png" alt="OSTİM BLogic Mikroelektronik" width="400">
+</p>
+
 ## Table of Contents
 
 1. [Overview](#1-overview)
