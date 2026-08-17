@@ -85,10 +85,13 @@ sorunsuz. Disk: kosu basina ~1-2 GB (`run/` altinda, teslimde silinir).
   ondan uretilir (`python3 scripts/check_filelist.py --generate`) ve her
   `make asic_run` basinda uyum otomatik denetlenir (DDK sayfa 20'nin
   istedigi otomasyon). 67 kaynak dosya, derleme sirasina gore.
-- **Yol tabani:** `filelist.f` yollari `asic/` icinden goreli cozulur
-  (`../rtl/...`); ayni yollar depo kokune gore `rtl/...` agacina denk
-  gelir. Ana RTL kaynaklari, dogrulama/testbench ve FPGA dosyalari
-  `asic/` altina KOPYALANMAMISTIR (Bolum 3/4 kurali).
+- **Yol tabani:** `filelist.f` icindeki tum yollar **`asic/` dizinine gore**
+  cozulur (`../rtl/...`) ve akis bu dizinden baslatilir
+  (`cd asic && make asic_run`). Bu, DDK'nin 17 Agustos 2026 tarihli
+  *"Errata - filelist.f Path Resolution"* duyurusuyla birebir uyumludur;
+  duyuru, yollarin depo kokune gore tanimlanmasini soyleyen Bolum 9.4
+  ifadesini gecersiz kilar. Ana RTL kaynaklari, dogrulama/testbench ve FPGA
+  dosyalari `asic/` altina KOPYALANMAMISTIR (Bolum 3/4 kurali).
 - **Include dizinleri:** `rtl/asic`, `rtl/core/cv32e40p/rtl/include`,
   `.../pulp_platform_common_cells/include`, `rtl/bus/axi/include`.
 - **Derleme tanimlari (ZORUNLU):** `SYNTHESIS`, `ASIC_SRAM_MACRO`
@@ -132,12 +135,30 @@ kalibi icin ayri kural). Sabit yerlesim `macro_placement.cfg` ile verilir.
 
 **Kose varsayimi (bu bolumun en onemli maddesi):** iki makro da PDK'da
 yalniz `TT_1p8V_25C` Liberty ile dagitilir; Tablo 4'un SS/FF corner'larina
-birebir karsilik gelen model YOKTUR. Bolum 1.2 / 3.3'un istedigi beyan:
-SS/FF analizi, en yakin model (TT) uzerine olcume dayali kotumser derate
-uygulanarak yapilir - `sky130_fd_sc_hd__dfxtp_1` clk->Q ortanca gecikmesi
-TT 0.4376 ns / SS 1.1642 ns, oran **2.661x** (setup/late), hold/early
-icin 0.5x. Uygulama `constraints/design.sdc` icindedir. Bu bir waiver
-degil, eksik modelin bilerek kotumser kapatilmasidir.
+birebir karsilik gelen model YOKTUR.
+
+DDK'nin 17 Agustos 2026 tarihli yazili aciklamasi bu durum icin beklenen
+yaklasimi netlestirmistir: hazir SRAM makrolari icin **saglanan
+`TT_1p8V_25C` Liberty modeli, SS ve FF analizlerinde de belgelenmis bir
+ikame olarak kullanilabilir**; standart hucre kutuphaneleri ise ilgili
+kose modellerini kullanmaya devam eder ve **modelde yapay olcekleme
+gerekmez**. Teslimimiz bu cercevenin icindedir:
+
+- Standart hucreler her analizde kendi kose Liberty'sini kullanir
+  (`tt_025C_1v80` / `ss_100C_1v60` / `ff_n40C_1v95`).
+- SRAM makrolari uc analizde de `TT_1p8V_25C` ile modellenir; Liberty
+  dosyalarina **hicbir degisiklik yapilmamistir**.
+- **Ek olarak** SRAM yollarina olcume dayali kotumser bir `set_timing_derate`
+  uygulanir: `sky130_fd_sc_hd__dfxtp_1` clk->Q ortanca gecikmesi
+  TT 0,4376 ns / SS 1,1642 ns, oran **2,661x** (setup/late), hold/early
+  icin 0,5x. Uygulama `constraints/design.sdc` icinde kose adina
+  kosulludur (TT'de 1,0). Bu, DDK'nin *gerekli gormedigi* fazladan bir
+  kotumserliktir; modeli degistirmez, yalnizca analizde marj kisar.
+- Derate'in SS sonucunu belirlemedigi ayrica olculmustur: SS kosesindeki
+  en kotu setup yolu SRAM'den gecmeyen saf standart-hucre CPU yoludur
+  (bolum 9.9/1), dolayisiyla derate kaldirilsa da SS'te 50 MHz kapanmaz.
+
+Bu bir waiver degil, eksik modelin bilerek kotumser kapatilmasidir.
 
 ## 9.6 Zamanlama Kisitlari ve Istisnalari
 
@@ -256,9 +277,36 @@ Bilinen ve kabul edilmis sinirlar (nihai kosu `RUN_teslim_2026-08-14`):
 3. **`i2c_sda_i` senkronizatorsuz orneklenir** (RTL gozden gecirme notu);
    SDC'de senkron kisitli tutulmustur. `gpio_in_i` (2FF senkronizator) ve
    `uart*_rxd_i` asenkron giris olarak false path'tir (bolum 9.6).
-4. **Magic DRC ~7,5k "hata"**: satici SRAM makro GDS'inin bilinen okuma/
-   geometri gurultusu (cift kontak vb.); ayni GDS KLayout DRC'de 0 hata verir.
-   `MAGIC_CAPTURE_ERRORS=false` gerekcesi bolum 9.7/config yorumunda.
+4. **Magic DRC 9.201 isaret - tamami TEK kural: `nwell.4`. Kok neden ACIK,
+   arastirma suruyor.** Olculen gercekler (`reports/drc/drc.magic.rpt`):
+   - **Tek kural turu:** "All nwells must contain metal-connected N+ taps"
+     (`nwell.4`). Baska hicbir Magic kurali ihlal edilmemistir.
+   - Magic'in raporundaki kendi notu: *"Should be divided by 3 or 4"* -
+     yani ayri ihlal sayisi **~2.300-3.100** mertebesindedir.
+   - Isaretlerin geometrisi: satir yuksekliginde (~2,79 um) yatay seritler,
+     23 farkli X konumunda; standart hucre alanindadir.
+   - **SRAM makro ayak izlerinin ICINDE sifir isaret vardir** (27 makro
+     kutusuna karsi kontrol edildi). Isaretlerin 2.142'si, cevresinde makro
+     bulunmayan merkezi mantik koridorundadir. Bu nedenle bulgu
+     **satici makrosuna atfedilemez**; onceki surumlerde yer alan
+     "satici makro gurultusu" ifadesi olcumle desteklenmediginden
+     kaldirilmistir.
+   - Ayni GDS uzerinde **KLayout DRC 257 kuralin tamaminda 0** verir; ayrica
+     LVS 0 ve XOR 0'dir, yani netlist esdegerligi ve iki akisin geometrisi
+     dogrulanmistir.
+   - **Acik soru:** `nwell.4` baglanti-farkinda bir kuraldir. Iki olasilik
+     ayirt edilememistir: (a) bazi nwell bolgeleri metal-bagli N+ tap'a
+     ulasmiyor (gercek latch-up riski), (b) Magic tap baglantisini
+     cozemiyor ve dogrulayamadigi bolgeleri isaretliyor. Tasarimda
+     135.957 tap hucresi vardir ve `config.yaml` tapcell mesafesini
+     ayarlamaz (LibreLane varsayilani).
+   - **Yapilacak:** nihai DEF'ten tap hucre konumlari cikarilip isaret
+     koordinatlariyla ortustürülecek; (a) cikarsa tapcell/halo
+     yapilandirmasiyla yeniden kosulacak, (b) cikarsa arac kisiti olarak
+     gerekcelendirilecek. Sonuc bu maddeye islenecektir.
+   - Not: Magic adimlari akista **tamamlanmaktadir**; rapor uretilmis ve
+     teslim edilmistir. `MAGIC_CAPTURE_ERRORS=false` gerekcesi bolum
+     9.7/config yorumundadir.
 5. LVS = 0 (gercek GDS cikarimi, 1.795.705 eleman). Onceki 197/205 farklar
    dar kanalli eski floorplanin diyot yerlesiminden geliyordu; genis kanalli
    nihai floorplanda tamamen kapanmistir.
@@ -332,7 +380,7 @@ Kose seti: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 |---|---|
 | Route (TritonRoute) DRC | **0** |
 | KLayout DRC | **0** (257 kural, tumu sifir) |
-| Magic DRC | 9.201 (satici makro gurultusu, bolum 9.9/4) |
+| Magic DRC | 9.201 — tamami tek kural (`nwell.4`); kok neden acik, bolum 9.9/4 |
 | Netgen LVS (gercek GDS cikarimi) | **0 hata / 0 cihaz farki** |
 | XOR (Magic vs KLayout GDS) | **0** |
 | Anten ihlali | **0 net / 0 pin** |
