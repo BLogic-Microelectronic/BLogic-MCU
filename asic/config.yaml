@@ -252,10 +252,13 @@ DEDUPLICATE_CORNERS: true
 # raporlar oldugu gibi teslim ediliyor (bolum 7 cercevesi, README 9.9 aciklamasi).
 RUN_MAGIC_WRITE_LEF: true
 MAGIC_DRC_USE_GDS: false
-# Gercek (GDS tabanli) LVS cikarimi — olculdu: 1.795.705 eleman, ayni yapisal
-# farklar (197). MAGIC_CAPTURE_ERRORS kapali cunku satici makro GDS'inin
-# kozmetik okuma uyarilari LibreLane'in sezgisel yakalayicisini tetikliyor
-# (dokuman: "fatal olduklari garanti degildir"). README 9.9'da beyanli.
+# Gercek (GDS tabanli) LVS cikarimi — nihai kosuda 0 hata / 0 cihaz farki
+# (1.795.705 eleman; 197'lik eski farklar dar-kanal floorplanina aitti ve
+# genis kanalla kapandi). MAGIC_CAPTURE_ERRORS kapali cunku makro GDS'i
+# okunurken uretilen uyarilar LibreLane'in sezgisel yakalayicisini
+# tetikliyor (dokuman: "fatal olduklari garanti degildir"); Magic DRC'nin
+# tek kalan kural sinifi (nwell.4) icin olculmus degerlendirme README
+# 9.9/4'tedir.
 MAGIC_EXT_USE_GDS: true
 MAGIC_CAPTURE_ERRORS: false
 RUN_KLAYOUT_DRC: true

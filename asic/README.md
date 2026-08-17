@@ -1,9 +1,13 @@
 # BLogic MCU - ASIC Fiziksel Tasarim Akisi
 
 > **DURUM.** Basliklar DDK "Final Istenen Ciktilar" bolum 9.1-9.13 ile birebir.
-> Tum bolumler dolu ve tum sayisal sonuclar **TEK kosudan** gelir:
-> **`RUN_teslim_2026-08-14`** (temiz klon uzerinde sifirdan `make pdk` +
-> `make asic_run`, 3 sa 28 dk).
+> Tum bolumler doludur. **Signoff/zamanlama/guc/alan sonuclarinin tamami TEK
+> kosudan gelir: `RUN_teslim_2026-08-14`** (temiz klon uzerinde sifirdan
+> `make pdk` + `make asic_run`, 3 sa 28 dk). Tasarim SURECINDEKI karar ve
+> deney olcumleri (3-11 Agustos; kanal-genisletme, derate turetimi, hold-onarim
+> denemeleri) ait olduklari tarihle ayrica isaretlidir ve nihai sonuclari
+> degil karar gerekcelerini belgeler. DDK'nin 17 Agustos 2026 tarihli errata
+> ve yazili kararlarinin tam metni: `asic/DDK_KARARLARI.md`.
 
 ## 9.1 Tasarim Ozeti
 
@@ -12,6 +16,17 @@ QSPI boot, UART/GPIO/Timer/I2C cevre birimleri ve TFLite Micro Speech
 (2B evrisim + tam bagli katman) YZ hizlandiricisi. En ust seviye modul:
 `asic_top`. Saat: `clk_i` (tek saat alani), reset: `rst_ni` (asenkron,
 senkron birakma). Giris/cikislar nihai LEF/DEF'te makro pinleridir (bolum 2).
+
+**Ust seviye arayuz (16 port, `rtl/asic/asic_top.sv`):**
+
+| Port | Yon | Gen. | Islev |
+|---|---|---|---|
+| `clk_i` / `rst_ni` | giris | 1/1 | sistem saati / asenkron reset (senkron birakma) |
+| `uart_rxd_i` / `uart_txd_o` | giris/cikis | 1/1 | UART0 (konsol + BLG1 vektor alimi) |
+| `uart1_rxd_i` / `uart1_txd_o` | giris/cikis | 1/1 | UART1 (stream DMA girisi) |
+| `gpio_in_i` / `gpio_out_o` | giris/cikis | 32/32 | GPIO (girisler 2FF senkronizatorlu) |
+| `qspi_sclk_o` `qspi_cs_no` `qspi_io_o` `qspi_io_i` `qspi_io_oe` | cikis x3, giris | 1/1/4/4/4 | QSPI flash (boot + veri) |
+| `i2c_scl_o` `i2c_sda_oe_o` `i2c_sda_i` | cikis x2, giris | 1/1/1 | I2C master (acik-drain surme `sda_oe` ile) |
 
 **Hedef saat frekansi ve kose bazli kapanis (nihai teslim kosusu
 `RUN_teslim_2026-08-14`):**
@@ -66,7 +81,10 @@ dizinleri, ara veritabanlari ve `final/` gorunumleri bu dizinde olusur.
 **Rapor ve ciktilarin toplanmasi:** akis bitince `scripts/collect_outputs.sh`
 Bolum 5 raporlarini `asic/reports/`, Bolum 6 ciktilarini `asic/results/`
 altina Tablo 8 yerlesimiyle kopyalar ve `checksums/SHA256SUMS` uretir.
-Zorunlu bir kalem eksikse betik sifir disi kodla biter.
+`asic_run` bu betigi `ALLOW_MISSING=1` ile cagirir (akis kismi bitse bile
+eldeki raporlar toplansin diye); **zorunlulugun sert kapisi `make
+asic_verify`'dir** - eksik zorunlu kalemde sifir disi kodla biter ve eksik
+listesini basar.
 
 **Ek hedefler:** `make asic_verify` (zorunlu dosya varligi + metrik ozeti),
 `make asic_clean` (`run/` temizligi), `make check_filelist`
@@ -76,7 +94,8 @@ Zorunlu bir kalem eksikse betik sifir disi kodla biter.
 60 GB RAM; nihai kosu **3 saat 28 dakika** surdu (temiz klon, `make pdk`
 haric; VM: 8 vCPU / 60 GB RAM / NVMe).
 Dusuk RAM'li makinelerde `magic-writelef` adimi OOM verebilir; 60 GB ile
-sorunsuz. Disk: kosu basina ~1-2 GB (`run/` altinda, teslimde silinir).
+sorunsuz. Disk: kosu dizini (`run/`, teslimde silinir) **~17 GB**; toplanan
+rapor+cikti agaci paketleme oncesi ~4,2 GB, paketleme sonrasi ~0,8 GB.
 
 ## 9.4 RTL ve Akis Girdileri
 
@@ -151,14 +170,19 @@ gerekmez**. Teslimimiz bu cercevenin icindedir:
 - **Ek olarak** SRAM yollarina olcume dayali kotumser bir `set_timing_derate`
   uygulanir: `sky130_fd_sc_hd__dfxtp_1` clk->Q ortanca gecikmesi
   TT 0,4376 ns / SS 1,1642 ns, oran **2,661x** (setup/late), hold/early
-  icin 0,5x. Uygulama `constraints/design.sdc` icinde kose adina
-  kosulludur (TT'de 1,0). Bu, DDK'nin *gerekli gormedigi* fazladan bir
-  kotumserliktir; modeli degistirmez, yalnizca analizde marj kisar.
+  icin 0,5x. Signoff'ta uygulama `constraints/design.sdc` icinde kose adina
+  kosulludur (TT'de 1,0). **PnR baglaminda** kose adi tanimsiz oldugundan
+  derate kosulsuz (late 2,661 / early 0,5) uygulanir - 0-DRC fiziksel sonuc
+  bu kotumser kisitlarla uretilmistir. Bu, DDK'nin *gerekli gormedigi*
+  fazladan bir kotumserliktir; modeli degistirmez, yalnizca analizde marj
+  kisar.
 - Derate'in SS sonucunu belirlemedigi ayrica olculmustur: SS kosesindeki
   en kotu setup yolu SRAM'den gecmeyen saf standart-hucre CPU yoludur
   (bolum 9.9/1), dolayisiyla derate kaldirilsa da SS'te 50 MHz kapanmaz.
 
-Bu bir waiver degil, eksik modelin bilerek kotumser kapatilmasidir.
+Ozet: model eksigi, DDK'nin 17 Agustos 2026 karariyla kabul ettigi TT
+ikamesiyle kapanmistir; 2,661x/0,5x derate bunun ustune eklenen ve
+zorunlu olmayan olcume dayali guvenlik payidir.
 
 ## 9.6 Zamanlama Kisitlari ve Istisnalari
 
@@ -174,8 +198,12 @@ teslimi yeterlidir.
 - **Saat alani iliskileri / asenkron saat gruplari:** tasarim TEK saat
   alanlidir, CDC yolu yoktur (FPGA'daki MMCM `fpga_top` icindedir,
   ASIC'e girmez). Ilgili kosullu tanimlar gerekmez.
-- **Input/output delay:** tum cevre birimi portlarina (UART/I2C/QSPI/
-  GPIO) max 6.000 ns / min 0.500 ns butce; portlar acik listeyle verilir.
+- **Input/output delay:** senkron kisitli girisler (`i2c_sda_i`,
+  `qspi_io_i*`) ve TUM cikislar icin max 6.000 ns / min 0.500 ns butce;
+  portlar acik listeyle verilir. Asenkron girisler (`gpio_in_i*`,
+  `uart*_rxd_i`) input_delay TASIMAZ - asagida false path olarak beyanlidir.
+- **Tasarim geneli kurallar:** `set_max_transition 1.000 ns`,
+  `set_max_fanout 32` (design.sdc).
 - **Clock uncertainty:** setup 0.500 ns, hold 0.100 ns.
   **Input transition:** saat gecisi 0.150 ns. **Output load:** 5 pF
   (kotumser pad + hat butcesi). (Bolum 3.2 "onerilen" kalemleri.)
@@ -193,16 +221,18 @@ teslimi yeterlidir.
   Gercekte zamanlanan yol degildir, Bolum 3.2 kurali korunur; bkz. 9.9/3.
   `i2c_sda_i` ve `qspi_io_i*` senkron kisitli KALIR.
 - **Multicycle path:** YOK (tum yollar tek cevrim kurali).
-- **SRAM derate:** bolum 9.5'teki 2.661x/0.5x `set_timing_derate`
-  uygulamasi bir zamanlama istisnasi degil, eksik SS/FF makro modelinin
-  kotumser kapatilmasidir; yine de seffaflik icin burada beyan edilir.
+- **SRAM derate:** bolum 9.5'teki 2,661x/0,5x `set_timing_derate`
+  uygulamasi bir zamanlama istisnasi degildir; DDK'nin kabul ettigi TT
+  ikamesinin ustune eklenen, zorunlu olmayan olcume dayali guvenlik
+  payidir (ayrinti ve juri karari: bolum 9.5). Seffaflik icin burada da
+  beyan edilir.
 
 ## 9.7 Fiziksel Tasarim Yapilandirmasi
 
 Olcum kaynagi: **`RUN_teslim_2026-08-14`** (nihai teslim kosusu).
 
 - **Floorplan (mutlak):** `DIE_AREA` 4180 x 4490 um = **18,77 mm2**,
-  `CORE_AREA` (60,60)-(4120,4430) = 17,72 mm2; `FP_SIZING: absolute`.
+  `CORE_AREA` (60,60)-(4120,4430) = 17,74 mm2; `FP_SIZING: absolute`.
 - **En boy orani:** 4180/4490 = **0,931** (yaklasik kare). `FP_SIZING:
   absolute` kullanildigi icin `FP_ASPECT_RATIO` parametresi devrede degildir;
   oran, 4 sutunlu makro dizisinin genisligi (4 x 683,1 um makro + kanallar)
@@ -229,8 +259,13 @@ Olcum kaynagi: **`RUN_teslim_2026-08-14`** (nihai teslim kosusu).
   route DRC 0, toplam tel 6,13 m, via 740.817.
 - **CTS:** LibreLane varsayilan CTS yapilandirmasi; olculen saat agaci
   1.785 clock buffer + 280 clock inverter. Yonlendirme sonrasi hold
-  onarimi `RUN_POST_GRT_RESIZER_TIMING: true` (ihlal 63 -> 10, olculdu;
-  kalan mekanizma 9.9/2).
+  onarimi `RUN_POST_GRT_RESIZER_TIMING: true` (63 -> 10 olcumu, 11 Agu
+  yapilandirma deneyi, PnR-ici tt kontrolu; NIHAI signoff ihlal sayilari
+  9.11 tablosundadir: tt 48 / ss 0 / ff 112, mekanizma 9.9/2).
+- **Alan/frekans takasi (DDK 17 Agu karari):** die/core alani ayri bir puan
+  agirligi tasimaz; belirleyici olan zamanlama ve signoff temizligidir.
+  Kanal-genisletmenin +%12,2 alan bedeli bu cerceve icinde, 0-DRC
+  karsiliginda bilinclidir (`asic/DDK_KARARLARI.md`).
 - **Yardimci dosyalar:** `macro_placement.cfg`, `constraints/design.sdc`,
   `scripts/` (filelist denetimi, cikti toplama, ortam sarici).
 
@@ -247,17 +282,17 @@ Olcum kaynagi: akisin Verilator lint adimi (Verilator 5.044),
   - `TIMESCALEMOD` 452: timescale direktifi iceren/icermeyen dosya karisimi;
     simulasyon tarafinda derleyici bayragiyla cozulur, sentez sonucunu
     etkilemez.
-  - `UNUSEDSIGNAL` 231 / `UNUSEDPARAM` 62: cogunlugu arayuz demetlerinin
+  - `UNUSEDSIGNAL` 230 / `UNUSEDPARAM` 62: cogunlugu arayuz demetlerinin
     kullanilmayan alanlari ve yapilandirma sabitleri (ornek: AXI'nin
     kullanilmayan yan sinyalleri). Sentezde otomatik budanir.
   - `WIDTHEXPAND` 63 / `WIDTHTRUNC` 31: bilincli genislik donusumleri;
     kritik aritmetik yollar regresyonla dogrulandi (kok `README.md`
-    dogrulama bolumu: 14/14 test, kapsama olcumleri).
+    dogrulama bolumu: make test-all 16/16, kapsama olcumleri).
   - `PINCONNECTEMPTY` 28: bilincli bos birakilan cikis pinleri.
   - Kalanlar (`PROCASSINIT` 15, `BLKSEQ` 13, `VARHIDDEN` 9,
     `CASEINCOMPLETE` 8, `ASCRANGE` 7, `GENUNNAMED` 5, `UNDRIVEN` 4,
     `PINMISSING` 3, `UNOPTFLAT` 2): stil/bilgi seviyesi; islevsel dogruluk
-    14/14 regresyon + 46/46 arch-test imza esitligiyle gosterildi.
+    16/16 test-all + 46/46 arch-test imza esitligiyle gosterildi.
 
 ## 9.9 Bilinen Sorunlar ve Kabul Edilmis Istisnalar
 
@@ -270,10 +305,12 @@ Bilinen ve kabul edilmis sinirlar (nihai kosu `RUN_teslim_2026-08-14`):
    setup WS -9,083 ns (2.521 yol); en kotu yol saf standart-hucre CPU yoludur
    (`id_stage` ici; SRAM/derate etkisi YOK). Bu kose fiziginin sonucudur;
    RTL degisikligi kapsam disi oldugundan cift beyan yapilmistir (bolum 9.1):
-   TT 50 MHz / SS ~35 MHz. Uc kosenin raporlari eksiksizdir.
+   TT 50 MHz / SS ~34,4 MHz. Uc kosenin raporlari eksiksizdir.
 2. **Kalan hold ihlalleri: tt -0,323 ns (48 yol), ff -0,382 ns (112 yol);
-   ss kosesinde hold ihlali YOK (+0,227 ns).** Tumu
-   `i_ai_accel -> u_input_mem` dusen-kenar SRAM arayuzunde; kok neden makro
+   ss kosesinde hold ihlali YOK (+0,227 ns).** FF kosesindeki 112 yolun
+   111'i SRAM makro veri girislerindedir (dagilim 9.9/7'de: `u_input_mem`
+   32, `i_ai_sram` 34, `u_conv_out` 27, `u_conv_w_mem` 18), 1'i CPU kontrol
+   yoludur (`id_stage.controller`); kok neden makro
    saat carpikligi (CTS makro saat pinlerine ~1 ns gec variyor). Marj tabanli
    onarim OLCULEREK elendi (0,3 marj: hold degismedi, SS setup -10,3'e coktu;
    0,5: arac cokmesi). FF degeri bilerek kotumser early-0.5 derate modelinin
@@ -282,13 +319,17 @@ Bilinen ve kabul edilmis sinirlar (nihai kosu `RUN_teslim_2026-08-14`):
 3. **`i2c_sda_i` senkronizatorsuz orneklenir** (RTL gozden gecirme notu);
    SDC'de senkron kisitli tutulmustur. `gpio_in_i` (2FF senkronizator) ve
    `uart*_rxd_i` asenkron giris olarak false path'tir (bolum 9.6).
-4. **Magic DRC 9.201 isaret - tamami TEK kural: `nwell.4`. Kok neden ACIK,
-   arastirma suruyor.** Olculen gercekler (`reports/drc/drc.magic.rpt`):
+4. **Magic DRC 9.201 isaret - tamami TEK kural: `nwell.4`. Kok neden
+   OLCULDU ve kapandi: geometrik tap eksikligi elendi; Magic'in
+   baglanti-cozumleme siniri olarak kabul edilmis istisnadir.**
+   Olculen gercekler (`reports/drc/drc.magic.rpt`):
    - **Tek kural turu:** "All nwells must contain metal-connected N+ taps"
      (`nwell.4`). Baska hicbir Magic kurali ihlal edilmemistir.
    - Magic'in raporundaki kendi notu: *"Should be divided by 3 or 4"* -
      yani ayri ihlal sayisi **~2.300-3.100** mertebesindedir.
-   - Isaretlerin geometrisi: satir yuksekliginde (~2,79 um) yatay seritler,
+   - Isaretlerin geometrisi: standart hucre satiri boyunda yatay seritler
+     (isaret yuksekligi medyani 2,79 um; sky130_fd_sc_hd satir yuksekligi
+     2,72 um - `scripts/tap_analiz.py` satir gruplamasinda 2,72 kullanir),
      23 farkli X konumunda; standart hucre alanindadir.
    - **SRAM makro ayak izlerinin ICINDE sifir isaret vardir** (27 makro
      kutusuna karsi kontrol edildi). Isaretlerin 2.142'si, cevresinde makro
@@ -324,14 +365,18 @@ Bilinen ve kabul edilmis sinirlar (nihai kosu `RUN_teslim_2026-08-14`):
    - Yeniden uretim: `python3 scripts/tap_analiz.py results/def/<tasarim>.def
      reports/drc/drc.magic.rpt` (olcumu tekrarlar).
    - Not: Magic adimlari akista **tamamlanmaktadir**; rapor uretilmis ve
-     teslim edilmistir. `MAGIC_CAPTURE_ERRORS=false` gerekcesi bolum
-     9.7/config yorumundadir.
+     teslim edilmistir. `MAGIC_CAPTURE_ERRORS=false` gerekcesi `config.yaml` icindeki
+     yorumdadir.
 5. LVS = 0 (gercek GDS cikarimi, 1.795.705 eleman). Onceki 197/205 farklar
    dar kanalli eski floorplanin diyot yerlesiminden geliyordu; genis kanalli
    nihai floorplanda tamamen kapanmistir.
-6. `metrics.json`'in ss/ff timing alanlari kosunun kendi `max.rpt`'si ile
-   her zaman tutmayabiliyor (gozlendi: ss -91.57 vs -23.71). **Rapor dosyasi
-   esastir**, metrik alani degil.
+6. `metrics.json`'in bazi timing alanlari, ayni kosunun kose raporuyla
+   birebir ortusmeyebilir (11 Agu dogrulama kosusunda gozlendi:
+   `timing__setup__ws` metrigi -91,57 gosterirken ss `max.rpt` -23,71
+   veriyordu; farkin nedeni metrik alaninin ara-adim degeri tasiyabilmesi).
+   Bu nedenle beyanlarimizda **`reports/timing/<kose>/` rapor dosyalari
+   esastir**; 9.1/9.11 sayilari nihai kosunun rapor dosyalarindan
+   okunmustur ve `reports/signoff/metrics.json` ile de tutarlidir.
 
 7. **QSPI cikis-etkinlestirme (`io_oe`) yazmaclanmadi - bilincli karar.**
    `qspi_master_axil.sv` veri cikisini mode-0 geregi dusen kenarda
@@ -355,11 +400,22 @@ Bilinen ve kabul edilmis sinirlar (nihai kosu `RUN_teslim_2026-08-14`):
    **Takip SONUCU (nihai kosu, kapatildi):** `ff_n40C_1v95` kosesindeki
    112 hold ihlalinin **hicbiri** `qspi_io_o` degildir
    (`grep -c qspi_io_o reports/timing/nom_ff_n40C_1v95/violator_list.rpt`
-   -> 0). Ihlallerin tamami SRAM makro veri girisleridir
-   (`u_input_mem` 32, `i_ai_sram` 34, `u_conv_out` 27, `u_conv_w_mem` 18)
-   ve mekanizmasi 9.9/2'de aciklanan makro dusen-kenar arayuzudur.
+   -> 0). 112 ihlalin 111'i SRAM makro veri girisleridir
+   (`u_input_mem` 32, `i_ai_sram` 34, `u_conv_out` 27, `u_conv_w_mem` 18;
+   +1 CPU kontrol yolu) ve mekanizmasi 9.9/2'de aciklanan makro
+   dusen-kenar arayuzudur.
    Karar dogrulanmistir: `io_oe`'nin kombinasyonel birakilmasi hizli
    kosede olculebilir bir hold riski uretmemistir.
+
+8. **DDK'nin yazili kararlariyla onceden kabul edilmis hususlar**
+   (tam metinler: `asic/DDK_KARARLARI.md`):
+   - *Errata (17 Agu 2026):* `filelist.f` yollari `asic/` dizinine gore
+     cozulur - teslimimiz zaten bu tabandadir (bolum 9.4).
+   - *Alan agirligi (17 Agu 2026):* die/core alani ayri puan agirligi
+     tasimaz; kanal-genisletme takasimizin cercevesi (bolum 9.7).
+   - *SRAM Liberty ikamesi (17 Agu 2026):* TT_1p8V_25C modeli SS/FF
+     analizlerinde belgelenmis ikame olarak kabul edilir; olcekleme
+     gerekmez (bolum 9.5).
 
 ## 9.10 Guc ve IR-Drop Analizi
 
