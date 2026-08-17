@@ -203,6 +203,11 @@ Olcum kaynagi: **`RUN_teslim_2026-08-14`** (nihai teslim kosusu).
 
 - **Floorplan (mutlak):** `DIE_AREA` 4180 x 4490 um = **18,77 mm2**,
   `CORE_AREA` (60,60)-(4120,4430) = 17,72 mm2; `FP_SIZING: absolute`.
+- **En boy orani:** 4180/4490 = **0,931** (yaklasik kare). `FP_SIZING:
+  absolute` kullanildigi icin `FP_ASPECT_RATIO` parametresi devrede degildir;
+  oran, 4 sutunlu makro dizisinin genisligi (4 x 683,1 um makro + kanallar)
+  ile 7 sirali dizilim + 834,2 um'lik merkezi mantik koridorunun toplam
+  yuksekliginden turemistir (macro_placement.cfg).
   Kanal-genisletme karari olcumle alindi: makro sutun kanali 209 -> 300 um,
   satir arasi 60 -> 100 um ile route DRC 1348 -> 0, yakinsama 195 -> 10
   iterasyon (bedel: die +%12,2). Deney zinciri `config.yaml` yorumlarinda.
