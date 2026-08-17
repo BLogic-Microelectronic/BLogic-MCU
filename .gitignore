@@ -92,7 +92,9 @@ asic/**/runs/
 # Plan, defter, duyuru metinleri, DTR/OTR dosyalari... hepsi yerelde kalir.
 # Bilerek bir dosyayi commit'lemek istersen: git add -f docs/<dosya>
 # ============================================================
-docs/
+docs/*
+!docs/verification_and_test_plan.md
+!docs/oznitelik_vektoru_formati.md
 
 # FPGA bitstream (5.9 MB build ciktisi) - "git add -A" surekli topluyordu.
 # Bilerek commit'lemek istersen: git add -f rtl/fpga/fpga_top.bit
