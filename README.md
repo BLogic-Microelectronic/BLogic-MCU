@@ -16,7 +16,7 @@
 ---
 
 <p align="center">
-  <img src="images/blogic_balporsugu_img.png" alt="OSTİM BLogic Mikroelektronik" width="400">
+  <img src="images/blogic_balporsugu_img.png" alt="OSTİM BLogic Mikroelektronik">
 </p>
 
 ## Table of Contents

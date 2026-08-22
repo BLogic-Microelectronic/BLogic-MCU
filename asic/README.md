@@ -442,6 +442,14 @@ Olcum kaynagi: **`RUN_teslim_2026-08-14`** (nihai teslim kosusu).
   VGND en kotu yukselme **1,57 mV** -> besleme geriliminin **%0,09**'u
   (tipik %5 sinirinin cok altinda). Her iki net icin PSM dogrulamasi:
   "All shapes connected". Rapor: `reports/power/irdrop.rpt`.
+- **Dugum-bazli gerilim dokumu (5.7):** `reports/power/net-VPWR.csv` ve
+  `net-VGND.csv` ham halde ~137 MB oldugundan GitHub'in 100 MB tek-dosya
+  siniri geregi depoda **gzip ile** durur (`net-VPWR.csv.gz`,
+  `net-VGND.csv.gz`). Geri acma: `gunzip -k <ad>.gz`; butunluk:
+  `sha256sum -c <ad>.sha256` (ozetler ayni dizinde). Ayrinti:
+  `results/BUYUK_DOSYALAR.md`. Bu dosyalar akisin girdisi DEGILDIR
+  (signoff sonrasi uretilen rapor); akis sikistirilmis dosyaya bagimli
+  degildir, acilmadan da `make asic_run` calisir.
 - **Ozel gerilim kaynagi konum dosyasi kullanilmadi** (varsayilan pad/strap
   beslemesi).
 
