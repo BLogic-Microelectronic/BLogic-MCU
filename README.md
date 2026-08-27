@@ -441,7 +441,7 @@ make test-all
 | `make sim TRACE=1` | Same, with VCD waveform dump |
 | `make sim COVERAGE=1` | Same, with line + branch coverage instrumentation |
 | `make sim FW_SRC=sw/tests/gpio_led_test.c` | Swap firmware source |
-| `make regression` | 4-test regression: UART_TX_115200 + UART_TX_1M + UART_TX_9600 + Spike lockstep + QSPI_Flash |
+| `make regression` | 6-test regression: UART_TX_115200 + UART_TX_1M + UART_TX_9600 + Spike lockstep (minimal + deep) + QSPI_Flash |
 | `make uart-baud` | EK-2 multi-baud proof: 115200 → 1 Mbps → 9600 sweep in a single run |
 | `make uart-stp` | EK-2 stop-bit 1 / 1.5 / 2 verification (standalone `uart_axil` TB) |
 | `make uart-stream` | UART_1 DMA → AI SRAM, 5 scenarios (A–E) |
@@ -599,6 +599,8 @@ Verdict: `*** TEST SUCCESS *** I2C SISTEM YOLU DOGRULANDI` with `9716` AXI-Lite 
 
 ### 10.8 Coverage Report
 
+All numbers in this section are from the **2026-08-27** clean run (Verilator 5.049, Spike enabled).
+
 Coverage is measured at **two levels**, because Verilator merges `.dat` files by
 hierarchical path: in the SoC build a peripheral lives under `TOP.soc_top.i_qspi`,
 while in its standalone bench it lives under `TOP.qspi_modes_tb`. Merging both into
@@ -615,9 +617,9 @@ covergroup binds — these are verification infrastructure, not design under tes
 
 | Metric | Result |
 |---|---|
-| **Line coverage** | **71.9 %** (271 / 377) |
-| **Branch coverage** | **83.9 %** (713 / 850) |
-| Lines fully covered (annotation) | 81.0 % (1440 / 1758) |
+| **Line coverage** | **72.2 %** (275 / 381) |
+| **Branch coverage** | **84.2 %** (717 / 852) |
+| Lines fully covered (annotation) | 82.0 % (1448 / 1764) |
 
 Per-file uncovered point counts:
 
@@ -642,20 +644,22 @@ actually verified.
 
 | Testbench | Target module | Covered / total | Ratio |
 |---|---|---|---|
-| `boot` | `axi_sram_wrapper.sv` | 16 / 16 | **100.0 %** |
+| `boot` | `axi_sram_wrapper.sv` | 31 / 31 | **100.0 %** |
 | `i2c-sys` | `i2c_master_axil.sv` | 180 / 184 | **97.8 %** |
-| `ai` | `ai_accelerator.sv` | 373 / 388 | **96.1 %** |
+| `ai` | `ai_accelerator.sv` | 404 / 418 | **96.7 %** |
 | `uart-stream` | `uart_stream_axil.sv` | 140 / 147 | **95.2 %** |
 | `uart-stp` | `uart_axil.sv` | 98 / 105 | **93.3 %** |
-| `qspi-modes` | `qspi_master_axil.sv` | 220 / 305 | **72.1 %** |
+| `qspi-modes` | `qspi_master_axil.sv` | 226 / 311 | **72.7 %** |
 
 Committed summary: `verif/coverage_tb_summary.txt`.
 
 #### Functional coverage
 
 SVA-based covergroups are bound to the UART, QSPI, AI-accelerator CSR and IRQ
-interfaces (`verif/sva/*_func_cov.sv`). The IRQ covergroup reaches **3 / 3 bins**
-(timer irq16, AI irq17, stream irq18) over a full `make coverage` run.
+interfaces (`verif/sva/*_func_cov.sv`). Over a full `make coverage` run the merged
+covergroups reach **20 / 22 bins (91 %)**: UART 5 / 7, QSPI 7 / 7, AI-CSR 5 / 5,
+IRQ 3 / 3 (timer irq16, AI irq17, stream irq18). The UART auto-clear checker
+(EK-2 v1.3) logs **4309 checks, 0 violations**.
 
 ### 10.9 UVM Testbench
 
