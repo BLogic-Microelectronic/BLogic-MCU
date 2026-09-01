@@ -49,7 +49,6 @@ a1.set_xlim(0, 100); a1.axvline(90, color="#b45309", ls="--", lw=1)
 a1.text(90, len(genel) - 0.25, " 90%", color="#b45309", fontsize=8.5)
 a1.set_title("SoC-level coverage (15 C tests, single build)", fontsize=10)
 
-mod = sorted(moduller, key=lambda m: m[1] != "0" and -int(m[1]) or 0)
 mod = sorted(moduller, key=lambda m: -int(m[1]))
 y2 = range(len(mod))
 a2.barh(list(y2), [int(m[1]) for m in mod], height=0.6,
