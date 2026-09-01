@@ -45,7 +45,7 @@
 
 **BLogic MCU** is a 32-bit RISC-V based System-on-Chip (SoC) developed by **BLogic Mikroelektronik (Ostim Technical University)** for the **TEKNOFEST 2026 Chip Design Competition, Microcontroller Design Category**. The system is built around the open-source **CV32E40P** processor core (RV32IMC, 4-stage in-order pipeline) and integrates an AXI4 / AXI4-Lite bus fabric, on-chip SRAMs, a Boot ROM with QSPI boot loader, a full set of peripherals (UART × 2, GPIO, Timer, I²C Master, QSPI Master), and a custom **TFLite Micro Speech** hardware AI accelerator.
 
-The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, UVM-based testbenches, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite, and end-to-end AI accuracy regression (40/40 samples; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +3.089 ns` / `WHS = +0.068 ns` (timing met, zero failing endpoints in the synchronous `clk_50_mmcm` domain) and `0.328 W` total estimated on-chip power. On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
+The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, a UVM environment covering **four peripheral blocks (8/8 tests passing)**, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite (46/46), and end-to-end AI accuracy regression (**1000/1000 samples bit-exact**; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). SoC-level line coverage is **91.1 %** (branch 91.3 %), with every remaining uncovered line classified and justified in `verif/coverage_siniflandirma.md`. The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +3.089 ns` / `WHS = +0.068 ns` (timing met, zero failing endpoints in the synchronous `clk_50_mmcm` domain) and `0.328 W` total estimated on-chip power. On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
 
 ---
 
@@ -57,7 +57,7 @@ The design has been verified through Verilator-based directed and randomized sim
 | **Bus Fabric** | PULP `axi_xbar` AXI4 Interconnect + custom AXI4-to-AXI4-Lite bridge + peripheral address decoder |
 | **CPU↔Bus** | Custom **OBI-to-AXI4** bridges for both instruction (ID 0) and data (ID 1) ports |
 | **Memory** | 1 KB Boot ROM, 8 KB Instruction SRAM, 8 KB Data SRAM, 30 KB AI SRAM (shared via arbiter) |
-| **Peripherals** | UART_0 (general I/O), UART_1 (DMA stream → AI SRAM), 32-pin GPIO, Timer w/ IRQ, I²C Master, QSPI Master (x1/x2/x4 + 3B/4B addressing) |
+| **Peripherals** | UART_0 (general I/O), UART_1 (DMA stream → AI SRAM), GPIO (16 inputs + 16 outputs, fixed direction per EK-2), Timer w/ IRQ, I²C Master, QSPI Master (x1/x2/x4 + 3B/4B addressing) |
 | **AI Accelerator** | TFLite Micro Speech **Tiny Conv** (Conv2D + ReLU + FC + Argmax), INT8 × INT8 → INT32 MAC, AXI4 master + AXI-Lite slave CSR, hardware interrupt on completion |
 | **Boot Flow** | Boot ROM → QSPI Flash loader → Instruction SRAM (M3 flash-boot mode active) |
 | **Interrupts** | CV32E40P CLINT-style vector: Timer (bit 16), AI Accelerator (bit 17), UART-stream DMA (bit 18) |
@@ -91,7 +91,7 @@ The design has been verified through Verilator-based directed and randomized sim
 | `0x0002_0000` – `0x0002_1FFF` | **Data SRAM** | 8 KB | RW | `.data`, `.bss`, stack, heap |
 | `0x0003_0000` – `0x0003_77FF` | **AI SRAM** | 30 KB | RW | Shared by CPU + AI Accel + UART_1 DMA |
 | `0x4000_0000` | **UART_0** (general) | 32 B map | RW | TX/RX, baud-configurable |
-| `0x4000_0100` | **GPIO** (32-pin) | 32 B map | RW | IDR (RO) + ODR (RW) |
+| `0x4000_0100` | **GPIO** (16 in / 16 out) | 32 B map | RW | IDR (RO) + ODR (RW) |
 | `0x4000_0200` | **Timer** | 32 B map | RW | Auto-reload + IRQ |
 | `0x4000_0300` | **UART_1 / AI Stream** | 32 B map | RW | DMA → AI SRAM |
 | `0x4000_0400` | **I²C Master** | 32 B map | RW | NBY / ADR / RDR / TDR / CFG |
@@ -118,8 +118,8 @@ The design has been verified through Verilator-based directed and randomized sim
 
 | Offset | Name | Access | Description |
 |---|---|---|---|
-| `0x00` | `IDR` | RO | Input Data Register (32-bit) |
-| `0x04` | `ODR` | RW | Output Data Register (32-bit) |
+| `0x00` | `IDR` | RO | Input Data Register — `IDR[15:0]` = 16 inputs (2-FF synchronized), upper bits read 0 |
+| `0x04` | `ODR` | RW | Output Data Register — `ODR[15:0]` = 16 outputs, upper bits ignored (EK-2 fixed 16-in/16-out split) |
 
 ### 5.3 Timer (`0x4000_0200`)
 
@@ -207,13 +207,14 @@ The design has been verified through Verilator-based directed and randomized sim
 │   │   ├── bootrom.hex                   # Pre-built boot ROM image
 │   │   ├── flash_helloworld.hex          # Example payload image
 │   │   └── build.py
-│   ├── tests/                            # 19 standalone firmware tests
+│   ├── tests/                            # 29 standalone firmware tests (full list: §14)
 │   │   ├── uart_hello.c, uart_loopback.c, uart_baud_sweep.c, uart_add_test.c
+│   │   ├── uart_stp_reg_test.c, uart1_strm_test.c, timer_irq_test.c
 │   │   ├── gpio_led_test.c, hello_blink.c, led_only.c, minimal_test.c
-│   │   ├── isa_compliance_test.c
-│   │   ├── qspi_test.c, qspi_modes_test.c, qspi_debug.c, qspi_hw_debug.c
-│   │   ├── i2c_system_test.c
-│   │   ├── ai_micro_speech_test.c, ai_irq_test.c, ai_sw_reference.c
+│   │   ├── isa_compliance_test.c, lockstep_deep.c, boot_flash_hello.c
+│   │   ├── qspi_test.c, qspi_modes_test.c, qspi_fifo_err_test.c, qspi_rdpath_test.c
+│   │   ├── i2c_system_test.c, i2c_soc_test.c, csr_negatif_test.c
+│   │   ├── ai_micro_speech_test.c, ai_irq_test.c, ai_sw_reference.c, ai_sat_test.c
 │   └── ai_model/                         # AI golden vectors & accuracy harness
 │       ├── micro_speech_quantized.tflite # Reference model
 │       ├── extract_weights.py            # → weights/bias .hex
@@ -238,10 +239,11 @@ The design has been verified through Verilator-based directed and randomized sim
 │   │   ├── axi4_protocol_checker.sv
 │   │   ├── soc_protocol_bind.sv          # 10-interface protocol bind
 │   │   └── ai_accel_checker_bind.sv
-│   ├── uvm/                              # UVM (GPIO) directed + random
+│   ├── uvm/                              # UVM — 4 blocks (GPIO / Timer / UART_0 / I2C), 8 tests
 │   │   ├── axi_lite_if.sv
-│   │   ├── axi_lite_uvm_pkg.sv
-│   │   └── tb_top.sv
+│   │   ├── axi_lite_uvm_pkg.sv           # block-agnostic agent + GPIO env/tests
+│   │   ├── periph_uvm_pkg.sv             # Timer/UART_0/I2C scoreboards + 6 tests
+│   │   └── tb_top.sv, tb_timer_top.sv, tb_uart_top.sv, tb_i2c_top.sv
 │   ├── uvm-lib/                          # Vendored UVM library (no clone needed)
 │   ├── spike/                            # Spike ISS lockstep trace compare
 │   │   └── compare_traces.py
@@ -250,7 +252,10 @@ The design has been verified through Verilator-based directed and randomized sim
 │   │   ├── spi_flash_model.sv            # QSPI flash device
 │   │   ├── i2c_slave_model.sv            # I²C echo slave
 │   │   └── xilinx_prims_stub.sv          # IBUFDS/MMCM stubs (Verilator)
-│   ├── coverage_summary.txt              # Line + branch coverage report
+│   ├── coverage_summary.txt              # SoC line + branch coverage (15 tests, 91.1 % / 91.3 %)
+│   ├── coverage_tb_summary.txt           # Per-module block-TB coverage
+│   ├── coverage_siniflandirma.md         # Uncovered-line classification (A/B/C, per-line evidence)
+│   ├── perf_summary.txt                  # HW vs SW speedup measurement (21.0x)
 │   └── coverage_waivers.vlt              # Vendor (CV32E40P) waivers
 ├── teknotest/                            # TEKNOFEST jury reference DDK testbench
 │   ├── tb/teknotest_tb.sv
@@ -265,10 +270,15 @@ The design has been verified through Verilator-based directed and randomized sim
 │   ├── macros/                           # SRAM GDS / LEF / LIB / Verilog / SPICE views
 │   ├── reports/ + results/ + checksums/  # filled by collect_outputs.sh after the run
 │   └── run/                              # transient LibreLane workspace (.gitkeep only)
+├── docs/
+│   ├── verification_and_test_plan.md     # Full verification & test plan (methods, results, traceability)
+│   └── oznitelik_vektoru_formati.md      # AI input-vector contract (K13: frame format + handshake)
 ├── scripts/
 │   ├── elf2hex.py                        # ELF → $readmemh hex
-│   ├── run_regression.sh                 # 4-test smoke regression
-│   ├── run_coverage.sh                   # Verilator line coverage harness
+│   ├── run_regression.sh                 # 6-test regression (UART x3 + Spike lockstep x2 + QSPI)
+│   ├── run_coverage.sh                   # SoC coverage harness (15 tests, annotate + summary)
+│   ├── run_coverage_tb.sh                # per-module block-TB coverage
+│   ├── gen_perf_report.py                # soc-perf → verif/perf_summary.txt
 │   └── arch_test_size_check.sh           # 8 KB budget audit for arch-test
 ├── images/                               # README figures
 ├── Makefile                              # Top-level thin wrapper
@@ -403,13 +413,13 @@ source /tools/Xilinx/Vivado/2021.2/settings64.sh
 vivado -version
 ```
 
-### 8.7 Optional — `riscv-arch-test`
+### 8.7 `riscv-arch-test` — vendored
 
-Required only for `make arch-test`:
-
-```bash
-git clone --depth 1 https://github.com/riscv-non-isa/riscv-arch-test verif/arch_tests/riscv-arch-test
-```
+The RV32I + RV32M test sources (38 + 8 `.S` files), the `env/` headers and the
+`target/blogic/` glue (`link.ld`, `htif.S`, `link_spike.ld`) are **committed
+under `verif/arch_tests/`** — no external clone is needed for `make arch-test`.
+Suite provenance is pinned in `asic/THIRD_PARTY.md` via a header fingerprint of
+`verif/arch_tests/suite/env/arch_test.h`.
 
 ---
 
@@ -454,8 +464,10 @@ make test-all
 | `make soc-ai-irq` | SoC-level AI **interrupt** flow test (ISR) |
 | `make soc-perf` | HW vs SW speedup measurement (same SoC, same `mcycle`) |
 | `make arch-test` | Official `riscv-arch-test` ISA compliance (default `ARCH_EXT=I`) |
-| `make uvm` | UVM GPIO directed + random tests |
-| `make coverage` | Line + branch coverage report |
+| `make qspi-err` | QSPI FIFO overflow / flush / status error paths (25 checks) |
+| `make uvm` | UVM — 4 blocks (GPIO + Timer + UART_0 + I2C), 8 tests, directed + constrained-random |
+| `make coverage` | SoC line + branch coverage (15 self-checking C tests, single build) |
+| `make coverage-tb` | Per-module block-testbench coverage |
 | `make spike` | Run firmware directly on Spike ISS |
 | `make test-all` | Everything above + summary table |
 | `make clean` | Remove `obj_dir/` and `build/` |
@@ -504,9 +516,9 @@ cd obj_dir && ./blogic_sim +CPB=434
 | **ISA compliance** | `riscv-arch-test` repo | RV32I / M extension self-tests |
 | **Lockstep** | Spike ISS + Python diff (`verif/spike/compare_traces.py`) | Cycle-by-cycle PC + commit trace |
 | **Bus protocol** | SystemVerilog Assertions (SVA) bound to 10 AXI / AXI-Lite interfaces | Protocol-level legality |
-| **UVM** | Vendored UVM (`verif/uvm-lib`) + AXI-Lite agent | GPIO directed + random |
-| **AI accuracy** | Python `run_accuracy_window.py` + RTL TB | 40-sample SW vs RTL match |
-| **Coverage** | Verilator `--coverage-line` | Per-file line + branch report |
+| **UVM** | Vendored UVM (`verif/uvm-lib`) + block-agnostic AXI-Lite agent | 4 blocks (GPIO / Timer / UART_0 / I2C), directed + constrained-random, reference-model scoreboards |
+| **AI accuracy** | Python `run_accuracy_window.py` + RTL TB | 1000-sample bit-exact SW vs RTL match |
+| **Coverage** | Verilator `--coverage-line` + uncovered-line classification | SoC 91.1 % line / 91.3 % branch; every remaining line justified (`verif/coverage_siniflandirma.md`) |
 
 ### 10.2 Regression Test Suite
 
@@ -522,9 +534,10 @@ make regression
 | 1 | UART TX @ 115200 baud | `sw/tests/uart_hello.c` (CPB=434) | **PASS** |
 | 2 | UART TX @ 1 Mbps | `sw/tests/uart_hello.c` (CPB=50) | **PASS** |
 | 3 | UART TX @ 9600 baud | `sw/tests/uart_hello.c` (CPB=5208) | **PASS** |
-| 4 | Spike ISS Lockstep | `sw/tests/minimal_test.c` | **PASS** |
-| 5 | QSPI Flash addressing | `sw/tests/qspi_test.c` | **PASS** |
-| — | **AXI / AXI-Lite Protocol Compliance** | 10 interfaces, every cycle | **40 / 40 UYUMLU (COMPLIANT)** |
+| 4 | Spike ISS Lockstep (minimal) | `sw/tests/minimal_test.c` | **PASS** |
+| 5 | Spike ISS Lockstep (deep, 319,995 PC records) | `sw/tests/lockstep_deep.c` | **PASS** |
+| 6 | QSPI Flash addressing | `sw/tests/qspi_test.c` | **PASS** |
+| — | **AXI / AXI-Lite Protocol Compliance** | 10 interfaces, every cycle | **40 / 40 COMPLIANT** (40 = protocol-checker report blocks emitted across the six runs, all clean) |
 
 ### 10.3 ISA Compliance (RV32IMC, 31/31 PASS)
 
@@ -587,6 +600,10 @@ The `uart-baud` sweep proves the UART works across the spec range **9600 → 115
 
 ![I²C System Test](images/qspi_page_program.png)
 
+<!-- IMAGE PLACEHOLDER: replace the screenshot above with a correctly named I2C
+     terminal capture (current file name is a leftover from the QSPI series) -->
+> 🖼️ **[image placeholder — re-capture I²C test output with a proper file name]**
+
 `make i2c-sys` instantiates the I²C master against `verif/models/i2c_slave_model.sv` (echo slave) and exercises:
 
 - `NBY` byte-count rounding (0/1/3/4)
@@ -599,7 +616,7 @@ Verdict: `*** TEST SUCCESS *** I2C SISTEM YOLU DOGRULANDI` with `9716` AXI-Lite 
 
 ### 10.8 Coverage Report
 
-All numbers in this section are from the **2026-08-27** clean run (Verilator 5.049, Spike enabled).
+All numbers in this section are from the **2026-09-01** clean run (Verilator 5.049, Spike enabled).
 
 Coverage is measured at **two levels**, because Verilator merges `.dat` files by
 hierarchical path: in the SoC build a peripheral lives under `TOP.soc_top.i_qspi`,
@@ -609,31 +626,44 @@ levels are reported separately.
 
 #### SoC level — `make coverage`
 
-Eleven self-checking C tests on a single instrumented SoC build, fixed denominator.
+**Fifteen** self-checking C tests on a single instrumented SoC build, fixed
+denominator. Four of them (`i2c_soc_test`, `qspi_rdpath_test`,
+`csr_negatif_test`, `ai_sat_test`) were written from a line-by-line
+classification of everything the first eleven left uncovered — the full
+uncovered-line audit, with per-line evidence and A/B/C verdicts, is
+committed as **`verif/coverage_siniflandirma.md`**.
 
-**Scope:** design RTL only (14 files). Excluded via `verif/coverage_waivers.vlt`:
+**Scope:** design RTL only. Excluded via `verif/coverage_waivers.vlt`:
 CV32E40P / PULP vendor code, testbenches, behavioural models, SVA checkers and
 covergroup binds — these are verification infrastructure, not design under test.
 
 | Metric | Result |
 |---|---|
-| **Line coverage** | **72.2 %** (275 / 381) |
-| **Branch coverage** | **84.2 %** (717 / 852) |
-| Lines fully covered (annotation) | 82.0 % (1448 / 1764) |
+| **Line coverage** | **91.1 %** (347 / 381) |
+| **Branch coverage** | **91.3 %** (778 / 852) |
+| Lines fully covered (annotation) | 92.0 % (1636 / 1764) |
 
-Per-file uncovered point counts:
+<!-- IMAGE PLACEHOLDER: screenshot of `make coverage` summary output (91.1 % / 91.3 % block) -->
+> 🖼️ **[image placeholder — `make coverage` terminal summary screenshot]**
 
-| RTL file | Uncovered points | Note |
+Every remaining uncovered line falls into one of three documented classes
+(`verif/coverage_siniflandirma.md`):
+
+| Class | Lines | Meaning |
 |---|---|---|
-| `qspi_master_axil.sv` | 55 | 256 / 311 lines covered (**82.3 %**), up from 189 / 311 (60.8 %). FIFO overflow, status clear, TX/RX flush, register read-back and the write direction are closed by `make qspi-err`. What remains is one family: the x2/x4 lane mux and the dummy / multi-lane read states, which the boot path never selects and the standalone `qspi-modes` bench drives instead (module level below). Line 210 (RX FIFO underflow) is structurally unreachable — the read path already gates `cmd_rx_pop` with `!rx_empty` |
-| `obi_to_axi.sv` | 23 | AW/W channel-skew states — structurally unreachable, every AXI-Lite slave asserts ready in the same cycle |
-| `ai_accelerator.sv` | 11 | saturation branches and SAME-pad path not reached with the real quantised weights |
-| `uart_stream_axil.sv` | 2 | read-decoder defaults |
-| `gpio_axil.sv` | 2 | decoder defaults |
-| `uart_axil.sv` / `timer_axil.sv` | 1 each | read-decoder default (unreachable on a word-aligned bus) |
-| `ai_sram_arbiter.sv` / `periph_decoder.sv` / `soc_axi_interconnect.sv` | 0 | fully covered |
+| **A — structurally unreachable** | 42 | e.g. all 23 lines of `obi_to_axi.sv` (AW/W channel-skew states: every slave asserts both readies in the same cycle — measured over 411 k writes / 49.7 k stalls, never split), FSM `default` arms, Verilator's function-`return` annotation artefact in `rq_round_sat` (saturation itself is *functionally proven* by `ai_sat_test`: 2 × 1000 conv words bit-exact at 0x7F / 0x80) |
+| **B — fault-injection only** | 2 | I²C NACK branch — covered at block level by the UVM `i2c_directed_test` (no-slave NACK path) |
+| **C — single accepted exception** | 5 | QSPI dummy-cycles-with-TX combination (legal but exotic; deliberately left open and documented) |
 
-Annotated sources: `logs/coverage/annotate/` (`%`-prefixed lines are uncovered).
+Per-file uncovered counts after the 15-test run: `obi_to_axi` 23 (A),
+`ai_accelerator` 9 (A), `qspi_master_axil` 9 (4 A + 5 C), `boot_rom` 4 (A),
+`i2c_master_axil` 3 (2 B + 1 A), `uart_stream_axil` 1 (A) — **`uart_axil`,
+`gpio_axil`, `timer_axil`, `ai_sram_arbiter`, `periph_decoder`,
+`soc_axi_interconnect` and `axi_sram_wrapper` are all at 0**.
+
+Annotated sources: `logs/coverage/annotate/` (`%`-prefixed lines are uncovered;
+`--annotate-all` writes fully-covered files too, so "absent" unambiguously means
+"not instrumented" — structural RTL such as `soc_top.sv` produces no line points).
 Committed summary: `verif/coverage_summary.txt`.
 
 #### Module level — `make coverage-tb`
@@ -659,20 +689,39 @@ SVA-based covergroups are bound to the UART, QSPI, AI-accelerator CSR and IRQ
 interfaces (`verif/sva/*_func_cov.sv`). Over a full `make coverage` run the merged
 covergroups reach **20 / 22 bins (91 %)**: UART 5 / 7, QSPI 7 / 7, AI-CSR 5 / 5,
 IRQ 3 / 3 (timer irq16, AI irq17, stream irq18). The UART auto-clear checker
-(EK-2 v1.3) logs **4309 checks, 0 violations**.
+(EK-2 v1.3) logs **6694 checks, 0 violations**.
 
-### 10.9 UVM Testbench
+### 10.9 UVM Testbench — 4 Blocks, 8 Tests
 
 ```bash
-make uvm                  # all tests
-make -f Makefile.uvm directed   # GPIO directed only
-make -f Makefile.uvm random     # GPIO random only
+make uvm                             # clean build + all 8 tests (also part of make test-all)
+make -f Makefile.uvm directed        # GPIO directed only
+make -f Makefile.uvm timer_directed  # Timer directed only
+make -f Makefile.uvm uart_directed   # UART_0 directed only
+make -f Makefile.uvm i2c_directed    # I2C directed only  (plus *_random variants)
 ```
 
-| Test | Style | Result |
+One block-agnostic AXI-Lite agent (driver, monitor with procedural protocol
+checks, sequencer — `verif/uvm/axi_lite_uvm_pkg.sv`) drives four different DUTs;
+`verif/uvm/periph_uvm_pkg.sv` adds reference-model scoreboards and per-block
+tests. Each block builds with its own `tb_*_top.sv` wrapper.
+
+| Test | What it proves | Result |
 |---|---|---|
-| `gpio_directed_test` | Directed walking-1, IDR/ODR R/W, mask checks | **UVM_ERROR : 0** |
-| `gpio_random_test` | Constrained-random sequences, scoreboard | **UVM_ERROR : 0** |
+| `gpio_directed_test` | IDR/ODR R/W, mask checks against reference model | **PASS** |
+| `gpio_random_test` | 50 constrained-random transactions, scoreboard | **PASS** |
+| `timer_directed_test` | reset values, read-backs, CLR, counting (CNT strictly increases), event accumulate + EVC clear | **PASS** |
+| `timer_random_test` | 60 random R/W over the full register map | **PASS** |
+| `uart_directed_test` | reset values (CPB = 434), 1 Mbps CPB read-back, STP modes, TDR flow and **CFG[0] hardware auto-clear after TX (EK-2 v1.3)** | **PASS** |
+| `uart_random_test` | 60 random R/W against the UART reference model | **PASS** |
+| `i2c_directed_test` | NBY clamping (0→1, 7→4), read-backs, **no-slave NACK path for both TX and RX** (`TX_DONE`/`RX_DONE` + `NACK_ERR`, RDR left clean) | **PASS** |
+| `i2c_random_test` | 60 random R/W against the I²C reference model | **PASS** |
+
+**Regression result: 8 PASS, 0 FAIL** (`UVM_ERROR : 0`, `UVM_FATAL : 0` in every
+run; protocol monitor reports 0 violations in all 8).
+
+<!-- IMAGE PLACEHOLDER: screenshot of "UVM Regression: 8 PASS, 0 FAIL" terminal output -->
+> 🖼️ **[image placeholder — UVM 8/8 regression summary screenshot]**
 
 The UVM library is vendored under `verif/uvm-lib` — no external clone is needed (see `verif/uvm-lib/KAYNAK.md`).
 
@@ -686,10 +735,10 @@ The custom AI Accelerator implements Google's **TensorFlow Lite Micro Speech "Ti
 
 | Block | Description |
 |---|---|
-| **AXI4-Lite slave port** | CSR access from CPU (`CTRL`, `STATUS`, `TA_ADDR`, `OUT_ADDR`) — `0x4000_0600` |
+| **AXI4-Lite slave port** | CSR access from CPU (`CTRL`, `STATUS`, `DATA_ADDR`, `OUT_ADDR`) — `0x4000_0600` |
 | **AXI4 master port** | Read input + weights + bias, write Conv output + FC output to **AI SRAM** |
 | **Local RAMs** | `input_mem` (1960 B), `conv_w` (640 B), `conv_bias` (32 B), `conv_out` (4000 B), `fc_bias` (16 B), `fc_out` (4 B) |
-| **Datapath** | INT8 × INT8 → INT32 MAC, ReLU, `>>> CONV_SHIFT (11)`, saturation to INT8 |
+| **Datapath** | INT8 × INT8 → INT32 MAC, TFLite-faithful **Q31 requantize** (per-channel `M`/shift for Conv, per-tensor for FC), fused ReLU, saturation to INT8. Saturation limits are exercised and proven by `ai_sat_test` (2 × 1000 conv words bit-exact at the 0x7F / 0x80 rails) |
 | **Main FSM** | `IDLE → LOAD → CONV → WRITE_CONV → LOAD_FC → FC → ARGMAX → DONE` |
 | **Interrupt** | `irq_o` raised level-high on `STATUS.DONE`, deasserted by `CTRL.CLEAR_DONE` |
 
@@ -699,8 +748,8 @@ The custom AI Accelerator implements Google's **TensorFlow Lite Micro Speech "Ti
 |---|---|---|
 | Input | `49 × 40 × 1` INT8 (1960 B) | Pre-processed mel-frontend features (≈ 1 s @ 16 kHz) |
 | Conv2D | `10 × 8 × 1 × 8` (kernel), stride `2`, **SAME** pad (top 4, left 3) | → `25 × 20 × 8` |
-| Bias + ReLU + `>>> 11` + sat | INT8 | Per-channel quantization in Python; single-shift in RTL |
-| Fully Connected | `4000 → 4` + bias + `>>> 11` + sat | INT8 logits |
+| Bias + Q31 requantize + ReLU + sat | INT8 | Per-channel `M_q31`/shift, identical to the TFLite interpreter (verified 0 LSB over 1000 inputs) |
+| Fully Connected | `4000 → 4` + bias + per-tensor Q31 requantize + sat | INT8 logits |
 | Argmax | t class | `0 = silence`, `1 = unknown`, `2 = yes`, `3 = no` |
 
 ### 11.3 AI SRAM Layout (`AI_SRAM_BASE = 0x0003_0000`, 30 KB)
@@ -724,11 +773,16 @@ The custom AI Accelerator implements Google's **TensorFlow Lite Micro Speech "Ti
 
 | Flow | Command | Verdict |
 |---|---|---|
-| Standalone TB (6 scenarios: 2 real + 4 synthetic) | `make ai` | `[ADIM E] PASS — 6/6 senaryo` |
+| Standalone TB (6 scenarios: 2 real + 4 synthetic) | `make ai` | `[ADIM E] PASS — 6/6 senaryo` (tool output: "step E — 6/6 scenarios pass") |
 | SoC polling flow | `make soc-ai` | `[SOC-AI] PASS` (argmax = 2 → `yes`) |
 | SoC interrupt / ISR | `make soc-ai-irq` | `[SOC-AI-IRQ] PASS` (ISR fires exactly once, argmax 2, DONE cleared) |
 | HW vs SW speedup | `make soc-perf` | `[SOC-PERF] PASS` — **21.0 ×** (459,016 vs 9,684,726 cycles, xPack GCC 13.2.0 `-O2`) |
 | EK-1 accuracy window | `make ai-batch1000` | **1000 / 1000 sample match**, `|acc_SW − acc_RTL| = 0` (full 10-point window) |
+| Requantize saturation rails | `make sim FW_SRC=sw/tests/ai_sat_test.c` | **PASS** — ±2³⁰ bias forces every conv output to the 0x7F / 0x80 rails, 2 × 1000 words verified word-by-word |
+| Live board sweep | `sw/ai_model/kart_sweep.py` (COM port) | **60 / 60 diversified UART vectors** match the SW argmax on Genesys 2 |
+
+<!-- IMAGE PLACEHOLDER: photo of the live on-board AI demo (Genesys 2 + host terminal during the 60-vector sweep) -->
+> 🖼️ **[image placeholder — on-board AI demo photo / sweep terminal capture]**
 
 ### 11.5 Performance — Hardware vs Software
 
@@ -743,7 +797,7 @@ the SoC, so both numbers come from the same clock and the same memory system.
 | Measurement | Value |
 |---|---|
 | Hardware (AI accelerator) | **459,016 cycles** |
-| Software (CV32E40P) | **9,684,726 cycles** (`-O2`, `.text` = 3,052 B) |
+| Software (CV32E40P) | **9,684,726 cycles** (`-O2`, `.text` = 3,058 B — re-measured 2026-09-01, identical cycle counts) |
 | **Speed-up** | **21.0 ×** |
 | Numerical agreement | `conv_out` **1000 / 1000 words bit-exact** |
 | Classification | both `argmax = 2` (*yes*) |
@@ -761,7 +815,8 @@ not a synthetic pattern. Source: `sw/tests/ai_sw_reference.c`.
 **Why this number differs from the DTR (22.1 ×).** A single hardware change explains
 the entire gap: the `tflite_requant` pipeline cut plus the `data_sram` output register
 (timing closure) cost +5.2 % cycles (436,344 → **459,016**) and bought the ASIC frequency
-ceiling (38.2 → 45.0 MHz, pending re-confirmation under LibreLane 3.0.6) without changing
+ceiling (38.2 → 45.0 MHz at the time of the change; the final LibreLane 3.0.6 signoff
+closes **50 MHz with +2.210 ns of TT slack** — see §13.7) without changing
 any result — `conv_out` remains 1000 / 1000 words bit-exact. The software baseline is
 essentially unchanged (9,683,882 → 9,684,726, +0.009 %): 22.1 × (436,344 ÷) → 21.0 ×
 (459,016 ÷), same truncating arithmetic as the on-chip report (`(sw × 10) / hw`,
@@ -793,7 +848,7 @@ and the EK-1 criterion (> 1.0 ×) is met by every cell.
 # 1. Extract weights and quantization params from the TFLite model
 python3 sw/ai_model/extract_weights.py
 
-# 2. Generate per-css golden vectors (input / conv_out / output)
+# 2. Generate per-class golden vectors (input / conv_out / output)
 python3 sw/ai_model/generate_golden.py
 
 # 3. Fetch real WAV-derived features for yes / no (EK-3)
@@ -812,7 +867,7 @@ make ai-acc
 
 ### 12.1 Target Platform
 
-**Digilent Genesys 2** — Xilinx Kintex-7 `XC7K325T-2FFG900C-2` speedrade.
+**Digilent Genesys 2** — Xilinx Kintex-7 `XC7K325T-2FFG900C`, speed grade -2.
 
 ![Genesys 2 Board](images/genesys2_board.jpg)
 
@@ -835,7 +890,7 @@ make ai-acc
    cpu_resetn (R19)  ─AND─►  2-FF sync release  ─►  soc_top.rst_ni
 ```
 
-The SoC stays in reset until both the user reset button is released **and** the MMCM has repo `LOCKED`, eliminating metastability on bring-up.
+The SoC stays in reset until both the user reset button is released **and** the MMCM has reported `LOCKED`, eliminating metastability on bring-up.
 
 ### 12.3 Pin Plan (extract — full file: `rtl/fpga/genesys2.xdc`)
 
@@ -994,7 +1049,7 @@ reproducible from a clean clone; no step depends on a commercial EDA licence.
 
 | Path | Purpose |
 |---|---|
-| `asic/filelist.f` | synthesis file list (kanonik: config.yaml'dan uretilir; SVA/TB excluded, top = `asic_top`) |
+| `asic/filelist.f` | synthesis file list (canonical source is `config.yaml`; regenerated from it and cross-checked on every `make asic_run`; SVA/TB excluded, top = `asic_top`) |
 | `asic/config.yaml` | LibreLane Classic master configuration (floorplan, PDN, obstructions, STA corners) |
 | `asic/Makefile` | `make pdk` / `make asic_run` / `make asic_verify` — DDK §8 automation |
 | `asic/README.md` | DDK §9.1–9.13 master delivery document (run tag, results, known issues) |
@@ -1072,6 +1127,40 @@ cd asic && make asic_run     # LibreLane Classic; fills reports/ + results/ (asi
 `make asic-elab` fails if `$display` / `$readmemh` residue reaches the synthesis view,
 and reports any latch it finds — both are regression gates, not one-off checks.
 
+### 13.7 Final Signoff Results — `RUN_teslim_2026-08-14`
+
+Every number below comes from a **single LibreLane run on a clean clone**
+(GCP VM, 8 vCPU / 60 GB RAM, 3 h 28 min: `make pdk` + `make asic_run`), with
+reports delivered unmodified under `asic/reports/` and outputs under
+`asic/results/`. The authoritative document is `asic/README.md` §9.1–9.13.
+
+| Item | Result |
+|---|---|
+| Die / core area | **4180 × 4490 µm = 18.77 mm²** / 17.74 mm² (`FP_SIZING: absolute`) |
+| Utilization | 49.87 % total (std-cell 12.33 %) |
+| Standard cells | 296,010 instances (2.59 M total incl. fill + tap) |
+| SRAM macros | **27** (26 × `sky130_sram_2kbyte_1rw1r_32x512_8` + 1 × `32x256`), hand-placed 4 × 7 grid |
+| Routing | 6.14 m wire, 746,392 vias, **routing DRC = 0** |
+| **Setup (tt_025C_1v80)** | **+2.210 ns @ 50 MHz — target met** (fmax ≈ 56.2 MHz) |
+| Setup (ff_n40C_1v95) | +4.375 ns (met) |
+| Setup (ss_100C_1v60) | −9.083 ns → **~34.4 MHz closes** at the SS corner (worst path is a pure std-cell CPU path; declared openly, see `asic/README.md` §9.9) |
+| Hold | TT 48 / FF 112 violations, 111 of them SRAM-macro data inputs under a deliberately pessimistic derate — root-caused in §9.9 |
+| **KLayout DRC** | **0** (257 rules) |
+| **LVS (Netgen, GDS extraction)** | **"Circuits match uniquely"** — 0 errors, 1.79 M elements |
+| XOR (Magic vs KLayout GDS) | **0** |
+| Antenna | **0** nets / 0 pins (114 diodes inserted) |
+| PDN | 0 grid errors; IR-drop **0.09 %** (1.54 mV VPWR / 1.57 mV VGND) |
+| Magic DRC | 9,201 markers, **all one rule (`nwell.4`)** — measured root-cause analysis (every marker ≤ 6.13 µm from a tap, 0 markers inside SRAM footprints) documents it as a Magic connectivity-resolution artefact; KLayout/LVS/XOR are clean on the same GDS (`asic/README.md` §9.9/4) |
+| Power (estimated, no VCD) | TT **112.1 mW** (SRAM 66 %, clock 17 %, seq. 16 %) |
+| Lint | Verilator **0 errors** / 932 warnings, no waivers |
+
+<p align="center">
+  <img src="asic/results/images/asic_top.png" alt="asic_top final layout" width="480">
+</p>
+
+<!-- IMAGE PLACEHOLDER: zoomed layout crops (SRAM macro grid / logic corridor) if desired -->
+> 🖼️ **[image placeholder — optional zoomed die-layout crops for the presentation]**
+
 ---
 
 ## 14. Software Test Suite
@@ -1084,17 +1173,29 @@ All firmware tests live in `sw/tests/` and link against `sw/drivers/blogic_mcu.h
 | `uart_loopback.c` | UART RX → TX echo |
 | `uart_baud_sweep.c` | EK-2 multi-baud sweep (115200 / 1 Mbps / 9600) |
 | `uart_add_test.c` | UART RX-driven integer adder (FPGA calculator demo) |
-| `gpio_led_test.c` | Walking-1 over `ODR[31:0]` + `IDR` readback |
+| `uart_stp_reg_test.c` | Stop-bit register semantics (+1 / +0.5 extension, read-back) |
+| `uart1_strm_test.c` | UART_1 stream DMA → AI SRAM + irq18 pulse |
+| `gpio_led_test.c` | Walking-1 over `ODR` + `IDR` readback |
 | `hello_blink.c` / `led_only.c` | Minimal GPIO toggles |
-| `minimal_test.c` | Smallest non-trivial firmware, useby Spike lockstep |
+| `timer_irq_test.c` | Counting / auto-reload / prescaler / up-down / irq16 |
+| `minimal_test.c` | Smallest non-trivial firmware, used by Spike lockstep |
+| `lockstep_deep.c` | ~3 k-instruction RV32IM program for the deep Spike trace compare |
 | `isa_compliance_test.c` | 31 directed RV32IMC instruction checks |
-| `qspi_test.c` | Basic QSPI read |
+| `boot_flash_hello.c` | M3 flash-boot proof (R/A handshake over UART) |
+| `qspi_test.c` | Basic QSPI read (first byte 0xAA check) |
 | `qspi_modes_test.c` | x1 / x2 / x4 + 3B / 4B addressing |
+| `qspi_fifo_err_test.c` | FIFO overflow / flush / status-clear error paths (25 checks) |
+| `qspi_rdpath_test.c` | Read-direction coverage: multi-byte packing, dummy cycles, address-less commands (RDSR/RES), 4-byte address, x2/x4 reads, SE |
 | `qspi_debug.c` / `qspi_hw_debug.c` | QSPI bring-up debug aids |
-| `i2c_system_test.c` | I²C master against echo slave |
+| `i2c_system_test.c` | I²C master against echo slave (block TB) |
+| `i2c_soc_test.c` | I²C engine driven through the full SoC path (register semantics, 4-byte TX/RX, negative accesses) |
+| `csr_negatif_test.c` | Unmapped / read-only offset accesses across all peripherals (decode-default coverage) |
 | `ai_micro_speech_test.c` | SoC-level polling AI inference |
 | `ai_irq_test.c` | SoC-level **interrupt-driven** AI inference with ISR |
-| `ai_sw_reference.c` | Pure-software TFLite-equivalent reference fr speedup measurement |
+| `ai_multi_class_test.c` | All four classes in a single firmware |
+| `ai_uart_load_test.c` | BLG1-framed feature-vector load over UART_0 (jury input path) |
+| `ai_sat_test.c` | Requantize saturation rails (±2³⁰ bias → all conv outputs at 0x7F / 0x80) |
+| `ai_sw_reference.c` | Pure-software TFLite-equivalent reference for speedup measurement |
 
 Switch firmware on any target with `FW_SRC=`, e.g.:
 
@@ -1119,7 +1220,7 @@ make sim FW_SRC=sw/tests/ai_irq_test.c TRACE=1
 | **Python** | 3.10 / 3.11 / 3.12 | Golden vectors, accuracy harness, ELF→hex |
 | **TensorFlow / tflite-runtime** | 2.15+ | Reference inference for AI golden vectors |
 | **NumPy** | 1.26+ | Array math in AI scripts |
-| **GWave** | 3.3+ | Waveform inspection (`TRACE=1` VCDs) |
+| **GTKWave** | 3.3+ | Waveform inspection (`TRACE=1` VCDs) |
 | **GitHub** | — | Version control |
 
 ---
@@ -1153,7 +1254,7 @@ This project was developed by **BLogic Mikroelektronik** for the **TEKNOFEST 202
 | Component | Author | License | Path |
 |---|---|---|---|
 | CV32E40P core | OpenHW Group | Solderpad Hardware Licence v2.1 | `rtl/core/cv32e40p/` |
-| PULP `axi` library | PULP Ptform | Solderpad Hardware Licence v0.51 | `rtl/bus/axi/` |
+| PULP `axi` library | PULP Platform | Solderpad Hardware Licence v0.51 | `rtl/bus/axi/` |
 | PULP `common_cells` | PULP Platform | Solderpad Hardware Licence v0.51 | `rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/` |
 | `verilog-uart` | Alex Forencich | MIT | `rtl/peripherals/verilog-uart/` |
 | Accellera UVM | Accellera | Apache 2.0 | `verif/uvm-lib/` |
