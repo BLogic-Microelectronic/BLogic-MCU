@@ -638,6 +638,7 @@ Corner set: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 | IR-drop (tt) | 0.09% (worst 1.57 mV) |
 | Die area | 18.77 mm2 (4180 x 4490 um) |
 | Instance count / std cells | 2,588,379 / 296,010 |
+| Transistor count (MOS gates, measured on the delivered GDS) | **12,683,650** (`scripts/count_transistors.py`: flat poly-over-diffusion count, SRAM bitcells and decap/fill devices included) |
 | Utilization | 49.87% |
 
 <p align="center"><img src="results/images/setup_slack_histogram.png" width="860" alt="setup slack histograms per corner"></p>
