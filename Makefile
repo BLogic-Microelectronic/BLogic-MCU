@@ -379,7 +379,7 @@ test-all:
 	echo "  soc-timer  (Timer cevre birimi)   : $$st"; \
 	echo "  soc-strm   (UART_1 stream SoC yolu): $$ss"; \
 	echo "  arch-test  (riscv-arch-test $(ARCH_EXT))   : $$c"; \
-	echo "  uvm        (GPIO directed+random)  : $$u"; \
+	echo "  uvm        (4 blok, 8 test: GPIO+Timer+UART_0+I2C): $$u"; \
 	echo "====================================================="; \
 	exit $$overall
 
@@ -416,7 +416,7 @@ help:
 	@echo "  make soc-perf    - HW vs SW hizlanma olcumu (verif/perf_summary.txt)"
 	@echo "  make soc-ai-irq  - AI kesme (ISR) akisi testi"
 	@echo "  make arch-test   - riscv-arch-test (varsayilan ARCH_EXT=\"I M\", spike imzasi)"
-	@echo "  make uvm         - UVM GPIO testleri (directed + random)"
+	@echo "  make uvm         - UVM testleri: GPIO+Timer+UART_0+I2C (directed + random, 8 test)"
 	@echo "  make spike       - etkilesimli spike; HTIF yok -> KENDI KENDINE CIKMAZ (Ctrl+C)"
 	@echo "  make coverage    - line coverage raporu (logs/coverage/)"
 	@echo "  make coverage-tb - modul kapsama kosusu (satir/dal)"

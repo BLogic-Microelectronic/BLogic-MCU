@@ -1,6 +1,11 @@
 # ============================================
 # Ostim BLogic Mikroelektronik
 # Makefile.uvm  -  UVM testbench derleme akisi
+#
+# 4 blok: GPIO + Timer + UART_0 + I2C
+# Her blok kendi tb ust modulu ve obj dizini ile derlenir;
+# agent/monitor/driver ortak (axi_lite_uvm_pkg),
+# blok-ozel scoreboard/test'ler periph_uvm_pkg'de.
 # ============================================
 
 VERILATOR  = verilator
@@ -11,27 +16,75 @@ TOP_MODULE = uvm_pkg
 UVM_HOME   = verif/uvm-lib/src
 UVM_PKG    = $(UVM_HOME)/uvm_pkg.sv
 
-# Kaynak dosyalar
-SV_SOURCES = verif/uvm/axi_lite_if.sv \
+# Ortak dogrulama kaynaklari
+COMMON_SV  = verif/uvm/axi_lite_if.sv \
              verif/uvm/axi_lite_uvm_pkg.sv \
+             verif/uvm/periph_uvm_pkg.sv
+
+# Blok kaynak listeleri (RTL + tb)
+GPIO_SRCS  = $(COMMON_SV) \
              rtl/peripherals/gpio_axil.sv \
              verif/uvm/tb_top.sv
 
+TIMER_SRCS = $(COMMON_SV) \
+             rtl/peripherals/timer_axil.sv \
+             verif/uvm/tb_timer_top.sv
+
+UART_SRCS  = $(COMMON_SV) \
+             rtl/peripherals/uart_axil.sv \
+             rtl/peripherals/verilog-uart/rtl/uart_tx.v \
+             rtl/peripherals/verilog-uart/rtl/uart_rx.v \
+             verif/uvm/tb_uart_top.sv
+
+I2C_SRCS   = $(COMMON_SV) \
+             rtl/peripherals/i2c_master_axil.sv \
+             verif/uvm/tb_i2c_top.sv
+
+# Eski degisken adi (geri uyumluluk)
+SV_SOURCES = $(GPIO_SRCS)
+
 # Dizinler
-OBJ_DIR    = obj_dir_uvm
-LOG_DIR    = build/uvm_logs
-COV_DIR    = $(LOG_DIR)/coverage
+OBJ_DIR       = obj_dir_uvm
+OBJ_DIR_TIMER = obj_dir_uvm_timer
+OBJ_DIR_UART  = obj_dir_uvm_uart
+OBJ_DIR_I2C   = obj_dir_uvm_i2c
+LOG_DIR       = build/uvm_logs
+COV_DIR       = $(LOG_DIR)/coverage
+
+# Blok binari yollari
+GPIO_BIN   = $(OBJ_DIR)/V$(TOP_MODULE)
+TIMER_BIN  = $(OBJ_DIR_TIMER)/V$(TOP_MODULE)
+UART_BIN   = $(OBJ_DIR_UART)/V$(TOP_MODULE)
+I2C_BIN    = $(OBJ_DIR_I2C)/V$(TOP_MODULE)
 
 # Test isimleri
 UVM_TESTNAME  ?= gpio_directed_test
-ALL_TESTS     = gpio_directed_test gpio_random_test
+UVM_BIN       ?= $(GPIO_BIN)
+ALL_TESTS      = gpio_directed_test gpio_random_test
+
+# run_all icin (binari:test) ciftleri — 4 blok x (directed+random)
+RUN_PAIRS = \
+    $(GPIO_BIN):gpio_directed_test \
+    $(GPIO_BIN):gpio_random_test \
+    $(TIMER_BIN):timer_directed_test \
+    $(TIMER_BIN):timer_random_test \
+    $(UART_BIN):uart_directed_test \
+    $(UART_BIN):uart_random_test \
+    $(I2C_BIN):i2c_directed_test \
+    $(I2C_BIN):i2c_random_test
 
 # Verilator flags
+# COV_FLAG: varsayilan tam kapsam (line+toggle). I2C derlemesinde
+# Verilator 5.049-devel'in toggle-coverage enstrumantasyonu
+# i2c_master_axil.sv:191'deki ifadede Internal Error uretiyor
+# (arac hatasi, RTL hatasi degil) -> I2C icin yalniz line coverage.
+COV_FLAG = --coverage
+$(I2C_BIN): COV_FLAG = --coverage-line
+
 VERILATOR_FLAGS = \
     --main --binary --build --cc \
     --timing \
-    --Mdir $(OBJ_DIR) \
-    --coverage \
+    $(COV_FLAG) \
     -j $(UVM_JOBS) \
     --timescale 1ns/1ns
 
@@ -53,38 +106,84 @@ DEFINES = +define+UVM_NO_DPI \
           +define+UVM_REPORT_DISABLE_FILE_LINE
 
 # Hedefler
-.PHONY: all directed random compile run_one run_all clean help
+.PHONY: all directed random run_one run_all clean help \
+        compile compile_timer compile_uart compile_i2c compile_all \
+        timer_directed timer_random uart_directed uart_random \
+        i2c_directed i2c_random
 
 help:
 	@echo "============================================="
 	@echo " BLogic MCU — UVM Testbench (Verilator)"
+	@echo " 4 blok: GPIO + Timer + UART_0 + I2C"
 	@echo "============================================="
-	@echo "  make -f Makefile.uvm compile    Derle"
-	@echo "  make -f Makefile.uvm directed   Directed test"
-	@echo "  make -f Makefile.uvm random     Random test"
-	@echo "  make -f Makefile.uvm all        Tum testler"
-	@echo "  make -f Makefile.uvm clean      Temizle"
+	@echo "  make -f Makefile.uvm compile_all     Tum bloklari derle"
+	@echo "  make -f Makefile.uvm directed        GPIO directed"
+	@echo "  make -f Makefile.uvm random          GPIO random"
+	@echo "  make -f Makefile.uvm timer_directed  Timer directed"
+	@echo "  make -f Makefile.uvm timer_random    Timer random"
+	@echo "  make -f Makefile.uvm uart_directed   UART_0 directed"
+	@echo "  make -f Makefile.uvm uart_random     UART_0 random"
+	@echo "  make -f Makefile.uvm i2c_directed    I2C directed"
+	@echo "  make -f Makefile.uvm i2c_random      I2C random"
+	@echo "  make -f Makefile.uvm all             Temiz derle + 8 test"
+	@echo "  make -f Makefile.uvm clean           Temizle"
 	@echo "============================================="
 
-# Derleme
-compile: $(OBJ_DIR)/V$(TOP_MODULE)
+# Derleme (blok basina ayri obj dizini)
+compile: $(GPIO_BIN)
+compile_timer: $(TIMER_BIN)
+compile_uart: $(UART_BIN)
+compile_i2c: $(I2C_BIN)
+compile_all: compile compile_timer compile_uart compile_i2c
 
-$(OBJ_DIR)/V$(TOP_MODULE): $(SV_SOURCES)
+$(GPIO_BIN): $(GPIO_SRCS)
 	@echo ""
-	@echo ">>> UVM Verilator derleme..."
+	@echo ">>> UVM Verilator derleme (GPIO)..."
 	@mkdir -p $(LOG_DIR)
-	$(VERILATOR) $(VERILATOR_FLAGS) $(DISABLED_WARNINGS) \
+	$(VERILATOR) $(VERILATOR_FLAGS) --Mdir $(OBJ_DIR) $(DISABLED_WARNINGS) \
 		$(DEFINES) $(INCDIRS) \
-		$(UVM_PKG) $(SV_SOURCES) \
+		$(UVM_PKG) $(GPIO_SRCS) \
 		2>&1 | tee $(LOG_DIR)/compile.log
-	@echo ">>> Derleme tamam: $(OBJ_DIR)/V$(TOP_MODULE)"
+	@echo ">>> Derleme tamam: $(GPIO_BIN)"
 
-# Tek test kos
-run_one: $(OBJ_DIR)/V$(TOP_MODULE)
+$(TIMER_BIN): $(TIMER_SRCS)
+	@echo ""
+	@echo ">>> UVM Verilator derleme (Timer)..."
+	@mkdir -p $(LOG_DIR)
+	$(VERILATOR) $(VERILATOR_FLAGS) --Mdir $(OBJ_DIR_TIMER) $(DISABLED_WARNINGS) \
+		$(DEFINES) $(INCDIRS) \
+		$(UVM_PKG) $(TIMER_SRCS) \
+		2>&1 | tee $(LOG_DIR)/compile_timer.log
+	@echo ">>> Derleme tamam: $(TIMER_BIN)"
+
+$(UART_BIN): $(UART_SRCS)
+	@echo ""
+	@echo ">>> UVM Verilator derleme (UART_0)..."
+	@mkdir -p $(LOG_DIR)
+	$(VERILATOR) $(VERILATOR_FLAGS) --Mdir $(OBJ_DIR_UART) $(DISABLED_WARNINGS) \
+		$(DEFINES) $(INCDIRS) \
+		$(UVM_PKG) $(UART_SRCS) \
+		2>&1 | tee $(LOG_DIR)/compile_uart.log
+	@echo ">>> Derleme tamam: $(UART_BIN)"
+
+$(I2C_BIN): $(I2C_SRCS)
+	@echo ""
+	@echo ">>> UVM Verilator derleme (I2C)..."
+	@mkdir -p $(LOG_DIR)
+	$(VERILATOR) $(VERILATOR_FLAGS) --Mdir $(OBJ_DIR_I2C) $(DISABLED_WARNINGS) \
+		$(DEFINES) $(INCDIRS) \
+		$(UVM_PKG) $(I2C_SRCS) \
+		2>&1 | tee $(LOG_DIR)/compile_i2c.log
+	@echo ">>> Derleme tamam: $(I2C_BIN)"
+
+# Tek test kos (UVM_BIN + UVM_TESTNAME ile parametrik)
+# Not: binari onkosulu kisayol hedeflerinde — hedefe-ozel degiskenler
+# onkosul listesinde genislemez (GNU make), recipe'de genisler.
+run_one:
 	@echo ""
 	@echo ">>> UVM Test: $(UVM_TESTNAME)"
 	@mkdir -p $(COV_DIR)
-	./$(OBJ_DIR)/V$(TOP_MODULE) \
+	./$(UVM_BIN) \
 		+UVM_TESTNAME="$(UVM_TESTNAME)" \
 		+UVM_VERBOSITY=UVM_MEDIUM \
 		+verilator+coverage+file+$(COV_DIR)/$(UVM_TESTNAME).cov \
@@ -95,16 +194,17 @@ run_one: $(OBJ_DIR)/V$(TOP_MODULE)
 		$(LOG_DIR)/$(UVM_TESTNAME).log || true
 	@echo ""
 
-# Tum testleri kos
-run_all: $(OBJ_DIR)/V$(TOP_MODULE)
+# Tum testleri kos (8 test, 4 binari)
+run_all: compile_all
 	@echo ""
-	@echo ">>> Tum UVM testleri kosuluyor..."
+	@echo ">>> Tum UVM testleri kosuluyor (4 blok, 8 test)..."
 	@mkdir -p $(COV_DIR)
 	@pass=0; fail=0; \
-	for testname in $(ALL_TESTS); do \
+	for pair in $(RUN_PAIRS); do \
+		bin=$${pair%%:*}; testname=$${pair##*:}; \
 		echo ""; \
-		echo "=== UVM Test: $$testname ==="; \
-		./$(OBJ_DIR)/V$(TOP_MODULE) \
+		echo "=== UVM Test: $$testname ($$bin) ==="; \
+		./$$bin \
 			+UVM_TESTNAME="$$testname" \
 			+UVM_VERBOSITY=UVM_MEDIUM \
 			+verilator+coverage+file+$(COV_DIR)/$$testname.cov \
@@ -121,18 +221,48 @@ run_all: $(OBJ_DIR)/V$(TOP_MODULE)
 	echo ""; \
 	echo "============================================"; \
 	echo " UVM Regression: $$pass PASS, $$fail FAIL"; \
-	echo "============================================"
+	echo "============================================"; \
+	exit $$fail
 
-# Kisa yollar
+# Kisa yollar — GPIO (geri uyumlu)
 directed: UVM_TESTNAME=gpio_directed_test
-directed: run_one
+directed: UVM_BIN=$(GPIO_BIN)
+directed: $(GPIO_BIN) run_one
 
 random: UVM_TESTNAME=gpio_random_test
-random: run_one
+random: UVM_BIN=$(GPIO_BIN)
+random: $(GPIO_BIN) run_one
 
-all: clean compile run_all
+# Kisa yollar — Timer
+timer_directed: UVM_TESTNAME=timer_directed_test
+timer_directed: UVM_BIN=$(TIMER_BIN)
+timer_directed: $(TIMER_BIN) run_one
+
+timer_random: UVM_TESTNAME=timer_random_test
+timer_random: UVM_BIN=$(TIMER_BIN)
+timer_random: $(TIMER_BIN) run_one
+
+# Kisa yollar — UART_0
+uart_directed: UVM_TESTNAME=uart_directed_test
+uart_directed: UVM_BIN=$(UART_BIN)
+uart_directed: $(UART_BIN) run_one
+
+uart_random: UVM_TESTNAME=uart_random_test
+uart_random: UVM_BIN=$(UART_BIN)
+uart_random: $(UART_BIN) run_one
+
+# Kisa yollar — I2C
+i2c_directed: UVM_TESTNAME=i2c_directed_test
+i2c_directed: UVM_BIN=$(I2C_BIN)
+i2c_directed: $(I2C_BIN) run_one
+
+i2c_random: UVM_TESTNAME=i2c_random_test
+i2c_random: UVM_BIN=$(I2C_BIN)
+i2c_random: $(I2C_BIN) run_one
+
+all: clean compile_all run_all
 
 # Temizlik
 clean:
-	rm -rf $(OBJ_DIR) $(LOG_DIR)
+	rm -rf $(OBJ_DIR) $(OBJ_DIR_TIMER) $(OBJ_DIR_UART) $(OBJ_DIR_I2C) $(LOG_DIR)
 	@echo ">>> UVM temizlendi"
