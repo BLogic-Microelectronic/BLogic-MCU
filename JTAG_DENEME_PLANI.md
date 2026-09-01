@@ -36,6 +36,55 @@ Teslim edilen cipte JTAG YOKTUR ve bu dal o beyani DEGISTIRMEZ.
 - SS kosesi icin yeniden zamanlama (kose fizigi, RTL yamasi degil)
 - io_oe yazmaclama (olcumle reddedilmis bilincli karar, 9.9/7)
 
+## Durum gunlugu
+
+### Gun 1 (2 Eylul 2026) - GO/NO-GO KAPISI ERKEN GECILDI
+- riscv-dbg @ 21a5fbe + common_cells v1.38.0 (4 cdc dosyasi + basliklar) +
+  tech_cells_generic v0.2.3 (tc_clk) vendor edildi: `rtl/debug/vendor/`,
+  kaynak/pin/lisans kaydi `rtl/debug/VENDOR.md`, dosya listesi
+  `rtl/debug/jtag_files.f` (soc_files.f DEGISMEDI).
+- Entegrasyon tamamen `ifdef JTAG_DEBUG` altinda; define'siz `make sim`
+  (uart_hello PASS) ve `make lint` (temiz) ile mevcut davranis dogrulandi.
+  - `rtl/bus/soc_axi_interconnect.sv`: DM bolgesi 0x0004_0000 icin buyruk
+    (3. AR bacagi + 3-yollu R mux) ve veri (AW/W/AR bacaklari, wr/rd_to_dm
+    kayitli bayraklari) yollari; define yokken bayraklar sabit 0.
+  - `rtl/debug/axi_dm_slave.sv` (yeni): iki AXI portunu dm_top'un tek bellek
+    portuna tahkim eder (veri yazma > veri okuma > buyruk okuma), adresi
+    son istekte tutar (dm_mem secicileri addr'i her cevrim ornekler).
+  - `rtl/soc_top.sv`: jtag_tck/tms/tdi/trst_n/tdo portlari, dmi_jtag + dm_top,
+    debug_req_i / dm_halt_addr (0x40800) / dm_exception_addr (0x40810),
+    SBA hata ile tamamlanan tie-off (progbuf-only), IDCODE 0x0B1061C1.
+- `make jtag-sim` (verif/tb/jtag_smoke_tb.sv, saf-SV bit-bang): ilk surum
+  **5/5 PASS** (UART, IDCODE, DTMCS v1/abits 7, DMI->DM dmstatus v2,
+  haltreq -> allhalted (1 poll) -> resumereq -> allresumeack+allrunning);
+  10 protokol denetcisi 0 ihlal. Gun-2 go/no-go kriteri (halt/resume)
+  boylece Gun 1'de saglandi.
+- Dusman gozlu RTL incelemesi (3 mercek, 0 blocker): crossbar define'siz
+  bit-aynilik `verilator -E` diff'iyle ISPATLANDI (12 satir fark, hepsi
+  sabit-0 katlanir). Uyarilar uygulandi: axi_dm_slave yazmalari da
+  rd_pending ile kapilar, AW/W kabulu atomik (ready kardes valid'e bagli),
+  2 SVA sozlesme denetimi; crossbar DM penceresi yorumu 64 KB/16x alias
+  olarak duzeltildi; dosya modu (755) geri alindi.
+- TB **7 asamaya** cikarildi (incelemenin "ROM-disi DM yolu hic egzersiz
+  edilmemis" uyarisi): halt'tayken abstract command ile x10 yaz/oku
+  round-trip, progbuf ile DSRAM 0x2_1000'e `sw` + `lw` (x12 == yazilan),
+  dpc firmware bolgesinde, cmderr==0; cekirdek tarafi `debug_halted_o` /
+  `debug_running_o` / `pc_id` gozlemi. -> WhereTo/abstract_cmd/progbuf/data0
+  sozcukleri buyruk+veri portlarindan gecer, DM<->DSRAM erisimleri araya girer.
+- Ayni dalda, ayri commit'ler (scripts/commit_jtag_gun1.sh): FC-1 duzeltmesi
+  (`make asic-top-sim` argmax kontrolu ACIK, PASS) ve `i2c_sda_i` 2FF
+  senkronizatoru (`make i2c-sys` PASS + `i2c_soc_test` PASS; A/B farki yok).
+- DPI fizibilitesi DOGRULANDI: Verilator 5.049 `--binary --timing` ile
+  `import "DPI-C"` calisiyor (depo disi mini test, r=42). Tek kosul: Verilator
+  `.c` dosyalarini g++ ile derledigi icin isimler bozuluyor (undefined
+  reference) -> vendor `remote_bitbang.c` / `sim_jtag.c`, `extern "C"`
+  sarmalayan bir `.cpp` uzerinden derlenmeli.
+- Kalanlar (Gun 2-3): OpenOCD remote_bitbang DPI koprusu (SimJTAG +
+  `rtl/debug/openocd/blogic_sim.cfg` hazir; DPI smoke gecti),
+  abstract command ile GPR/bellek erisimi TB'de, ndmreset -> SoC reseti,
+  istege bagli FPGA (bitstream yalniz Berk'in izniyle). OpenOCD WSL'de kurulu
+  degil (`sudo apt install openocd`, 0.12 RISC-V destekli).
+
 ## Sunum cercevesi
 Ister matrisinde JTAG isareti degismez (yok / opsiyonel / beyanli).
 Basari halinde yalniz "Gelecek Calisma" slayti + soru-cevap karti:

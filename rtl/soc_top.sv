@@ -36,6 +36,16 @@ module soc_top #(
     output logic        i2c_scl_o,
     output logic        i2c_sda_oe_o,   // 1 = SDA'yı '0'a çek
     input  logic        i2c_sda_i
+`ifdef JTAG_DEBUG
+    ,
+    // JTAG TAP (riscv-dbg dmi_jtag) - YALNIZ JTAG_DEBUG derlemelerinde
+    // (deneme/jtag dali). Tanim yokken port listesi ve mantik birebir eskisi.
+    input  logic        jtag_tck_i,
+    input  logic        jtag_tms_i,
+    input  logic        jtag_tdi_i,
+    input  logic        jtag_trst_ni,
+    output logic        jtag_tdo_o
+`endif
 );
 
     // AXI bus arayuzleri (cpu_to_ai: crossbar->arbiter, ai_sram: arbiter->SRAM)
@@ -44,6 +54,30 @@ module soc_top #(
         .AXI_ID_WIDTH(4),    .AXI_USER_WIDTH(1)
     ) cpu_instr_bus(), cpu_data_bus(), boot_rom_bus(), instr_sram_bus(),
       data_sram_bus(), cpu_to_ai_sram_bus(), ai_sram_bus(), periph_bus();
+
+    // Debug Module baglantisi: JTAG_DEBUG yokken sabitler eski degerlerdir
+    // (debug_req=0, halt/exception adresi = ISRAM tabani) -> ayni mantik.
+    logic        dbg_req;
+    logic [31:0] dm_halt_addr, dm_exc_addr;
+`ifdef JTAG_DEBUG
+    // DM bolgesi 0x0004_0000 (crossbar: addr[31:28]==0 && addr[19:16]==4).
+    // riscv-dbg dm_pkg: HaltAddress = taban+0x800, ResumeAddress = +0x808,
+    // ExceptionAddress = +0x810 (Halt+16).
+    localparam logic [31:0] JTAG_DM_BASE = 32'h0004_0000;
+    localparam logic [31:0] JTAG_IDCODE  = 32'h0B10_61C1;   // LSB=1 (IEEE 1149.1)
+    AXI_BUS #(
+        .AXI_ADDR_WIDTH(32), .AXI_DATA_WIDTH(32),
+        .AXI_ID_WIDTH(4),    .AXI_USER_WIDTH(1)
+    ) dm_instr_bus(), dm_data_bus();
+    logic [0:0]  dm_debug_req;
+    assign dbg_req      = dm_debug_req[0];
+    assign dm_halt_addr = JTAG_DM_BASE + 32'h0000_0800;
+    assign dm_exc_addr  = JTAG_DM_BASE + 32'h0000_0810;
+`else
+    assign dbg_req      = 1'b0;
+    assign dm_halt_addr = 32'h0001_0000;
+    assign dm_exc_addr  = 32'h0001_0000;
+`endif
 
     // Islemci OBI sinyalleri
     logic        instr_req, instr_gnt, instr_rvalid;
@@ -70,8 +104,8 @@ module soc_top #(
         .clk_i(clk_i), .rst_ni(rst_ni),
         .pulp_clock_en_i(1'b1), .scan_cg_en_i(1'b0),
         .boot_addr_i(BOOT_ADDR), .mtvec_addr_i(32'h0001_0000),
-        .dm_halt_addr_i(32'h0001_0000), .hart_id_i(32'd0),
-        .dm_exception_addr_i(32'h0001_0000),
+        .dm_halt_addr_i(dm_halt_addr), .hart_id_i(32'd0),
+        .dm_exception_addr_i(dm_exc_addr),
         .instr_req_o(instr_req), .instr_gnt_i(instr_gnt),
         .instr_rvalid_i(instr_rvalid), .instr_addr_o(instr_addr),
         .instr_rdata_i(instr_rdata),
@@ -80,7 +114,7 @@ module soc_top #(
         .data_be_o(data_be), .data_addr_o(data_addr),
         .data_wdata_o(data_wdata), .data_rdata_i(data_rdata),
         .irq_i(irq_vector), .irq_ack_o(), .irq_id_o(),
-        .debug_req_i(1'b0), .fetch_enable_i(1'b1), .core_sleep_o()
+        .debug_req_i(dbg_req), .fetch_enable_i(1'b1), .core_sleep_o()
     );
 
     // OBI -> AXI kopruleri
@@ -109,7 +143,94 @@ module soc_top #(
         .boot_rom_mst(boot_rom_bus), .instr_sram_mst(instr_sram_bus),
         .data_sram_mst(data_sram_bus), .ai_sram_mst(cpu_to_ai_sram_bus),
         .periph_mst(periph_bus)
+`ifdef JTAG_DEBUG
+        , .dm_instr_mst(dm_instr_bus), .dm_data_mst(dm_data_bus)
+`endif
     );
+
+`ifdef JTAG_DEBUG
+    // ------------------------------------------------------------------
+    // JTAG debug: dmi_jtag (TAP + DTM + CDC) -> dm_top (DM) -> cekirdek
+    // Progbuf-only: System Bus Access master portu baglanmaz (gnt=0).
+    // OpenOCD tarafinda "riscv set_mem_access progbuf" kullanilir.
+    // ndmreset_o BU ASAMADA baglanmadi (halt/resume/bellek erisimi icin
+    // gerekmez; "reset halt" destegi 3. gun isi).
+    // ------------------------------------------------------------------
+    logic        dm_req, dm_we;
+    logic [31:0] dm_addr, dm_wdata, dm_rdata;
+    logic [ 3:0] dm_be;
+
+    axi_dm_slave #(.AXI_ID_WIDTH(4)) i_axi_dm_slave (
+        .clk_i(clk_i), .rst_ni(rst_ni),
+        .instr_slv(dm_instr_bus), .data_slv(dm_data_bus),
+        .dm_req_o(dm_req), .dm_we_o(dm_we), .dm_addr_o(dm_addr),
+        .dm_be_o(dm_be), .dm_wdata_o(dm_wdata), .dm_rdata_i(dm_rdata)
+    );
+
+    dm::dmi_req_t  dmi_req;
+    dm::dmi_resp_t dmi_resp;
+    logic          dmi_req_valid, dmi_req_ready, dmi_resp_valid, dmi_resp_ready;
+    logic          dmi_rst_n;
+    logic          dm_ndmreset, dm_active;
+
+    // SBA (System Bus Access) kullanilmiyor ama dm_sba her zaman derlenir ve
+    // sbcs "sbaccess32" ilan eder. gnt=0 ile baglansa OpenOCD'nin ilk SBA
+    // denemesinde FSM sonsuza dek "busy" kalirdi. Bunun yerine HATA ile
+    // tamamlayan tie-off: gnt=1, r_valid = req bir cevrim gec, r_err=1.
+    // OpenOCD cfg'de ayrica "riscv set_mem_access progbuf" kullanilir.
+    logic sba_req, sba_req_q;
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) sba_req_q <= 1'b0;
+        else         sba_req_q <= sba_req;
+    end
+
+    // Tek RV32 hart, bellek eslemeli data0/1 (dm_mem), 2 scratch
+    localparam dm::hartinfo_t DM_HARTINFO = '{
+        zero1:      '0,
+        nscratch:   2,
+        zero0:      '0,
+        dataaccess: 1'b1,
+        datasize:   dm::DataCount,
+        dataaddr:   dm::DataAddr
+    };
+
+    dm_top #(
+        .NrHarts(1), .BusWidth(32),
+        .DmBaseAddress(JTAG_DM_BASE), .SelectableHarts(1'b1)
+    ) i_dm_top (
+        .clk_i(clk_i), .rst_ni(rst_ni), .testmode_i(1'b0),
+        .next_dm_addr_i(32'd0),                 // zincirde baska DM yok
+        .ndmreset_o(dm_ndmreset),
+        .ndmreset_ack_i(dm_ndmreset),           // sistem reseti bagli degil: aninda ack
+        .dmactive_o(dm_active),
+        .debug_req_o(dm_debug_req), .unavailable_i(1'b0),
+        .hartinfo_i(DM_HARTINFO),
+        .slave_req_i(dm_req), .slave_we_i(dm_we), .slave_addr_i(dm_addr),
+        .slave_be_i(dm_be), .slave_wdata_i(dm_wdata), .slave_rdata_o(dm_rdata),
+        // SBA kullanilmiyor: her istek bir cevrim sonra HATA ile tamamlanir
+        .master_req_o(sba_req), .master_add_o(), .master_we_o(),
+        .master_wdata_o(), .master_be_o(),
+        .master_gnt_i(1'b1), .master_r_valid_i(sba_req_q),
+        .master_r_err_i(1'b1), .master_r_other_err_i(1'b0),
+        .master_r_rdata_i(32'd0),
+        .dmi_rst_ni(dmi_rst_n),
+        .dmi_req_valid_i(dmi_req_valid), .dmi_req_ready_o(dmi_req_ready),
+        .dmi_req_i(dmi_req),
+        .dmi_resp_valid_o(dmi_resp_valid), .dmi_resp_ready_i(dmi_resp_ready),
+        .dmi_resp_o(dmi_resp)
+    );
+
+    dmi_jtag #(.IdcodeValue(JTAG_IDCODE)) i_dmi_jtag (
+        .clk_i(clk_i), .rst_ni(rst_ni), .testmode_i(1'b0),
+        .dmi_rst_no(dmi_rst_n),
+        .dmi_req_o(dmi_req), .dmi_req_valid_o(dmi_req_valid),
+        .dmi_req_ready_i(dmi_req_ready),
+        .dmi_resp_i(dmi_resp), .dmi_resp_ready_o(dmi_resp_ready),
+        .dmi_resp_valid_i(dmi_resp_valid),
+        .tck_i(jtag_tck_i), .tms_i(jtag_tms_i), .trst_ni(jtag_trst_ni),
+        .td_i(jtag_tdi_i), .td_o(jtag_tdo_o), .tdo_oe_o()
+    );
+`endif
 
     // AXI4 -> AXI4-Lite koprusu
     logic [31:0] lite_awaddr,  lite_araddr,  lite_wdata,  lite_rdata;

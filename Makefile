@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-sim
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -250,6 +250,31 @@ asic-top-sim:
 	    && echo "[ASIC-TOP-SIM] PASS - asic_top + 27 makro: flash boot + YZ cikarimi bit-tam, argmax dahil (FC-1 duzeltmesi bu dalda)" \
 	    || { echo "[ASIC-TOP-SIM] FAIL"; exit 1; }
 
+# JTAG debug prototipi (deneme/jtag dali, JTAG_DENEME_PLANI.md):
+# soc_top +define+JTAG_DEBUG ile derlenir -> riscv-dbg TAP/DTM/DM + crossbar
+# DM bolgesi (0x0004_0000) + axi_dm_slave koprusu. rtl/debug/jtag_files.f
+# YALNIZ burada okunur; soc_files.f ve asic/ dokunulmaz, define'siz derlemeler
+# bit-aynidir. TB saf-SV bit-bang ile IDCODE/DTMCS/DMI/halt/resume kosar.
+JTAG_DIR = obj_dir_jtag
+jtag-sim:
+	rm -rf build
+	$(MAKE) -f Makefile.verilator sw FW_SRC=sw/tests/uart_hello.c
+	rm -rf $(JTAG_DIR)
+	verilator --binary $(TBCOV) +define+JTAG_DEBUG --timing --top-module jtag_smoke_tb \
+	    -Mdir $(JTAG_DIR) -o jtag_smoke_sim \
+	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
+	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
+	    -f rtl/debug/jtag_files.f -f soc_files.f rtl/debug/axi_dm_slave.sv \
+	    verif/tb/jtag_smoke_tb.sv
+	cp build/instr_mem.hex $(JTAG_DIR)/firmware.hex
+	cp build/data_mem.hex $(JTAG_DIR)/data_mem.hex
+	cp sw/bootloader/bootrom.hex $(JTAG_DIR)/
+	echo "00000000" > $(JTAG_DIR)/ai_sram_init.hex
+	cd $(JTAG_DIR) && ./jtag_smoke_sim 2>&1 | tee jtag_run.log
+	@grep -aq "TEST SUCCESS" $(JTAG_DIR)/jtag_run.log \
+	    && echo "[JTAG-SIM] PASS - TAP/DTMCS/DMI/halt/abstract-cmd/progbuf/resume riscv-dbg uzerinden (7/7)" \
+	    || { echo "[JTAG-SIM] FAIL"; exit 1; }
+
 # ASIC lint kapisi. DIKKAT: sim waiver seti KOPYALANMAZ.
 # -Wno-MODDUP ve -Wno-PINMISSING kasitli olarak YOK: modul duplikasyonunu ve
 # baglanmamis pinleri yakalamasi gereken tam da bu iki uyaridir.
@@ -478,6 +503,7 @@ help:
 	@echo "  make boot-real   - GERCEK C firmware ile flash boot (.rodata/.data DSRAM kaniti)"
 	@echo "  make asic-sram-sim - boot akisi TESLIM EDILEN SRAM makro Verilog modelleriyle (DDK 1.3 kaniti)"
 	@echo "  make asic-top-sim  - tam-yigin: asic_top (GDS ust modulu) + 27 makro, boot + conv katmani bit-tam"
+	@echo "  make jtag-sim      - (deneme/jtag) riscv-dbg JTAG: IDCODE/DTMCS/DMI/halt/resume smoke"
 	@echo "                     negatif kontrol: FLASH_DATA=/dev/null -> FAIL beklenir"
 	@echo "  make qspi-modes  - QSPI x1/x2/x4 veri fazi + 4-bayt adres testi"
 	@echo "  make qspi-err    - QSPI FIFO/flush/status hata yollari"
