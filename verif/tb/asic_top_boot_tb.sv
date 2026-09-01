@@ -7,9 +7,9 @@
 // ASIC_SRAM_MACRO + teslim edilen OpenRAM modelleri altinda kosturulur;
 // boylece asic_top port baglantilari da yurutulerek dogrulanmis olur
 // (LVS baglantiyi kanitlar ama davranisi kanitlamaz).
-// Firmware conv_out bolgesini altin vektorle sagtoplam-karsilastirir;
-// FC argmax'i makro modelin dout-X sozlesmesi geregi burada kontrol
-// EDILMEZ (FC erratasi: asic/README.md "Known issue").
+// Firmware conv_out bolgesini altin vektorle sagtoplam-karsilastirir
+// VE (deneme/jtag dalinda FC-1 duzeltmesi sayesinde) argmax==2'yi de
+// dogrular. main'deki errata kaydi: asic/README.md "Known issue FC-1".
 // Protokol ayni: 'R' -> 'A' -> tam 12 karakter ("Hello World!").
 `timescale 1ns / 1ps
 
@@ -81,7 +81,7 @@ module asic_top_boot_tb;
         join
 
         if (received == "Hello World!")
-            $display("[%0t] *** TEST SUCCESS *** asic_top + makro modeli: boot + conv katmani bit-tam ('%s')", $time, received);
+            $display("[%0t] *** TEST SUCCESS *** asic_top + makro modeli: boot + YZ cikarimi bit-tam, argmax dahil ('%s')", $time, received);
         else
             $error("FAIL: alinan='%s'", received);
         $finish;

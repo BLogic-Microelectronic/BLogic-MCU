@@ -805,6 +805,14 @@ module ai_accelerator #(
                     state        <= ST_FC_FETCH_W_WAIT;
                 end
                 ST_FC_FETCH_W_WAIT: begin
+                    // FC-1 duzeltmesi (yalniz deneme/jtag dali): bekleme boyunca
+                    // co_re ayni adresle surulur. OpenRAM modeli dout'u okumayi
+                    // izleyen posedge'de X'ler; MAC'in tuketimi mem_done'a bagli
+                    // (>=3 cevrim) oldugundan tek okuma yetmiyordu. Her cevrim
+                    // yeniden okuyunca ST_FC_MAC daima T+1 verisi tuketir;
+                    // davranissal dalda ayni adresin tekrar okunmasi sonucu
+                    // degistirmez. Errata kaydi: asic/README.md 9.5 (FC-1).
+                    co_re <= 1'b1;
                     if (mem_done) state <= ST_FC_MAC;
                 end
 

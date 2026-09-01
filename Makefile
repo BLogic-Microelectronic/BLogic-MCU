@@ -222,12 +222,12 @@ asic-sram-sim:
 #      egzersiz edilir (asic-sram-sim'de boot YZ kosmuyordu),
 #   3) 27 makro orneginin TAMAMI islevsel olarak calismis olur.
 # Girdi flash 0x10000'deki yes_real vektoru; firmware conv_out bolgesini
-# (1000 word) altin vektorun FNV-1a sagtoplamiyla karsilastirir ve yalniz
-# bit-tam esitse "Hello World!" basar (self-checking).
-# FC ARGMAX'I BILEREK KONTROL EDILMEZ: FC, conv_out okumasini >=3 cevrim
-# gec tuketir; OpenRAM modeli dout'u her posedge X'ledigi icin makro simde
-# FC bozulur (davranissalda rdata tutuldugundan maskelenir). Bu hedef o
-# eksigi BULDU; ayrintili errata: asic/README.md "Known issue" bolumu.
+# (1000 word) altin vektorun FNV-1a sagtoplamiyla karsilastirir VE
+# argmax==2'yi dogrular; ancak ikisi de tutarsa "Hello World!" basar.
+# NOT (deneme/jtag): main'de FC-1 erratasi nedeniyle argmax kontrolu
+# kapaliydi (bu hedef o eksigi BULDU - asic/README.md "Known issue FC-1").
+# Bu dalda ai_accelerator.sv'deki tek satirlik duzeltmeyle FC de makro
+# model sozlesmesine uyar; PASS, duzeltmenin kanitidir.
 asic-top-sim:
 	$(MAKE) flash-image FW_SRC=sw/tests/ai_boot_macro_test.c
 	rm -rf $(BOOT_DIR)_asictop
@@ -247,7 +247,7 @@ asic-top-sim:
 	echo "00000000" > $(BOOT_DIR)_asictop/ai_sram_init.hex
 	cd $(BOOT_DIR)_asictop && ./asic_top_boot_sim 2>&1 | grep -vaE 'Reading|Writing' | tee asictop_run.log
 	@grep -aq "TEST SUCCESS" $(BOOT_DIR)_asictop/asictop_run.log \
-	    && echo "[ASIC-TOP-SIM] PASS - asic_top + 27 makro: flash boot + conv katmani bit-tam (FC erratasi: asic/README)" \
+	    && echo "[ASIC-TOP-SIM] PASS - asic_top + 27 makro: flash boot + YZ cikarimi bit-tam, argmax dahil (FC-1 duzeltmesi bu dalda)" \
 	    || { echo "[ASIC-TOP-SIM] FAIL"; exit 1; }
 
 # ASIC lint kapisi. DIKKAT: sim waiver seti KOPYALANMAZ.

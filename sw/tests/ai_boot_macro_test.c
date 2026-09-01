@@ -15,13 +15,13 @@
    im'den, agirlik cw'den okunur, sonuc conv_out'a yazilip WCONV'da
    T+1'de geri okunarak) uretilebilir; tek word'luk sapma bile FAIL'dir.
 
-   ARGMAX BILEREK KONTROL EDILMIYOR (FC ERRATASI): FC asamasi co_rdata'yi
-   okumadan >=3 cevrim sonra tuketir; teslim edilen OpenRAM modeli dout'u
-   her posedge'de X'e cektigi icin makro simde FC logitleri bozulur
-   (davranissal dalda veri tutuldugundan maskelenir). Ayrintilar ve
-   fiziksel-makro degerlendirmesi: asic/README.md "Known issue" bolumu.
-   Argmax dogrulugu davranissal takimda 4 senaryoyla kanitlidir
-   (soc-ai, ai_multi_class 4/4, kart 60/60).
+   ARGMAX KONTROLU (deneme/jtag dalinda YENIDEN ACIK): main'de FC-1
+   erratasi nedeniyle yalniz conv sagtoplami kontrol ediliyordu
+   (asic/README.md "Known issue FC-1"). Bu dalda ai_accelerator.sv'deki
+   tek satirlik duzeltme (ST_FC_FETCH_W_WAIT boyunca co_re surulur) ile
+   FC de makro modeli sozlesmesine uydugundan argmax kontrolu geri
+   getirildi: PASS = conv bit-tam VE argmax==2 VE sonuc word'u dogru.
+   Bu kosunun PASS olmasi FC-1 duzeltmesinin kanitidir.
 
    Protokol boot_flow_test_tb ailesiyle ayni: 'R' gonder -> 'A' bekle ->
    tam 12 karakter bas. Yalniz sagtoplam dogruysa "Hello World!" basilir;
@@ -45,6 +45,7 @@
 static const char MSG_OK[]      = "Hello World!";   /* 12 karakter */
 static const char MSG_TIMEOUT[] = "AI TIMEOUT!!";   /* 12 karakter */
 static const char MSG_WRONG[]   = "CONV CRC BAD";   /* 12 karakter */
+static const char MSG_ARGMAX[]  = "AI ARGMAX BAD";  /* 12+ -> TB FAIL */
 
 static void puts12(const char *s) {
     for (int i = 0; (i < 12) && (s[i] != '\0'); i++)
@@ -74,7 +75,14 @@ int main(void) {
             crc ^= co[i];
             crc *= 16777619U;
         }
-        puts12((crc == CONV_GOLDEN_FNV) ? MSG_OK : MSG_WRONG);
+        uint32_t argmax = (st >> 4U) & 0xFU;
+        uint32_t sonuc  = *(volatile uint32_t *)(AI_SRAM_BASE + AI_RESULT_OFF);
+        if (crc != CONV_GOLDEN_FNV)
+            puts12(MSG_WRONG);
+        else if ((argmax == 2U) && ((sonuc & 0xFU) == 2U))
+            puts12(MSG_OK);         /* yes_real -> "yes" */
+        else
+            puts12(MSG_ARGMAX);
     }
 
     while (1) { __asm__ volatile("nop"); }
