@@ -631,6 +631,9 @@ Block-TB verdict string: `*** TEST SUCCESS *** I2C SISTEM YOLU DOGRULANDI` (syst
 
 All numbers in this section are from the **2026-09-01** clean run (Verilator 5.049, Spike enabled).
 
+<p align="center"><img src="images/coverage_summary.png" width="860" alt="coverage summary chart"></p>
+<p align="center"><sub>Left: SoC-level coverage vs. the 90% mark. Right: uncovered point-lines per team-RTL module (A/B classification below). Rendered from <code>verif/coverage_summary.txt</code> by <code>scripts/coverage_chart.py</code>.</sub></p>
+
 Coverage is measured at **two levels**, because Verilator merges `.dat` files by
 hierarchical path: in the SoC build a peripheral lives under `TOP.soc_top.i_qspi`,
 while in its standalone bench it lives under `TOP.qspi_modes_tb`. Merging both into

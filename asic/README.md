@@ -387,7 +387,10 @@ Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
 
 <p align="center"><img src="results/images/asic_top.png" width="480" alt="asic_top final layout"></p>
 <p align="center"><sub>asic_top final layout (RUN_teslim_2026-08-14)</sub></p>
-<p align="center"><sub>(image placeholder - zoomed macro-grid / corridor crops if desired)</sub></p>
+<p align="center"><img src="results/images/zoom_logic_corridor.png" width="360" alt="logic corridor zoom">&nbsp;<img src="results/images/zoom_sram_edge.png" width="360" alt="SRAM edge zoom"></p>
+<p align="center"><sub>Left: logic corridor between the macro columns. Right: SRAM macro edge — power ring and pin connections.</sub></p>
+<p align="center"><img src="results/images/zoom_25um_transistors.png" width="560" alt="25 um zoom - individual devices"></p>
+<p align="center"><sub>25 um window — individual devices of the final GDS (KLayout render).</sub></p>
 
 ## 9.8 Lint Results and Exceptions
 
@@ -570,11 +573,14 @@ Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
   | ss_100C_1v60 | 1.60 V | 104.4 mW |
   | ff_n40C_1v95 | 1.95 V | 118.3 mW |
 
-  TT breakdown (by group): SRAM macros 66.1%; clock network 17.0%;
-  sequential 16.1%; combinational 0.9%. The dominant item of the power
-  budget is memory — the expected picture for 27 macros. The single
-  declared figure is the TT corner (**112.1 mW**); the 9.11 table
-  carries the same value.
+  TT breakdown (by group, from `nom_tt_025C_1v80/power.rpt`): SRAM
+  macros 66.2%; clock network 16.8%; sequential 16.1%; combinational
+  0.9%. The dominant item of the power budget is memory — the expected
+  picture for 27 macros. The single declared figure is the TT corner
+  (**112.1 mW**); the 9.11 table carries the same value.
+
+<p align="center"><img src="results/images/power_breakdown.png" width="760" alt="power breakdown tt"></p>
+<p align="center"><sub>Total-power split, tt corner — rendered from the delivered report by <code>scripts/power_breakdown.py</code>.</sub></p>
 - **IR-drop (OpenROAD PSM, tt corner):** VPWR worst drop **1.54 mV**,
   VGND worst rise **1.57 mV** -> **0.09%** of the supply voltage (far
   below the typical 5% limit). PSM verification for both nets:
@@ -633,6 +639,9 @@ Corner set: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 | Die area | 18.77 mm2 (4180 x 4490 um) |
 | Instance count / std cells | 2,588,379 / 296,010 |
 | Utilization | 49.87% |
+
+<p align="center"><img src="results/images/setup_slack_histogram.png" width="860" alt="setup slack histograms per corner"></p>
+<p align="center"><sub>Setup-slack distribution of the 1000 worst reported paths per corner (<code>scripts/timing_histogram.py</code>). TT closes with margin; the negative ss population is the declared ~34.4 MHz limitation (9.9/1).</sub></p>
 
 **Table notes:**
 
