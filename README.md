@@ -583,36 +583,47 @@ In the AI integration test alone, `414027` AXI-Lite transactions were validated 
 
 ### 10.5 UART Stop-Bit, Baud Sweep & Stream Tests
 
-| Image | Test |
-|---|---|
-| ![UART Baud Sweep — Phase 1](images/uart_baud_testi1.jpeg) | `make uart-baud` — three-phase sweep ![UART Baud Sweep — Phase 2](images/uart_baud_testi2.jpeg) | Final verdict |
-| ![UART Stream DMA](images/uart_stream_dma_off.png) | `make uart-stream` (DMA → AI SRAM) |
+| Test | What it proves | Verdict |
+|---|---|---|
+| `make uart-baud` | One firmware sweeps **115200 → 1 Mbps → 9600** with `CPB` switched at run time (EK-2 multi-baud requirement); baud error +0.47 % / +4.17 % / +0.01 %; 56,651 protocol checks clean | **3 / 3 phases PASS** |
+| `make uart-stp` | Stop-bit **1 / 1.5 / 2** selectability — 4 `STP` settings measured start-to-start (frame lengths 4336 / 4552 / 4768 cycles), hardware-guaranteed extension | **4 / 4 PASS** |
+| `make uart-stream` | UART_1 DMA → AI SRAM, scenarios **A–E**: basic 16 B · partial-word `wstrb` · busy `SADR` latch · mid-transfer ABORT + restart · DMA-off passthrough | **5 / 5 PASS** |
 
-The `uart-baud` sweep proves the UART works across the spec range **9600 → 115200 → 1 Mbps** in a single firmware (CPB switched at runtime). The `uart-stp` test proves stop-bit `1`, `1.5`, and `2` selectability. The `uart-stream` test verifies all 5 DMA scenarios (A: basic 16-byte, B: partial-word strobe, C: busy SADR latch, D: mid restart, E: DMA-off normal RX/TX) — `5 / 5 PASS`.
+<p align="center">
+  <img src="images/uart_baud_testi1.jpeg" width="49%" alt="UART baud sweep — three phases">
+  <img src="images/uart_baud_testi2.jpeg" width="49%" alt="UART baud sweep — final verdict">
+</p>
+<p align="center"><sub><code>make uart-baud</code> — three-phase sweep (left) and final verdict (right)</sub></p>
+
+<p align="center">
+  <img src="images/uart_stream_dma_off.png" width="75%" alt="UART stream DMA scenarios A–E">
+</p>
+<p align="center"><sub><code>make uart-stream</code> — DMA scenarios A–E, 5 / 5 PASS</sub></p>
 
 ### 10.6 QSPI Master — x1/x2/x4 + 4-Byte Addressing
 
-![QSPI Modes Pass](images/qspi_modes_pass.png)
+| Test | What it proves | Verdict |
+|---|---|---|
+| `make qspi-modes` | All three data-phase widths (**x1 / x2 / x4**) with both **3-byte and 4-byte** addressing, T1–T6 incl. the upper-address-byte proof; **70,825** AXI-Lite transactions checked, 0 violations | **6 / 6 PASS** |
+| `make qspi-err` | Error / boundary family: TX-FIFO overflow flag, `CCR[31]` status clear, TX/RX flush, register read-back, write direction, command-only and x4-write paths | **25 / 25 PASS** |
+| `qspi_rdpath_test` (in `make coverage`) | Read-direction family: multi-byte word packing (full words + 2 B / 3 B tails), dummy cycles, address-less commands (RDSR / RES), sector erase, 4-byte `READ4`, x2 / x4 reads, dual-PP write — strict `0xAA`-pattern checks on every x1 path | **11 / 11 cases PASS** |
 
-`make qspi-modes` exercises the QSPI master in all three data-phase widths (x1, x2, x4) with both 3-byte and 4-byte address modes. After `70825` AXI-Lite transactions, `PROTOKOL UYUMLU` (compliant) is reported.
+<p align="center">
+  <img src="images/qspi_modes_pass.png" width="75%" alt="QSPI modes final verdict">
+</p>
+<p align="center"><sub><code>make qspi-modes</code> — final verdict (tool output "PROTOKOL UYUMLU" = protocol compliant)</sub></p>
 
-### 10.7 I²C System Test
+### 10.7 I²C — Block, SoC and UVM Layers
 
-![I²C System Test](images/qspi_page_program.png)
+| Layer | Test | What it proves | Verdict |
+|---|---|---|---|
+| Block TB | `make i2c-sys` | Master against `verif/models/i2c_slave_model.sv` (echo slave): `NBY` rounding (0/1/3/4), 7-bit `ADR` mask, 1- and 4-byte TX + echo RX with `RDR` byte packing, synthetic NACK injection — **9,716** AXI-Lite transactions clean | **PASS** |
+| SoC | `i2c_soc_test` (in `make coverage`) | The same engine driven from the CPU through the full AXI path: register semantics, 4-byte TX/RX, negative (unmapped / read-only) accesses | **PASS** |
+| UVM | `i2c_directed_test` + `i2c_random_test` | Reference-model scoreboard, NBY clamping, and the **no-slave NACK path** for both TX and RX (`NACK_ERR` flag set, `RDR` left clean) | **PASS** |
 
-<!-- IMAGE PLACEHOLDER: replace the screenshot above with a correctly named I2C
-     terminal capture (current file name is a leftover from the QSPI series) -->
-> 🖼️ **[image placeholder — re-capture I²C test output with a proper file name]**
+Block-TB verdict string: `*** TEST SUCCESS *** I2C SISTEM YOLU DOGRULANDI` (system path verified).
 
-`make i2c-sys` instantiates the I²C master against `verif/models/i2c_slave_model.sv` (echo slave) and exercises:
-
-- `NBY` byte-count rounding (0/1/3/4)
-- `ADR` 7-bit mask
-- 1-byte and 4-byte TX + echo RX with `RDR` byte packing
-- Mid-transfer SADR latch protection
-- Synthetic NACK injection
-
-Verdict: `*** TEST SUCCESS *** I2C SISTEM YOLU DOGRULANDI` with `9716` AXI-Lite transactions clean.
+<p align="center"><sub>🖼️ placeholder — I²C terminal capture (to be re-taken; the previous embed reused a QSPI-series file name)</sub></p>
 
 ### 10.8 Coverage Report
 
@@ -643,8 +654,7 @@ covergroup binds — these are verification infrastructure, not design under tes
 | **Branch coverage** | **91.3 %** (778 / 852) |
 | Lines fully covered (annotation) | 92.0 % (1636 / 1764) |
 
-<!-- IMAGE PLACEHOLDER: screenshot of `make coverage` summary output (91.1 % / 91.3 % block) -->
-> 🖼️ **[image placeholder — `make coverage` terminal summary screenshot]**
+<p align="center"><sub>🖼️ placeholder — add screenshot: <code>make coverage</code> summary block (91.1 % line / 91.3 % branch)</sub></p>
 
 Every remaining uncovered line falls into one of three documented classes
 (`verif/coverage_siniflandirma.md`):
@@ -720,8 +730,7 @@ tests. Each block builds with its own `tb_*_top.sv` wrapper.
 **Regression result: 8 PASS, 0 FAIL** (`UVM_ERROR : 0`, `UVM_FATAL : 0` in every
 run; protocol monitor reports 0 violations in all 8).
 
-<!-- IMAGE PLACEHOLDER: screenshot of "UVM Regression: 8 PASS, 0 FAIL" terminal output -->
-> 🖼️ **[image placeholder — UVM 8/8 regression summary screenshot]**
+<p align="center"><sub>🖼️ placeholder — add screenshot: "UVM Regression: 8 PASS, 0 FAIL" terminal summary</sub></p>
 
 The UVM library is vendored under `verif/uvm-lib` — no external clone is needed (see `verif/uvm-lib/KAYNAK.md`).
 
@@ -781,8 +790,7 @@ The custom AI Accelerator implements Google's **TensorFlow Lite Micro Speech "Ti
 | Requantize saturation rails | `make sim FW_SRC=sw/tests/ai_sat_test.c` | **PASS** — ±2³⁰ bias forces every conv output to the 0x7F / 0x80 rails, 2 × 1000 words verified word-by-word |
 | Live board sweep | `sw/ai_model/kart_sweep.py` (COM port) | **60 / 60 diversified UART vectors** match the SW argmax on Genesys 2 |
 
-<!-- IMAGE PLACEHOLDER: photo of the live on-board AI demo (Genesys 2 + host terminal during the 60-vector sweep) -->
-> 🖼️ **[image placeholder — on-board AI demo photo / sweep terminal capture]**
+<p align="center"><sub>🖼️ placeholder — add photo: live on-board AI demo (Genesys 2 + host terminal during the 60-vector sweep)</sub></p>
 
 ### 11.5 Performance — Hardware vs Software
 
@@ -1158,8 +1166,7 @@ reports delivered unmodified under `asic/reports/` and outputs under
   <img src="asic/results/images/asic_top.png" alt="asic_top final layout" width="480">
 </p>
 
-<!-- IMAGE PLACEHOLDER: zoomed layout crops (SRAM macro grid / logic corridor) if desired -->
-> 🖼️ **[image placeholder — optional zoomed die-layout crops for the presentation]**
+<p align="center"><sub>🖼️ placeholder — optional zoomed die-layout crops (SRAM macro grid / logic corridor)</sub></p>
 
 ---
 

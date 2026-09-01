@@ -1,578 +1,637 @@
-# BLogic MCU - ASIC Fiziksel Tasarim Akisi
+# BLogic MCU - ASIC Physical Design Flow
 
-> **DURUM.** Basliklar DDK "Final Istenen Ciktilar" bolum 9.1-9.13 ile birebir.
-> Tum bolumler doludur. **Signoff/zamanlama/guc/alan sonuclarinin tamami TEK
-> kosudan gelir: `RUN_teslim_2026-08-14`** (temiz klon uzerinde sifirdan
-> `make pdk` + `make asic_run`, 3 sa 28 dk). Tasarim SURECINDEKI karar ve
-> deney olcumleri (3-11 Agustos; kanal-genisletme, derate turetimi, hold-onarim
-> denemeleri) ait olduklari tarihle ayrica isaretlidir ve nihai sonuclari
-> degil karar gerekcelerini belgeler. DDK'nin 17 Agustos 2026 tarihli errata
-> ve yazili kararlarinin tam metni: `asic/DDK_KARARLARI.md`.
+> **STATUS.** The headings match DDK "Final Istenen Ciktilar" (EN: Final
+> Required Deliverables) sections 9.1-9.13 one-to-one. All sections are
+> complete. **All signoff/timing/power/area results come from a SINGLE
+> run: `RUN_teslim_2026-08-14`** (from scratch on a clean clone,
+> `make pdk` + `make asic_run`, 3 h 28 min). Decision and experiment
+> measurements taken DURING the design process (August 3-11;
+> channel-widening, derate derivation, hold-repair trials) are marked
+> separately with their own dates and document decision rationales, not
+> final results. The full text of the DDK errata and written decisions
+> dated August 17, 2026: `asic/DDK_KARARLARI.md`.
 
-## 9.1 Tasarim Ozeti
+## 9.1 Design Summary
 
-RISC-V (CV32E40P) tabanli mikrodenetleyici SoC: AXI4/AXI4-Lite ara baglanti,
-QSPI boot, UART/GPIO/Timer/I2C cevre birimleri ve TFLite Micro Speech
-(2B evrisim + tam bagli katman) YZ hizlandiricisi. En ust seviye modul:
-`asic_top`. Saat: `clk_i` (tek saat alani), reset: `rst_ni` (asenkron,
-senkron birakma). Giris/cikislar nihai LEF/DEF'te makro pinleridir (bolum 2).
+RISC-V (CV32E40P) based microcontroller SoC: AXI4/AXI4-Lite interconnect,
+QSPI boot, UART/GPIO/Timer/I2C peripherals, and a TFLite Micro Speech
+(2D convolution + fully connected layer) AI accelerator. Top-level module:
+`asic_top`. Clock: `clk_i` (single clock domain), reset: `rst_ni`
+(asynchronous assert, synchronous release). Inputs/outputs are macro pins
+in the final LEF/DEF (Section 2).
 
-**Ust seviye arayuz (16 port, `rtl/asic/asic_top.sv`):**
+**Top-level interface (16 ports, `rtl/asic/asic_top.sv`):**
 
-| Port | Yon | Gen. | Islev |
+| Port | Direction | Width | Function |
 |---|---|---|---|
-| `clk_i` / `rst_ni` | giris | 1/1 | sistem saati / asenkron reset (senkron birakma) |
-| `uart_rxd_i` / `uart_txd_o` | giris/cikis | 1/1 | UART0 (konsol + BLG1 vektor alimi) |
-| `uart1_rxd_i` / `uart1_txd_o` | giris/cikis | 1/1 | UART1 (stream DMA girisi) |
-| `gpio_in_i` / `gpio_out_o` | giris/cikis | 32/32 | GPIO (girisler 2FF senkronizatorlu) |
-| `qspi_sclk_o` `qspi_cs_no` `qspi_io_o` `qspi_io_i` `qspi_io_oe` | cikis x3, giris | 1/1/4/4/4 | QSPI flash (boot + veri) |
-| `i2c_scl_o` `i2c_sda_oe_o` `i2c_sda_i` | cikis x2, giris | 1/1/1 | I2C master (acik-drain surme `sda_oe` ile) |
+| `clk_i` / `rst_ni` | input | 1/1 | system clock / asynchronous reset (synchronous release) |
+| `uart_rxd_i` / `uart_txd_o` | input/output | 1/1 | UART0 (console + BLG1 vector reception) |
+| `uart1_rxd_i` / `uart1_txd_o` | input/output | 1/1 | UART1 (stream DMA input) |
+| `gpio_in_i` / `gpio_out_o` | input/output | 32/32 | GPIO (inputs with 2FF synchronizers) |
+| `qspi_sclk_o` `qspi_cs_no` `qspi_io_o` `qspi_io_i` `qspi_io_oe` | output x3, input | 1/1/4/4/4 | QSPI flash (boot + data) |
+| `i2c_scl_o` `i2c_sda_oe_o` `i2c_sda_i` | output x2, input | 1/1/1 | I2C master (open-drain drive via `sda_oe`) |
 
-**Hedef saat frekansi ve kose bazli kapanis (nihai teslim kosusu
+**Target clock frequency and per-corner closure (final delivery run
 `RUN_teslim_2026-08-14`):**
 
-| Kose | Setup WS | Setup TNS | Kapanan frekans |
+| Corner | Setup WS | Setup TNS | Closing frequency |
 |---|---|---|---|
-| tt_025C_1v80 | **+2,210 ns** | 0 | 50 MHz hedef KAPANIR (fmax ~56,2 MHz) |
-| ss_100C_1v60 | -9,083 ns | -10.639,4 ns | ~34,4 MHz (29,08 ns esdegeri) |
-| ff_n40C_1v95 | **+4,375 ns** | 0 | KAPANIR (fmax ~64,0 MHz) |
+| tt_025C_1v80 | **+2.210 ns** | 0 | 50 MHz target CLOSES (fmax ~56.2 MHz) |
+| ss_100C_1v60 | -9.083 ns | -10,639.4 ns | ~34.4 MHz (equivalent to 29.08 ns) |
+| ff_n40C_1v95 | **+4.375 ns** | 0 | CLOSES (fmax ~64.0 MHz) |
 
-Beyan: hedef saat **50 MHz**; TT kosesinde +2,210 ns marjla kapanir. SS
-(1,6 V / 100 C) kosesinde 50 MHz kapanmaz — bu kosede kapanan frekans
-**~34,4 MHz**'dir ve en kotu yol saf standart-hucre CPU yoludur (SRAM/derate
-kaynakli degildir; kose fiziginin sonucudur). Uc kosenin STA raporlari
-eksiksiz teslim edilmistir (`reports/timing/`); ayrinti: bolum 9.9 ve 9.11.
-`config.yaml` CLOCK_PERIOD = 20 ns, `design.sdc` create_clock ile ayni.
+Declared statement: target clock is **50 MHz**; it closes in the TT corner
+with a +2.210 ns margin. In the SS (1.6 V / 100 C) corner 50 MHz does not
+close — the closing frequency in this corner is **~34.4 MHz** and the
+worst path is a pure standard-cell CPU path (it is NOT SRAM/derate
+induced; it is a consequence of the corner physics). The STA reports for
+all three corners are delivered in full (`reports/timing/`); details:
+sections 9.9 and 9.11. `config.yaml` CLOCK_PERIOD = 20 ns, identical to
+`design.sdc` create_clock.
 
-## 9.2 Arac ve Ortam Bilgileri
+## 9.2 Tool and Environment Information
 
-Bkz. `asic/environment/versions.txt` (LibreLane 3.0.6 / `ba7193b`, Classic,
-sky130A @ Open PDKs `8afc834`, sky130_fd_sc_hd, OpenRAM kullanilmadi).
-Referans surumden farkli arac/PDK/kutuphane KULLANILMADI.
+See `asic/environment/versions.txt` (LibreLane 3.0.6 / `ba7193b`, Classic,
+sky130A @ Open PDKs `8afc834`, sky130_fd_sc_hd, OpenRAM not used).
+No tool/PDK/library differing from the reference release was USED.
 
-## 9.3 Akisin Calistirilmasi
+## 9.3 Running the Flow
 
-**On kosullar:**
+**Prerequisites:**
 
-- Nix (flakes destekli). Kurulum yonergesi: LibreLane 3.0.6 resmi
-  dokumantasyonu, Nix tabanli kurulum sayfasi.
-- Referans PDK (bir kez, ag erisimiyle): `cd asic && make pdk`
+- Nix (with flakes support). Installation guide: LibreLane 3.0.6 official
+  documentation, Nix-based installation page.
+- Reference PDK (once, with network access): `cd asic && make pdk`
   (`ciel enable --pdk-family sky130 8afc8346a57fe1ab7934ba5a6056ea8b43078e71`).
-- Ortam degiskeni gerekmez; tum yollar depoya goreli.
+- No environment variables required; all paths are repository-relative.
 
-**Nix ortamini baslatmak (istege bagli, elle calisma icin):**
+**Starting the Nix environment (optional, for manual work):**
 
     cd asic/environment
     nix develop --accept-flake-config     # librelane --version -> v3.0.6
 
-**Zorunlu yeniden calistirma komutu (DDK Bolum 8):**
+**Mandatory re-run command (DDK Section 8):**
 
     cd asic && make asic_run
 
-`make` hedefleri `librelane` PATH'te degilse komutlari kendiliginden
-`environment/` flake ortaminda calistirir (`scripts/run_in_env.sh`);
-onceden `nix develop` acmak gerekmez.
+If `librelane` is not on PATH, the `make` targets automatically run the
+commands inside the `environment/` flake environment
+(`scripts/run_in_env.sh`); opening `nix develop` beforehand is not
+required.
 
-**`run/` dizininin hazirlanisi:** `asic_run` once `run/` altini temizler
-(yalniz `.gitkeep` kalir), sonra LibreLane Classic akisini
-`--force-run-dir run/RUN_<tarih-saat>` ile baslatir; tum gecici adim
-dizinleri, ara veritabanlari ve `final/` gorunumleri bu dizinde olusur.
+**Preparation of the `run/` directory:** `asic_run` first cleans the
+`run/` subtree (only `.gitkeep` remains), then starts the LibreLane
+Classic flow with `--force-run-dir run/RUN_<date-time>`; all temporary
+step directories, intermediate databases and `final/` views are created
+in this directory.
 
-**Rapor ve ciktilarin toplanmasi:** akis bitince `scripts/collect_outputs.sh`
-Bolum 5 raporlarini `asic/reports/`, Bolum 6 ciktilarini `asic/results/`
-altina Tablo 8 yerlesimiyle kopyalar ve `checksums/SHA256SUMS` uretir.
-`asic_run` bu betigi `ALLOW_MISSING=1` ile cagirir (akis kismi bitse bile
-eldeki raporlar toplansin diye); **zorunlulugun sert kapisi `make
-asic_verify`'dir** - eksik zorunlu kalemde sifir disi kodla biter ve eksik
-listesini basar.
+**Collecting reports and outputs:** when the flow finishes,
+`scripts/collect_outputs.sh` copies the Section 5 reports into
+`asic/reports/` and the Section 6 outputs into `asic/results/` following
+the Table 8 layout, and produces `checksums/SHA256SUMS`. `asic_run`
+invokes this script with `ALLOW_MISSING=1` (so that the reports at hand
+are collected even if the flow finishes partially); **the hard gate of
+the mandatory set is `make asic_verify`** — on any missing mandatory item
+it exits with a non-zero code and prints the missing list.
 
-**Ek hedefler:** `make asic_verify` (zorunlu dosya varligi + metrik ozeti),
-`make asic_clean` (`run/` temizligi), `make check_filelist`
-(config.yaml <-> filelist.f uyumu).
+**Additional targets:** `make asic_verify` (mandatory file presence +
+metric summary), `make asic_clean` (cleans `run/`), `make check_filelist`
+(config.yaml <-> filelist.f consistency).
 
-**Yaklasik calisma suresi ve kaynaklar:** dogrulanmis ortam GCP 8 vCPU /
-60 GB RAM; nihai kosu **3 saat 28 dakika** surdu (temiz klon, `make pdk`
-haric; VM: 8 vCPU / 60 GB RAM / NVMe).
-Dusuk RAM'li makinelerde `magic-writelef` adimi OOM verebilir; 60 GB ile
-sorunsuz. Disk: kosu dizini (`run/`, teslimde silinir) **~17 GB**; toplanan
-rapor+cikti agaci paketleme oncesi ~4,2 GB, paketleme sonrasi ~0,8 GB.
+**Approximate runtime and resources:** the verified environment is GCP
+8 vCPU / 60 GB RAM; the final run took **3 hours 28 minutes** (clean
+clone, excluding `make pdk`; VM: 8 vCPU / 60 GB RAM / NVMe).
+On low-RAM machines the `magic-writelef` step may OOM; with 60 GB it runs
+without issues. Disk: run directory (`run/`, deleted at delivery)
+**~17 GB**; the collected report+output tree is ~4.2 GB before packaging
+and ~0.8 GB after packaging.
 
-## 9.4 RTL ve Akis Girdileri
+## 9.4 RTL and Flow Inputs
 
-- **Dosya listesi:** `asic/filelist.f`. Kanonik kaynak
-  `asic/config.yaml` icindeki `VERILOG_FILES` listesidir; `filelist.f`
-  ondan uretilir (`python3 scripts/check_filelist.py --generate`) ve her
-  `make asic_run` basinda uyum otomatik denetlenir (DDK sayfa 20'nin
-  istedigi otomasyon). 67 kaynak dosya, derleme sirasina gore.
-- **Yol tabani:** `filelist.f` icindeki tum yollar **`asic/` dizinine gore**
-  cozulur (`../rtl/...`) ve akis bu dizinden baslatilir
-  (`cd asic && make asic_run`). Bu, DDK'nin 17 Agustos 2026 tarihli
-  *"Errata - filelist.f Path Resolution"* duyurusuyla birebir uyumludur;
-  duyuru, yollarin depo kokune gore tanimlanmasini soyleyen Bolum 9.4
-  ifadesini gecersiz kilar. Ana RTL kaynaklari, dogrulama/testbench ve FPGA
-  dosyalari `asic/` altina KOPYALANMAMISTIR (Bolum 3/4 kurali).
-- **Include dizinleri:** `rtl/asic`, `rtl/core/cv32e40p/rtl/include`,
+- **File list:** `asic/filelist.f`. The canonical source is the
+  `VERILOG_FILES` list inside `asic/config.yaml`; `filelist.f` is
+  generated from it (`python3 scripts/check_filelist.py --generate`) and
+  consistency is checked automatically at the start of every
+  `make asic_run` (the automation requested by DDK page 20). 67 source
+  files, in compilation order.
+- **Path base:** all paths inside `filelist.f` are resolved **relative to
+  the `asic/` directory** (`../rtl/...`) and the flow is started from
+  this directory (`cd asic && make asic_run`). This is exactly in line
+  with the DDK announcement *"Errata - filelist.f Path Resolution"* dated
+  August 17, 2026; the announcement supersedes the Section 9.4 wording
+  that said paths were to be defined relative to the repository root. The
+  main RTL sources, verification/testbench and FPGA files are NOT COPIED
+  under `asic/` (Section 3/4 rule).
+- **Include directories:** `rtl/asic`, `rtl/core/cv32e40p/rtl/include`,
   `.../pulp_platform_common_cells/include`, `rtl/bus/axi/include`.
-- **Derleme tanimlari (ZORUNLU):** `SYNTHESIS`, `ASIC_SRAM_MACRO`
-  (SRAM makro dallarini secer), `BOOTROM_CONTENT` (boot ROM icerigini
-  gomer). Hem `config.yaml` hem `filelist.f` ayni tanimlari tasir.
-- **Ana yapilandirma:** `asic/config.yaml` (LibreLane Classic).
-- **Zamanlama kisiti:** `asic/constraints/design.sdc` (bolum 9.6).
-- **Ucuncu taraf RTL konumlari:** `rtl/core/cv32e40p/` (vendor:
-  common_cells, fpnew paketi dahil), `rtl/bus/axi/`,
-  `rtl/peripherals/verilog-uart` kokenli UART cekirdegi. Ayrinti ve
-  lisanslar: `asic/THIRD_PARTY.md`.
-- **En ust seviye modul:** `asic_top` - RTL, `config.yaml` ve bu README
-  ayni adi kullanir (Bolum 3.1 uyum sarti).
+- **Compile defines (MANDATORY):** `SYNTHESIS`, `ASIC_SRAM_MACRO`
+  (selects the SRAM macro branches), `BOOTROM_CONTENT` (embeds the boot
+  ROM content). Both `config.yaml` and `filelist.f` carry the same
+  defines.
+- **Main configuration:** `asic/config.yaml` (LibreLane Classic).
+- **Timing constraints:** `asic/constraints/design.sdc` (section 9.6).
+- **Third-party RTL locations:** `rtl/core/cv32e40p/` (vendored:
+  common_cells, including the fpnew package), `rtl/bus/axi/`, the UART
+  core originating from `rtl/peripherals/verilog-uart`. Details and
+  licenses: `asic/THIRD_PARTY.md`.
+- **Top-level module:** `asic_top` — the RTL, `config.yaml` and this
+  README all use the same name (Section 3.1 consistency requirement).
 
-## 9.5 SRAM ve Fiziksel Makrolar
+## 9.5 SRAM and Physical Macros
 
-Tasarim, Tablo 5'te onayli iki hazir SKY130 SRAM makrosunu kullanir.
-Kaynak: referans PDK kurulumu (`libs.ref/sky130_sram_macros/`, Open PDKs
-`8afc834`); gorunumler Tablo 8 geregi depo icine kopyalanmistir. Fiziksel
-ve mantiksal gorunumler DEGISTIRILMEMISTIR (Bolum 1.3).
+The design uses the two ready-made SKY130 SRAM macros approved in
+Table 5. Source: reference PDK installation
+(`libs.ref/sky130_sram_macros/`, Open PDKs `8afc834`); the views are
+copied into the repository as required by Table 8. The physical and
+logical views are NOT MODIFIED (Section 1.3).
 
 | | `sky130_sram_2kbyte_1rw1r_32x512_8` | `sky130_sram_1kbyte_1rw1r_32x256_8` |
 |---|---|---|
-| Kapasite / derinlik / genislik | 2 KiB / 512 / 32 bit | 1 KiB / 256 / 32 bit |
-| Port yapisi / yazma | 1RW + 1R / 8-bit | 1RW + 1R / 8-bit |
-| Instance yollari | `i_soc.i_instr_sram.*.u_macro`, `i_soc.i_data_sram.*.u_macro`, `i_soc.i_ai_sram.*.u_macro` (bank dizileri, `sram_macro_bank.sv`), `i_soc.i_ai_accel.u_input_mem`, `i_soc.i_ai_accel.u_conv_out.*.u_macro` (2 banka) | `i_soc.i_ai_accel.u_conv_w_mem` |
-| GDSII | `macros/<ad>/gds/<ad>.gds` | ayni kalip |
-| LEF | `macros/<ad>/lef/<ad>.lef` | ayni kalip |
-| Liberty | `macros/<ad>/lib/<ad>_TT_1p8V_25C.lib` | ayni kalip |
-| Verilog modeli | `macros/<ad>/verilog/<ad>.v` | ayni kalip |
-| SPICE netlisti | `macros/<ad>/spice/` | ayni kalip |
-| Guc / toprak pinleri | `VPWR` / `VGND` | `VPWR` / `VGND` |
+| Capacity / depth / width | 2 KiB / 512 / 32 bit | 1 KiB / 256 / 32 bit |
+| Port structure / write | 1RW + 1R / 8-bit | 1RW + 1R / 8-bit |
+| Instance paths | `i_soc.i_instr_sram.*.u_macro`, `i_soc.i_data_sram.*.u_macro`, `i_soc.i_ai_sram.*.u_macro` (bank arrays, `sram_macro_bank.sv`), `i_soc.i_ai_accel.u_input_mem`, `i_soc.i_ai_accel.u_conv_out.*.u_macro` (2 banks) | `i_soc.i_ai_accel.u_conv_w_mem` |
+| GDSII | `macros/<name>/gds/<name>.gds` | same pattern |
+| LEF | `macros/<name>/lef/<name>.lef` | same pattern |
+| Liberty | `macros/<name>/lib/<name>_TT_1p8V_25C.lib` | same pattern |
+| Verilog model | `macros/<name>/verilog/<name>.v` | same pattern |
+| SPICE netlist | `macros/<name>/spice/` | same pattern |
+| Power / ground pins | `VPWR` / `VGND` | `VPWR` / `VGND` |
 
-Toplam makro sayisi sentez istatistiginden dogrulanir: 26 x 2KB + 1 x 1KB
-= **27 makro** (10 Agu `config.yaml` sentez kosusu; nihai sayi
-`reports/synthesis/stat.json`'dan okunur, celiski halinde stat esastir).
+The total macro count is verified from the synthesis statistics:
+26 x 2KB + 1 x 1KB = **27 macros** (Aug 10 `config.yaml` synthesis run;
+the final count is read from `reports/synthesis/stat.json`; in case of
+conflict, stat is authoritative).
 
-**PDN baglantisi:** makro `VPWR`/`VGND` pinleri tasarimin `vccd1`/`vssd1`
-aglarina baglanir (`config.yaml` `PDN_MACRO_CONNECTIONS`, uc instance
-kalibi icin ayri kural). Sabit yerlesim `macro_placement.cfg` ile verilir.
+**PDN connection:** the macro `VPWR`/`VGND` pins connect to the design's
+`vccd1`/`vssd1` nets (`config.yaml` `PDN_MACRO_CONNECTIONS`, a separate
+rule for each of the three instance patterns). The fixed placement is
+given via `macro_placement.cfg`.
 
-**Kose varsayimi (bu bolumun en onemli maddesi):** iki makro da PDK'da
-yalniz `TT_1p8V_25C` Liberty ile dagitilir; Tablo 4'un SS/FF corner'larina
-birebir karsilik gelen model YOKTUR.
+**Corner assumption (the most important item of this section):** both
+macros are distributed in the PDK with only the `TT_1p8V_25C` Liberty;
+there is NO model corresponding one-to-one to the SS/FF corners of
+Table 4.
 
-DDK'nin 17 Agustos 2026 tarihli yazili aciklamasi bu durum icin beklenen
-yaklasimi netlestirmistir: hazir SRAM makrolari icin **saglanan
-`TT_1p8V_25C` Liberty modeli, SS ve FF analizlerinde de belgelenmis bir
-ikame olarak kullanilabilir**; standart hucre kutuphaneleri ise ilgili
-kose modellerini kullanmaya devam eder ve **modelde yapay olcekleme
-gerekmez**. Teslimimiz bu cercevenin icindedir:
+The DDK's written clarification dated August 17, 2026 made the expected
+approach for this situation explicit: for ready-made SRAM macros, **the
+provided `TT_1p8V_25C` Liberty model may be used as a documented
+substitute in the SS and FF analyses as well**; the standard-cell
+libraries continue to use their respective corner models, and **no
+artificial scaling of the model is required**. Our delivery is within
+this framework:
 
-- Standart hucreler her analizde kendi kose Liberty'sini kullanir
+- Standard cells use their own corner Liberty in every analysis
   (`tt_025C_1v80` / `ss_100C_1v60` / `ff_n40C_1v95`).
-- SRAM makrolari uc analizde de `TT_1p8V_25C` ile modellenir; Liberty
-  dosyalarina **hicbir degisiklik yapilmamistir**.
-- **Ek olarak** SRAM yollarina olcume dayali kotumser bir `set_timing_derate`
-  uygulanir: `sky130_fd_sc_hd__dfxtp_1` clk->Q ortanca gecikmesi
-  TT 0,4376 ns / SS 1,1642 ns, oran **2,661x** (setup/late), hold/early
-  icin 0,5x. Signoff'ta uygulama `constraints/design.sdc` icinde kose adina
-  kosulludur (TT'de 1,0). **PnR baglaminda** kose adi tanimsiz oldugundan
-  derate kosulsuz (late 2,661 / early 0,5) uygulanir - 0-DRC fiziksel sonuc
-  bu kotumser kisitlarla uretilmistir. Bu, DDK'nin *gerekli gormedigi*
-  fazladan bir kotumserliktir; modeli degistirmez, yalnizca analizde marj
-  kisar.
-- Derate'in SS sonucunu belirlemedigi ayrica olculmustur: SS kosesindeki
-  en kotu setup yolu SRAM'den gecmeyen saf standart-hucre CPU yoludur
-  (bolum 9.9/1), dolayisiyla derate kaldirilsa da SS'te 50 MHz kapanmaz.
+- The SRAM macros are modeled with `TT_1p8V_25C` in all three analyses;
+  **no modification whatsoever** has been made to the Liberty files.
+- **In addition,** a measurement-based pessimistic `set_timing_derate` is
+  applied to the SRAM paths: `sky130_fd_sc_hd__dfxtp_1` clk->Q median
+  delay TT 0.4376 ns / SS 1.1642 ns, ratio **2.661x** (setup/late), and
+  0.5x for hold/early. At signoff, the application is conditional on the
+  corner name inside `constraints/design.sdc` (1.0 in TT). **In the PnR
+  context** the corner name is undefined, so the derate is applied
+  unconditionally (late 2.661 / early 0.5) — the 0-DRC physical result
+  was produced under these pessimistic constraints. This is extra
+  pessimism the DDK *does not require*; it does not modify the model, it
+  only tightens the margin in analysis.
+- It has also been measured that the derate does not determine the SS
+  result: the worst setup path in the SS corner is a pure standard-cell
+  CPU path that does not pass through SRAM (section 9.9/1), so even with
+  the derate removed, 50 MHz does not close in SS.
 
-Ozet: model eksigi, DDK'nin 17 Agustos 2026 karariyla kabul ettigi TT
-ikamesiyle kapanmistir; 2,661x/0,5x derate bunun ustune eklenen ve
-zorunlu olmayan olcume dayali guvenlik payidir.
+Summary: the model gap is closed by the TT substitution accepted in the
+DDK's August 17, 2026 decision; the 2.661x/0.5x derate is a
+measurement-based safety margin added on top of it and is not mandatory.
 
-## 9.6 Zamanlama Kisitlari ve Istisnalari
+## 9.6 Timing Constraints and Exceptions
 
-Kisit dosyasi: `asic/constraints/design.sdc`. PnR ve signoff ayni dosyayi
-kullanir (`PNR_SDC_FILE` = `SIGNOFF_SDC_FILE`); Bolum 6.2 geregi tek SDC
-teslimi yeterlidir.
+Constraint file: `asic/constraints/design.sdc`. PnR and signoff use the
+same file (`PNR_SDC_FILE` = `SIGNOFF_SDC_FILE`); per Section 6.2, a
+single SDC delivery is sufficient.
 
-- **Birincil saat:** `clk` = `clk_i` portu, periyot 20.000 ns (50 MHz).
-- **Generated clock:** YOK. QSPI SCLK, `clk`'den register cikisiyla
-  uretilir (en fazla clk/2 = 25 MHz), ic saat olarak kullanilmaz ve tum
-  veri yollari ayni saat alanindadir; bu nedenle generated clock tanimi
-  gerekmez.
-- **Saat alani iliskileri / asenkron saat gruplari:** tasarim TEK saat
-  alanlidir, CDC yolu yoktur (FPGA'daki MMCM `fpga_top` icindedir,
-  ASIC'e girmez). Ilgili kosullu tanimlar gerekmez.
-- **Input/output delay:** senkron kisitli girisler (`i2c_sda_i`,
-  `qspi_io_i*`) ve TUM cikislar icin max 6.000 ns / min 0.500 ns butce;
-  portlar acik listeyle verilir. Asenkron girisler (`gpio_in_i*`,
-  `uart*_rxd_i`) input_delay TASIMAZ - asagida false path olarak beyanlidir.
-- **Tasarim geneli kurallar:** `set_max_transition 1.000 ns`,
+- **Primary clock:** `clk` = `clk_i` port, period 20.000 ns (50 MHz).
+- **Generated clock:** NONE. QSPI SCLK is generated from `clk` via a
+  register output (at most clk/2 = 25 MHz), is not used as an internal
+  clock, and all data paths are in the same clock domain; therefore no
+  generated clock definition is required.
+- **Clock domain relations / asynchronous clock groups:** the design has
+  a SINGLE clock domain, there is no CDC path (the FPGA's MMCM is inside
+  `fpga_top` and does not enter the ASIC). The related conditional
+  definitions are not required.
+- **Input/output delay:** for the synchronously constrained inputs
+  (`i2c_sda_i`, `qspi_io_i*`) and ALL outputs: max 6.000 ns / min
+  0.500 ns budget; the ports are given as an explicit list. Asynchronous
+  inputs (`gpio_in_i*`, `uart*_rxd_i`) carry NO input_delay — they are
+  declared as false paths below.
+- **Design-wide rules:** `set_max_transition 1.000 ns`,
   `set_max_fanout 32` (design.sdc).
 - **Clock uncertainty:** setup 0.500 ns, hold 0.100 ns.
-  **Input transition:** saat gecisi 0.150 ns. **Output load:** 5 pF
-  (kotumser pad + hat butcesi). (Bolum 3.2 "onerilen" kalemleri.)
+  **Input transition:** clock transition 0.150 ns. **Output load:** 5 pF
+  (pessimistic pad + trace budget). (Section 3.2 "recommended" items.)
 - **False path (reset):** `set_false_path -from [get_ports rst_ni]`.
-  Gerekce: `rst_ni` asenkron assert / senkron release'dir; release
-  senkronizasyonu cip ust seviyesinde (pad halkasi / reset denetleyicisi)
-  yapilir, bu sinif yol gercek veri zamanlamasi tasimaz. Recovery/removal
-  davranisi release senkronizasyonuyla garanti edilir. Gercekte
-  zamanlanmasi gereken hicbir yol istisnaya alinmamistir.
-- **False path (asenkron girisler):** `set_false_path -from` ile
-  `gpio_in_i*` (2FF senkronizator, `gpio_axil.sv:44-50`), `uart_rxd_i` ve
-  `uart1_rxd_i` (asenkron seri hat, `rxd_reg` ile orneklenir). Bu portlarin
-  `clk`e gore anlamli varis penceresi yoktur; senkron input_delay sahte
-  setup/hold ihlali uretir (olculdu: TT en kotu hold yolu `gpio_in_i[0]`).
-  Gercekte zamanlanan yol degildir, Bolum 3.2 kurali korunur; bkz. 9.9/3.
-  `i2c_sda_i` ve `qspi_io_i*` senkron kisitli KALIR.
-- **Multicycle path:** YOK (tum yollar tek cevrim kurali).
-- **SRAM derate:** bolum 9.5'teki 2,661x/0,5x `set_timing_derate`
-  uygulamasi bir zamanlama istisnasi degildir; DDK'nin kabul ettigi TT
-  ikamesinin ustune eklenen, zorunlu olmayan olcume dayali guvenlik
-  payidir (ayrinti ve juri karari: bolum 9.5). Seffaflik icin burada da
-  beyan edilir.
+  Rationale: `rst_ni` is asynchronous assert / synchronous release;
+  release synchronization is done at the chip top level (pad ring /
+  reset controller), and this class of path carries no real data timing.
+  Recovery/removal behavior is guaranteed by the release
+  synchronization. No path that genuinely needs to be timed has been
+  put under an exception.
+- **False path (asynchronous inputs):** via `set_false_path -from`:
+  `gpio_in_i*` (2FF synchronizer, `gpio_axil.sv:44-50`), `uart_rxd_i` and
+  `uart1_rxd_i` (asynchronous serial lines, sampled via `rxd_reg`). These
+  ports have no meaningful arrival window relative to `clk`; a
+  synchronous input_delay produces spurious setup/hold violations
+  (measured: the TT worst hold path was `gpio_in_i[0]`). These are not
+  genuinely timed paths, so the Section 3.2 rule is preserved; see
+  9.9/3. `i2c_sda_i` and `qspi_io_i*` REMAIN synchronously constrained.
+- **Multicycle path:** NONE (all paths follow the single-cycle rule).
+- **SRAM derate:** the 2.661x/0.5x `set_timing_derate` application of
+  section 9.5 is not a timing exception; it is a non-mandatory,
+  measurement-based safety margin added on top of the TT substitution
+  accepted by the DDK (details and jury decision: section 9.5). It is
+  declared here as well for transparency.
 
-### 9.6.1 Kisit-gerekce tablosu (design.sdc satir referanslariyla)
+### 9.6.1 Constraint-rationale table (with design.sdc line references)
 
-Asagidaki tablo `design.sdc`'deki HER kisiti, degerini ve gerekcesini tek
-bakista verir. SDC dosyasinin kendisi imzali kosunun
-(`RUN_teslim_2026-08-14`) girdisidir ve degistirilmemistir; bu tablo
-yalnizca dokumantasyon konsolidasyonudur.
+The table below gives EVERY constraint in `design.sdc`, its value and its
+rationale at a glance. The SDC file itself is an input of the signed-off
+run (`RUN_teslim_2026-08-14`) and has not been modified; this table is
+documentation consolidation only.
 
-| Kisit (design.sdc satiri) | Deger | Gerekce |
+| Constraint (design.sdc line) | Value | Rationale |
 |---|---|---|
-| `create_clock clk` (s.22) | 20.000 ns (50 MHz) | Birincil ve tek saat; config.yaml `CLOCK_PERIOD` ile ayni olmak zorunda (9.13 tutarlilik kurali). ASIC'te saat pad'den gelir; FPGA'daki MMCM `fpga_top`ta kalir. |
-| `set_clock_uncertainty -setup` (s.25) | 0.500 ns | Jitter + skew butcesi (Bolum 3.2 "onerilen" kalemi); kaynak netlesmedigi icin kotumser sabit. |
-| `set_clock_uncertainty -hold` (s.26) | 0.100 ns | Ayni butcenin hold tarafi; CTS sonrasi olculen skew'e karsi pay. |
-| `set_clock_transition` (s.27) | 0.150 ns | Saat girisi gecis suresi varsayimi (pad modeli yokken tipik deger). |
-| `set_false_path -from rst_ni` (s.41) | - | Tasarimin TEK istisnasi. `rst_ni` asenkron assert / senkron release; release senkronizasyonu cip ust seviyesinde. Gercek veri zamanlamasi tasimaz; Bolum 3.2 "gercekte zamanlanan yol false path yapilamaz" kurali ihlal edilmez. |
-| `set_false_path -from` asenkron girisler (s.58-59) | `gpio_in_i*`, `uart_rxd_i`, `uart1_rxd_i` | 2FF senkronizator (`gpio_axil.sv:44-50`) ve asenkron seri hatlar; `clk`e gore anlamli varis penceresi yok. Senkron input_delay sahte ihlal uretir (olculdu: TT en kotu hold yolu `gpio_in_i[0]` cikmisti). |
-| `set_input_delay` (s.67-68) | max 6.000 / min 0.500 ns | Senkron kalan girisler (`i2c_sda_i`, `qspi_io_i*`) icin ~%30 giris butcesi; portlar arac tasinabilirligi icin acik listeyle verilir. |
-| `set_output_delay` (s.69-70) | max 6.000 / min 0.500 ns | TUM cikislar icin ~%30 cikis butcesi; dusuk hizli cevre birimleri (UART/I2C/QSPI/GPIO) icin yeterli pay. |
-| `set_load` (s.74) | 5.0 pF | Pad + harici hat icin kotumser yuk; pad modeli netlesirse rafine edilir. |
-| `set_max_transition` (s.79) | 1.000 ns | Tasarim geneli sinyal butunlugu kurali (Bolum 3.2). |
-| `set_max_fanout` (s.80) | 32 | Tasarim geneli yayilim siniri; sentez/PnR buffer'lamayi buna gore yapar. |
-| SRAM kose-kosullu derate (s.124-146) | SS: late 2.661 / FF: early 0.500 / TT: 1.0 | Makro Liberty'si yalniz TT; SS/FF analizi icin `dfxtp_1` clk->Q TT/SS oranindan OLCULEN vekil katsayi (waiver degil, olcum duzeltmesi; DDK karari 3 + bolum 9.5). TT'de 1.0: TT lib birebir dogru model. PnR baglaminda kosulsuz kotumser eski davranis korunur (dondurma disiplini). |
-| Generated clock | YOK | QSPI SCLK `clk`den register cikisiyla uretilir (<= clk/2), ic saat olarak kullanilmaz; tum veri yollari ayni saat alaninda ("ilgili yapi varsa zorunlu" kosulu tetiklenmez). |
-| Saat gruplari / CDC | YOK | Tek saat alani; CDC yolu yok (MMCM `asic_top` disinda). Kosullu Bolum 3.2 maddeleri tetiklenmez. |
-| Multicycle path | YOK | Tum yollar tek cevrim kurali ile kapatilir; istisna tanimlanmamistir. |
+| `create_clock clk` (line 22) | 20.000 ns (50 MHz) | Primary and only clock; must equal config.yaml `CLOCK_PERIOD` (9.13 consistency rule). In the ASIC the clock comes from a pad; the FPGA's MMCM stays in `fpga_top`. |
+| `set_clock_uncertainty -setup` (line 25) | 0.500 ns | Jitter + skew budget (Section 3.2 "recommended" item); a pessimistic constant since the source is not finalized. |
+| `set_clock_uncertainty -hold` (line 26) | 0.100 ns | Hold side of the same budget; margin against the skew measured after CTS. |
+| `set_clock_transition` (line 27) | 0.150 ns | Clock input transition time assumption (typical value in the absence of a pad model). |
+| `set_false_path -from rst_ni` (line 41) | - | The design's ONLY exception. `rst_ni` is asynchronous assert / synchronous release; release synchronization at the chip top level. Carries no real data timing; the Section 3.2 rule "gercekte zamanlanan yol false path yapilamaz" (EN: a genuinely timed path must not be made a false path) is not violated. |
+| `set_false_path -from` asynchronous inputs (lines 58-59) | `gpio_in_i*`, `uart_rxd_i`, `uart1_rxd_i` | 2FF synchronizer (`gpio_axil.sv:44-50`) and asynchronous serial lines; no meaningful arrival window relative to `clk`. A synchronous input_delay produces spurious violations (measured: the TT worst hold path had come out as `gpio_in_i[0]`). |
+| `set_input_delay` (lines 67-68) | max 6.000 / min 0.500 ns | ~30% input budget for the inputs that remain synchronous (`i2c_sda_i`, `qspi_io_i*`); ports are given as an explicit list for tool portability. |
+| `set_output_delay` (lines 69-70) | max 6.000 / min 0.500 ns | ~30% output budget for ALL outputs; sufficient margin for the low-speed peripherals (UART/I2C/QSPI/GPIO). |
+| `set_load` (line 74) | 5.0 pF | Pessimistic load for pad + external trace; to be refined once the pad model is finalized. |
+| `set_max_transition` (line 79) | 1.000 ns | Design-wide signal integrity rule (Section 3.2). |
+| `set_max_fanout` (line 80) | 32 | Design-wide fanout limit; synthesis/PnR buffer accordingly. |
+| SRAM corner-conditional derate (lines 124-146) | SS: late 2.661 / FF: early 0.500 / TT: 1.0 | The macro Liberty is TT-only; for SS/FF analysis, a proxy coefficient MEASURED from the `dfxtp_1` clk->Q TT/SS ratio (not a waiver but a measurement correction; DDK decision 3 + section 9.5). 1.0 in TT: the TT lib is the exactly correct model. In the PnR context the unconditional pessimistic legacy behavior is retained (freeze discipline). |
+| Generated clock | NONE | QSPI SCLK is generated from `clk` via a register output (<= clk/2), not used as an internal clock; all data paths are in one clock domain (the "ilgili yapi varsa zorunlu" (EN: mandatory only if the relevant structure exists) condition is not triggered). |
+| Clock groups / CDC | NONE | Single clock domain; no CDC path (MMCM outside `asic_top`). The conditional Section 3.2 items are not triggered. |
+| Multicycle path | NONE | All paths are closed under the single-cycle rule; no exception is defined. |
 
-## 9.7 Fiziksel Tasarim Yapilandirmasi
+## 9.7 Physical Design Configuration
 
-Olcum kaynagi: **`RUN_teslim_2026-08-14`** (nihai teslim kosusu).
+Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
 
-- **Floorplan (mutlak):** `DIE_AREA` 4180 x 4490 um = **18,77 mm2**,
-  `CORE_AREA` (60,60)-(4120,4430) = 17,74 mm2; `FP_SIZING: absolute`.
-- **En boy orani:** 4180/4490 = **0,931** (yaklasik kare). `FP_SIZING:
-  absolute` kullanildigi icin `FP_ASPECT_RATIO` parametresi devrede degildir;
-  oran, 4 sutunlu makro dizisinin genisligi (4 x 683,1 um makro + kanallar)
-  ile 7 sirali dizilim + 834,2 um'lik merkezi mantik koridorunun toplam
-  yuksekliginden turemistir (macro_placement.cfg).
-  Kanal-genisletme karari olcumle alindi: makro sutun kanali 209 -> 300 um,
-  satir arasi 60 -> 100 um ile route DRC 1348 -> 0, yakinsama 195 -> 10
-  iterasyon (bedel: die +%12,2). Deney zinciri `config.yaml` yorumlarinda.
-- **Utilization (olculen):** ornek toplami %49,9 (makrolar dahil);
-  std-hucre %12,3. Hedef `PL_TARGET_DENSITY_PCT: 35`,
+- **Floorplan (absolute):** `DIE_AREA` 4180 x 4490 um = **18.77 mm2**,
+  `CORE_AREA` (60,60)-(4120,4430) = 17.74 mm2; `FP_SIZING: absolute`.
+- **Aspect ratio:** 4180/4490 = **0.931** (approximately square). Since
+  `FP_SIZING: absolute` is used, the `FP_ASPECT_RATIO` parameter is not
+  in effect; the ratio derives from the width of the 4-column macro array
+  (4 x 683.1 um macros + channels) and the total height of the 7-row
+  arrangement + the 834.2 um central logic corridor
+  (macro_placement.cfg). The channel-widening decision was taken by
+  measurement: with macro column channel 209 -> 300 um and inter-row
+  spacing 60 -> 100 um, route DRC went 1348 -> 0 and convergence
+  195 -> 10 iterations (cost: die +12.2%). The experiment chain is in the
+  `config.yaml` comments.
+- **Utilization (measured):** instance total 49.9% (including macros);
+  std-cell 12.3%. Target `PL_TARGET_DENSITY_PCT: 35`,
   `PL_MAX_DISPLACEMENT_Y: 300`.
-- **Makro yerlesimi:** `macro_placement.cfg` - 27 SRAM makrosu, 4 sutun x
-  alt/ust bant elle yerlesim (koordinatlar dosyada, gerekce 9.5).
-- **Pin yerlesimi:** LibreLane varsayilan otomatik pin yerlestirici;
-  ozel pin sirasi dosyasi kullanilmadi.
-- **Guc/toprak aglari:** ust seviye `VPWR`/`VGND`; SRAM makro pinleri
-  `vccd1`/`vssd1`, `PDN_MACRO_CONNECTIONS` ile eslenir (3 desen, 27 makro).
-  `PDN_MULTILAYER: true` (met4 dikey + met5 yatay strap). PDN dogrulamasi:
-  `reports/pdn/{VPWR,VGND}-grid-errors.rpt` ikisi de BOS (0 hata).
-- **Yonlendirme:** tum katmanlar (li1-met5) yonlendiriciye acik; makro
-  ustlerinde 81 `ROUTING_OBSTRUCTIONS` kutusu (met1/met2/met5 x 27 makro,
-  gerekce config yorumunda: SRAM LEF'inde met5 OBS eksik).
-  `GRT_ALLOW_CONGESTION: true`, `GRT_OVERFLOW_ITERS: 25`. Olculen sonuc:
-  route DRC 0, toplam tel 6,13 m, via 740.817.
-- **CTS:** LibreLane varsayilan CTS yapilandirmasi; olculen saat agaci
-  1.785 clock buffer + 280 clock inverter. Yonlendirme sonrasi hold
-  onarimi `RUN_POST_GRT_RESIZER_TIMING: true` (63 -> 10 olcumu, 11 Agu
-  yapilandirma deneyi, PnR-ici tt kontrolu; NIHAI signoff ihlal sayilari
-  9.11 tablosundadir: tt 48 / ss 0 / ff 112, mekanizma 9.9/2).
-- **Alan/frekans takasi (DDK 17 Agu karari):** die/core alani ayri bir puan
-  agirligi tasimaz; belirleyici olan zamanlama ve signoff temizligidir.
-  Kanal-genisletmenin +%12,2 alan bedeli bu cerceve icinde, 0-DRC
-  karsiliginda bilinclidir (`asic/DDK_KARARLARI.md`).
-- **Yardimci dosyalar:** `macro_placement.cfg`, `constraints/design.sdc`,
-  `scripts/` (filelist denetimi, cikti toplama, ortam sarici).
+- **Macro placement:** `macro_placement.cfg` — 27 SRAM macros, manual
+  placement in 4 columns x bottom/top bands (coordinates in the file,
+  rationale in 9.5).
+- **Pin placement:** LibreLane default automatic pin placer; no custom
+  pin-order file was used.
+- **Power/ground nets:** top level `VPWR`/`VGND`; SRAM macro pins
+  `vccd1`/`vssd1`, mapped via `PDN_MACRO_CONNECTIONS` (3 patterns,
+  27 macros). `PDN_MULTILAYER: true` (met4 vertical + met5 horizontal
+  straps). PDN verification: `reports/pdn/{VPWR,VGND}-grid-errors.rpt`
+  both EMPTY (0 errors).
+- **Routing:** all layers (li1-met5) open to the router; 81
+  `ROUTING_OBSTRUCTIONS` boxes over the macros (met1/met2/met5 x
+  27 macros, rationale in the config comment: met5 OBS missing in the
+  SRAM LEF). `GRT_ALLOW_CONGESTION: true`, `GRT_OVERFLOW_ITERS: 25`.
+  Measured result: route DRC 0, total wire 6.13 m, 740,817 vias.
+- **CTS:** LibreLane default CTS configuration; measured clock tree
+  1,785 clock buffers + 280 clock inverters. Post-route hold repair
+  `RUN_POST_GRT_RESIZER_TIMING: true` (63 -> 10 measurement, Aug 11
+  configuration experiment, in-PnR tt check; the FINAL signoff violation
+  counts are in the 9.11 table: tt 48 / ss 0 / ff 112, mechanism in
+  9.9/2).
+- **Area/frequency trade-off (DDK Aug 17 decision):** die/core area
+  carries no separate scoring weight; timing and signoff cleanliness are
+  what matters. The +12.2% area cost of the channel-widening is
+  deliberate within this framework, in exchange for 0 DRC
+  (`asic/DDK_KARARLARI.md`).
+- **Auxiliary files:** `macro_placement.cfg`, `constraints/design.sdc`,
+  `scripts/` (filelist check, output collection, environment wrapper).
 
-## 9.8 Lint Sonuclari ve Istisnalari
+<p align="center"><img src="results/images/asic_top.png" width="480" alt="asic_top final layout"></p>
+<p align="center"><sub>asic_top final layout (RUN_teslim_2026-08-14)</sub></p>
+<p align="center"><sub>(image placeholder - zoomed macro-grid / corridor crops if desired)</sub></p>
 
-Olcum kaynagi: akisin Verilator lint adimi (Verilator 5.044),
+## 9.8 Lint Results and Exceptions
+
+Measurement source: the flow's Verilator lint step (Verilator 5.044),
 `reports/lint/verilator_lint.log`, `RUN_teslim_2026-08-14`.
 
-- **Hata: 0. Uyari: 932. Waiver dosyasi KULLANILMADI** - hicbir uyari
-  bastirilmadi, log ham haliyle teslim edilir
-  (`reports/lint/waivers/` bos, bilincli).
-- **Inferred latch yok:** LATCH sinifi uyari 0.
-- Uyari dagilimi ve degerlendirme:
-  - `TIMESCALEMOD` 452: timescale direktifi iceren/icermeyen dosya karisimi;
-    simulasyon tarafinda derleyici bayragiyla cozulur, sentez sonucunu
-    etkilemez.
-  - `UNUSEDSIGNAL` 230 / `UNUSEDPARAM` 62: cogunlugu arayuz demetlerinin
-    kullanilmayan alanlari ve yapilandirma sabitleri (ornek: AXI'nin
-    kullanilmayan yan sinyalleri). Sentezde otomatik budanir.
-  - `WIDTHEXPAND` 63 / `WIDTHTRUNC` 31: bilincli genislik donusumleri;
-    kritik aritmetik yollar regresyonla dogrulandi (kok `README.md`
-    dogrulama bolumu: make test-all 16/16, kapsama olcumleri).
-  - `PINCONNECTEMPTY` 28: bilincli bos birakilan cikis pinleri.
-  - Kalanlar (`PROCASSINIT` 15, `BLKSEQ` 13, `VARHIDDEN` 9,
+- **Errors: 0. Warnings: 932. NO waiver file was USED** — no warning was
+  suppressed, the log is delivered in its raw form
+  (`reports/lint/waivers/` empty, deliberately).
+- **No inferred latches:** LATCH-class warnings 0.
+- Warning distribution and assessment:
+  - `TIMESCALEMOD` 452: mix of files with/without a timescale directive;
+    resolved on the simulation side with a compiler flag, does not affect
+    the synthesis result.
+  - `UNUSEDSIGNAL` 230 / `UNUSEDPARAM` 62: mostly unused fields of
+    interface bundles and configuration constants (example: unused AXI
+    side signals). Automatically pruned in synthesis.
+  - `WIDTHEXPAND` 63 / `WIDTHTRUNC` 31: deliberate width conversions;
+    the critical arithmetic paths were verified by regression (root
+    `README.md` verification section: make test-all 16/16, coverage
+    measurements).
+  - `PINCONNECTEMPTY` 28: deliberately left-open output pins.
+  - The rest (`PROCASSINIT` 15, `BLKSEQ` 13, `VARHIDDEN` 9,
     `CASEINCOMPLETE` 8, `ASCRANGE` 7, `GENUNNAMED` 5, `UNDRIVEN` 4,
-    `PINMISSING` 3, `UNOPTFLAT` 2): stil/bilgi seviyesi; islevsel dogruluk
-    16/16 test-all + 46/46 arch-test imza esitligiyle gosterildi.
+    `PINMISSING` 3, `UNOPTFLAT` 2): style/informational level; functional
+    correctness was demonstrated with 16/16 test-all + 46/46 arch-test
+    signature equality.
 
-## 9.9 Bilinen Sorunlar ve Kabul Edilmis Istisnalar
+## 9.9 Known Issues and Accepted Exceptions
 
-Bilinen hata/uyari/ihlaller; sonuclari etkileyebilecek arac veya akis
-sorunlari; takim degerlendirmesi.
+Known errors/warnings/violations; tool or flow issues that could affect
+the results; team assessment.
 
-Bilinen ve kabul edilmis sinirlar (nihai kosu `RUN_teslim_2026-08-14`):
+Known and accepted limits (final run `RUN_teslim_2026-08-14`):
 
-1. **SS kosesinde 50 MHz kapanmaz.** `ss_100C_1v60` (1,6 V / 100 C) kosesinde
-   setup WS -9,083 ns (2.521 yol); en kotu yol saf standart-hucre CPU yoludur
-   (`id_stage` ici; SRAM/derate etkisi YOK). Bu kose fiziginin sonucudur;
-   RTL degisikligi kapsam disi oldugundan cift beyan yapilmistir (bolum 9.1):
-   TT 50 MHz / SS ~34,4 MHz. Uc kosenin raporlari eksiksizdir.
-2. **Kalan hold ihlalleri: tt -0,323 ns (48 yol), ff -0,382 ns (112 yol);
-   ss kosesinde hold ihlali YOK (+0,227 ns).** FF kosesindeki 112 yolun
-   111'i SRAM makro veri girislerindedir (dagilim 9.9/7'de: `u_input_mem`
-   32, `i_ai_sram` 34, `u_conv_out` 27, `u_conv_w_mem` 18), 1'i CPU kontrol
-   yoludur (`id_stage.controller`); kok neden makro
-   saat carpikligi (CTS makro saat pinlerine ~1 ns gec variyor). Marj tabanli
-   onarim OLCULEREK elendi (0,3 marj: hold degismedi, SS setup -10,3'e coktu;
-   0,5: arac cokmesi). FF degeri bilerek kotumser early-0.5 derate modelinin
-   sonucudur. Teslim makro seviyesidir (bolum 2); sinir mekanizmasiyla beyan
-   edilmistir.
-3. **`i2c_sda_i` senkronizatorsuz orneklenir** (RTL gozden gecirme notu);
-   SDC'de senkron kisitli tutulmustur. `gpio_in_i` (2FF senkronizator) ve
-   `uart*_rxd_i` asenkron giris olarak false path'tir (bolum 9.6).
-4. **Magic DRC 9.201 isaret - tamami TEK kural: `nwell.4`. Kok neden
-   OLCULDU ve kapandi: geometrik tap eksikligi elendi; Magic'in
-   baglanti-cozumleme siniri olarak kabul edilmis istisnadir.**
-   Olculen gercekler (`reports/drc/drc.magic.rpt`):
-   - **Tek kural turu:** "All nwells must contain metal-connected N+ taps"
-     (`nwell.4`). Baska hicbir Magic kurali ihlal edilmemistir.
-   - Magic'in raporundaki kendi notu: *"Should be divided by 3 or 4"* -
-     yani ayri ihlal sayisi **~2.300-3.100** mertebesindedir.
-   - Isaretlerin geometrisi: standart hucre satiri boyunda yatay seritler
-     (isaret yuksekligi medyani 2,79 um; sky130_fd_sc_hd satir yuksekligi
-     2,72 um - `scripts/tap_analiz.py` satir gruplamasinda 2,72 kullanir),
-     23 farkli X konumunda; standart hucre alanindadir.
-   - **SRAM makro ayak izlerinin ICINDE sifir isaret vardir** (27 makro
-     kutusuna karsi kontrol edildi). Isaretlerin 2.142'si, cevresinde makro
-     bulunmayan merkezi mantik koridorundadir. Bu nedenle bulgu
-     **satici makrosuna atfedilemez**; onceki surumlerde yer alan
-     "satici makro gurultusu" ifadesi olcumle desteklenmediginden
-     kaldirilmistir.
-   - Ayni GDS uzerinde **KLayout DRC 257 kuralin tamaminda 0** verir; ayrica
-     LVS 0 ve XOR 0'dir, yani netlist esdegerligi ve iki akisin geometrisi
-     dogrulanmistir.
-   - **KOK NEDEN OLCULDU - eksik tap DEGIL.** Nihai DEF'ten 135.957 tap
-     hucresinin (1.605 satir) konumlari cikarilip her isaretin merkezine
-     en yakin tap mesafesi hesaplandi:
+1. **50 MHz does not close in the SS corner.** In the `ss_100C_1v60`
+   (1.6 V / 100 C) corner, setup WS is -9.083 ns (2,521 paths); the worst
+   path is a pure standard-cell CPU path (inside `id_stage`; NO
+   SRAM/derate effect). This is a consequence of the corner physics;
+   since RTL changes are out of scope, a dual declaration was made
+   (section 9.1): TT 50 MHz / SS ~34.4 MHz. The reports for all three
+   corners are complete.
+2. **Remaining hold violations: tt -0.323 ns (48 paths), ff -0.382 ns
+   (112 paths); NO hold violation in the ss corner (+0.227 ns).** Of the
+   112 paths in the FF corner, 111 are at SRAM macro data inputs
+   (distribution in 9.9/7: `u_input_mem` 32, `i_ai_sram` 34,
+   `u_conv_out` 27, `u_conv_w_mem` 18) and 1 is a CPU control path
+   (`id_stage.controller`); the root cause is macro clock skew (CTS
+   arrives at the macro clock pins ~1 ns late). Margin-based repair was
+   MEASURED and rejected (0.3 margin: hold unchanged, SS setup collapsed
+   to -10.3; 0.5: tool crash). The FF figure is the result of the
+   deliberately pessimistic early-0.5 derate model. The delivery is at
+   macro level (Section 2); the limit is declared with its mechanism.
+3. **`i2c_sda_i` is sampled without a synchronizer** (RTL review note);
+   it is kept synchronously constrained in the SDC. `gpio_in_i` (2FF
+   synchronizer) and `uart*_rxd_i` are false paths as asynchronous inputs
+   (section 9.6).
+4. **Magic DRC 9,201 markers — all from a SINGLE rule: `nwell.4`. The
+   root cause was MEASURED and closed: geometric tap deficiency was ruled
+   out; this is an accepted exception attributed to Magic's connectivity
+   resolution limit.**
+   Measured facts (`reports/drc/drc.magic.rpt`):
+   - **Single rule type:** "All nwells must contain metal-connected N+
+     taps" (`nwell.4`). No other Magic rule is violated.
+   - Magic's own note in its report: *"Should be divided by 3 or 4"* —
+     i.e. the distinct violation count is on the order of
+     **~2,300-3,100**.
+   - Marker geometry: horizontal strips spanning standard-cell rows
+     (median marker height 2.79 um; sky130_fd_sc_hd row height 2.72 um —
+     `scripts/tap_analiz.py` uses 2.72 in its row grouping), at 23
+     distinct X positions; within the standard-cell area.
+   - **There are zero markers INSIDE the SRAM macro footprints** (checked
+     against the 27 macro boxes). 2,142 of the markers are in the central
+     logic corridor, which has no macros around it. Therefore the finding
+     **cannot be attributed to the vendor macro**; the phrase
+     "vendor macro noise" present in earlier revisions was removed
+     because it was not supported by measurement.
+   - On the same GDS, **KLayout DRC returns 0 across all 257 rules**;
+     furthermore LVS is 0 and XOR is 0, i.e. netlist equivalence and the
+     geometry of the two flows are verified.
+   - **ROOT CAUSE MEASURED — NOT missing taps.** The positions of the
+     135,957 tap cells (1,605 rows) were extracted from the final DEF and
+     the nearest-tap distance from each marker's center was computed:
 
-     | Olcum | Sonuc |
+     | Measurement | Result |
      |---|---|
-     | En yakin tap mesafesi (min / medyan / maks) | 0,14 / 3,11 / **6,13 um** |
-     | 10 um icinde tap bulunan isaret | **9.201 / 9.201 (%100)** |
-     | Ayni veya komsu satirda hic tap olmayan isaret | **0** |
+     | Nearest tap distance (min / median / max) | 0.14 / 3.11 / **6.13 um** |
+     | Markers with a tap within 10 um | **9,201 / 9,201 (100%)** |
+     | Markers with no tap in the same or a neighboring row | **0** |
 
-     sky130'un tap mesafesi gereksinimi ~15 um mertebesindedir; en kotu
-     durumumuz 6,13 um'dir ve bu deger LibreLane'in varsayilan tapcell
-     adimiyla tutarlidir. Yani tap hucreleri isaretlenen her bolgede
-     mevcuttur ve mesafe kurali fazlasiyla saglanmaktadir - **isaretler
-     eksik tap'i gostermiyor, gercek bir latch-up riski yoktur.**
-   - **Degerlendirme:** `nwell.4` baglanti-farkinda bir kuraldir; tap'in
-     yalnizca varligini degil metale bagli olmasini da ister. Geometrik
-     eksiklik olcumle elendigine, ayni GDS uzerinde KLayout 257 kuralda 0
-     verdigine ve LVS'in 0 hatayla netlist esdegerligini (VPWR/VGND
-     baglantilari dahil) dogruladigina gore, isaretler tasarim kusuruna
-     degil Magic'in GDS'ten baglanti cozumleme sinirina isaret etmektedir.
-     Bu nedenle **kabul edilmis istisna** olarak beyan edilir.
-   - Yeniden uretim: `python3 scripts/tap_analiz.py results/def/<tasarim>.def
-     reports/drc/drc.magic.rpt` (olcumu tekrarlar).
-   - Not: Magic adimlari akista **tamamlanmaktadir**; rapor uretilmis ve
-     teslim edilmistir. `MAGIC_CAPTURE_ERRORS=false` gerekcesi `config.yaml` icindeki
-     yorumdadir.
-5. LVS = 0 (gercek GDS cikarimi, 1.795.705 eleman). Onceki 197/205 farklar
-   dar kanalli eski floorplanin diyot yerlesiminden geliyordu; genis kanalli
-   nihai floorplanda tamamen kapanmistir.
-6. `metrics.json`'in bazi timing alanlari, ayni kosunun kose raporuyla
-   birebir ortusmeyebilir (11 Agu dogrulama kosusunda gozlendi:
-   `timing__setup__ws` metrigi -91,57 gosterirken ss `max.rpt` -23,71
-   veriyordu; farkin nedeni metrik alaninin ara-adim degeri tasiyabilmesi).
-   Bu nedenle beyanlarimizda **`reports/timing/<kose>/` rapor dosyalari
-   esastir**; 9.1/9.11 sayilari nihai kosunun rapor dosyalarindan
-   okunmustur ve `reports/signoff/metrics.json` ile de tutarlidir.
+     sky130's tap distance requirement is on the order of ~15 um; our
+     worst case is 6.13 um, and this value is consistent with
+     LibreLane's default tapcell step. That is, tap cells are present in
+     every flagged region and the distance rule is satisfied with ample
+     margin — **the markers do not indicate missing taps and there is no
+     real latch-up risk.**
+   - **Assessment:** `nwell.4` is a connectivity-aware rule; it requires
+     not only the presence of a tap but also that it be metal-connected.
+     Given that geometric deficiency was ruled out by measurement, that
+     KLayout returns 0 across 257 rules on the same GDS, and that LVS
+     verified netlist equivalence with 0 errors (including VPWR/VGND
+     connections), the markers point not to a design defect but to
+     Magic's connectivity-resolution limit from GDS. It is therefore
+     declared an **accepted exception**.
+   - Reproduction: `python3 scripts/tap_analiz.py results/def/<design>.def
+     reports/drc/drc.magic.rpt` (repeats the measurement).
+   - Note: the Magic steps **do complete** in the flow; the report has
+     been produced and delivered. The rationale for
+     `MAGIC_CAPTURE_ERRORS=false` is in the comment inside `config.yaml`.
+5. LVS = 0 (real GDS extraction, 1,795,705 elements). The previous
+   197/205 differences came from the diode placement of the old
+   narrow-channel floorplan; they are fully closed in the wide-channel
+   final floorplan.
+6. Some timing fields of `metrics.json` may not match the corner report
+   of the same run one-to-one (observed in the Aug 11 verification run:
+   the `timing__setup__ws` metric showed -91.57 while the ss `max.rpt`
+   gave -23.71; the reason for the difference is that the metric field
+   may carry an intermediate-step value). For this reason, **the
+   `reports/timing/<corner>/` report files are authoritative** in our
+   declarations; the 9.1/9.11 figures were read from the final run's
+   report files and are also consistent with
+   `reports/signoff/metrics.json`.
 
-7. **QSPI cikis-etkinlestirme (`io_oe`) yazmaclanmadi - bilincli karar.**
-   `qspi_master_axil.sv` veri cikisini mode-0 geregi dusen kenarda
-   yazmaclar (`tx_io_q`), ancak `io_oe` kombinasyoneldir ve bir cikis
-   fazinin SON bitinde ornekleme kenariyla ayni anda birakilir; yani o tek
-   bitin RTL hold marji sifirdir. `io_oe`'yi de yazmaclamamayi secmemizin
-   gerekceleri:
-   - Etki **sistematik degil**, yalnizca son-bit kenar marjidir; her
-     transferin diger tum bitleri yarim periyot setup + yarim periyot hold
-     alir.
-   - **Olculdu:** kartta QSPI flash-boot calisiyor ve 60/60 rastgele
-     siniflandirma taramasinda sifir sapma var (`sw/ai_model/
-     kart_sweep_raporu_n60.txt`); `qspi-modes` 6/6 ve `qspi-err` 25/25
-     simulasyonda yesil.
-   - Gercek cipte pad'in **output-disable gecikmesi** fiili hold marjini
-     pozitife tasir; RTL'deki sifir marj kotumser bir ust sinirdir.
-   - `io_oe`'yi yazmaclamak x2/x4 modlarindaki **bus turnaround**
-     zamanlamasini degistirir; dondurma gunu alinacak taze-regresyon riski
-     degildir (ayni gun `tx_io_q`'nun yazmaca alinmasi WP#/HOLD# tieoff
-     regresyonu uretmisti - bkz. commit `285698b`).
-   **Takip SONUCU (nihai kosu, kapatildi):** `ff_n40C_1v95` kosesindeki
-   112 hold ihlalinin **hicbiri** `qspi_io_o` degildir
+7. **QSPI output-enable (`io_oe`) not registered — deliberate decision.**
+   `qspi_master_axil.sv` registers the data output on the falling edge as
+   required by mode 0 (`tx_io_q`), but `io_oe` is combinational and is
+   released simultaneously with the sampling edge on the LAST bit of an
+   output phase; i.e. the RTL hold margin of that single bit is zero. Our
+   reasons for choosing not to register `io_oe` as well:
+   - The effect is **not systematic**, it is only the last-bit edge
+     margin; every other bit of every transfer gets half a period of
+     setup + half a period of hold.
+   - **Measured:** QSPI flash-boot works on the board and there is zero
+     deviation in the 60/60 random classification sweep
+     (`sw/ai_model/kart_sweep_raporu_n60.txt`); `qspi-modes` 6/6 and
+     `qspi-err` 25/25 are green in simulation.
+   - On the real chip, the pad's **output-disable delay** moves the
+     effective hold margin positive; the zero margin in RTL is a
+     pessimistic upper bound.
+   - Registering `io_oe` changes the **bus turnaround** timing in the
+     x2/x4 modes; that is not a fresh-regression risk to take on freeze
+     day (the same day, registering `tx_io_q` had produced the WP#/HOLD#
+     tieoff regression — see commit `285698b`).
+   **Follow-up RESULT (final run, closed):** NONE of the 112 hold
+   violations in the `ff_n40C_1v95` corner is `qspi_io_o`
    (`grep -c qspi_io_o reports/timing/nom_ff_n40C_1v95/violator_list.rpt`
-   -> 0). 112 ihlalin 111'i SRAM makro veri girisleridir
+   -> 0). Of the 112 violations, 111 are SRAM macro data inputs
    (`u_input_mem` 32, `i_ai_sram` 34, `u_conv_out` 27, `u_conv_w_mem` 18;
-   +1 CPU kontrol yolu) ve mekanizmasi 9.9/2'de aciklanan makro
-   dusen-kenar arayuzudur.
-   Karar dogrulanmistir: `io_oe`'nin kombinasyonel birakilmasi hizli
-   kosede olculebilir bir hold riski uretmemistir.
+   +1 CPU control path) and the mechanism is the macro falling-edge
+   interface explained in 9.9/2.
+   The decision is validated: leaving `io_oe` combinational produced no
+   measurable hold risk in the fast corner.
 
-8. **DDK'nin yazili kararlariyla onceden kabul edilmis hususlar**
-   (tam metinler: `asic/DDK_KARARLARI.md`):
-   - *Errata (17 Agu 2026):* `filelist.f` yollari `asic/` dizinine gore
-     cozulur - teslimimiz zaten bu tabandadir (bolum 9.4).
-   - *Alan agirligi (17 Agu 2026):* die/core alani ayri puan agirligi
-     tasimaz; kanal-genisletme takasimizin cercevesi (bolum 9.7).
-   - *SRAM Liberty ikamesi (17 Agu 2026):* TT_1p8V_25C modeli SS/FF
-     analizlerinde belgelenmis ikame olarak kabul edilir; olcekleme
-     gerekmez (bolum 9.5).
+8. **Matters accepted in advance by the DDK's written decisions**
+   (full texts: `asic/DDK_KARARLARI.md`):
+   - *Errata (Aug 17, 2026):* `filelist.f` paths are resolved relative to
+     the `asic/` directory — our delivery is already on this base
+     (section 9.4).
+   - *Area weighting (Aug 17, 2026):* die/core area carries no separate
+     scoring weight; the framework for our channel-widening trade-off
+     (section 9.7).
+   - *SRAM Liberty substitution (Aug 17, 2026):* the TT_1p8V_25C model is
+     accepted as a documented substitute in the SS/FF analyses; no
+     scaling is required (section 9.5).
 
-## 9.10 Guc ve IR-Drop Analizi
+## 9.10 Power and IR-Drop Analysis
 
-Olcum kaynagi: **`RUN_teslim_2026-08-14`** (nihai teslim kosusu).
+Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
 
-- **Kosullar:** saat 50 MHz (`create_clock` 20 ns); besleme 1,80 V nominal;
-  guc raporlari uc imza kosesinde (Tablo 4).
-- **Switching activity girdisi YOK** (VCD/SAIF verilmedi); OpenSTA
-  varsayilan anahtarlama aktivitesi kullanildi. Bolum 5.7 geregi asagidaki
-  sonuclar **TAHMINI** olarak isaretlenir.
-- **Toplam guc (tahmini):**
+- **Conditions:** clock 50 MHz (`create_clock` 20 ns); supply 1.80 V
+  nominal; power reports at the three signoff corners (Table 4).
+- **NO switching activity input** (no VCD/SAIF provided); the OpenSTA
+  default switching activity was used. Per Section 5.7 the results below
+  are marked as **ESTIMATED**.
+- **Total power (estimated):**
 
-  | Kose | Besleme | Toplam |
+  | Corner | Supply | Total |
   |---|---|---|
-  | tt_025C_1v80 | 1,80 V | **112,1 mW** |
-  | ss_100C_1v60 | 1,60 V | 104,4 mW |
-  | ff_n40C_1v95 | 1,95 V | 118,3 mW |
+  | tt_025C_1v80 | 1.80 V | **112.1 mW** |
+  | ss_100C_1v60 | 1.60 V | 104.4 mW |
+  | ff_n40C_1v95 | 1.95 V | 118.3 mW |
 
-  TT kirilimi (grup): SRAM makrolari %66,1; saat agi %17,0; sequential
-  %16,1; kombinasyonel %0,9. Guc butcesinin baskin kalemi bellek -
-  27 makro icin beklenen tablo. Beyan edilen tek rakam TT kosesidir
-  (**112,1 mW**); 9.11 tablosu da ayni degeri tasir.
-- **IR-drop (OpenROAD PSM, tt kosesi):** VPWR en kotu dusum **1,54 mV**,
-  VGND en kotu yukselme **1,57 mV** -> besleme geriliminin **%0,09**'u
-  (tipik %5 sinirinin cok altinda). Her iki net icin PSM dogrulamasi:
-  "All shapes connected". Rapor: `reports/power/irdrop.rpt`.
-- **Dugum-bazli gerilim dokumu (5.7):** `reports/power/net-VPWR.csv` ve
-  `net-VGND.csv` ham halde ~137 MB oldugundan GitHub'in 100 MB tek-dosya
-  siniri geregi depoda **gzip ile** durur (`net-VPWR.csv.gz`,
-  `net-VGND.csv.gz`). Geri acma: `gunzip -k <ad>.gz`; butunluk:
-  `sha256sum -c <ad>.sha256` (ozetler ayni dizinde). Ayrinti:
-  `results/BUYUK_DOSYALAR.md`. Bu dosyalar akisin girdisi DEGILDIR
-  (signoff sonrasi uretilen rapor); akis sikistirilmis dosyaya bagimli
-  degildir, acilmadan da `make asic_run` calisir.
-- **Ozel gerilim kaynagi konum dosyasi kullanilmadi** (varsayilan pad/strap
-  beslemesi).
+  TT breakdown (by group): SRAM macros 66.1%; clock network 17.0%;
+  sequential 16.1%; combinational 0.9%. The dominant item of the power
+  budget is memory — the expected picture for 27 macros. The single
+  declared figure is the TT corner (**112.1 mW**); the 9.11 table
+  carries the same value.
+- **IR-drop (OpenROAD PSM, tt corner):** VPWR worst drop **1.54 mV**,
+  VGND worst rise **1.57 mV** -> **0.09%** of the supply voltage (far
+  below the typical 5% limit). PSM verification for both nets:
+  "All shapes connected". Report: `reports/power/irdrop.rpt`.
+- **Node-level voltage dump (5.7):** `reports/power/net-VPWR.csv` and
+  `net-VGND.csv` are ~137 MB in raw form, so per GitHub's 100 MB
+  single-file limit they are stored in the repository **gzipped**
+  (`net-VPWR.csv.gz`, `net-VGND.csv.gz`). Decompression:
+  `gunzip -k <name>.gz`; integrity: `sha256sum -c <name>.sha256`
+  (digests in the same directory). Details:
+  `results/BUYUK_DOSYALAR.md`. These files are NOT inputs to the flow
+  (they are reports produced after signoff); the flow does not depend on
+  the compressed files, and `make asic_run` runs without decompressing
+  them.
+- **No custom voltage source location file was used** (default pad/strap
+  supply).
 
-## 9.11 Signoff Sonuc Ozeti
+## 9.11 Signoff Results Summary
 
-Kaynak kosu: **`RUN_teslim_2026-08-14`** (nihai teslim kosusu; temiz klon
-uzerinde sifirdan `make pdk` + `make asic_run`).
-Kose seti: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
+Source run: **`RUN_teslim_2026-08-14`** (final delivery run; produced
+from scratch on a clean clone with `make pdk` + `make asic_run`).
+Corner set: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 
-| Kalem | Sonuc |
+| Item | Result |
 |---|---|
 | Route (TritonRoute) DRC | **0** |
-| KLayout DRC | **0** (257 kural, tumu sifir) |
-| Magic DRC | 9.201 — tamami tek kural (`nwell.4`); kok neden olculdu, kabul edilmis istisna (9.9/4) |
-| Netgen LVS (gercek GDS cikarimi) | **0 hata / 0 cihaz farki** |
+| KLayout DRC | **0** (257 rules, all zero) |
+| Magic DRC | 9,201 — all from a single rule (`nwell.4`); root cause measured, accepted exception (9.9/4) |
+| Netgen LVS (real GDS extraction) | **0 errors / 0 device differences** |
 | XOR (Magic vs KLayout GDS) | **0** |
-| Anten ihlali | **0 net / 0 pin** |
-| Baglantisiz pin | 880 (siniflandirma: tablo alti not) |
-| PDN grid hatasi (VPWR / VGND) | **0 / 0** (rapor dosyalari bos) |
-| Setup WS (tt / ss / ff) | **+2,210** / -9,083 / **+4,375** ns |
-| Setup TNS (tt / ss / ff) | 0 / -10.639,4 / 0 ns |
-| Setup ihlal sayisi (tt / ss / ff) | 0 / 2.521 / 0 |
-| Hold WS (tt / ss / ff) | -0,323 / **+0,227** / -0,382 ns (bolum 9.9/2) |
-| Hold TNS (tt / ss / ff) | -7,00 / 0 / -14,68 ns |
-| Hold ihlal sayisi (tt / ss / ff) | 48 / 0 / 112 |
-| Max cap ihlal sayisi (tt / ss / ff) | 266 / 662 / 219 |
-| Max slew ihlal sayisi (tt / ss / ff) | 6.848 / 30.668 / 3.396 |
-| Guc (toplam, tahmini, tt kosesi) | **112,1 mW** |
-| IR-drop (tt) | %0,09 (en kotu 1,57 mV) |
-| Die alani | 18,77 mm2 (4180 x 4490 um) |
-| Ornek sayisi / std hucre | 2.588.379 / 296.010 |
-| Doluluk (utilization) | %49,87 |
+| Antenna violations | **0 nets / 0 pins** |
+| Disconnected pins | 880 (classification: note below the table) |
+| PDN grid errors (VPWR / VGND) | **0 / 0** (report files empty) |
+| Setup WS (tt / ss / ff) | **+2.210** / -9.083 / **+4.375** ns |
+| Setup TNS (tt / ss / ff) | 0 / -10,639.4 / 0 ns |
+| Setup violation count (tt / ss / ff) | 0 / 2,521 / 0 |
+| Hold WS (tt / ss / ff) | -0.323 / **+0.227** / -0.382 ns (section 9.9/2) |
+| Hold TNS (tt / ss / ff) | -7.00 / 0 / -14.68 ns |
+| Hold violation count (tt / ss / ff) | 48 / 0 / 112 |
+| Max cap violation count (tt / ss / ff) | 266 / 662 / 219 |
+| Max slew violation count (tt / ss / ff) | 6,848 / 30,668 / 3,396 |
+| Power (total, estimated, tt corner) | **112.1 mW** |
+| IR-drop (tt) | 0.09% (worst 1.57 mV) |
+| Die area | 18.77 mm2 (4180 x 4490 um) |
+| Instance count / std cells | 2,588,379 / 296,010 |
+| Utilization | 49.87% |
 
-**Tablo notlari:**
+**Table notes:**
 
-- **Baglantisiz pin (880):** dokum
-  `reports/signoff/full_disconnected_pins_table.txt`, toplam
-  `metrics.json` -> `design__disconnected_pin__count = 880`. Kaynagi iki
-  tasarim ozelligidir: (a) 27 SRAM makrosunun tumunde Port0 yalniz yazma
-  icin kullanilir, tum okumalar Port1 uzerindendir; bu nedenle her makroda
-  `dout0[31:0]` bilincli bos birakilmistir (`rtl/asic/sram_macro_bank.sv`,
-  `rtl/ai_accelerator/ai_accelerator.sv`) -> 27 x 32 = 864 pin. (b) Ust
-  seviye `gpio_in_i` portu 32 bit tanimlidir; sartname EK-2 geregi GPIO
-  16 giris kullanir ve ust yarim (`gpio_in_i[31:16]`) yuk gormez -> 16 pin.
-  Toplam 864 + 16 = 880. Guc pinlerinde kopukluk yoktur (LVS = 0 ve
-  XOR = 0 ile tutarli).
-- **Max cap / max slew ihlal sayilari:** `reports/timing/summary.rpt`
-  sutunlaridir; kutuphane karakterizasyon sinirlarinin (max cap / max slew)
-  asildigi uc noktalarin sayimidir. Ihlaller agirlikla SS (1,6 V / 100 C)
-  kosesinde yogunlasir; 9.1'deki SS kapanis beyaniyla ayni kose
-  kosullarindan kaynaklanir. TT kosesinde setup/hold kapanisi saglanmistir
-  (WS +2,210 ns, TNS 0).
+- **Disconnected pins (880):** breakdown in
+  `reports/signoff/full_disconnected_pins_table.txt`, total in
+  `metrics.json` -> `design__disconnected_pin__count = 880`. The source
+  is two design features: (a) in all 27 SRAM macros, Port0 is used only
+  for writes and all reads go through Port1; therefore `dout0[31:0]` is
+  deliberately left open in each macro (`rtl/asic/sram_macro_bank.sv`,
+  `rtl/ai_accelerator/ai_accelerator.sv`) -> 27 x 32 = 864 pins. (b) The
+  top-level `gpio_in_i` port is defined as 32 bits; per specification
+  Annex-2 (EK-2), GPIO uses 16 inputs and the upper half
+  (`gpio_in_i[31:16]`) carries no load -> 16 pins. Total 864 + 16 = 880.
+  There is no discontinuity on the power pins (consistent with LVS = 0
+  and XOR = 0).
+- **Max cap / max slew violation counts:** these are columns of
+  `reports/timing/summary.rpt`; they count the endpoints exceeding the
+  library characterization limits (max cap / max slew). The violations
+  are concentrated predominantly in the SS (1.6 V / 100 C) corner; they
+  stem from the same corner conditions as the SS closure statement in
+  9.1. Setup/hold closure is achieved in the TT corner (WS +2.210 ns,
+  TNS 0).
 
-## 9.12 Rapor ve Cikti Konumlari
+## 9.12 Report and Output Locations
 
-- **Kosu etiketi:** **`RUN_teslim_2026-08-14`** (temiz klon uzerinde
-  sifirdan uretildi; zincir ucdan uca dogrulandi:
-  `make asic_run` -> toplama -> `make asic_verify` TAMAM).
-- **Esas GDSII:** `results/gds/asic_top.gds` - **Magic** streamout ciktisi
-  esas alinir. KLayout streamout (`asic_top_klayout.gds`) karsilastirma
-  icin birlikte teslim edilir; iki cikti arasi **XOR farki 0** (9.11).
-- **`run/` kullanimi:** `make asic_run` calisma alanini temizler, akisi
-  `run/<TAG>/` altinda kosar, ardindan `scripts/collect_outputs.sh`
-  asagidaki kalici konumlara kopyalar (ayrinti 9.3). Butunluk:
-  `checksums/SHA256SUMS` — results/ altindaki zorunlu ciktilarin SHA-256
-  ozeti, `collect_outputs.sh` uretir (DDK 6.3 kapsami). GitHub 100 MB
-  limitini asan rapor ve sonuc dosyalari commit oncesi
-  `scripts/guard_large_files.sh` ile paketlenir; olusursa ayrinti
-  `results/BUYUK_DOSYALAR.md` dosyasindadir.
-- **Bolum 5 raporlari -> `asic/reports/`:**
+- **Run tag:** **`RUN_teslim_2026-08-14`** (produced from scratch on a
+  clean clone; the chain was verified end to end:
+  `make asic_run` -> collection -> `make asic_verify` OK).
+- **Primary GDSII:** `results/gds/asic_top.gds` — the **Magic** streamout
+  output is authoritative. The KLayout streamout
+  (`asic_top_klayout.gds`) is delivered alongside for comparison; the
+  **XOR difference between the two outputs is 0** (9.11).
+- **Use of `run/`:** `make asic_run` cleans the workspace, runs the flow
+  under `run/<TAG>/`, then `scripts/collect_outputs.sh` copies to the
+  permanent locations below (details 9.3). Integrity:
+  `checksums/SHA256SUMS` — SHA-256 digests of the mandatory outputs
+  under results/, produced by `collect_outputs.sh` (DDK 6.3 scope).
+  Report and result files exceeding GitHub's 100 MB limit are packaged
+  before commit with `scripts/guard_large_files.sh`; if any are created,
+  the details are in `results/BUYUK_DOSYALAR.md`.
+- **Section 5 reports -> `asic/reports/`:**
 
-  | DDK 5.x | Konum |
+  | DDK 5.x | Location |
   |---|---|
-  | 5.1 Genel (log/metrik/surumler) | `reports/general/` (`flow.log`, `metrics.json`, `versions.txt`, `resolved.json`) |
-  | 5.2 Lint | `reports/lint/verilator_lint.log` (waiver yok, 9.8) |
-  | 5.3 Sentez | `reports/synthesis/` (`stat.rpt`, `chk.rpt`, `latch.rpt`) |
-  | 5.4 STA (uc kose) | `reports/timing/nom_<kose>/` (wns/tns/ws, min/max, `checks.rpt`, `skew.*`, `violator_list.rpt`) |
-  | 5.5 Yerlesim/CTS/Yonlendirme | `reports/routing/` (`asic_top.drc`, `wire_lengths.csv`); yerlesim/CTS olcumleri `reports/general/metrics.json` icinde (utilization, saat agaci hucre sayilari, skew) |
-  | 5.6 PDN | `reports/pdn/` (grid hata raporlari; ikisi de bos) |
-  | 5.7 Guc + IR-drop | `reports/power/` (kose basina `power.rpt`, `irdrop.rpt`) |
+  | 5.1 General (log/metrics/versions) | `reports/general/` (`flow.log`, `metrics.json`, `versions.txt`, `resolved.json`) |
+  | 5.2 Lint | `reports/lint/verilator_lint.log` (no waivers, 9.8) |
+  | 5.3 Synthesis | `reports/synthesis/` (`stat.rpt`, `chk.rpt`, `latch.rpt`) |
+  | 5.4 STA (three corners) | `reports/timing/nom_<corner>/` (wns/tns/ws, min/max, `checks.rpt`, `skew.*`, `violator_list.rpt`) |
+  | 5.5 Placement/CTS/Routing | `reports/routing/` (`asic_top.drc`, `wire_lengths.csv`); placement/CTS measurements inside `reports/general/metrics.json` (utilization, clock tree cell counts, skew) |
+  | 5.6 PDN | `reports/pdn/` (grid error reports; both empty) |
+  | 5.7 Power + IR-drop | `reports/power/` (per corner `power.rpt`, `irdrop.rpt`) |
   | 5.8 DRC | `reports/drc/` (KLayout json/lyrdb + Magic rpt/lyrdb) |
   | 5.9 LVS | `reports/lvs/lvs.netgen.rpt` (+ json) |
-  | 5.10 Anten | `reports/antenna/` |
-  | Signoff ozeti | `reports/signoff/` (`metrics.json`, `manufacturability.rpt`) |
+  | 5.10 Antenna | `reports/antenna/` |
+  | Signoff summary | `reports/signoff/` (`metrics.json`, `manufacturability.rpt`) |
 
-- **Bolum 6 ciktilari -> `asic/results/`:** `gds/` (esas + karsilastirma),
-  `def/`, `lef/`, `odb/`, `netlist/` (sentez / PnR / powered),
-  `sdc/`, `sdf/`, `spef/`, `lib/`, `mag/`, `spice/`, `config/resolved.json`,
-  `metrics/`, `images/asic_top.png` (Tablo 8 yerlesimi).
-- Toplama haritasinin tek kaynagi `scripts/collect_outputs.sh`;
-  dogrulama `make asic_verify` (`scripts/verify_outputs.sh`).
+- **Section 6 outputs -> `asic/results/`:** `gds/` (primary +
+  comparison), `def/`, `lef/`, `odb/`, `netlist/` (synthesis / PnR /
+  powered), `sdc/`, `sdf/`, `spef/`, `lib/`, `mag/`, `spice/`,
+  `config/resolved.json`, `metrics/`, `images/asic_top.png` (Table 8
+  layout).
+- The single source of the collection map is
+  `scripts/collect_outputs.sh`; verification is `make asic_verify`
+  (`scripts/verify_outputs.sh`).
 
-## 9.13 Ucuncu Taraf Bilesenler ve Lisanslar
+## 9.13 Third-Party Components and Licenses
 
-Bkz. `asic/THIRD_PARTY.md` ve `asic/licenses/`.
+See `asic/THIRD_PARTY.md` and `asic/licenses/`.
 
 ---
 
-**Tutarlilik kurali (bolum 9.13):** `asic/README.md`, `asic/environment/versions.txt`,
-`asic/config.yaml`, teslim edilen raporlar ve nihai ciktilar arasinda celiskili
-bilgi bulunamaz.
+**Consistency rule (section 9.13):** no conflicting information may exist
+among `asic/README.md`, `asic/environment/versions.txt`,
+`asic/config.yaml`, the delivered reports and the final outputs.
+
+<!-- English translation of README.md, 2026-09-01; numeric values converted from Turkish to English number format. -->
