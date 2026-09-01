@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-sim
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-sim jtag-openocd-build jtag-openocd
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -275,6 +275,40 @@ jtag-sim:
 	    && echo "[JTAG-SIM] PASS - TAP/DTMCS/DMI/halt/abstract-cmd/progbuf/resume riscv-dbg uzerinden (7/7)" \
 	    || { echo "[JTAG-SIM] FAIL"; exit 1; }
 
+# OpenOCD koprusu (deneme/jtag, Gun 2): ayni soc_top+riscv-dbg derlemesi, ama
+# JTAG pinlerini SimJTAG (vendor tb) + rtl/debug/tb/jtag_dpi.cpp (DPI-C,
+# OpenOCD remote_bitbang TCP :9999 sunucusu) surer. Bu hedef YALNIZ derler ve
+# hex'leri Mdir'e kopyalar (sim Mdir icinden kosulmali); kosum:
+#   cd $(JTAG_OCD_DIR) && ./jtag_openocd_sim        (terminal 1)
+#   openocd -f rtl/debug/openocd/blogic_sim.cfg      (terminal 2; "halt", "reset" DEGIL)
+# Dosya sirasi jtag-sim ile ayni: jtag_files.f soc_files.f'den ONCE (incdir
+# onceligi), sonra axi_dm_slave, SimJTAG, TB, DPI .cpp (g++ ile derlenir).
+JTAG_OCD_DIR = obj_dir_jtag_ocd
+jtag-openocd-build:
+	rm -rf build
+	$(MAKE) -f Makefile.verilator sw FW_SRC=sw/tests/uart_hello.c
+	rm -rf $(JTAG_OCD_DIR)
+	verilator --binary $(TBCOV) +define+JTAG_DEBUG --timing --top-module jtag_openocd_tb \
+	    -Mdir $(JTAG_OCD_DIR) -o jtag_openocd_sim \
+	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
+	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
+	    -f rtl/debug/jtag_files.f -f soc_files.f rtl/debug/axi_dm_slave.sv \
+	    rtl/debug/vendor/riscv-dbg/tb/SimJTAG.sv verif/tb/jtag_openocd_tb.sv \
+	    rtl/debug/tb/jtag_dpi.cpp
+	cp build/instr_mem.hex $(JTAG_OCD_DIR)/firmware.hex
+	cp build/data_mem.hex $(JTAG_OCD_DIR)/data_mem.hex
+	cp sw/bootloader/bootrom.hex $(JTAG_OCD_DIR)/
+	echo "00000000" > $(JTAG_OCD_DIR)/ai_sram_init.hex
+	@echo "[JTAG-OPENOCD] derleme tamam: cd $(JTAG_OCD_DIR) && ./jtag_openocd_sim ; ayri terminalde: openocd -f rtl/debug/openocd/blogic_sim.cfg"
+
+# OpenOCD ucdan-uca demo (deneme/jtag, Gun 2): scripts/run_jtag_openocd.sh simi
+# arka planda baslatir (binary yoksa once jtag-openocd-build), TCP 9999 dinlenince
+# openocd'yi blogic_sim.cfg + demo_halt_regs_mem.tcl ile kosar (halt, reg pc/a0
+# yaz-oku, progbuf ile 0x2_1000 mww/mdw, resume/halt), loglari logs/jtag/ altina
+# yazar, 'Q' ile simin bitmesini bekler ve VERDICT PASS/FAIL (cikis 0/1) verir.
+jtag-openocd:
+	bash scripts/run_jtag_openocd.sh
+
 # ASIC lint kapisi. DIKKAT: sim waiver seti KOPYALANMAZ.
 # -Wno-MODDUP ve -Wno-PINMISSING kasitli olarak YOK: modul duplikasyonunu ve
 # baglanmamis pinleri yakalamasi gereken tam da bu iki uyaridir.
@@ -505,6 +539,9 @@ help:
 	@echo "  make asic-top-sim  - tam-yigin: asic_top (GDS ust modulu) + 27 makro, boot + conv katmani bit-tam"
 	@echo "  make jtag-sim      - (deneme/jtag) riscv-dbg JTAG: IDCODE/DTMCS/DMI/halt/resume smoke"
 	@echo "                     negatif kontrol: FLASH_DATA=/dev/null -> FAIL beklenir"
+	@echo "  make jtag-openocd-build - (deneme/jtag) OpenOCD koprusu: SimJTAG + DPI remote_bitbang :9999 simi DERLE"
+	@echo "                     kosum: cd obj_dir_jtag_ocd && ./jtag_openocd_sim ; openocd -f rtl/debug/openocd/blogic_sim.cfg"
+	@echo "  make jtag-openocd  - (deneme/jtag) OpenOCD ucdan-uca demo: sim + openocd (halt/reg/mem/resume), logs/jtag/, PASS/FAIL"
 	@echo "  make qspi-modes  - QSPI x1/x2/x4 veri fazi + 4-bayt adres testi"
 	@echo "  make qspi-err    - QSPI FIFO/flush/status hata yollari"
 	@echo "  make i2c-sys     - I2C sistem testi (echo slave: TX/RX/latch/NACK)"

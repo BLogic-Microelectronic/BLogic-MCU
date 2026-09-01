@@ -72,6 +72,8 @@ sw/ai_model/accuracy_report.txt
 !teknotest/**/*.mem
 !bootrom.hex
 !rtl/fpga/firmware_flash.bin
+# deneme/jtag: OpenOCD demo kanit logu (make jtag-openocd ciktisinin kopyasi)
+!rtl/debug/openocd/demo_run_*.log
 
 # ============================================================
 # ASIC AKIS CIKTILARI (LibreLane)
