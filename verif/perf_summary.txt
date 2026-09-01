@@ -1,9 +1,9 @@
 BLogic MCU - YZ hizlandirici basarim olcumu (make soc-perf)
-tarih     : 2026-08-11
+tarih     : 2026-09-01
 verilator : Verilator 5.049 devel rev v5.048-135-g99a35fee8
 rv-gcc    : riscv32-unknown-elf-gcc (xPack GNU RISC-V Embedded GCC x86_64) 13.2.0
             /usr/local/bin/riscv32-unknown-elf-gcc
-opt       : -O2   (yazilim referansi .text = 3052 B)
+opt       : -O2   (yazilim referansi .text = 3058 B)
 NOT       : oran yazilim tabanina duyarlidir; taban derleyici ve
             optimizasyon seviyesiyle degisir, donanim yolu degismez.
 olcum     : SoC seviyesi, mcycle CSR ile; ayni girdi once donanimda,

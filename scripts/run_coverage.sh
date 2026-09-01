@@ -6,7 +6,7 @@
 set -e
 cd "$(dirname "$0")/.."
 PROJ=$(pwd)
-TESTS="uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test timer_irq_test uart_stp_reg_test uart1_strm_test qspi_fifo_err_test"
+TESTS="uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test timer_irq_test uart_stp_reg_test uart1_strm_test qspi_fifo_err_test i2c_soc_test csr_negatif_test qspi_rdpath_test ai_sat_test"
 BLOG="$PROJ/logs/build/coverage_build.log"
 mkdir -p "$PROJ/logs/build" "$PROJ/logs/coverage"
 
@@ -21,6 +21,12 @@ for T in $TESTS; do
     case $T in
       uart_baud_sweep)
         EXTRA=(EXTRA_CFLAGS="-DSWEEP_CPB0=434 -DSWEEP_CPB1=50 -DSWEEP_CPB2=5208" SIM_PLUSARGS="+SWEEP=434,50,5208") ;;
+      i2c_soc_test|csr_negatif_test|qspi_rdpath_test|ai_sat_test)
+        # 1 Eylul kapsama siniflandirmasinin C-sinifi testleri
+        # (verif/coverage_siniflandirma.md bolum 8). UART yalniz raporlama
+        # kanali; CPB=64 sim suresi icin - gercek baud varyantlarini
+        # uart_baud_sweep ayrica olcuyor.
+        EXTRA=(EXTRA_CFLAGS="-DTEST_CPB=64" SIM_PLUSARGS="+CPB=64") ;;
       qspi_fifo_err_test)
         # Kendi golden dizgesi var; varsayilan "Hello World" aranirsa FAIL doner.
         # golden.txt "rm -rf build"den SONRA uretiliyor (asagida), yoksa silinir.
@@ -113,7 +119,7 @@ SUM="$PROJ/verif/coverage_summary.txt"
     echo "tarih     : $(date +%Y-%m-%d)"
     echo "verilator : $(verilator --version 2>/dev/null | head -1)"
     echo "testler   : $TESTS"
-    echo "olcum     : --coverage-line, SoC seviyesi (11 C testi, tek build, sabit payda)"
+    echo "olcum     : --coverage-line, SoC seviyesi (15 C testi, tek build, sabit payda)"
     echo "kapsam    : tasarim RTL'i (14 dosya). Haric: CV32E40P/PULP vendor kodu,"
     echo "            testbench'ler, davranissal modeller, SVA checker ve covergroup"
     echo "            bind'leri - bunlar dogrulama altyapisidir, tasarim degil."

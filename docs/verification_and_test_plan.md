@@ -239,20 +239,29 @@ target module; per-module line coverage is consolidated in
 QSPI target is deliberately lower because several FSM error branches are
 unreachable without fault injection in the multi-mode controller.
 
-| TB | Target module | Target | Achieved |
+| TB | Target module | Target | Achieved (2026-09-01, clean rebuild) |
 |---|---|---|---|
-| uart-stp | `uart_axil.sv` | >= 90% | [[REGEN]] |
-| uart-stream | `uart_stream_axil.sv` | >= 90% | [[REGEN]] |
-| qspi-modes | `qspi_master_axil.sv` | >= 70% | [[REGEN]] |
-| i2c-sys | `i2c_master_axil.sv` | >= 95% | [[REGEN]] |
-| ai | `ai_accelerator.sv` | >= 95% | [[REGEN]] |
-| boot | `axi_sram_wrapper.sv` | 100% | [[REGEN]] |
+| uart-stp | `uart_axil.sv` | >= 90% | **93.3%** (98/105) |
+| uart-stream | `uart_stream_axil.sv` | >= 90% | **95.2%** (140/147) |
+| qspi-modes | `qspi_master_axil.sv` | >= 70% | **72.7%** (226/311) |
+| i2c-sys | `i2c_master_axil.sv` | >= 95% | **97.8%** (180/184) |
+| ai | `ai_accelerator.sv` | >= 95% | **96.7%** (404/418) |
+| boot | `axi_sram_wrapper.sv` | 100% | **100.0%** (31/31) |
 
-Note: the committed summary predates the final QSPI RTL fixes; the table
-above is refreshed from a clean rebuild before submission:
+All targets met. Reproduce with:
 
     rm -rf obj_dir*
     make coverage-tb && make coverage
+
+**SoC-level line coverage (15 system tests, single build, fixed
+denominator):** line **91.1%** (347/381 points), branch **91.3%**
+(778/852) - raised from 72.2%/84.2% on 2026-09-01 by four targeted
+tests (`i2c_soc_test`, `qspi_rdpath_test`, `csr_negatif_test`,
+`ai_sat_test`). Every remaining uncovered line is classified as
+structurally-unreachable (A), fault-injection-only (B, covered at block
+level) or a single rationalized exception, with per-line evidence in
+`verif/coverage_siniflandirma.md` - knowing what is uncovered and why
+is treated as part of the coverage result itself.
 
 Functional coverage points (Section 4.5) are collected in the same runs.
 Exclusions and rationale are listed in Section 4.5.

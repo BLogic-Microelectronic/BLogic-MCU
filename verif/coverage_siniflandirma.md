@@ -165,5 +165,38 @@ axi_sram_wrapper/uart_rx/uart_tx), sessiz atlama acik mesaja cevrildi.
 
 Tahmini etki: 1-4 uygulanirsa kapsanmamis 221 satirin ~177'si kapanir;
 kalan 40 A + 4 B satiri gerekceli beyan olarak kalir. Nokta bazinda satir
-kapsamasinin %72,2'den %90+ araligina tasinmasi beklenir (kesin sayi
-kosum sonrasi guncellenecektir).
+kapsamasinin %72,2'den %90+ araligina tasinmasi beklenir.
+
+## 9. SONUC - 15 testlik kosum (1 Eylul 2026, ayni gun uygulandi)
+
+Eylem planinin 2-4 maddeleri dort yeni C testi olarak uygulandi ve
+kapsama kosusuna eklendi (madde 1'in i2c_system_tb yolu yerine, jenerik
+harness'in sda=0 "hep-ACK" determinizmi kullanildi - i2c_soc_test):
+
+| Yeni test | Kapattigi | Not |
+|---|---|---|
+| `i2c_soc_test` | I2C 122 -> **3** | motor tam yolu (TX/RX coklu bayt), sda=0 sozlesmesi test basinda belgeli |
+| `qspi_rdpath_test` | QSPI 55 -> **9** | cok baytli okuma paketleme, dummy, adressiz (RDSR/RES), 4B adres, SE, x2/x4 |
+| `csr_negatif_test` | kucuk dosyalar 6 -> **1** + AI CSR default'lari | haritasiz/RO ofsetler tum bloklarda |
+| `ai_sat_test` | requant doyumu FONKSIYONEL kanitlandi | conv_out 2x1000 word birebir 0x7F / 0x80 |
+
+**Yeni olcum:** line **%91,1** (347/381), branch **%91,3** (778/852),
+annotation %92,0 (onceki: %72,2 / %84,2 / %82,0). Kalan isaretli satirlar
+(ekip RTL'i 49):
+
+| Dosya | Kalan | Sinifi |
+|---|---|---|
+| obi_to_axi.sv | 23 | A (bolum 3 kaniti) |
+| ai_accelerator.sv | 9 | A - tamami artefakt/default: 315-317 rq_round_sat `return`leri (doyum ai_sat_test'le FONKSIYONEL kanitli; Verilator fonksiyon-ici return'e kredi vermiyor - 512-515 ile ayni sinif), 501/885 FSM default |
+| qspi_master_axil.sv | 9 | A=4 (232 underflow, 343/405/458 default) + C-kalan=5 (355-359: dummy+TX kombinasyonu - mesru ama cok nadir, bilerek acik birakildi) |
+| boot_rom.sv | 4 | A (bolum 5) |
+| i2c_master_axil.sv | 3 | B=2 (309-310 NACK dali - UVM blok testinde kapsali) + A=1 (342 default) |
+| uart_stream_axil.sv | 1 | A (366 FSM default) |
+| uart_rx.v | 5 | vendor (kapsam beyani disi; uart_tx.v 0'a indi) |
+
+Duzeltilen siniflandirma: bolum 4'te C sayilan 315-316 aslinda
+A-artefakt cikti (test doyumu kanitliyor ama annotate kredisi
+dusmuyor); bolum 6'daki kucuk-dosya default'larinin biri haric hepsi
+kapandi. Ozet: kalan her satir ya kanitli-yapisal (A), ya blok
+seviyesinde kapsanan hata yolu (B), ya da gerekceli tek istisna
+(QSPI dummy+TX). "Kapsanmayani biliyoruz" hedefi kapanmistir.
