@@ -589,6 +589,18 @@ Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
   (they are reports produced after signoff); the flow does not depend on
   the compressed files, and `make asic_run` runs without decompressing
   them.
+- **IR-drop heatmap (visualization of the dumps):** worst-case deviation
+  per 20 um bin, rendered directly from the compressed dumps by
+  `scripts/irdrop_heatmap.py`. Cross-checks: 2,588,379 nodes per net
+  (= the instance count in 9.11) and worst values identical to
+  `irdrop.rpt` (1.54 mV / 1.57 mV). The die is essentially flat; the
+  white rectangles are the SRAM macro footprints (no standard-cell
+  nodes inside), and the worst bins sit in the logic corridor near
+  (1951, 1470) um.
+
+<p align="center"><img src="results/images/irdrop_heatmap.png" width="820" alt="IR-drop heatmap VPWR/VGND"></p>
+<p align="center"><sub>Worst-case IR-drop per 20 um bin, tt corner — VPWR drop (left) and VGND rise (right); the full color scale is 1.6 mV, i.e. 0.09% of the 1.80 V supply.</sub></p>
+
 - **No custom voltage source location file was used** (default pad/strap
   supply).
 
