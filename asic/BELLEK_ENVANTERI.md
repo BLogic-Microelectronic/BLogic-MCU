@@ -27,7 +27,45 @@ Nihai tasarimda **27**: yukaridaki `i_ai_accel` yerel tamponlarindan
 dordu makroya donustu (`u_input_mem` 1 x `32x512` + `u_conv_out`
 2 x `32x512` + `u_conv_w_mem` 1 x `32x256`). Kirilim:
 `asic/environment/versions.txt`.
-Nihai kosunun `stat.rpt`'si ile teyit edilecek.
+Nihai kosunun `reports/synthesis/stat.rpt`'si ile teyit edildi:
+26 x `sky130_sram_2kbyte_1rw1r_32x512_8` + 1 x `sky130_sram_1kbyte_1rw1r_32x256_8` = **27**.
+
+## YZ veri butcesi (30 kB kurali, DDK karari 5)
+
+Sartname YZ hizlandiricisina **30 kB** bellek ayirir; DDK 18 Agustos
+karari (bkz. `asic/DDK_KARARLARI.md` madde 5) kapasitenin SAGLANMASINI
+zorunlu tutar, tamaminin aktif kullanimini degil. AI SRAM bolgesi tam
+**30.720 B** olarak gerceklenmistir (15 x 2 kB makro, `0x0003_0000`).
+Bolgenin veri yerlesimi (`sw/ai_model/generate_ai_sram_init.py`
+ofsetleri, hex dosya boyutlariyla teyitli):
+
+| Veri | Ofset | Boyut (B) | Icerik |
+|---|---|---|---|
+| Giris oznitelik vektoru | `0x0000` | 1.960 | 49x40 int8 (490 word) |
+| Conv ara ciktisi | `0x07A8` | 4.000 | 25x20x8 int8 (1000 word) |
+| (hizalama bosl.) | `0x1748` | 96 | word-hizalama |
+| Conv agirliklari | `0x17A8` | 640 | 8 filtre x 10x8 int8 |
+| (hizalama bosl.) | `0x1A28` | 384 | word-hizalama |
+| Conv bias | `0x1BA8` | 32 | 8 x int32 |
+| FC agirliklari | `0x1BC8` | 16.000 | 4000x4 int8 |
+| FC bias | `0x5A48` | 16 | 4 x int32 |
+| Sonuc (argmax) | `0x5A58` | 4 | int32 |
+| **Veri toplami** | | **22.652** | |
+| **Yerlesim sonu** | `0x5A5C` | **23.132** | 30.720 B'nin **%75,3**'u |
+| Bos alan | `0x5A5C+` | 7.588 | ek vektorler icin rezerv (3 x 1.960 B sigar) |
+
+Notlar:
+- **Kuantizasyon parametreleri (84 B, 21 word)** AI SRAM'de DEGIL,
+  RTL sabiti/CSR yolundadir (`quant_params.h`); butceye girmez ve
+  ayri kalem olarak beyan edilir.
+- Hizlandiricinin **yerel tampon makrolari (~7 kB**: `u_input_mem` 2 kB +
+  `u_conv_out` 2x2 kB + `u_conv_w_mem` 1 kB) yukaridaki AYNI tensorlerin
+  paralel-erisim kopyalarini tutar; 30 kB bolgesi disinda YENI bir veri
+  sinifi barindirmaz. Amac bant genisligi (arbiter uzerinden tek port
+  yerine yerel es-zamanli erisim), ek veri kapasitesi degildir.
+- Sonuc: modelin tum verisi (22.652 B) 30 kB bolgesine sigmaktadir;
+  kapasite kurali hem sagladigimiz bolge (30.720 B) hem de fiili
+  kullanim (%75,3) ile karsilanir.
 
 ## PDK makro envanteri (ciel varsayilaniyla hazir geldi)
 

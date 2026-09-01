@@ -227,6 +227,31 @@ teslimi yeterlidir.
   payidir (ayrinti ve juri karari: bolum 9.5). Seffaflik icin burada da
   beyan edilir.
 
+### 9.6.1 Kisit-gerekce tablosu (design.sdc satir referanslariyla)
+
+Asagidaki tablo `design.sdc`'deki HER kisiti, degerini ve gerekcesini tek
+bakista verir. SDC dosyasinin kendisi imzali kosunun
+(`RUN_teslim_2026-08-14`) girdisidir ve degistirilmemistir; bu tablo
+yalnizca dokumantasyon konsolidasyonudur.
+
+| Kisit (design.sdc satiri) | Deger | Gerekce |
+|---|---|---|
+| `create_clock clk` (s.22) | 20.000 ns (50 MHz) | Birincil ve tek saat; config.yaml `CLOCK_PERIOD` ile ayni olmak zorunda (9.13 tutarlilik kurali). ASIC'te saat pad'den gelir; FPGA'daki MMCM `fpga_top`ta kalir. |
+| `set_clock_uncertainty -setup` (s.25) | 0.500 ns | Jitter + skew butcesi (Bolum 3.2 "onerilen" kalemi); kaynak netlesmedigi icin kotumser sabit. |
+| `set_clock_uncertainty -hold` (s.26) | 0.100 ns | Ayni butcenin hold tarafi; CTS sonrasi olculen skew'e karsi pay. |
+| `set_clock_transition` (s.27) | 0.150 ns | Saat girisi gecis suresi varsayimi (pad modeli yokken tipik deger). |
+| `set_false_path -from rst_ni` (s.41) | - | Tasarimin TEK istisnasi. `rst_ni` asenkron assert / senkron release; release senkronizasyonu cip ust seviyesinde. Gercek veri zamanlamasi tasimaz; Bolum 3.2 "gercekte zamanlanan yol false path yapilamaz" kurali ihlal edilmez. |
+| `set_false_path -from` asenkron girisler (s.58-59) | `gpio_in_i*`, `uart_rxd_i`, `uart1_rxd_i` | 2FF senkronizator (`gpio_axil.sv:44-50`) ve asenkron seri hatlar; `clk`e gore anlamli varis penceresi yok. Senkron input_delay sahte ihlal uretir (olculdu: TT en kotu hold yolu `gpio_in_i[0]` cikmisti). |
+| `set_input_delay` (s.67-68) | max 6.000 / min 0.500 ns | Senkron kalan girisler (`i2c_sda_i`, `qspi_io_i*`) icin ~%30 giris butcesi; portlar arac tasinabilirligi icin acik listeyle verilir. |
+| `set_output_delay` (s.69-70) | max 6.000 / min 0.500 ns | TUM cikislar icin ~%30 cikis butcesi; dusuk hizli cevre birimleri (UART/I2C/QSPI/GPIO) icin yeterli pay. |
+| `set_load` (s.74) | 5.0 pF | Pad + harici hat icin kotumser yuk; pad modeli netlesirse rafine edilir. |
+| `set_max_transition` (s.79) | 1.000 ns | Tasarim geneli sinyal butunlugu kurali (Bolum 3.2). |
+| `set_max_fanout` (s.80) | 32 | Tasarim geneli yayilim siniri; sentez/PnR buffer'lamayi buna gore yapar. |
+| SRAM kose-kosullu derate (s.124-146) | SS: late 2.661 / FF: early 0.500 / TT: 1.0 | Makro Liberty'si yalniz TT; SS/FF analizi icin `dfxtp_1` clk->Q TT/SS oranindan OLCULEN vekil katsayi (waiver degil, olcum duzeltmesi; DDK karari 3 + bolum 9.5). TT'de 1.0: TT lib birebir dogru model. PnR baglaminda kosulsuz kotumser eski davranis korunur (dondurma disiplini). |
+| Generated clock | YOK | QSPI SCLK `clk`den register cikisiyla uretilir (<= clk/2), ic saat olarak kullanilmaz; tum veri yollari ayni saat alaninda ("ilgili yapi varsa zorunlu" kosulu tetiklenmez). |
+| Saat gruplari / CDC | YOK | Tek saat alani; CDC yolu yok (MMCM `asic_top` disinda). Kosullu Bolum 3.2 maddeleri tetiklenmez. |
+| Multicycle path | YOK | Tum yollar tek cevrim kurali ile kapatilir; istisna tanimlanmamistir. |
+
 ## 9.7 Fiziksel Tasarim Yapilandirmasi
 
 Olcum kaynagi: **`RUN_teslim_2026-08-14`** (nihai teslim kosusu).

@@ -46,7 +46,10 @@ for T in $TESTS; do
 done
 
 rm -rf logs/coverage/annotate
-verilator_coverage --annotate logs/coverage/annotate --annotate-min 1 $DATS | tee logs/coverage/summary.txt
+# --annotate-all: tam kapsanan dosyalar da yazilsin ("annotate'te yok" =
+# "enstrumante edilmedi" ile "tamami kapsandi" ayrimi gorunur olsun -
+# 1 Eylul siniflandirma denetimi bulgusu (verif/coverage_siniflandirma.md).
+verilator_coverage --annotate logs/coverage/annotate --annotate-min 1 --annotate-all $DATS | tee logs/coverage/summary.txt
 
 # --- Fonksiyonel kapsama (sayac tabanli, verif/sva/*_func_cov.sv) ---
 # Her test farkli bin alt kumesini uyarir; anlamli rakam BIRLESIM'dir.
@@ -83,11 +86,22 @@ PYEOF
 
 echo "" | tee -a logs/coverage/summary.txt
 echo "--- Ekip RTL: kapsanmamis nokta-satir sayilari ---" | tee -a logs/coverage/summary.txt
+echo "    (satir bazli sayim; ayni satirdaki branch-yarisi kayiplari icin annotate'e bakin)" | tee -a logs/coverage/summary.txt
+# Liste 1 Eylul denetiminde tamamlandi: i2c/boot_rom/axi_sram_wrapper/uart_rx/uart_tx
+# eksikti ve [ -f ] guard'i annotate'te olmayan dosyayi SESSIZCE atliyordu
+# (i2c'nin 122 kapsanmamis satiri ozette hic gorunmedi). Ayrinti:
+# verif/coverage_siniflandirma.md
 for F in ai_accelerator.sv ai_sram_arbiter.sv soc_top.sv soc_axi_interconnect.sv \
          periph_decoder.sv axi4_to_axilite_bridge.sv obi_to_axi.sv \
-         uart_axil.sv uart_stream_axil.sv gpio_axil.sv timer_axil.sv qspi_master_axil.sv; do
+         uart_axil.sv uart_stream_axil.sv gpio_axil.sv timer_axil.sv qspi_master_axil.sv \
+         i2c_master_axil.sv boot_rom.sv axi_sram_wrapper.sv uart_rx.v uart_tx.v; do
     A="logs/coverage/annotate/$F"
-    [ -f "$A" ] && printf "  %-28s : %s\n" "$F" "$(grep -c '^%' "$A")" | tee -a logs/coverage/summary.txt
+    if [ -f "$A" ]; then
+        printf "  %-28s : %s\n" "$F" "$(grep -c '^%' "$A")" | tee -a logs/coverage/summary.txt
+    else
+        printf "  %-28s : annotate yok (nokta uretilmedi: yapisal RTL / waiver / kullanilmiyor)\n" "$F" \
+            | tee -a logs/coverage/summary.txt
+    fi
 done
 echo ""
 echo "Annotated kaynaklar: logs/coverage/annotate/  ('%' onekli satir = kapsanmamis)"
