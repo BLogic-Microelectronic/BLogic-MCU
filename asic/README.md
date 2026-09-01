@@ -387,6 +387,9 @@ Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
 
 <p align="center"><img src="results/images/asic_top.png" width="480" alt="asic_top final layout"></p>
 <p align="center"><sub>asic_top final layout (RUN_teslim_2026-08-14)</sub></p>
+
+<p align="center"><img src="results/images/asic_top_render_hd.png" width="820" alt="asic_top high-resolution render (PDN hidden)"></p>
+<p align="center"><sub>High-resolution KLayout render of the delivered GDS (<code>results/gds/asic_top.gds.gz</code>, sky130 layer palette, met4/met5 PDN layers hidden) — 27 SRAM macros, the central logic corridor and the die frame are directly visible.</sub></p>
 <p align="center"><img src="results/images/zoom_80um_cells.png" width="360" alt="80 um zoom - standard cell rows">&nbsp;<img src="results/images/zoom_sram_edge.png" width="360" alt="SRAM edge zoom"></p>
 <p align="center"><sub>Left: 80 um window — standard-cell rows with routing (PDN layers hidden). Right: SRAM macro edge — bitcell array, word-line drivers and periphery.</sub></p>
 <p align="center"><img src="results/images/zoom_25um_transistors.png" width="560" alt="25 um zoom - individual devices"></p>
