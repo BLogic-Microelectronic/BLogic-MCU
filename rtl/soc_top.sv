@@ -317,6 +317,23 @@ module soc_top #(
         .io_o(qspi_io_o), .io_i(qspi_io_i), .io_oe(qspi_io_oe)
     );
 
+    // i2c_sda_i 2FF senkronizatoru (yalniz deneme/jtag dali; asic/README
+    // 9.9/3 gozden gecirme notu): asenkron pad girisi gpio_in_i ile ayni
+    // desene esitlenir. Reset degeri 1'b1 - SDA bosta pull-up'la yuksektir;
+    // 0'la baslamak SCL yuksekken sahte START kosulu gibi gorunurdu.
+    // 2 cevrimlik ek gecikme (40 ns @50 MHz) us-mertebesindeki I2C bit
+    // suresi yaninda ihmal edilebilir.
+    logic i2c_sda_sync1, i2c_sda_sync2;
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+            i2c_sda_sync1 <= 1'b1;
+            i2c_sda_sync2 <= 1'b1;
+        end else begin
+            i2c_sda_sync1 <= i2c_sda_i;
+            i2c_sda_sync2 <= i2c_sda_sync1;
+        end
+    end
+
     // I2C master (0x4000_0400)
     i2c_master_axil #(
         .CLK_FREQ_HZ(CLK_FREQ_HZ),
@@ -330,7 +347,7 @@ module soc_top #(
         .s_axi_araddr(i2c_araddr), .s_axi_arvalid(i2c_arvalid), .s_axi_arready(i2c_arready),
         .s_axi_rdata(i2c_rdata), .s_axi_rresp(i2c_rresp),
         .s_axi_rvalid(i2c_rvalid), .s_axi_rready(i2c_rready),
-        .scl_o(i2c_scl_o), .sda_oe_o(i2c_sda_oe_o), .sda_i(i2c_sda_i)
+        .scl_o(i2c_scl_o), .sda_oe_o(i2c_sda_oe_o), .sda_i(i2c_sda_sync2)
     );
 
     // AI accelerator (CSR 0x4000_0600), master sinyalleri arbiter'a gider
