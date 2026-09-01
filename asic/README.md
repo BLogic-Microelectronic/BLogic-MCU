@@ -155,17 +155,79 @@ logical views are NOT MODIFIED (Section 1.3).
 | Liberty | `macros/<name>/lib/<name>_TT_1p8V_25C.lib` | same pattern |
 | Verilog model | `macros/<name>/verilog/<name>.v` | same pattern |
 | SPICE netlist | `macros/<name>/spice/` | same pattern |
-| Power / ground pins | `VPWR` / `VGND` | `VPWR` / `VGND` |
+| Power / ground pins | `vccd1` / `vssd1` | `vccd1` / `vssd1` |
 
 The total macro count is verified from the synthesis statistics:
 26 x 2KB + 1 x 1KB = **27 macros** (Aug 10 `config.yaml` synthesis run;
 the final count is read from `reports/synthesis/stat.json`; in case of
 conflict, stat is authoritative).
 
-**PDN connection:** the macro `VPWR`/`VGND` pins connect to the design's
-`vccd1`/`vssd1` nets (`config.yaml` `PDN_MACRO_CONNECTIONS`, a separate
-rule for each of the three instance patterns). The fixed placement is
-given via `macro_placement.cfg`.
+**PDN connection:** the macro `vccd1`/`vssd1` pins connect to the
+design's `VPWR`/`VGND` nets (`config.yaml` `PDN_MACRO_CONNECTIONS`, a
+separate rule for each of the three instance patterns; consistent with
+section 9.7 and the macro LEF `PIN vccd1 ... USE POWER` definitions).
+The fixed placement is given via `macro_placement.cfg`.
+
+**Functional verification with the delivered Verilog models
+(Section 1.3 requirement):** the mandatory SRAM macros are exercised in
+functional verification with the **delivered OpenRAM Verilog models
+themselves**, not only through the timing-equivalent behavioural model:
+`make asic-sram-sim` (repository root) compiles the SoC with
+`ASIC_SRAM_MACRO` plus the `macros/*/verilog` models and runs the full
+QSPI boot flow — firmware, data and AI weights are written into the
+macro-modelled ISRAM / DSRAM / AI SRAM over the bus (no `$readmemh`
+preload exists on this path) and the firmware then executes entirely out
+of the macro contents, printing "Hello World!" (`TEST SUCCESS`, all 10
+AXI/AXI-Lite protocol checkers clean, zero model warnings). Verified
+2026-09-01, **PASS**. The behavioural/macro equivalence argument (same
+address-at-T / data-at-T+1 contract) remains documented in
+`rtl/core/cv32e40p/rtl/axi_sram_wrapper.sv`.
+
+**Full-stack GDS-equivalent simulation (`make asic-top-sim`):** goes one
+step further than `asic-sram-sim` — the DUT is `asic_top` itself (the
+actual top module of the GDS, which no other run simulated), compiled
+with `ASIC_SRAM_MACRO` and the delivered OpenRAM models, booting from
+QSPI flash and then running the AI accelerator's convolution layer.
+The firmware (`sw/tests/ai_boot_macro_test.c`) checks the 1000-word
+`conv_out` region in AI SRAM bit-exactly against the committed golden
+vector (FNV-1a checksum of `conv_out_yes_real.hex`). A single-word
+deviation fails the run, and the region can only be produced through the
+accelerator's **internal** macros (input read from `u_input_mem`,
+weights from `u_conv_w_mem`, results written to and drained back out of
+`u_conv_out`), so this run exercises **all 27 macro instances**
+functionally, including the three inside the accelerator that the boot
+flow alone never touches. Verified 2026-09-01, **PASS**.
+
+**Known issue FC-1 (found by `asic-top-sim`, declared — RTL and the
+signed run were NOT modified):** in the `ASIC_SRAM_MACRO` branch, the
+fully-connected stage issues a `conv_out` read in `ST_FC_FETCH_W` but
+consumes `co_rdata` only after the AXI weight fetch completes, ≥3 cycles
+later (`rtl/ai_accelerator/ai_accelerator.sv:799-812`). The delivered
+OpenRAM functional model drives `dout1` to `X` on **every** rising edge
+(`#(T_HOLD) dout1 = 32'bx;` — the model's own comment: *"Delay to hold
+dout value after posedge. Value is arbitrary"*), so read data is valid
+for exactly one consuming cycle; under the model, every FC MAC therefore
+reads a clobbered `conv_out` value and the final argmax is wrong, while
+the convolution layer itself (whose reads are re-issued every cycle, and
+whose `WCONV` drain consumes at exactly T+1) is bit-exact. The behavioural
+branch registers and *holds* read data, which is why 15/15 SoC tests,
+4/4 golden-model scenarios and the 60/60 board demo (FPGA = behavioural
+branch) all pass and masked this until the GDS-equivalent run. Isolation
+evidence: the identical firmware and flash image **pass** on the
+behavioural build and **fail identically** (same signature, same
+timestamp) on `soc_top`+macros and on `asic_top`+macros — i.e. the issue
+is the macro-branch read-hold contract, not `asic_top` wiring. Expected
+silicon impact: the physical macro's `dout` is driven by the sense-amp
+output stage and holds its last read value while `csb1` stays high (no
+new sense operation occurs), so the fabricated chip is expected to
+compute FC correctly; the delivered functional model simply forbids
+relying on that hold, and under that model contract the FC output is
+treated as unverified. Remediation for any future re-spin is a one-line
+RTL change (keep re-issuing `co_re` with the same address during
+`ST_FC_FETCH_W_WAIT`); per Section 1.3 and the signed-run consistency
+rule, neither the RTL nor `RUN_teslim_2026-08-14` was touched — the
+finding is declared here instead. Argmax correctness itself is proven on
+the behavioural side (Section 9.11 / root README Section 11).
 
 **Corner assumption (the most important item of this section):** both
 macros are distributed in the PDK with only the `TT_1p8V_25C` Liberty;

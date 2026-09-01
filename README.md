@@ -207,7 +207,7 @@ The design has been verified through Verilator-based directed and randomized sim
 │   │   ├── bootrom.hex                   # Pre-built boot ROM image
 │   │   ├── flash_helloworld.hex          # Example payload image
 │   │   └── build.py
-│   ├── tests/                            # 29 standalone firmware tests (full list: §14)
+│   ├── tests/                            # 30 standalone firmware tests (full list: §14)
 │   │   ├── uart_hello.c, uart_loopback.c, uart_baud_sweep.c, uart_add_test.c
 │   │   ├── uart_stp_reg_test.c, uart1_strm_test.c, timer_irq_test.c
 │   │   ├── gpio_led_test.c, hello_blink.c, led_only.c, minimal_test.c
@@ -456,6 +456,8 @@ make test-all
 | `make uart-stp` | EK-2 stop-bit 1 / 1.5 / 2 verification (standalone `uart_axil` TB) |
 | `make uart-stream` | UART_1 DMA → AI SRAM, 5 scenarios (A–E) |
 | `make boot` | Full QSPI boot flow (Boot ROM → flash → SRAM → user code) |
+| `make asic-sram-sim` | Same boot flow, but with the **delivered SRAM macro Verilog models** (`ASIC_SRAM_MACRO`) — DDK §1.3 functional-verification proof |
+| `make asic-top-sim` | Full-stack GDS-equivalent run: DUT = `asic_top` + all **27 macro instances**; flash boot + conv layer bit-exact vs golden (FC errata: `asic/README.md` §9.5) |
 | `make qspi-modes` | QSPI x1 / x2 / x4 data-phase + 3B/4B addressing |
 | `make i2c-sys` | I²C system test (NBY rounding, ADR mask, TX/RX echo, NACK) |
 | `make ai` | Standalone AI accelerator TB (6 scenarios: 2 real audio + 4 synthetic) |
@@ -1106,6 +1108,32 @@ QSPI FIFOs (4,096). In the **final design** four of those local buffers were als
 to macros (`u_input_mem` 1 × 2 KB, `u_conv_out` 2 × 2 KB, `u_conv_w_mem` 1 × 1 KB),
 bringing the total to **27 macros** — see `asic/README.md` §9.5.
 
+**The macro path is functionally simulated, not just synthesized:**
+`make asic-sram-sim` rebuilds the SoC with `ASIC_SRAM_MACRO` and the
+**delivered OpenRAM Verilog models** from `asic/macros/*/verilog/`, then runs
+the complete QSPI boot flow. On this path no `$readmemh` preload exists —
+firmware, data and AI weights are written into the macro-modelled SRAMs over
+the bus and the CPU then fetches and executes entirely out of macro contents.
+Result (2026-09-01): `TEST SUCCESS` — "Hello World!" printed, all 10 protocol
+checkers clean, zero macro-model warnings. This closes the DDK §1.3
+requirement that the mandatory SRAM macro be used in functional verification.
+
+**`make asic-top-sim` goes one step further — a full-stack GDS-equivalent
+run:** the DUT is `asic_top` itself (the real top module of the GDS, which no
+other simulation exercised), with `ASIC_SRAM_MACRO` and the delivered OpenRAM
+models; it boots from QSPI flash and then runs the accelerator's convolution
+layer, comparing the 1000-word `conv_out` region in AI SRAM **bit-exactly**
+(FNV-1a) against the committed golden vector. That region can only be produced
+through the accelerator's *internal* macros, so all **27 macro instances** are
+functionally exercised, including the three the boot flow never touches.
+Result (2026-09-01): **PASS** (42.9 s wall time). The FC argmax is deliberately
+*not* checked in this run: the delivered OpenRAM model drives `dout` to `X`
+every cycle after a read, and the FC stage consumes its `conv_out` read ≥3
+cycles late — a genuine macro-branch read-hold contract violation that this
+very run discovered. It is declared (not silently patched — the RTL and the
+signed ASIC run are unchanged) as **Known issue FC-1** in `asic/README.md`
+§9.5, together with the isolation evidence and the expected-silicon analysis.
+
 ### 13.5 Resolved blockers
 
 | # | Issue | Resolution |
@@ -1125,6 +1153,8 @@ After these, the design contains **no latches** and elaborates cleanly.
 make lint                    # ASIC lint (MODDUP / PINMISSING deliberately NOT waived)
 make asic-elab               # slang elaboration gate, behavioural memories
 ASIC_SRAM=1 make asic-elab   # same, with SRAM macros bound
+make asic-sram-sim           # boot flow simulated WITH the delivered SRAM macro models (DDK §1.3)
+make asic-top-sim            # full-stack: asic_top (GDS top) + all 27 macros, boot + conv layer bit-exact
 make bootrom                 # regenerate boot ROM content from bootrom.hex
 
 # Full physical flow — DDK "Final İstenen Çıktılar" §8 mandatory target:
@@ -1202,6 +1232,7 @@ All firmware tests live in `sw/tests/` and link against `sw/drivers/blogic_mcu.h
 | `ai_multi_class_test.c` | All four classes in a single firmware |
 | `ai_uart_load_test.c` | BLG1-framed feature-vector load over UART_0 (jury input path) |
 | `ai_sat_test.c` | Requantize saturation rails (±2³⁰ bias → all conv outputs at 0x7F / 0x80) |
+| `ai_boot_macro_test.c` | `asic-top-sim` firmware: flash boot + conv layer bit-exact (FNV-1a vs golden) on `asic_top` with the delivered SRAM macro models |
 | `ai_sw_reference.c` | Pure-software TFLite-equivalent reference for speedup measurement |
 
 Switch firmware on any target with `FW_SRC=`, e.g.:

@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -178,6 +178,77 @@ boot-real:
 	cd $(BOOT_DIR) && ./boot_flow_test_sim 2>&1 | tee boot_real_run.log
 	@grep -aq "TEST SUCCESS" $(BOOT_DIR)/boot_real_run.log \
 	    && echo "[BOOT-REAL] PASS - .rodata flash uzerinden geldi" || { echo "[BOOT-REAL] FAIL"; exit 1; }
+
+# SRAM makrolarinin TESLIM EDILEN Verilog modelleriyle islevsel dogrulama
+# (DDK Bolum 1.3: zorunlu SRAM makrosu fonksiyonel dogrulamada kullanilmali).
+# Boot akisi secildi cunku uc SRAM'i de (ISRAM/DSRAM/AI) bus uzerinden
+# YAZIP OKUR: $readmemh on-yuklemesi yoktur, firmware + veri + YZ agirliklari
+# QSPI'dan kopyalanir ve "Hello World" makro iceriginden kosar.
+# +define+ASIC_SRAM_MACRO axi_sram_wrapper/ai_accelerator'i makro dalina
+# gecirir; sram_macro_bank + asic/macros/*/verilog modelleri derlemeye girer
+# (sram_macro_blackbox.sv GIRMEZ - gercek modeller var).
+# OpenRAM modeli VERBOSE=1 ile her erisimde $display basar; teslim gorunumu
+# degistirilemeyecegi icin (Bolum 1.3) Reading/Writing satirlari boru hattinda
+# filtrelenir, model WARNING'leri gorunur kalir.
+asic-sram-sim:
+	rm -rf $(BOOT_DIR)_macro
+	verilator --binary +define+BOOTROM_CONTENT +define+ASIC_SRAM_MACRO --timing \
+	    --top-module boot_flow_test_tb \
+	    -Mdir $(BOOT_DIR)_macro -o boot_flow_macro_sim \
+	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
+	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
+	    -f soc_files.f rtl/asic/sram_macro_bank.sv \
+	    asic/macros/sky130_sram_2kbyte_1rw1r_32x512_8/verilog/sky130_sram_2kbyte_1rw1r_32x512_8.v \
+	    asic/macros/sky130_sram_1kbyte_1rw1r_32x256_8/verilog/sky130_sram_1kbyte_1rw1r_32x256_8.v \
+	    verif/models/spi_flash_model.sv verif/tb/boot_flow_test_tb.sv
+	cp sw/bootloader/bootrom.hex $(BOOT_DIR)_macro/
+	@python3 scripts/gen_flash_image.py --fw sw/bootloader/flash_helloworld.hex \
+	    --out $(BOOT_DIR)_macro/flash.hex
+	echo "00000000" > $(BOOT_DIR)_macro/firmware.hex
+	echo "00000000" > $(BOOT_DIR)_macro/data_mem.hex
+	echo "00000000" > $(BOOT_DIR)_macro/ai_sram_init.hex
+	cd $(BOOT_DIR)_macro && ./boot_flow_macro_sim 2>&1 | grep -vaE 'Reading|Writing' | tee macro_boot_run.log
+	@grep -aq "TEST SUCCESS" $(BOOT_DIR)_macro/macro_boot_run.log \
+	    && echo "[ASIC-SRAM-SIM] PASS - boot + Hello World, icerik teslim edilen OpenRAM modellerinden kostu" \
+	    || { echo "[ASIC-SRAM-SIM] FAIL"; exit 1; }
+
+# TAM-YIGIN GDS-esdegeri simulasyon: DUT olarak GDS'in gercek ust modulu
+# asic_top (soc_top DEGIL) + ASIC_SRAM_MACRO + teslim edilen OpenRAM
+# modelleri; firmware flash'tan boot eder ve YZ CIKARIMI kosar. Boylece:
+#   1) asic_top port baglantilari YURUTULEREK dogrulanir (LVS baglantiyi
+#      kanitlar, davranisi kanitlamaz - baska hicbir kosum asic_top'u
+#      simule etmiyordu),
+#   2) hizlandiricinin IC makrolari (input/conv_w/conv_out) da cikarimla
+#      egzersiz edilir (asic-sram-sim'de boot YZ kosmuyordu),
+#   3) 27 makro orneginin TAMAMI islevsel olarak calismis olur.
+# Girdi flash 0x10000'deki yes_real vektoru; firmware conv_out bolgesini
+# (1000 word) altin vektorun FNV-1a sagtoplamiyla karsilastirir ve yalniz
+# bit-tam esitse "Hello World!" basar (self-checking).
+# FC ARGMAX'I BILEREK KONTROL EDILMEZ: FC, conv_out okumasini >=3 cevrim
+# gec tuketir; OpenRAM modeli dout'u her posedge X'ledigi icin makro simde
+# FC bozulur (davranissalda rdata tutuldugundan maskelenir). Bu hedef o
+# eksigi BULDU; ayrintili errata: asic/README.md "Known issue" bolumu.
+asic-top-sim:
+	$(MAKE) flash-image FW_SRC=sw/tests/ai_boot_macro_test.c
+	rm -rf $(BOOT_DIR)_asictop
+	verilator --binary +define+BOOTROM_CONTENT +define+ASIC_SRAM_MACRO --timing \
+	    --top-module asic_top_boot_tb \
+	    -Mdir $(BOOT_DIR)_asictop -o asic_top_boot_sim \
+	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
+	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
+	    -f soc_files.f rtl/asic/asic_top.sv rtl/asic/sram_macro_bank.sv \
+	    asic/macros/sky130_sram_2kbyte_1rw1r_32x512_8/verilog/sky130_sram_2kbyte_1rw1r_32x512_8.v \
+	    asic/macros/sky130_sram_1kbyte_1rw1r_32x256_8/verilog/sky130_sram_1kbyte_1rw1r_32x256_8.v \
+	    verif/models/spi_flash_model.sv verif/tb/asic_top_boot_tb.sv
+	cp sw/bootloader/bootrom.hex $(BOOT_DIR)_asictop/
+	cp build/flash.hex $(BOOT_DIR)_asictop/flash.hex
+	echo "00000000" > $(BOOT_DIR)_asictop/firmware.hex
+	echo "00000000" > $(BOOT_DIR)_asictop/data_mem.hex
+	echo "00000000" > $(BOOT_DIR)_asictop/ai_sram_init.hex
+	cd $(BOOT_DIR)_asictop && ./asic_top_boot_sim 2>&1 | grep -vaE 'Reading|Writing' | tee asictop_run.log
+	@grep -aq "TEST SUCCESS" $(BOOT_DIR)_asictop/asictop_run.log \
+	    && echo "[ASIC-TOP-SIM] PASS - asic_top + 27 makro: flash boot + conv katmani bit-tam (FC erratasi: asic/README)" \
+	    || { echo "[ASIC-TOP-SIM] FAIL"; exit 1; }
 
 # ASIC lint kapisi. DIKKAT: sim waiver seti KOPYALANMAZ.
 # -Wno-MODDUP ve -Wno-PINMISSING kasitli olarak YOK: modul duplikasyonunu ve
@@ -405,6 +476,8 @@ help:
 	@echo "  make uart-stream - UART_1 YZ stream DMA → AI SRAM (uart_stream_axil TB)"
 	@echo "  make boot        - QSPI boot akisi (flash_helloworld imaji)"
 	@echo "  make boot-real   - GERCEK C firmware ile flash boot (.rodata/.data DSRAM kaniti)"
+	@echo "  make asic-sram-sim - boot akisi TESLIM EDILEN SRAM makro Verilog modelleriyle (DDK 1.3 kaniti)"
+	@echo "  make asic-top-sim  - tam-yigin: asic_top (GDS ust modulu) + 27 makro, boot + conv katmani bit-tam"
 	@echo "                     negatif kontrol: FLASH_DATA=/dev/null -> FAIL beklenir"
 	@echo "  make qspi-modes  - QSPI x1/x2/x4 veri fazi + 4-bayt adres testi"
 	@echo "  make qspi-err    - QSPI FIFO/flush/status hata yollari"
