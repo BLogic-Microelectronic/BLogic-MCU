@@ -160,9 +160,17 @@ class Kart:
         return None
 
     def canli_mi(self):
-        self.ser.reset_input_buffer()
-        self.ser.write(b"?")
-        return self._satir_bekle(b"menu", 2.0) is not None
+        """Menu istegi gonderir; iki denemede herhangi bir [DEMO] satiri
+        gelirse kart canlidir (ilk istek acilis ciktisina denk gelebilir)."""
+        for _ in range(2):
+            self.ser.reset_input_buffer()
+            self.ser.write(b"?")
+            bitis = time.time() + 1.5
+            while time.time() < bitis:
+                satir = self.ser.readline()
+                if satir and (b"menu" in satir or b"DEMO" in satir):
+                    return True
+        return False
 
     def vektor_gonder(self, veri):
         """'v' + el sikisma + cerceve; (sinif_adi, cevrim) ya da exception."""
@@ -319,6 +327,7 @@ def gui_calistir():
             return
         durum["kosuyor"], durum["dur"] = True, False
         durum["sonuclar"] = []
+        sayaclari_sifirla()
         threading.Thread(target=kosu_is, daemon=True).start()
 
     def kosu_is():
@@ -345,6 +354,7 @@ def gui_calistir():
     def tekli():
         if durum["kart"] and durum["vektorler"]:
             durum["kosuyor"] = True
+            sayaclari_sifirla()
 
             def bir():
                 try:
@@ -355,18 +365,42 @@ def gui_calistir():
                 durum["kosuyor"] = False
             threading.Thread(target=bir, daemon=True).start()
 
+    def ozet_metni():
+        """Juriye okunacak tek paragraf: dagilim + sure + hata."""
+        sonuc = durum["sonuclar"]
+        if not sonuc:
+            return ""
+        dagilim = {ad: 0 for ad in SINIF_AD}
+        hatali, cevrimler = 0, []
+        for _, ad, cyc in sonuc:
+            if ad in dagilim:
+                dagilim[ad] += 1
+                cevrimler.append(cyc)
+            else:
+                hatali += 1
+        ort = sum(cevrimler) / len(cevrimler) if cevrimler else 0
+        return ("%d vektör işlendi · " % len(sonuc)
+                + " · ".join("%s %d" % (a, dagilim[a]) for a in SINIF_AD)
+                + " · hata %d · ortalama %.0f çevrim = %.2f ms @ 50 MHz"
+                % (hatali, ort, ort / 50000.0))
+
     def kaydet():
         if not durum["sonuclar"]:
             return
         ad = "juri_sonuclar_%s.txt" % time.strftime("%Y%m%d_%H%M%S")
         yol = os.path.join(os.getcwd(), ad)
+        ozet = ozet_metni()
         with open(yol, "w", encoding="utf-8") as f:
             f.write("# BLogic MCU juri kosusu — %s\n" %
                     time.strftime("%Y-%m-%d %H:%M:%S"))
+            f.write("# %s\n" % ozet)
+            f.write("# yol: PC -> UART 115200 -> BLG1 cerceve+saglama -> "
+                    "AI SRAM -> HW cikarim -> irq17 -> UART sonuc\n")
             f.write("# indeks\tsinif_no\tsinif\tcevrim\n")
             for i, adx, cyc in durum["sonuclar"]:
                 no = SINIF_AD.index(adx) if adx in SINIF_AD else -1
                 f.write("%d\t%d\t%s\t%d\n" % (i, no, adx, cyc))
+        log("ÖZET: " + ozet)
         log("sonuçlar yazıldı: " + yol)
 
     ttk.Button(alt, text="Tekli Gönder", command=tekli).pack(side="left", padx=3)
@@ -385,6 +419,12 @@ def gui_calistir():
         log_kutu.see("end")
 
     sayac = {ad: 0 for ad in SINIF_AD}
+
+    def sayaclari_sifirla():
+        for ad in SINIF_AD:
+            sayac[ad] = 0
+            sayac_etiketleri[ad].config(text="%s: 0" % ad)
+        ilerleme["value"] = 0
 
     def kuyruk_isle():
         try:
