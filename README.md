@@ -795,7 +795,13 @@ The custom AI Accelerator implements Google's **TensorFlow Lite Micro Speech "Ti
 | Requantize saturation rails | `make sim FW_SRC=sw/tests/ai_sat_test.c` | **PASS** — ±2³⁰ bias forces every conv output to the 0x7F / 0x80 rails, 2 × 1000 words verified word-by-word |
 | Live board sweep | `sw/ai_model/kart_sweep.py` (COM port) | **60 / 60 diversified UART vectors** match the SW argmax on Genesys 2 |
 
-<p align="center"><sub>🖼️ placeholder — add photo: live on-board AI demo (Genesys 2 + host terminal during the 60-vector sweep)</sub></p>
+<p align="center"><img src="images/demo_boot_terminal_20260902.png" width="900" alt="boot terminal - power-on inference"></p>
+<p align="center"><sub>Live board, 2026-09-02 re-validation: QSPI boot banner and the power-on inference — <code>sinif = yes, HW cycle = 459062, ~21.0x</code> — byte-identical to the August delivery run.</sub></p>
+
+<p align="center"><img src="images/kart_sweep_60of60_20260902.png" width="900" alt="kart_sweep 60/60 tail"></p>
+<p align="center"><sub>The same session's full jury rehearsal: <code>kart_sweep.py --n 60</code> → <b>ESLESEN: 60/60, zero timeouts</b> (report committed as <code>sw/ai_model/kart_sweep_raporu_n60_2026-09-02.txt</code>).</sub></p>
+
+<p align="center"><sub>🖼️ placeholder — add photo: Genesys 2 board + host terminal in one frame</sub></p>
 
 ### 11.5 Performance — Hardware vs Software
 
