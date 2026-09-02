@@ -245,6 +245,87 @@ Teslim edilen cipte JTAG YOKTUR ve bu dal o beyani DEGISTIRMEZ.
 - gdb demosu icin gdb-multiarch gerekli (kurulum sudo; /opt/riscv zincirinde
   gdb yok); OpenOCD zaten :3333'te gdb sunucusu aciyor.
 
+### Gun 3 - gdb (2 Eylul 2026) - GDB DEMOSU (OPENOCD :3333) PASS
+- Arac: gdb-multiarch `GNU gdb (Ubuntu 15.1-1ubuntu1~24.04.1) 15.1` + OpenOCD
+  0.12 gdb sunucusu (blogic_sim.cfg init+halt, :3333; cfg DEGISMEDI). Yeni:
+  `rtl/debug/openocd/demo_gdb.gdb` (gdb komut dosyasi), `scripts/run_jtag_gdb.sh`
+  (kosucu), Makefile `jtag-gdb` hedefi (+ .PHONY, help satiri; test-all
+  DOKUNULMADI), kanit `rtl/debug/openocd/demo_run_gdb_2026-09-02.log` (gdb.log
+  kopyasi, .gitignore `demo_run_*.log` istisnasiyla izlenir).
+- Akis (demo_gdb.gdb, her bolum `== GDB: ... ==` isaretli): set architecture
+  riscv:rv32, trust-readonly-sections on, remotetimeout 120 -> target
+  extended-remote :3333 -> monitor gdb_breakpoint_override hard -> monitor reset
+  halt (pc 0x00010000) -> break *main + continue -> info registers pc ra sp a0,
+  x/8i $pc -> delete 1 -> stepi x3 -> set {int}0x00021000 = 0x600DF00D + x/4xw
+  (gdb yazdi, OpenOCD progbuf ile okudu) -> set $a0 = 0x0BADCAFE + print/x,/z
+  -> monitor resume / sleep 100 / halt (pc sonsuz dongu) -> monitor shutdown
+  ('Q' -> SimJTAG exit -> sim biter). `make jtag-gdb` **PASS**, 107 s duvar
+  saati (sim 1.18 s sim zamani, 11 ms/s; gdb/openocd/sim cikis 0/0/0):
+  ```
+  == GDB: reset halt (pc 0x00010000 beklenir) ==
+  pc             0x10000	0x10000 <_start>
+  == GDB: break *main + continue (main 0x000100e8 beklenir) ==
+  Breakpoint 1 at 0x100e8
+  Breakpoint 1, 0x000100e8 in main ()
+  pc             0x100e8	0x100e8 <main>
+  ra             0x100e6	0x100e6 <hang>
+  sp             0x22000	0x22000
+  a0             0x0	0
+  => 0x100e8 <main>:	lui	a5,0x40000
+     0x100ec <main+4>:	li	a4,434
+  -- ayni adres hedeften (progbuf lw): DSRAM alias, kod DEGIL --
+  0x000100e8: 00000000 00000000
+  == GDB: stepi x3 ==
+  0x000100ec in main ()
+  0x000100f0 in main ()
+  0x000100f4 in main ()
+  0x21000:	0x600df00d	0x00000000	0x00000000	0x00000000
+  $2 = 0xbadcafe
+  $3 = 0x0badcafe
+  == GDB: monitor resume / sleep 100 / halt ==
+  pc             0x1011e	0x1011e <main+54>
+  == GDB: done ==
+  ```
+  sim_gdb.log: UART 'Hello World from BLogic MCU!' 2 kez (reset halt + continue
+  ile firmware bastan), sonda `SimJTAG exit=1` ('Q'). openocd_gdb.log'da Error yok.
+- Kosucu VERDICT 5 kriter (Breakpoint 1 satirinda main, sonraki pc 0x0001xxxx,
+  print/z a0 0x0badcafe, x/4xw 0x600df00d, done isareti); cikti:
+  `VERDICT: PASS - 'Breakpoint 1, 0x000100e8 in main ()', pc=0x000100e8, a0 geri okuma 0x0badcafe, bellek 0x00021000 geri okuma 0x600df00d, '== GDB: done ==' (logs/jtag/gdb.log)`
+- Ogrenilen (ilk kosu FAIL, ikinci PASS):
+  - build/test.elf -g'siz (Makefile.verilator RV_CFLAGS -O2) -> next/step degil
+    stepi + x/i. `break main` -g olmadan gdb prolog sezgisiyle main+12'ye
+    (0x100f4) kaydi; `break *main` sembol adresine (0x100e8) kurar.
+  - ISRAM (0x0001_xxxx) veri portundan YALNIZ yazilir (crossbar rd_dest'te
+    instr-SRAM secenegi yok, okuma DSRAM'e duser): `monitor mdw 0x000100e8`
+    00000000 dondurur, ELF'te 400007b7 (lui). Bu yuzden trust-readonly-sections
+    on (x/i ve breakpoint turu ELF .text'ten) ve gdb_breakpoint_override hard:
+    yazilim breakpoint'i "eski buyrugu" alias'tan okuyup kaldirirken ISRAM'e
+    geri yazacagi icin firmware'i bozardi; donanim tetikleyicisi bellege dokunmaz.
+  - gdb'nin riscv stepi'si YAZILIM tek-adimi: sonraki pc'ye gecici breakpoint
+    koyup resume eder (vCont;s degil). CV32E40P'de tek tetikleyici var; bp 1
+    duruyorken 2. stepi "Cannot insert breakpoint 0. Cannot access memory at
+    address 0x100fa" / OpenOCD "Couldn't find an available hardware trigger"
+    verdi -> main'e gelince `delete 1`, sonra stepi (her adim tetikleyiciyi
+    gecici kullanir).
+  - remote_bitbang + sim yavas: gdb'nin 2 s remotetimeout'u "Ignoring packet
+    error, continuing..." uretti -> `set remotetimeout 120`; OpenOCD yine
+    "keep_alive() was not invoked in the 1000 ms timelimit" uyarisi basar
+    (zararsiz). monitor reset halt / halt sonrasi gdb register onbellegi bayat
+    -> `maintenance flush register-cache`. print/x sifir doldurmaz (0xbadcafe),
+    print/z doldurur (0x0badcafe).
+  - `monitor shutdown`: OpenOCD qRcmd'ye ERROR_COMMAND_CLOSE_CONNECTION (-600,
+    "EA8") dondurur, gdb "Protocol error with Rcmd: A8." der ve -batch'te
+    dosyayi keser (cikis 1); demo_gdb.gdb'de python try/except ile yakalanir,
+    ardindan `disconnect` -> gdb cikis 0, OpenOCD 'Q' ile kapanir.
+- Yeniden uretim (WSL, depo koku): `export PATH=/opt/riscv/bin:$PATH` ;
+  `make jtag-gdb` (gdb-multiarch 15.1, OpenOCD 0.12, iproute2 `ss`, coreutils
+  `timeout` gerekli; sim binary/ELF yoksa ya da build/instr_mem.hex ile
+  obj_dir_jtag_ocd/firmware.hex uyusmuyorsa once jtag-openocd-build kosar).
+  Elle uc terminal: `cd obj_dir_jtag_ocd && ./jtag_openocd_sim` ;
+  `openocd -f rtl/debug/openocd/blogic_sim.cfg` ;
+  `gdb-multiarch -batch -x rtl/debug/openocd/demo_gdb.gdb build/test.elf`.
+- Kalan: FPGA denemesi (bitstream yalniz Berk'in izniyle).
+
 ## Sunum cercevesi
 Ister matrisinde JTAG isareti degismez (yok / opsiyonel / beyanli).
 Basari halinde yalniz "Gelecek Calisma" slayti + soru-cevap karti:

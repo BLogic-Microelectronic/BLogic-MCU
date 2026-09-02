@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-sim jtag-openocd-build jtag-openocd
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-sim jtag-openocd-build jtag-openocd jtag-gdb
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -309,6 +309,15 @@ jtag-openocd-build:
 jtag-openocd:
 	bash scripts/run_jtag_openocd.sh
 
+# gdb demosu (deneme/jtag, Gun 3): scripts/run_jtag_gdb.sh simi ve openocd'yi
+# (yalniz blogic_sim.cfg: init + halt, gdb sunucusu :3333) arka planda baslatir,
+# gdb-multiarch -batch -x rtl/debug/openocd/demo_gdb.gdb build/test.elf kosar
+# (reset halt, break main + continue, x/i, stepi, register/bellek yaz-oku,
+# monitor resume/halt, monitor shutdown -> sim 'Q' ile biter), loglar logs/jtag/
+# (gdb.log, openocd_gdb.log, sim_gdb.log), VERDICT PASS/FAIL (cikis 0/1).
+jtag-gdb:
+	bash scripts/run_jtag_gdb.sh
+
 # ASIC lint kapisi. DIKKAT: sim waiver seti KOPYALANMAZ.
 # -Wno-MODDUP ve -Wno-PINMISSING kasitli olarak YOK: modul duplikasyonunu ve
 # baglanmamis pinleri yakalamasi gereken tam da bu iki uyaridir.
@@ -494,6 +503,9 @@ test-all:
 	if command -v openocd >/dev/null 2>&1; then \
 	    jo=PASS; $(MAKE) jtag-openocd || { jo=FAIL; overall=1; }; \
 	else jo="SKIP (openocd yok)"; fi; \
+	if command -v openocd >/dev/null 2>&1 && command -v gdb-multiarch >/dev/null 2>&1; then \
+	    jg=PASS; $(MAKE) jtag-gdb || { jg=FAIL; overall=1; }; \
+	else jg="SKIP (openocd/gdb-multiarch yok)"; fi; \
 	echo ""; \
 	echo "====================================================="; \
 	echo " TEST-ALL OZETI"; \
@@ -516,6 +528,7 @@ test-all:
 	echo "  uvm        (4 blok, 8 test: GPIO+Timer+UART_0+I2C): $$u"; \
 	echo "  jtag-sim   (riscv-dbg 9 asama, SV bit-bang) : $$js"; \
 	echo "  jtag-openocd (OpenOCD ucdan-uca demo)      : $$jo"; \
+	echo "  jtag-gdb   (gdb-multiarch kaynak seviyesi)  : $$jg"; \
 	echo "====================================================="; \
 	exit $$overall
 
@@ -551,6 +564,7 @@ help:
 	@echo "                     kosum: cd obj_dir_jtag_ocd && ./jtag_openocd_sim ; openocd -f rtl/debug/openocd/blogic_sim.cfg"
 	@echo "  make jtag-openocd  - (deneme/jtag) OpenOCD ucdan-uca demo: sim + openocd (halt/reg/mem/resume), logs/jtag/, PASS/FAIL"
 	@echo "                     + donanim breakpoint (bp <pc> 4 hw -> tetikleyici, pc==bp) + reset halt (ndmreset, pc==0x00010000)"
+	@echo "  make jtag-gdb      - (deneme/jtag) gdb-multiarch demo: OpenOCD :3333 uzerinden reset halt, break main, stepi, reg/mem yaz-oku, PASS/FAIL"
 	@echo "  make qspi-modes  - QSPI x1/x2/x4 veri fazi + 4-bayt adres testi"
 	@echo "  make qspi-err    - QSPI FIFO/flush/status hata yollari"
 	@echo "  make i2c-sys     - I2C sistem testi (echo slave: TX/RX/latch/NACK)"

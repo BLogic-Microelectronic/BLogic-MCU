@@ -194,6 +194,8 @@ The design has been verified through Verilator-based directed and randomized sim
 │   │   ├── ai_accelerator.sv             # Tiny Conv hardware
 │   │   └── ai_sram_arbiter.sv            # CPU / Accel / DMA arbiter
 │   ├── asic/                             # ASIC-only RTL (asic_top, boot ROM, SRAM macro wrappers)
+│   ├── debug/                            # JTAG prototype (branch deneme/jtag): axi_dm_slave, vendored riscv-dbg,
+│   │                                     #   DPI remote_bitbang bridge, OpenOCD/gdb scripts + evidence logs
 │   └── fpga/                             # FPGA build & board files (xdc, tcl, committed bitstream)
 ├── sw/
 │   ├── common/
@@ -421,6 +423,27 @@ under `verif/arch_tests/`** — no external clone is needed for `make arch-test`
 Suite provenance is pinned in `asic/THIRD_PARTY.md` via a header fingerprint of
 `verif/arch_tests/suite/env/arch_test.h`.
 
+### 8.8 OpenOCD & gdb-multiarch (JTAG debug prototype — branch `deneme/jtag` only)
+
+The JTAG debug prototype (§10.10) is driven by **real debugger software** talking to
+the Verilator model, so no probe hardware is needed. Both tools come straight from
+the Ubuntu 24.04 archive; the RISC-V target support is built into them:
+
+```bash
+sudo apt-get install -y openocd gdb-multiarch iproute2
+openocd --version          # -> Open On-Chip Debugger 0.12.0 (RISC-V target included)
+gdb-multiarch --version    # -> GNU gdb 15.1  (use: set architecture riscv:rv32)
+```
+
+`gdb-multiarch` is used because the `/opt/riscv` toolchain of §8.3 ships without a
+`riscv32-unknown-elf-gdb`; the multi-target build debugs the same RV32 ELF over
+OpenOCD's gdb server (`target remote :3333`). The debug-module RTL itself
+(PULP `riscv-dbg`, the `common_cells` CDC cells and `tech_cells_generic` clock
+cells) is **vendored under `rtl/debug/vendor/`** with exact commit/tag pins and
+licences recorded in `rtl/debug/VENDOR.md` — nothing to install. Both tools are
+optional: `make test-all` skips `jtag-openocd` / `jtag-gdb` with a `SKIP` note when
+they are absent; `make jtag-sim` (pure-SV bit-bang) needs only Verilator.
+
 ---
 
 ## 9. Build & Simulation
@@ -468,6 +491,10 @@ make test-all
 | `make arch-test` | Official `riscv-arch-test` ISA compliance (default `ARCH_EXT=I`) |
 | `make qspi-err` | QSPI FIFO overflow / flush / status error paths (25 checks) |
 | `make uvm` | UVM — 4 blocks (GPIO + Timer + UART_0 + I2C), 8 tests, directed + constrained-random |
+| `make jtag-sim` | JTAG prototype (branch `deneme/jtag`): `+define+JTAG_DEBUG` build, pure-SV TAP bit-bang, 9 stages (IDCODE → DMI → halt → abstract/progbuf → step/trigger → ndmreset) — no external tool |
+| `make jtag-openocd-build` | Builds the OpenOCD-driven simulation (`SimJTAG` + DPI `remote_bitbang` server on `localhost:9999`) |
+| `make jtag-openocd` | End-to-end **OpenOCD 0.12** demo: halt, register write/read, progbuf memory access, hw breakpoint, `reset halt` — evidence log in `rtl/debug/openocd/` |
+| `make jtag-gdb` | **gdb-multiarch** over OpenOCD: `reset halt` → `break *main` → `stepi` → register/memory write-back (§8.8 tools) |
 | `make coverage` | SoC line + branch coverage (15 self-checking C tests, single build) |
 | `make coverage-tb` | Per-module block-testbench coverage |
 | `make spike` | Run firmware directly on Spike ISS |
@@ -738,6 +765,45 @@ run; protocol monitor reports 0 violations in all 8).
 <p align="center"><sub>🖼️ placeholder — add screenshot: "UVM Regression: 8 PASS, 0 FAIL" terminal summary</sub></p>
 
 The UVM library is vendored under `verif/uvm-lib` — no external clone is needed (see `verif/uvm-lib/KAYNAK.md`).
+
+---
+
+### 10.10 JTAG Debug Prototype (branch `deneme/jtag`, riscv-dbg + OpenOCD + gdb)
+
+> **Status.** JTAG is an *optional* item of the competition specification and is
+> **not part of the delivered chip** (openly declared in the requirements
+> matrix). This prototype lives on the `deneme/jtag` branch, is never merged into
+> `main`, and leaves `asic/` and the signed ASIC run untouched. Everything is
+> guarded by `` `ifdef JTAG_DEBUG ``: without the define the crossbar elaborates to
+> logic proven identical by a preprocessor diff, and the 6-test regression still
+> passes. Full working log and guard rails: `JTAG_DENEME_PLANI.md`.
+
+**What was integrated.** PULP `riscv-dbg` (RISC-V Debug Spec 0.13: JTAG TAP, DTM,
+Debug Module) mapped at `0x0004_0000` (4 KB). A new bridge `rtl/debug/axi_dm_slave.sv`
+arbitrates the CPU's instruction and data AXI ports onto the DM's single memory port
+(debug-ROM fetches and `data0`/`progbuf` accesses), the crossbar gained the DM legs,
+`dm_halt_addr = 0x40800`, `dm_exception_addr = 0x40810`, `debug_req` drives the
+CV32E40P, and `ndmreset` resets the whole SoC except the DM and TAP. Memory access
+is *program-buffer only* (SBA tied off to an error-completing stub);
+IDCODE `0x0B1061C1`.
+
+| Evidence | Tool | Result |
+|---|---|---|
+| `make jtag-sim` | pure-SV TAP bit-bang | **9/9**: UART, IDCODE, DTMCS, DMI→DM, halt (`debug_halted_o`), abstract-command GPR round-trip + progbuf `sw`/`lw` to DSRAM + `dpc`, resume, single-step (`dcsr.cause=4`) + hardware trigger breakpoint (`cause=2`), `ndmreset` → halt at `0x00010000` → firmware restarts (greeting printed twice) |
+| `make jtag-openocd` | OpenOCD 0.12 via `remote_bitbang` | halt, `a0` write/read-back `0x12345678`, `mww`/`mdw 0x21000` → `cafef00d 11223344`, `bp <pc> 4 hw` hit, `reset halt` → `pc=0x00010000` — `rtl/debug/openocd/demo_run_2026-09-02.log` |
+| `make jtag-gdb` | gdb-multiarch 15.1 over OpenOCD `:3333` | `reset halt` → `Breakpoint 1, 0x000100e8 in main ()` → `stepi`×3 → `$a0 = 0x0badcafe`, `*0x21000 = 0x600df00d` — `rtl/debug/openocd/demo_run_gdb_2026-09-02.log` |
+| `make jtag-sim TBCOV=--coverage-line` | Verilator | line coverage of the new RTL: `axi_dm_slave` 35/35, crossbar 78/78 (DM legs included), `soc_top` JTAG block 10/10 = **100 %**; vendored `dm_mem` 85 %, `dmi_jtag_tap` 82 % |
+| `make regression` (no define) | Verilator + Spike | 6/6 — main-branch behaviour unchanged |
+
+Known limitations, documented rather than hidden: the firmware is built without `-g`
+(the gdb demo uses `stepi`/`x/i`); CV32E40P has a single hardware trigger, so a
+breakpoint must be deleted before single-stepping; the instruction SRAM is
+write-only from the data port, therefore gdb is configured for **hardware**
+breakpoints only (`gdb_breakpoint_override hard`); the `remote_bitbang` link runs
+at ~11 ms of simulated time per wall-clock second. The synthesis-elaboration check of
+the `JTAG_DEBUG` build (`scripts/jtag_elab_check.sh`, yosys-slang) requires the
+LibreLane environment and is run on the flow VM. The same branch also carries the
+one-line **FC-1** fix (`asic/README.md` §9.5) and the `i2c_sda_i` 2FF synchroniser.
 
 ---
 
@@ -1262,6 +1328,12 @@ make sim FW_SRC=sw/tests/ai_irq_test.c TRACE=1
 | **TensorFlow / tflite-runtime** | 2.15+ | Reference inference for AI golden vectors |
 | **NumPy** | 1.26+ | Array math in AI scripts |
 | **GTKWave** | 3.3+ | Waveform inspection (`TRACE=1` VCDs) |
+| **OpenOCD** | 0.12.0 (Ubuntu 24.04 package, RISC-V target) | JTAG debug host for the prototype (§10.10): `remote_bitbang` to the Verilator model, gdb server on `:3333` |
+| **gdb-multiarch** | GNU gdb 15.1 (`riscv:rv32`) | Source-level debug over OpenOCD (`make jtag-gdb`) |
+| **PULP `riscv-dbg`** | commit `21a5fbe` (vendored, `rtl/debug/vendor/`) | RISC-V Debug Spec 0.13 TAP / DTM / Debug Module |
+| **PULP `common_cells`** (CDC subset) | v1.38.0 (vendored) | `cdc_2phase_clearable` chain used by `dmi_cdc` |
+| **PULP `tech_cells_generic`** | v0.2.3 (vendored) | `tc_clk_inverter` / `tc_clk_mux2` for the TAP TDO clock |
+| **KLayout** (Python module) | — | GDS renders, transistor count and layout images in `asic/scripts/` |
 | **GitHub** | — | Version control |
 
 ---
@@ -1300,6 +1372,9 @@ This project was developed by **BLogic Mikroelektronik** for the **TEKNOFEST 202
 | `verilog-uart` | Alex Forencich | MIT | `rtl/peripherals/verilog-uart/` |
 | Accellera UVM | Accellera | Apache 2.0 | `verif/uvm-lib/` |
 | TFLite Micro Speech model & features | Google / TensorFlow Authors | Apache 2.0 | `sw/ai_model/` |
+| PULP `riscv-dbg` (JTAG prototype branch) | PULP Platform | Solderpad Hardware Licence v0.51 | `rtl/debug/vendor/riscv-dbg/` |
+| PULP `common_cells` v1.38.0 CDC cells, `tech_cells_generic` v0.2.3 | PULP Platform | Solderpad Hardware Licence v0.51 | `rtl/debug/vendor/` |
+| `remote_bitbang` server / `SimJTAG` | UC Regents / SiFive | BSD-3-Clause / Apache 2.0 | `rtl/debug/vendor/riscv-dbg/tb/` |
 
 The original work (custom RTL, AI accelerator, peripherals, verification environment, FPGA wrapper, software, scripts) is © 2026 **BLogic Mikroelektronik — Berk Muammer Kuzu & Berkin Demircan**.
 
