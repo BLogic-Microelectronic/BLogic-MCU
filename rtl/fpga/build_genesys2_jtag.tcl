@@ -142,6 +142,8 @@ close $fl
 #    sira korunarak tekillestirilir (Vivado ayni dosyayi iki kez okumasin)
 # ------------------------------------------------------------
 set jtag_incdirs {}
+set jtag_pkgs {}
+set jtag_rest {}
 set fl [open [file join $repo_root rtl debug jtag_files.f] r]
 while {[gets $fl line] >= 0} {
     set line [string trim $line]
@@ -153,10 +155,17 @@ while {[gets $fl line] >= 0} {
     if {[string match "*dmi_jtag_tap.sv" $line]} { continue }
     set p [file normalize [file join $repo_root $line]]
     if {![file exists $p]} { puts "HATA: kaynak dosya yok: $p"; exit 1 }
-    lappend sv_srcs $p
+    # Vivado paketleri kullanildiklari dosyadan ONCE okumali: soc_top.sv
+    # 'dm::' paketine (dm_pkg.sv) basvurur -> *_pkg.sv dosyalari listenin
+    # basina, geri kalani sonuna eklenir.
+    if {[string match "*_pkg.sv" $p]} { lappend jtag_pkgs $p } else { lappend jtag_rest $p }
 }
 close $fl
-lappend sv_srcs [file normalize [file join $repo_root rtl debug vendor riscv-dbg src dmi_bscane_tap.sv]]
+lappend jtag_rest [file normalize [file join $repo_root rtl debug vendor riscv-dbg src dmi_bscane_tap.sv]]
+# axi_dm_slave.sv jtag_files.f'de DEGIL (Makefile jtag hedefleri komut satirinda
+# verir) -> burada da elle eklenir.
+lappend jtag_rest [file normalize [file join $repo_root rtl debug axi_dm_slave.sv]]
+set sv_srcs [concat $jtag_pkgs $sv_srcs $jtag_rest]
 set incdirs [concat $jtag_incdirs $incdirs]
 set uniq {}
 foreach p $sv_srcs { if {[lsearch -exact $uniq $p] < 0} { lappend uniq $p } }
