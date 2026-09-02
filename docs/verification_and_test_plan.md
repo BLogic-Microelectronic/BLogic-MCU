@@ -207,7 +207,7 @@ machines** (the second a fresh install), 16/16.
 | 8 | `i2c-sys` | NBY/ADR programming, TX/RX echo against `i2c_slave_model.sv`, NACK path | Echoed data matches; done/nack flags correct |
 | 9 | `ai` | Standalone accelerator TB - **6 scenarios: 2 real-speech + 4 synthetic**, word-level tensor compare | All 6 pass; conv (1000 words) and FC logits (4 x INT8) bit-exact vs golden |
 | 10 | `soc-ai` | Full inference launched from C over the real bus | Class + tensors match golden |
-| 11 | `soc-perf` | HW vs SW cycle measurement on the same CPU (mcycle) | Simulation: HW 436,344 cycles START->DONE (114 inf/s @ 50 MHz, 223.4 KB/s); SW 7,897,598 cycles; speedup 18.1x |
+| 11 | `soc-perf` | HW vs SW cycle measurement on the same CPU (mcycle) | Simulation (2026-09-01, `verif/perf_summary.txt`): HW 459,016 cycles; SW 9,684,726 cycles (xPack GCC 13.2.0 `-O2`); speedup **21.0x**; conv_out 1000/1000 words bit-exact |
 | 12 | `soc-ai-irq` | Specification interrupt flow: configure -> START -> `wfi` -> irq17 -> vector slot 17 ISR -> result over UART -> DONE clear -> `mret` | `result=PASS`; 2,012,223 cycles (~40 ms); 363 report bytes |
 | 13 | `soc-timer` | Prescaler, auto-reload, level-triggered interrupt, EVC clear | Event counting and IRQ level semantics per EK-2 |
 | 14 | `soc-strm` | UART_1 stream end-to-end through the SoC path with arbiter ownership | Transfer completes; ownership released after ABORT-safe drain |
@@ -337,12 +337,15 @@ interrupt path.
 
 **Performance:**
 
-- Simulation (mcycle, START->DONE): HW 436,344 cycles = 114 inf/s at
-  50 MHz (223.4 KB/s over 1960-byte frames); SW baseline 7,897,598
-  cycles; **18.1x**. Testbench first-read->last-write window: 454,986
-  cycles (~4% wider, DONE-polling quantization).
-- On board (live, same CPU): HW 459,062 cycles = **9.18 ms**; SW
-  9,684,726 cycles = 193.7 ms; **21.0x** measured on hardware.
+- Simulation (`make soc-perf`, mcycle, 2026-09-01 run,
+  `verif/perf_summary.txt`): HW 459,016 cycles; SW baseline 9,684,726
+  cycles (xPack GCC 13.2.0 `-O2`); **21.0x**. The ratio is sensitive to
+  the software baseline (compiler/optimisation level); the hardware
+  path is not.
+- On board (live, same CPU): HW 459,062 cycles = **9.18 ms** (~109
+  inf/s at 50 MHz); SW 9,684,726 cycles = 193.7 ms; **21.0x** measured
+  on hardware. Simulation and board differ by 46 cycles (bus/boot
+  environment), i.e. the two measurements corroborate each other.
 
 ## 11. System-Level Verification
 
@@ -409,6 +412,18 @@ N on demo day:
 Report: `sw/ai_model/kart_sweep_raporu_n60.txt`. Frame format and
 handshake contract: `docs/oznitelik_vektoru_formati.md`.
 
+**Re-validation after the schedule change (same bitstream, same flash
+image):** 2026-09-02, 60/60 again (`kart_sweep_raporu_n60_2026-09-02.txt`);
+2026-09-03, the announced jury volume - **1000/1000** (40 named
+families + 960 seeded-random vectors, zero timeouts, 260 s end-to-end;
+`kart_sweep_raporu_n1000_2026-09-03.txt`). The jury criterion is
+>= 900/1000 argmax agreement. A flash-independent backup bitstream with
+the same demo firmware embedded (`rtl/fpga/fpga_top_m2_demo.bit`, M2
+SRAM-direct boot) was also rebuilt and verified on the board on
+2026-09-03, and a demo-day GUI (`sw/demo/juri_panel.py`: bitstream
+load, live UART view, format-agnostic batch send, result file) was
+validated end-to-end on the board.
+
 ## 14. Findings Register (what verification caught)
 
 All found by measurement, fixed, and locked into regression - evidence
@@ -429,14 +444,27 @@ that the methodology works, not just that the design passes:
    traffic would trigger. Reproduced on hardware, fixed, guarded by the
    stream/interaction tests.
 5. **QSPI output toggled on the wrong clock edge** (real-flash tCO) -
-   RX sampling moved to the rising edge (SPI mode-0 correction);
-   guarded by `boot-real`.
+   TX data is now registered on the falling edge (`tx_io_q`, SPI
+   mode-0 correction); RX sampling was not changed; guarded by
+   `boot-real`.
 6. **WP#/HOLD# regression introduced by fix #5** - caught in
    cross-review; guarded by `qspi-modes`.
 7. **UART_0 has no RX FIFO** (EK-2 defines single-byte TDR/RDR, no
    FIFO) - senders must respect the ready-line handshake; the protocol
    is documented in `docs/oznitelik_vektoru_formati.md` and host tools
    comply.
+8. **FC-1 - macro-branch read-hold contract violation** (found
+   2026-09-01 by `make asic-top-sim`, i.e. *after* signoff): in the
+   `ASIC_SRAM_MACRO` branch the fully-connected stage consumes its
+   `conv_out` read >= 3 cycles after issuing it, while the delivered
+   OpenRAM functional model holds read data for exactly one cycle. The
+   behavioural branch (all SoC tests, FPGA, 60/60 and 1000/1000 board
+   runs) is unaffected. Declared, NOT patched - the RTL and the signed
+   ASIC run are unchanged; isolation evidence, expected-silicon analysis
+   and the one-line remediation for a future re-spin are in
+   `asic/README.md` section 9.5. This is the register's only open item
+   and the strongest evidence that the methodology keeps finding issues
+   past signoff.
 
 ## 15. Known Limitations and Declarations
 
@@ -498,7 +526,7 @@ freshly installed machine; results are not tied to a single environment.
 | Boot sequence: ROM loader -> flash -> ISRAM -> handoff (spec) | `boot`, `boot-real` | Section 6 row 5 timings |
 | AI interrupt-on-completion flow (spec) | `soc-ai-irq` | `logs/sim/ai_irq_test/` |
 | AI accuracy within 10% window (spec) | `ai`, `ai-batch1000` | `sw/ai_model/accuracy_report_n1000.txt` |
-| AI speedup > 1.0x vs software (team metric) | `soc-perf`, board measurement | Section 10 (18.1x sim / 21.0x board) |
+| AI speedup > 1.0x vs software (team metric) | `soc-perf`, board measurement | Section 10 (21.0x sim / 21.0x board; `verif/perf_summary.txt`) |
 | AXI protocol compliance on all interfaces (EK-3 mandatory) | always-on SVA in every run | regression summaries, protocol counters |
 | ISA correctness (RV32IMC) | `arch-test`, lockstep | signature diffs; lockstep logs in `logs/lockstep/`, `logs/arch_test/` |
 

@@ -1047,6 +1047,33 @@ This one-shot script:
 
 > Once programmed, press the **R19 reset button** to release CPU reset and start firmware execution.
 
+#### C. Demo-day cockpit (`sw/demo/juri_panel.py`)
+
+One window replaces Vivado GUI + terminal + scripts on demo day:
+
+```
+python sw/demo/juri_panel.py
+```
+
+1. **Bitstream Yükle…** — pick `rtl/fpga/fpga_top.bit` (normal, flash boot) or
+   `rtl/fpga/fpga_top_m2_demo.bit` (backup: same demo firmware embedded, boots
+   from SRAM, needs no flash at all). The panel programs the FPGA over JTAG via
+   Vivado batch; the bitstream is volatile, so re-load after every power cycle.
+2. **Bağlan / Test** — opens the UART port; from then on every line the board
+   prints (boot banner after R19, menu, results) appears live in the panel log.
+3. **Jüri dosyasını seç…** — auto-detects `.bin` / `.npy` / `.csv` / `.txt` /
+   `.hex` or a folder, validates every vector (1960 bytes, int8) *before*
+   touching the board, then **TOPLU KOŞU** streams them with the BLG1
+   frame + checksum. A timeout retries once; each result is written to disk
+   as it arrives; the final file carries a one-line summary (class
+   distribution, mean cycles/ms).
+
+> Windows note: Vivado (GUI and batch) fails on paths containing non-ASCII
+> characters (e.g. `Masaüstü`). Map the repository to a drive letter first
+> (`subst X: "<repo path>"`) and work from `X:\`; the panel copies bitstreams to
+> an ASCII temp directory on its own. Board-verified 2026-09-03: 1000/1000 with
+> `kart_sweep.py --n 1000`, M2 backup boots and classifies without flash.
+
 ---
 
 ## 13. ASIC Flow (sky130)
@@ -1206,7 +1233,8 @@ reports delivered unmodified under `asic/reports/` and outputs under
   <img src="asic/results/images/asic_top.png" alt="asic_top final layout" width="480">
 </p>
 
-<p align="center"><sub>🖼️ placeholder — optional zoomed die-layout crops (SRAM macro grid / logic corridor)</sub></p>
+<p align="center"><img src="asic/results/images/zoom_80um_cells.png" width="360" alt="80 um zoom - standard cell rows">&nbsp;<img src="asic/results/images/zoom_sram_edge.png" width="360" alt="SRAM macro edge"></p>
+<p align="center"><sub>Zoomed die crops from the delivered GDS — left: 80 µm window of standard-cell rows (PDN hidden); right: SRAM macro edge (bitcell array, word-line drivers). Full-chip HD render and more crops: <code>asic/README.md</code> §9.7.</sub></p>
 
 ---
 
