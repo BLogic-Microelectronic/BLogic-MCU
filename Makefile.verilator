@@ -79,7 +79,17 @@ logs-prep:
 
 sw: logs-prep $(BUILD_DIR)/instr_mem.hex $(BUILD_DIR)/data_mem.hex
 
-$(BUILD_DIR)/test.elf: $(STARTUP) $(FW_SRC) $(LINKER_SCRIPT) | logs-prep
+# FW_SRC damgasi: kaynak dosya adi degisince (ama mtime'i eski olsa da)
+# test.elf yeniden derlenir. Onceden 'make sim FW_SRC=<baska>' bayat ELF'i
+# kosturabiliyordu (2-3 Eylul 2026'da iki kez yasandi). Damga yalniz icerik
+# degisince yeniden yazilir -> ayni FW_SRC ile gereksiz derleme yok.
+$(BUILD_DIR)/fw_src.stamp: FORCE
+	@mkdir -p $(BUILD_DIR)
+	@echo "$(FW_SRC)" | cmp -s - $@ 2>/dev/null || echo "$(FW_SRC)" > $@
+FORCE:
+.PHONY: FORCE
+
+$(BUILD_DIR)/test.elf: $(STARTUP) $(FW_SRC) $(LINKER_SCRIPT) $(BUILD_DIR)/fw_src.stamp | logs-prep
 	@mkdir -p $(BUILD_DIR)
 	@echo "[SW] gcc ($(TEST_NAME)) -> $@"
 	@$(RV_GCC) $(RV_CFLAGS) -T $(LINKER_SCRIPT) $(STARTUP) $(FW_SRC) -o $@ \
