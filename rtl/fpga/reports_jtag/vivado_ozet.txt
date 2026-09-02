@@ -1,0 +1,5 @@
+15:BILGI: 80 .sv + 3 .v dosyasi okundu.
+16:BILGI: BOOT_ADDR = 32'h00000000
+1940:SONUC: WNS = 2.256 ns, WHS = 0.031 ns
+2040:BASARILI: rtl/fpga/fpga_top_jtag.bit uretildi, raporlar build/fpga_jtag_reports/ altinda.
+a68d01343c10324c056c721baa0a831a3eaab40eedf92e6f360ae9f793d851c6 *rtl/fpga/fpga_top_jtag.bit

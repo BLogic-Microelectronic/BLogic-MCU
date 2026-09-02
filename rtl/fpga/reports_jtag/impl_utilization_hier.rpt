@@ -1,0 +1,64 @@
+Copyright 1986-2021 Xilinx, Inc. All Rights Reserved.
+-----------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2021.2 (win64) Build 3367213 Tue Oct 19 02:48:09 MDT 2021
+| Date         : Thu Sep  3 02:35:19 2026
+| Host         : Berk66 running 64-bit major release  (build 9200)
+| Command      : report_utilization -hierarchical -hierarchical_depth 3 -file Y:/build/fpga_jtag_reports/impl_utilization_hier.rpt
+| Design       : fpga_top
+| Device       : xc7k325tffg900-2
+| Speed File   : -2
+| Design State : Routed
+-----------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++----------------------+----------------------------------+------------+------------+---------+------+------+--------+--------+------------+
+|       Instance       |              Module              | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | DSP Blocks |
++----------------------+----------------------------------+------------+------------+---------+------+------+--------+--------+------------+
+| fpga_top             |                            (top) |      13772 |      13770 |       0 |    2 | 9713 |     13 |      2 |         10 |
+|   (fpga_top)         |                            (top) |          2 |          2 |       0 |    0 |   32 |      0 |      0 |          0 |
+|   i_soc              |                          soc_top |      13770 |      13768 |       0 |    2 | 9681 |     13 |      2 |         10 |
+|     (i_soc)          |                          soc_top |          0 |          0 |       0 |    0 |    3 |      0 |      0 |          0 |
+|     i_ai_accel       |                   ai_accelerator |       1537 |       1537 |       0 |    0 |  879 |      1 |      2 |          5 |
+|     i_ai_sram        | axi_sram_wrapper__parameterized1 |         25 |         25 |       0 |    0 |   35 |      8 |      0 |          0 |
+|     i_axi_dm_slave   |                     axi_dm_slave |          0 |          0 |       0 |    0 |   15 |      0 |      0 |          0 |
+|     i_boot_rom       |                         boot_rom |          0 |          0 |       0 |    0 |   31 |      0 |      0 |          0 |
+|     i_cpu            |                     cv32e40p_top |       4430 |       4430 |       0 |    0 | 2110 |      0 |      0 |          5 |
+|       core_i         |                    cv32e40p_core |       4430 |       4430 |       0 |    0 | 2110 |      0 |      0 |          5 |
+|     i_crossbar       |             soc_axi_interconnect |         46 |         46 |       0 |    0 |    8 |      0 |      0 |          0 |
+|     i_data_sram      | axi_sram_wrapper__parameterized0 |         16 |         16 |       0 |    0 |   35 |      2 |      0 |          0 |
+|     i_dm_top         |                           dm_top |        470 |        470 |       0 |    0 |  665 |      0 |      0 |          0 |
+|       i_dm_csrs      |                          dm_csrs |        330 |        330 |       0 |    0 |  587 |      0 |      0 |          0 |
+|       i_dm_mem       |                           dm_mem |        113 |        113 |       0 |    0 |   75 |      0 |      0 |          0 |
+|       i_dm_sba       |                           dm_sba |         27 |         27 |       0 |    0 |    3 |      0 |      0 |          0 |
+|     i_dmi_jtag       |                         dmi_jtag |        582 |        580 |       0 |    2 |  362 |      0 |      0 |          0 |
+|       (i_dmi_jtag)   |                         dmi_jtag |          2 |          2 |       0 |    0 |  117 |      0 |      0 |          0 |
+|       i_dmi_cdc      |                          dmi_cdc |        502 |        500 |       0 |    2 |  245 |      0 |      0 |          0 |
+|       i_dmi_jtag_tap |                     dmi_jtag_tap |         79 |         79 |       0 |    0 |    0 |      0 |      0 |          0 |
+|     i_gpio           |                        gpio_axil |          1 |          1 |       0 |    0 |   81 |      0 |      0 |          0 |
+|     i_i2c            |                  i2c_master_axil |        115 |        115 |       0 |    0 |  187 |      0 |      0 |          0 |
+|     i_instr_sram     |                 axi_sram_wrapper |          0 |          0 |       0 |    0 |    2 |      2 |      0 |          0 |
+|     i_obi_axi_data   |       obi_to_axi__parameterized0 |        575 |        575 |       0 |    0 |   63 |      0 |      0 |          0 |
+|     i_obi_axi_instr  |                       obi_to_axi |         88 |         88 |       0 |    0 |   25 |      0 |      0 |          0 |
+|     i_periph_decoder |                   periph_decoder |        125 |        125 |       0 |    0 |   10 |      0 |      0 |          0 |
+|     i_qspi           |                 qspi_master_axil |       5159 |       5159 |       0 |    0 | 4386 |      0 |      0 |          0 |
+|     i_timer          |                       timer_axil |        136 |        136 |       0 |    0 |  206 |      0 |      0 |          0 |
+|     i_uart_0         |                        uart_axil |        188 |        188 |       0 |    0 |  200 |      0 |      0 |          0 |
+|       (i_uart_0)     |                        uart_axil |         38 |         38 |       0 |    0 |  125 |      0 |      0 |          0 |
+|       i_uart_rx      |                        uart_rx_0 |         68 |         68 |       0 |    0 |   41 |      0 |      0 |          0 |
+|       i_uart_tx      |                        uart_tx_1 |         82 |         82 |       0 |    0 |   34 |      0 |      0 |          0 |
+|     i_uart_1         |                 uart_stream_axil |        283 |        283 |       0 |    0 |  378 |      0 |      0 |          0 |
+|       (i_uart_1)     |                 uart_stream_axil |         61 |         61 |       0 |    0 |  303 |      0 |      0 |          0 |
+|       i_uart_rx      |                          uart_rx |        161 |        161 |       0 |    0 |   41 |      0 |      0 |          0 |
+|       i_uart_tx      |                          uart_tx |         61 |         61 |       0 |    0 |   34 |      0 |      0 |          0 |
++----------------------+----------------------------------+------------+------------+---------+------+------+--------+--------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+
