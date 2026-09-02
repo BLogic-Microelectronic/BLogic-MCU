@@ -21,13 +21,24 @@
 # Kuru test: python sw/demo/juri_panel.py --selftest
 # ============================================
 import argparse
+import glob
 import os
 import queue
 import re
+import shutil
 import struct
+import subprocess
 import sys
+import tempfile
 import threading
 import time
+
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def vivado_bul():
+    adaylar = sorted(glob.glob(r"C:\Xilinx\Vivado\*\bin\vivado.bat"))
+    return adaylar[-1] if adaylar else None
 
 MAGIC = b"BLG1"
 VEKTOR_BOY = 1960          # 49x40 int8, firmware siniri (AI_INPUT_MAX)
@@ -295,6 +306,79 @@ def gui_calistir():
     tk.Checkbutton(ayarlar, text="girdi uint8 (0..255) → int8 çevir",
                    variable=uint8_var, bg=MIST).grid(row=0, column=4, padx=14)
 
+    def bitstream_yukle():
+        """Secilen .bit'i Vivado batch (JTAG) ile FPGA'ya programlar.
+        Unicode-yol tuzagina karsi bit ve tcl ASCII gecici dizinden verilir.
+        Kalici degil (flash'a yazmaz); guc kesilirse yeniden yuklenir."""
+        viv = vivado_bul()
+        if not viv:
+            messagebox.showerror("Vivado", "C:\\Xilinx\\Vivado altinda "
+                                 "vivado.bat bulunamadi.")
+            return
+        yol = filedialog.askopenfilename(
+            title="Yüklenecek bitstream",
+            initialdir=os.path.join(REPO, "rtl", "fpga"),
+            filetypes=[("Bitstream", "*.bit")])
+        if not yol:
+            return
+        if durum["kosuyor"]:
+            messagebox.showwarning("Meşgul", "Önce koşuyu bitirin/durdurun.")
+            return
+        prog_dugme.config(state="disabled", text="Yükleniyor…")
+        log("bitstream yükleme başladı: " + os.path.basename(yol))
+
+        def isci():
+            try:
+                gecici = tempfile.mkdtemp(prefix="blogic_prog_")
+                bit = os.path.join(gecici, "prog.bit")
+                shutil.copy2(yol, bit)
+                tcl = os.path.join(gecici, "prog.tcl")
+                with open(tcl, "w") as f:
+                    f.write(
+                        "open_hw_manager\n"
+                        "connect_hw_server\n"
+                        "open_hw_target\n"
+                        "set d [lindex [get_hw_devices] 0]\n"
+                        "current_hw_device $d\n"
+                        "set_property PROGRAM.FILE {%s} $d\n"
+                        "program_hw_devices $d\n"
+                        "close_hw_manager\n" % bit.replace("\\", "/"))
+                p = subprocess.Popen(
+                    [viv, "-mode", "batch", "-nolog", "-nojournal",
+                     "-source", tcl],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, errors="replace", cwd=gecici)
+                basarili = False
+                for satir in p.stdout:
+                    satir = satir.rstrip()
+                    if not satir:
+                        continue
+                    if satir.startswith(("INFO", "WARNING", "ERROR")) or \
+                       "rogram" in satir or "hw_target" in satir:
+                        kuyruk.put(("log", "VIVADO ▸ " + satir[:140]))
+                    if "End of startup status: HIGH" in satir or \
+                       "program_hw_devices completed" in satir.lower():
+                        basarili = True
+                p.wait()
+                if p.returncode == 0 or basarili:
+                    kuyruk.put(("log",
+                                "BITSTREAM YÜKLENDİ ✓ — şimdi R19 reset'e "
+                                "basın, banner burada görünecek"))
+                else:
+                    kuyruk.put(("log",
+                                "YÜKLEME BAŞARISIZ (kod %d) — Vivado "
+                                "GUI'de Hardware Manager açıksa bağlantıyı "
+                                "kapatıp tekrar deneyin" % p.returncode))
+            except Exception as e:
+                kuyruk.put(("log", "YÜKLEME HATASI: %s" % e))
+            finally:
+                kuyruk.put(("prog_bitti", None))
+        threading.Thread(target=isci, daemon=True).start()
+
+    prog_dugme = ttk.Button(ayarlar, text="Bitstream Yükle…",
+                            command=bitstream_yukle)
+    prog_dugme.grid(row=0, column=5, padx=6)
+
     # ---- dosya secimi
     dosya_cerceve = tk.Frame(kok, bg=MIST)
     dosya_cerceve.pack(fill="x", padx=12, pady=(8, 0))
@@ -523,6 +607,8 @@ def gui_calistir():
                 elif oge[0] == "kart":
                     log_kutu.insert("end", "KART ▸ %s\n" % oge[1], "kart")
                     log_kutu.see("end")
+                elif oge[0] == "prog_bitti":
+                    prog_dugme.config(state="normal", text="Bitstream Yükle…")
                 elif oge[0] == "log":
                     log(oge[1])
                 elif oge[0] == "bitti":
