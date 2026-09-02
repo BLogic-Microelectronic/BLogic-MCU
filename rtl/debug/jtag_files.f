@@ -57,6 +57,8 @@ rtl/debug/vendor/riscv-dbg/src/dm_mem.sv
 rtl/debug/vendor/riscv-dbg/src/dm_sba.sv
 rtl/debug/vendor/riscv-dbg/src/dm_top.sv
 # DMI / JTAG TAP
+# (dmi_bscane_tap.sv BILEREK listelenmez: ayni 'dmi_jtag_tap' modul adini tasir,
+#  yalnizca rtl/fpga/build_genesys2_jtag.tcl onu dmi_jtag_tap.sv YERINE okur.)
 rtl/debug/vendor/riscv-dbg/src/dmi_cdc.sv
 rtl/debug/vendor/riscv-dbg/src/dmi_jtag_tap.sv
 rtl/debug/vendor/riscv-dbg/src/dmi_jtag.sv

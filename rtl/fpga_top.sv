@@ -176,6 +176,20 @@ module fpga_top #(
         .i2c_scl_o    (i2c_scl),
         .i2c_sda_oe_o (i2c_sda_oe),
         .i2c_sda_i    (i2c_sda_in)
+`ifdef JTAG_DEBUG
+        ,
+        // JTAG_DEBUG (deneme/jtag): kartta harici JTAG pin basligi YOK; dmi_jtag'in
+        // TAP'i FPGA'nin kendi tarama zincirine BSCANE2 (USER3/USER4) ile baglanir
+        // (build_genesys2_jtag.tcl dmi_jtag_tap.sv yerine ayni modul adini tasiyan
+        // dmi_bscane_tap.sv'yi okur). TAP bu pinleri hic okumaz -> sabit baglanir.
+        // trst_ni=1: DTM yazmaclari FPGA'da bitstream ile 0'dan baslar; TAP reset
+        // BSCANE2.RESET (dmi_clear) uzerinden gelir. Tanim yokken birebir eski.
+        .jtag_tck_i   (1'b0),
+        .jtag_tms_i   (1'b0),
+        .jtag_tdi_i   (1'b0),
+        .jtag_trst_ni (1'b1),
+        .jtag_tdo_o   ()
+`endif
     );
 
 endmodule

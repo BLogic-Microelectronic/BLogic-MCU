@@ -43,7 +43,7 @@ Files copied (upstream path -> local path, relative to the destination):
 `tb/SimJTAG.sv` and `tb/remote_bitbang/` are **not** in `jtag_files.f`; they
 are kept for a later OpenOCD remote-bitbang bridge (DPI-C, simulation only).
 
-Not copied (not needed): `src/dm_obi_top.sv`, `src/dmi_bscane_tap.sv`,
+Not copied (not needed): `src/dm_obi_top.sv`, ,
 `src/dmi_intf.sv`, `src/dmi_test.sv`, the rest of `tb/`, `debug_rom/*.S|.h|.py`.
 
 Upstream dependencies of these files (module -> where it comes from):
@@ -153,3 +153,15 @@ git clone https://github.com/pulp-platform/tech_cells_generic.git && (cd tech_ce
 
 then `diff` each file listed above against the checkout; the vendored copies
 are byte-identical to upstream (no local patches).
+
+## dmi_bscane_tap.sv (added 3 Sep 2026, FPGA build only)
+
+`src/dmi_bscane_tap.sv` copied verbatim from the same riscv-dbg commit
+(21a5fbe31ac91146022ad771d127b15c185e37fa), sha256
+d1f03a609532a57fce61a514cb85ee6dd5ce758cd7697d83bed1e09c65ebbb2f.
+It declares `module dmi_jtag_tap` (drop-in for the full TAP) built on two
+Xilinx `BSCANE2` primitives (USER3 = dtmcs, USER4 = dmi), so the Genesys 2
+on-board USB-JTAG reaches the debug module without a pin header.
+It is deliberately NOT listed in `jtag_files.f` (same module name as
+`dmi_jtag_tap.sv` -> Verilator MODDUP); only `rtl/fpga/build_genesys2_jtag.tcl`
+reads it, in place of `dmi_jtag_tap.sv`. ASIC/Verilator flows are unaffected.
