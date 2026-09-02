@@ -11,12 +11,13 @@
 //   cd obj_dir_jtag_ocd && ./jtag_openocd_sim          (terminal 1)
 //   openocd -f rtl/debug/openocd/blogic_sim.cfg         (terminal 2)
 // Firmware (uart_hello) ISRAM'e $readmemh ile onyuklenir, BOOT_ADDR=0x10000;
-// UART TX ilk 40 karakteri coz ve bas -> logda cekirdegin kostugu gorulur.
+// UART TX ilk 58 karakteri coz ve bas -> logda cekirdegin kostugu gorulur
+// (2 x 29: "reset halt" + resume sonrasi ikinci selamlama da loga duser).
 // Bitis: OpenOCD 'Q' gonderince (shutdown) SimJTAG exit != 0 -> $finish;
 // ayrica 30 s simulasyon zamani bekci (TIMEOUT).
 // OpenOCD'siz hizli kontrol: python3 scripts/jtag_bitbang_probe.py [--quit]
-// ndmreset SoC resetine bagli degil: OpenOCD'de "reset"/"reset halt" DEGIL,
-// "halt" kullanilir (blogic_sim.cfg boyle yazilmistir).
+// Gun 3: ndmreset soc_top sys_rst_n'e bagli (rst_ni & ~ndmreset) -> OpenOCD
+// "reset halt" gecerli: cekirdek reset vektorunde halt, DM/TAP ayakta kalir.
 `timescale 1ns / 1ps
 
 module jtag_openocd_tb;
@@ -67,8 +68,9 @@ module jtag_openocd_tb;
         for (int i = 0; i < 8; i++) begin d[i] = uart_tx; #BIT_NS; end
     endtask
 
-    // Ilk 40 karakteri coz; satir sonunda veya 40'a ulasinca bas
-    localparam int UART_NCHAR = 40;
+    // Ilk 58 karakteri coz (2 x 29: selamlama + '\n'); satir sonunda veya
+    // 58'e ulasinca bas -> ndmreset sonrasi ikinci selamlama da gorunur
+    localparam int UART_NCHAR = 58;
     string      uart_line = "";
     logic [7:0] uart_ch;
     int         uart_total = 0;

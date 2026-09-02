@@ -16,6 +16,16 @@
 //         buyruk ve veri portlarindan gecer, DM<->DSRAM erisimleri araya girer.
 //   7) RESUME: resumereq -> allresumeack+allrunning; debug_running_o==1,
 //      pc_id firmware bolgesinde (0x0001_xxxx); abstractcs.cmderr==0
+//   8) STEP/TRIGGER: halt -> dpc=A; dcsr.step=1 + resumereq -> tek buyruk sonra
+//      tekrar debug (dpc=B!=A, dcsr.cause==4); step temizle. Donanim tetikleyici
+//      (tselect=0, tdata2=A, tdata1 mcontrol/execute) + resumereq -> uart_hello
+//      bosta dongusu A'ya doner -> dpc==A, dcsr.cause==2, debug_halted_o==1;
+//      tdata1 geri okunur (execute biti), sonda kapatilir.
+//   9) NDMRESET: halt'tayken dmcontrol.ndmreset|haltreq -> sys_rst_n dusuk (DM
+//      ayakta); birakinca cekirdek reset vektorunde haltreq ile durur:
+//      allhalted, allhavereset==1 -> ackhavereset -> 0, dpc==BOOT_ADDR,
+//      dcsr.cause==3; resumereq -> firmware bastan kosar, UART altin dize
+//      IKINCI kez okunur (paralel), debug_running_o==1.
 // JTAG pinleri saf-SV bit-bang ile surulur (TCK 10 MHz, sistem 50 MHz);
 // TDO yukselen kenarda orneklenir, TMS/TDI dusen kenardan sonra kurulur.
 `timescale 1ns / 1ps
@@ -30,7 +40,7 @@ module jtag_smoke_tb;
     logic [3:0] qspi_io_o, qspi_io_oe;
 
     localparam logic [31:0] EXP_IDCODE = 32'h0B10_61C1;   // soc_top JTAG_IDCODE
-    localparam int          NSTAGE     = 7;
+    localparam int          NSTAGE     = 9;
 
     soc_top #(.BOOT_ADDR(32'h0001_0000)) dut (
         .clk_i(clk), .rst_ni(resetn),
@@ -166,6 +176,18 @@ module jtag_smoke_tb;
     localparam logic [31:0] CMD_POSTEXEC  = 32'h0004_0000;
     localparam logic [15:0] REG_X10 = 16'h100A, REG_X11 = 16'h100B, REG_X12 = 16'h100C;
     localparam logic [15:0] REG_DPC = 16'h07B1;
+    // Debug/tetikleyici CSR'leri (CV32E40P: tek mcontrol tetikleyici, yalniz
+    // execute-adres eslesmesi; tdata1 yalniz debug modunda yazilir, geri okunan
+    // deger sabit alanlarla birlesir: type=2, dmode, action=1, m, [u], execute)
+    localparam logic [15:0] REG_DCSR    = 16'h07B0;
+    localparam logic [15:0] REG_TSELECT = 16'h07A0;
+    localparam logic [15:0] REG_TDATA1  = 16'h07A1;
+    localparam logic [15:0] REG_TDATA2  = 16'h07A2;
+    localparam logic [31:0] TDATA1_EXEC = 32'h2800_104C;   // type=2 mcontrol, dmode, action=1 (debug), m+u, execute
+    localparam logic [31:0] DCSR_STEP   = 32'h0000_0004;   // dcsr.step (bit 2)
+    localparam logic [31:0] RESET_VEC   = 32'h0001_0000;   // soc_top BOOT_ADDR
+    // dcsr.cause kodlari (cv32e40p_pkg DBG_CAUSE_*)
+    localparam logic [2:0]  CAUSE_TRIGGER = 3'd2, CAUSE_HALTREQ = 3'd3, CAUSE_STEP = 3'd4;
 
     // RV32I kodlamalari
     localparam logic [31:0] INSN_SW_X11_X10 = 32'h00B5_2023;   // sw x11, 0(x10)
@@ -203,10 +225,11 @@ module jtag_smoke_tb;
     endtask
 
     // ---------------- Test ----------------
-    string       received = "";
-    logic [7:0]  ch;
+    string       received = "", received2 = "";
+    logic [7:0]  ch, ch2;
     logic [31:0] idcode, dtmcs, dmstatus, acs, rd, dpc;
-    logic        ok, ok_all;
+    logic [31:0] dpc_a, dpc_b, dcsr, tdata1;
+    logic        ok, ok_all, rst_low;
     int          stage_ok = 0;
     int          polls;
 
@@ -313,8 +336,148 @@ module jtag_smoke_tb;
         end else $error("[7/%0d] RESUME FAIL: dmstatus=0x%08h running=%0b pc_id=0x%08h abstractcs=0x%08h",
                         NSTAGE, dmstatus, dut.i_cpu.core_i.debug_running_o, dut.i_cpu.core_i.pc_id, acs);
 
+        // 8) tek adim + donanim tetikleyici (execute-adres kesme noktasi)
+        ok_all = 1'b1;
+        dmi_write(DM_DMCONTROL, 32'h8000_0001);          // haltreq | dmactive
+        polls = 0;
+        do begin
+            dmi_read(DM_DMSTATUS, dmstatus);
+            polls++;
+        end while (!dmstatus[9] && polls < 50);          // allhalted
+        if (!dmstatus[9]) begin ok_all = 1'b0; $display("      halt: dmstatus=0x%08h", dmstatus); end
+        reg_read(REG_DPC, dpc_a, ok);          ok_all &= ok;
+        if (dpc_a[31:16] !== 16'h0001) begin ok_all = 1'b0; $display("      dpc A=0x%08h firmware disinda", dpc_a); end
+        else $display("[%0t]       halt: dpc A=0x%08h (%0d poll)", $time, dpc_a, polls);
+
+        // tek adim: dcsr.step=1, resumereq (haltreq=0!) -> bir buyruk -> tekrar debug
+        reg_read (REG_DCSR, dcsr, ok);             ok_all &= ok;
+        reg_write(REG_DCSR, dcsr | DCSR_STEP, ok); ok_all &= ok;
+        dmi_write(DM_DMCONTROL, 32'h4000_0001);          // resumereq | dmactive
+        polls = 0;
+        do begin
+            dmi_read(DM_DMSTATUS, dmstatus);
+            polls++;
+        end while (!(dmstatus[17] && dmstatus[9]) && polls < 50);   // allresumeack && allhalted (yeniden)
+        dmi_write(DM_DMCONTROL, 32'h0000_0001);
+        reg_read(REG_DPC,  dpc_b, ok);         ok_all &= ok;
+        reg_read(REG_DCSR, dcsr,  ok);         ok_all &= ok;
+        if (!(dmstatus[17] && dmstatus[9]) || (dpc_b == dpc_a) || (dcsr[8:6] != CAUSE_STEP)) begin
+            ok_all = 1'b0;
+            $display("      step: dmstatus=0x%08h dpc B=0x%08h dcsr=0x%08h (cause=%0d, beklenen %0d)",
+                     dmstatus, dpc_b, dcsr, dcsr[8:6], CAUSE_STEP);
+        end else $display("[%0t]       step: dpc A=0x%08h -> B=0x%08h, dcsr=0x%08h cause=%0d (step), %0d poll OK",
+                          $time, dpc_a, dpc_b, dcsr, dcsr[8:6], polls);
+        reg_write(REG_DCSR, dcsr & ~DCSR_STEP, ok); ok_all &= ok;   // step temizle
+
+        // donanim tetikleyici: tdata2=A, tdata1 execute; resume -> bosta dongusu A'ya doner
+        reg_write(REG_TSELECT, 32'd0,       ok); ok_all &= ok;
+        reg_write(REG_TDATA2,  dpc_a,       ok); ok_all &= ok;
+        reg_write(REG_TDATA1,  TDATA1_EXEC, ok); ok_all &= ok;
+        reg_read (REG_TDATA1,  tdata1,      ok); ok_all &= ok;
+        if (!tdata1[2] || (tdata1[31:28] != 4'd2)) begin
+            ok_all = 1'b0; $display("      tdata1 geri okuma=0x%08h (execute/type beklenmiyor)", tdata1);
+        end else $display("[%0t]       trigger kur: tselect=0 tdata2=0x%08h tdata1=0x%08h (type=%0d dmode=%0d action=%0d execute=1) OK",
+                          $time, dpc_a, tdata1, tdata1[31:28], tdata1[27], tdata1[15:12]);
+        dmi_write(DM_DMCONTROL, 32'h4000_0001);          // resumereq | dmactive
+        polls = 0;
+        do begin
+            dmi_read(DM_DMSTATUS, dmstatus);
+            polls++;
+        end while (!(dmstatus[17] && dmstatus[9]) && polls < 50);   // allresumeack && allhalted (tetik)
+        dmi_write(DM_DMCONTROL, 32'h0000_0001);
+        reg_read(REG_DPC,  dpc,  ok);          ok_all &= ok;
+        reg_read(REG_DCSR, dcsr, ok);          ok_all &= ok;
+        if (!(dmstatus[17] && dmstatus[9]) || (dpc !== dpc_a) || (dcsr[8:6] != CAUSE_TRIGGER) ||
+            (dut.i_cpu.core_i.debug_halted_o !== 1'b1)) begin
+            ok_all = 1'b0;
+            $display("      trigger: dmstatus=0x%08h dpc=0x%08h (A=0x%08h) dcsr=0x%08h (cause=%0d, beklenen %0d) core_halted=%0b",
+                     dmstatus, dpc, dpc_a, dcsr, dcsr[8:6], CAUSE_TRIGGER, dut.i_cpu.core_i.debug_halted_o);
+        end else $display("[%0t]       trigger hit: dpc=0x%08h == A, dcsr=0x%08h cause=%0d (trigger), core debug_halted_o=1, %0d poll OK",
+                          $time, dpc, dcsr, dcsr[8:6], polls);
+        reg_write(REG_TDATA1, 32'd0,  ok);     ok_all &= ok;      // tetikleyiciyi kapat
+        reg_read (REG_TDATA1, tdata1, ok);     ok_all &= ok;
+        if (tdata1[2]) begin ok_all = 1'b0; $display("      tdata1 kapatilamadi: 0x%08h", tdata1); end
+        else $display("[%0t]       trigger kapat: tdata1=0x%08h (execute=0)", $time, tdata1);
+
+        if (ok_all) begin
+            $display("[%0t] [8/%0d] STEP/TRIGGER OK: A=0x%08h step->B=0x%08h, trigger@A -> dpc=0x%08h cause=2",
+                     $time, NSTAGE, dpc_a, dpc_b, dpc); stage_ok++;
+        end else $error("[8/%0d] STEP/TRIGGER FAIL", NSTAGE);
+
+        // 9) ndmreset: DM ayakta kalir, SoC resetlenir; haltreq ile reset vektorunde durur
+        ok_all = 1'b1;
+        // on kosul: DM resetinden kalan havereset=1 bayragini temizle ki ndmreset sonrasi 1 olmasi anlamli olsun
+        dmi_write(DM_DMCONTROL, 32'h9000_0001);          // ackhavereset | haltreq | dmactive
+        dmi_read(DM_DMSTATUS, dmstatus);
+        if (dmstatus[19]) begin ok_all = 1'b0; $display("      on kosul: allhavereset temizlenemedi dmstatus=0x%08h", dmstatus); end
+        else $display("[%0t]       on kosul: ackhavereset -> allhavereset=0 (dmstatus=0x%08h)", $time, dmstatus);
+
+        dmi_write(DM_DMCONTROL, 32'h8000_0003);          // haltreq | ndmreset | dmactive
+        idle_ticks(32);
+        rst_low = (dut.sys_rst_n === 1'b0) && (dut.i_cpu.core_i.debug_halted_o === 1'b0);
+        $display("[%0t]       ndmreset=1: sys_rst_n=%0b core debug_halted_o=%0b", $time, dut.sys_rst_n,
+                 dut.i_cpu.core_i.debug_halted_o);
+        if (!rst_low) begin ok_all = 1'b0; $display("      ndmreset SoC resetini dusurmedi"); end
+        idle_ticks(32);
+        dmi_write(DM_DMCONTROL, 32'h8000_0001);          // ndmreset birak, haltreq tut
+        polls = 0;
+        do begin
+            dmi_read(DM_DMSTATUS, dmstatus);
+            polls++;
+        end while (!dmstatus[9] && polls < 50);          // allhalted (reset sonrasi yeniden)
+        if (!(dmstatus[9] && dmstatus[19] && (dut.sys_rst_n === 1'b1) &&
+              (dut.i_cpu.core_i.debug_halted_o === 1'b1))) begin
+            ok_all = 1'b0;
+            $display("      reset-halt: dmstatus=0x%08h (allhalted=%0b allhavereset=%0b) sys_rst_n=%0b core_halted=%0b",
+                     dmstatus, dmstatus[9], dmstatus[19], dut.sys_rst_n, dut.i_cpu.core_i.debug_halted_o);
+        end else $display("[%0t]       reset-halt: dmstatus=0x%08h allhalted=1 allhavereset=1 anyhavereset=%0b (%0d poll), core debug_halted_o=1",
+                          $time, dmstatus, dmstatus[18], polls);
+        dmi_write(DM_DMCONTROL, 32'h9000_0001);          // ackhavereset | haltreq | dmactive
+        dmi_read(DM_DMSTATUS, dmstatus);
+        if (dmstatus[19] || !dmstatus[9]) begin ok_all = 1'b0; $display("      ackhavereset: dmstatus=0x%08h", dmstatus); end
+        else $display("[%0t]       ackhavereset -> dmstatus=0x%08h (allhavereset=0, allhalted=1)", $time, dmstatus);
+        reg_read(REG_DPC,  dpc,  ok);          ok_all &= ok;
+        reg_read(REG_DCSR, dcsr, ok);          ok_all &= ok;
+        if ((dpc !== RESET_VEC) || (dcsr[8:6] != CAUSE_HALTREQ)) begin
+            ok_all = 1'b0;
+            $display("      reset-halt: dpc=0x%08h (beklenen 0x%08h) dcsr=0x%08h (cause=%0d, beklenen %0d)",
+                     dpc, RESET_VEC, dcsr, dcsr[8:6], CAUSE_HALTREQ);
+        end else $display("[%0t]       reset-halt: dpc=0x%08h == BOOT_ADDR, dcsr=0x%08h cause=%0d (haltreq) OK",
+                          $time, dpc, dcsr, dcsr[8:6]);
+
+        // resume + UART altin dize IKINCI kez (firmware bastan): ilk karakter resume'dan
+        // ~10 us sonra gelir, DMI yoklamasi ~12 us -> UART okuyucu paralel kosar
+        received2 = "";
+        fork
+            begin
+                for (int i = 0; i < 28; i++) begin
+                    uart_read(ch2);
+                    received2 = {received2, string'(ch2)};
+                end
+            end
+            begin
+                dmi_write(DM_DMCONTROL, 32'h4000_0001);  // resumereq | dmactive
+                polls = 0;
+                do begin
+                    dmi_read(DM_DMSTATUS, dmstatus);
+                    polls++;
+                end while (!(dmstatus[17] && dmstatus[11]) && polls < 50);  // allresumeack && allrunning
+                dmi_write(DM_DMCONTROL, 32'h0000_0001);  // resumereq temizle
+                $display("[%0t]       resume: dmstatus=0x%08h (%0d poll)", $time, dmstatus, polls);
+            end
+        join
+        repeat (20) @(posedge clk);
+        if ((received2 == "Hello World from BLogic MCU!") && dmstatus[17] && dmstatus[11] &&
+            (dut.i_cpu.core_i.debug_running_o === 1'b1)) begin
+            $display("[%0t] [9/%0d] NDMRESET OK: firmware bastan kostu, UART '%s' (2. kez), core running",
+                     $time, NSTAGE, received2); stage_ok++;
+        end else if (ok_all)
+            $error("[9/%0d] NDMRESET FAIL: UART '%s' dmstatus=0x%08h running=%0b", NSTAGE, received2, dmstatus,
+                   dut.i_cpu.core_i.debug_running_o);
+        else $error("[9/%0d] NDMRESET FAIL (ara kontrol): UART '%s' dmstatus=0x%08h", NSTAGE, received2, dmstatus);
+
         if (stage_ok == NSTAGE)
-            $display("[%0t] *** TEST SUCCESS *** JTAG: UART+IDCODE+DTMCS+DMI+halt+abstract/progbuf+resume (%0d/%0d)",
+            $display("[%0t] *** TEST SUCCESS *** JTAG: UART+IDCODE+DTMCS+DMI+halt+abstract/progbuf+resume+step/trigger+ndmreset (%0d/%0d)",
                      $time, stage_ok, NSTAGE);
         else
             $error("JTAG SMOKE FAIL: %0d/%0d asama gecti", stage_ok, NSTAGE);

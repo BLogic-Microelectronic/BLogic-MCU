@@ -265,14 +265,14 @@ jtag-sim:
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
 	    -f rtl/debug/jtag_files.f -f soc_files.f rtl/debug/axi_dm_slave.sv \
-	    verif/tb/jtag_smoke_tb.sv
+	    verif/tb/jtag_smoke_tb.sv verif/jtag_cov_waivers.vlt
 	cp build/instr_mem.hex $(JTAG_DIR)/firmware.hex
 	cp build/data_mem.hex $(JTAG_DIR)/data_mem.hex
 	cp sw/bootloader/bootrom.hex $(JTAG_DIR)/
 	echo "00000000" > $(JTAG_DIR)/ai_sram_init.hex
 	cd $(JTAG_DIR) && ./jtag_smoke_sim 2>&1 | tee jtag_run.log
 	@grep -aq "TEST SUCCESS" $(JTAG_DIR)/jtag_run.log \
-	    && echo "[JTAG-SIM] PASS - TAP/DTMCS/DMI/halt/abstract-cmd/progbuf/resume riscv-dbg uzerinden (7/7)" \
+	    && echo "[JTAG-SIM] PASS - TAP/DTMCS/DMI/halt/abstract-cmd/progbuf/resume + step/trigger + ndmreset riscv-dbg uzerinden (9/9)" \
 	    || { echo "[JTAG-SIM] FAIL"; exit 1; }
 
 # OpenOCD koprusu (deneme/jtag, Gun 2): ayni soc_top+riscv-dbg derlemesi, ama
@@ -490,6 +490,10 @@ test-all:
 	ss=PASS; $(MAKE) soc-strm  || { ss=FAIL; overall=1; }; \
 	c=PASS; $(MAKE) arch-test  || { c=FAIL; overall=1; }; \
 	u=PASS; $(MAKE) uvm        || { u=FAIL; overall=1; }; \
+	js=PASS; $(MAKE) jtag-sim  || { js=FAIL; overall=1; }; \
+	if command -v openocd >/dev/null 2>&1; then \
+	    jo=PASS; $(MAKE) jtag-openocd || { jo=FAIL; overall=1; }; \
+	else jo="SKIP (openocd yok)"; fi; \
 	echo ""; \
 	echo "====================================================="; \
 	echo " TEST-ALL OZETI"; \
@@ -510,6 +514,8 @@ test-all:
 	echo "  soc-strm   (UART_1 stream SoC yolu): $$ss"; \
 	echo "  arch-test  (riscv-arch-test $(ARCH_EXT))   : $$c"; \
 	echo "  uvm        (4 blok, 8 test: GPIO+Timer+UART_0+I2C): $$u"; \
+	echo "  jtag-sim   (riscv-dbg 9 asama, SV bit-bang) : $$js"; \
+	echo "  jtag-openocd (OpenOCD ucdan-uca demo)      : $$jo"; \
 	echo "====================================================="; \
 	exit $$overall
 
@@ -538,10 +544,13 @@ help:
 	@echo "  make asic-sram-sim - boot akisi TESLIM EDILEN SRAM makro Verilog modelleriyle (DDK 1.3 kaniti)"
 	@echo "  make asic-top-sim  - tam-yigin: asic_top (GDS ust modulu) + 27 makro, boot + conv katmani bit-tam"
 	@echo "  make jtag-sim      - (deneme/jtag) riscv-dbg JTAG: IDCODE/DTMCS/DMI/halt/resume smoke"
+	@echo "                     + abstract/progbuf, tek adim (dcsr.step), donanim tetikleyici (tdata1/2 breakpoint),"
+	@echo "                     ndmreset (reset-halt, allhavereset, dpc==BOOT_ADDR, firmware bastan) -> 9 asama"
 	@echo "                     negatif kontrol: FLASH_DATA=/dev/null -> FAIL beklenir"
 	@echo "  make jtag-openocd-build - (deneme/jtag) OpenOCD koprusu: SimJTAG + DPI remote_bitbang :9999 simi DERLE"
 	@echo "                     kosum: cd obj_dir_jtag_ocd && ./jtag_openocd_sim ; openocd -f rtl/debug/openocd/blogic_sim.cfg"
 	@echo "  make jtag-openocd  - (deneme/jtag) OpenOCD ucdan-uca demo: sim + openocd (halt/reg/mem/resume), logs/jtag/, PASS/FAIL"
+	@echo "                     + donanim breakpoint (bp <pc> 4 hw -> tetikleyici, pc==bp) + reset halt (ndmreset, pc==0x00010000)"
 	@echo "  make qspi-modes  - QSPI x1/x2/x4 veri fazi + 4-bayt adres testi"
 	@echo "  make qspi-err    - QSPI FIFO/flush/status hata yollari"
 	@echo "  make i2c-sys     - I2C sistem testi (echo slave: TX/RX/latch/NACK)"

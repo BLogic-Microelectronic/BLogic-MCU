@@ -18,9 +18,9 @@ module soc_axi_interconnect (
     AXI_BUS.Master periph_mst
 `ifdef JTAG_DEBUG
     ,
-    // Debug Module (riscv-dbg) bolgesi: 0x0004_0000-0x0004_FFFF (64 KB pencere;
-    // dm_mem yalniz addr[11:0] cozdugu icin 4 KB'lik DM bu pencerede 16 kez
-    // yansir - yazilim bu araligi kullanmaz). Hem buyruk (debug ROM getirme)
+    // Debug Module (riscv-dbg) bolgesi: 0x0004_0000-0x0004_0FFF (4 KB pencere;
+    // addr[15:12]==0 sarti ile 0x0004_1000+ eskisi gibi varsayilan bacaklara
+    // duser, DM yansimaz). Hem buyruk (debug ROM getirme)
     // hem veri (Halted/Going bayraklari, data0, progbuf) yolundan erisilir;
     // iki yol axi_dm_slave icinde tek DM portuna tahkim edilir. JTAG_DEBUG
     // tanimli degilken bu port ve asagidaki dm_* bayraklari yoktur / sabit
@@ -47,7 +47,10 @@ module soc_axi_interconnect (
     logic iar_to_dm, ird_from_dm_q;
     logic aw_to_dm, ar_to_dm, wr_to_dm_q, rd_to_dm_q;
 `ifdef JTAG_DEBUG
-    assign iar_to_dm = (cpu_iar_addr_local[31:28] == 4'h0) && (iar_mid_nib == 4'h4);
+    // 4 KB pencere: 0x0004_0000-0x0004_0FFF (addr[15:12]==0); disi eskisi gibi
+    // varsayilan bacaklara duser (dm_mem yalniz addr[11:0] cozer).
+    assign iar_to_dm = (cpu_iar_addr_local[31:28] == 4'h0) && (iar_mid_nib == 4'h4)
+                    && (cpu_iar_addr_local[15:12] == 4'h0);
 `else
     assign iar_to_dm = 1'b0;
 `endif
@@ -203,9 +206,11 @@ module soc_axi_interconnect (
     // DM veri bolgesi (0x0004_xxxx): wr_dest/rd_dest kodlamasina dokunmadan
     // ayri kayitli bayrakla onceliklendirilir (wr_dest 2'b11 instr-SRAM'de dolu).
     assign aw_to_dm = !aw_to_periph && (aw_addr_high_nib == 4'h0)
-                                    && (aw_addr_mid_nib  == 4'h4);
+                                    && (aw_addr_mid_nib  == 4'h4)
+                                    && (cpu_aw_addr_local[15:12] == 4'h0);
     assign ar_to_dm = !ar_to_periph && (ar_addr_high_nib == 4'h0)
-                                    && (ar_addr_mid_nib  == 4'h4);
+                                    && (ar_addr_mid_nib  == 4'h4)
+                                    && (cpu_ar_addr_local[15:12] == 4'h0);
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
             wr_to_dm_q <= 1'b0;

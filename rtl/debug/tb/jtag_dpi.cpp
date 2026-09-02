@@ -50,9 +50,18 @@
 
 #include "svdpi.h"
 
+// Sertlestirme: vendor rbs_init soketi INADDR_ANY'ye (0.0.0.0) baglar, yani
+// makinenin tum arayuzlerinden erisilebilir olurdu. Vendor dosyasina
+// dokunmadan yalniz LOOPBACK'e baglamak icin makro burada, include'dan hemen
+// once yeniden tanimlanir (sistem basliklari yukarida cozuldugu icin yalniz
+// vendor metnini etkiler). OpenOCD zaten localhost:9999'a baglanir.
+#undef INADDR_ANY
+#define INADDR_ANY htonl(INADDR_LOOPBACK)
+
 extern "C" {
 #include "../vendor/riscv-dbg/tb/remote_bitbang/remote_bitbang.c"
 }
+#undef INADDR_ANY
 
 // rbs_init yalniz ilk tick'te bir kez cagrilir (vendor sim_jtag.c gibi)
 static int s_rbs_ready = 0;

@@ -1,0 +1,13 @@
+`verilator_config
+// ============================================
+// Ostim BLogic Mikroelektronik
+// jtag_cov_waivers.vlt - jtag-sim kapsama kosumu icin waiver
+// ============================================
+// deneme/jtag dali. `make jtag-sim TBCOV=--coverage-line` icin: Verilator
+// 5.049 devel, --coverage-line ile fork...join iceren --timing initial
+// bloklarinda (jtag_smoke_tb 9. asama, paralel UART okumasi) derlenemeyen
+// C++ uretiyor ("__Vfork_1__sync was not declared"). Testbench zaten kapsama
+// hedefi degil; yalniz TB dosyasi enstrumantasyon disi birakilir, RTL
+// (axi_dm_slave, crossbar DM bacaklari, soc_top JTAG blogu, vendor riscv-dbg)
+// olculmeye devam eder. Kapsamasiz derlemede etkisi yoktur.
+coverage_off -file "verif/tb/jtag_smoke_tb.sv"

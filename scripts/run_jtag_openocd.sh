@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================
 # Ostim BLogic Mikroelektronik
-# run_jtag_openocd.sh  -  OpenOCD ucdan-uca demo kosucusu (deneme/jtag, Gun 2)
+# run_jtag_openocd.sh  -  OpenOCD ucdan-uca demo kosucusu (deneme/jtag, Gun 2-3)
 # ============================================
 # Akis:
 #   1. depo kokune gec; obj_dir_jtag_ocd/jtag_openocd_sim yoksa make jtag-openocd-build
@@ -10,8 +10,12 @@
 #   4. timeout 900 openocd -f blogic_sim.cfg -f demo_halt_regs_mem.tcl -> logs/jtag/openocd.log
 #   5. simin 'Q' (shutdown) ile kendiliginden bitmesini bekle (30 s), bitmezse oldur
 #   6. DEMO isaretleri + register/bellek satirlarini bas; VERDICT PASS/FAIL (cikis 0/1)
-# PASS kosulu (openocd.log): "-- a0 geri oku --" sonrasi a0 = 0x12345678,
-# mdw ciktisinda cafef00d (buyuk/kucuk harf duyarsiz) ve "== DEMO: done ==".
+# PASS kosulu (openocd.log, 5 kriter):
+#   - "-- a0 geri oku --" sonrasi a0 = 0x12345678
+#   - mdw ciktisinda cafef00d (buyuk/kucuk harf duyarsiz)
+#   - breakpoint: "-- bp 0x... 4 hw --" adresi == "-- breakpoint: pc" sonrasi ilk pc
+#   - reset halt: "== DEMO: reset halt ==" sonrasi ilk pc = 0x00010000 (reset vektoru)
+#   - "== DEMO: done ==" (shutdown'a kadar hata olmadan gelindi)
 # Kullanim: make jtag-openocd   (esdegeri: bash scripts/run_jtag_openocd.sh)
 
 set -u
@@ -105,23 +109,34 @@ fi
 T1=$(date +%s)
 
 echo "---------------- $LOG_DIR/openocd.log: DEMO isaretleri, register/bellek satirlari ----------------"
-grep -aE '== DEMO:|^-- |\(/[0-9]+\):|^0x[0-9a-fA-F]{8}:|Error|error|timed out' "$LOG_DIR/openocd.log"
+grep -aE '== DEMO:|^-- |\(/[0-9]+\):|^0x[0-9a-fA-F]{8}:|breakpoint|unexpectedly|Error|error|timed out' "$LOG_DIR/openocd.log"
 echo "---------------- $LOG_DIR/sim.log: UART / SimJTAG ----------------"
 grep -aE 'JTAG-OPENOCD|remote_bitbang|Listening|Verilator' "$LOG_DIR/sim.log"
 echo "----------------------------------------------------------------------"
 
 # --- verdict ---
-ok_a0=0; ok_mem=0; ok_done=0
+ok_a0=0; ok_mem=0; ok_done=0; ok_bp=0; ok_rst=0
 # "-- a0 geri oku --" isaretinden sonraki ilk a0 satiri 0x12345678 olmali
 awk 'f && /^a0 \(\/32\):/ { print; exit } /-- a0 geri oku --/ { f = 1 }' "$LOG_DIR/openocd.log" \
     | grep -q "0x12345678" && ok_a0=1
 grep -aiq "cafef00d" "$LOG_DIR/openocd.log" && ok_mem=1
 grep -aq "== DEMO: done ==" "$LOG_DIR/openocd.log" && ok_done=1
+# breakpoint: "-- bp 0x... 4 hw --" satirindaki adres (3. alan), "-- breakpoint: pc"
+# isaretinden sonraki ilk "pc (/32): 0x..." satirinin degerine (3. alan) esit olmali
+bp_pair=$(awk '/^-- bp 0x[0-9a-fA-F]+ 4 hw --/ { bp = $3 }
+               /^-- breakpoint: pc/ { f = 1; next }
+               f && /^pc \(\/32\):/ { print bp, $3; exit }' "$LOG_DIR/openocd.log")
+bp_addr=${bp_pair%% *}; bp_pc=${bp_pair##* }
+if [ -n "$bp_pair" ] && [ -n "$bp_addr" ] && [ "$bp_addr" = "$bp_pc" ]; then ok_bp=1; fi
+# reset halt: "== DEMO: reset halt ==" isaretinden sonraki ilk pc satiri 0x00010000
+# (BOOT_ADDR, reset vektoru) olmali
+rst_pc=$(awk 'f && /^pc \(\/32\):/ { print $3; exit } /== DEMO: reset halt ==/ { f = 1 }' "$LOG_DIR/openocd.log")
+[ "$rst_pc" = "0x00010000" ] && ok_rst=1
 
 log "sure: $((T1 - T0)) s duvar saati (openocd rc=$OCD_RC, sim rc=$SIM_RC)"
-if [ "$ok_a0" = 1 ] && [ "$ok_mem" = 1 ] && [ "$ok_done" = 1 ]; then
-    log "VERDICT: PASS - a0 geri okuma 0x12345678, mdw cafef00d, '== DEMO: done ==' (logs/jtag/)"
+if [ "$ok_a0" = 1 ] && [ "$ok_mem" = 1 ] && [ "$ok_bp" = 1 ] && [ "$ok_rst" = 1 ] && [ "$ok_done" = 1 ]; then
+    log "VERDICT: PASS - a0 geri okuma 0x12345678, mdw cafef00d, hw breakpoint pc=$bp_pc == bp $bp_addr, reset halt pc=$rst_pc, '== DEMO: done ==' (logs/jtag/)"
     exit 0
 fi
-log "VERDICT: FAIL - a0=$ok_a0 mem=$ok_mem done=$ok_done (openocd rc=$OCD_RC); bkz $LOG_DIR/openocd.log"
+log "VERDICT: FAIL - a0=$ok_a0 mem=$ok_mem bp=$ok_bp (bp=$bp_addr pc=$bp_pc) rst=$ok_rst (pc=$rst_pc) done=$ok_done (openocd rc=$OCD_RC); bkz $LOG_DIR/openocd.log"
 exit 1
