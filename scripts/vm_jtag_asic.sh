@@ -41,7 +41,7 @@ fi
 run_synth() {   # $1 = base|jtag
   local d=build/asic_jtag/$1
   local run=$REPO/$d/run
-  rm -rf "$run"
+  rm -rf "$run"; mkdir -p "$run"   # --force-run-dir var olan dizin ister (asic/Makefile de mkdir yapar)
   say "$1 sentez basliyor: $d/run"
   # DIKKAT: run_in_env.sh once asic/ dizinine 'cd' yapar -> goreli 'config.yaml'
   # asic/config.yaml'a (teslim config'i!) ve 'run' asic/run'a cozulur. Bu yuzden
