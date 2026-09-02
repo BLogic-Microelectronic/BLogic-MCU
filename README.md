@@ -808,7 +808,15 @@ LibreLane environment and **was run on the flow VM on 3 September 2026: PASS**
 The sky130 synthesis cost of the revision is measured with `scripts/vm_jtag_asic.sh`
 (same Classic flow, `--to Yosys.Synthesis`, top `soc_top` with and without
 `JTAG_DEBUG`; configs derived by `scripts/jtag_asic_config.py` into `build/asic_jtag/`,
-`asic/` strictly read-only) — result recorded in the line below when available.
+`asic/` strictly read-only). **Result (VM, 3 September 2026, both runs exit 0,
+`rtl/debug/asic_jtag_sentez/`):** the JTAG-less `soc_top` baseline reproduces the
+delivered synthesis (61,679 cells / 727,453 µm² vs. 61,823 / 728,153 for `asic_top`,
+27 SRAM macros in both); with `JTAG_DEBUG` the design grows to **66,852 cells /
+793,738 µm²** — **+5,173 cells (+8.4 %), +66,285 µm² std-cell area (+9.1 %),
++1,172 flip-flops** (8,922 → 10,094), macros unchanged. On the 18.77 mm² die that is
+≈0.4 % of the die area, so the revision fits the existing floorplan; its timing impact
+is only known after a full PnR run (planned as a separate VM run, never touching the
+delivered `RUN_teslim_2026-08-14`).
 The same branch also carries the one-line **FC-1** fix (`asic/README.md` §9.5) and the
 `i2c_sda_i` 2FF synchroniser.
 
