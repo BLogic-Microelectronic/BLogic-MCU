@@ -794,6 +794,7 @@ The custom AI Accelerator implements Google's **TensorFlow Lite Micro Speech "Ti
 | EK-1 accuracy window | `make ai-batch1000` | **1000 / 1000 sample match**, `|acc_SW − acc_RTL| = 0` (full 10-point window) |
 | Requantize saturation rails | `make sim FW_SRC=sw/tests/ai_sat_test.c` | **PASS** — ±2³⁰ bias forces every conv output to the 0x7F / 0x80 rails, 2 × 1000 words verified word-by-word |
 | Live board sweep | `sw/ai_model/kart_sweep.py` (COM port) | **60 / 60 diversified UART vectors** match the SW argmax on Genesys 2 |
+| Scale rehearsal at the announced jury volume | `kart_sweep.py --n 1000` | **1000 / 1000** (jury criterion is >= 900/1000 argmax match) — 40 named families + 960 seeded-random vectors, zero timeouts, 260 s end-to-end (2026-09-03, `sw/ai_model/kart_sweep_raporu_n1000_2026-09-03.txt`) |
 
 <p align="center"><img src="images/demo_boot_terminal_20260902.png" width="900" alt="boot terminal - power-on inference"></p>
 <p align="center"><sub>Live board, 2026-09-02 re-validation: QSPI boot banner and the power-on inference — <code>sinif = yes, HW cycle = 459062, ~21.0x</code> — byte-identical to the August delivery run.</sub></p>
