@@ -333,17 +333,43 @@ def gui_calistir():
     def kosu_is():
         vs = durum["vektorler"]
         t0 = time.time()
+        # ANLIK KAYIT: her sonuc geldigi anda diske yazilir; 900. vektorde
+        # elektrik kesilse bile o ana kadarki sonuclar dosyadadir.
+        anlik_yol = os.path.join(
+            os.getcwd(),
+            "juri_anlik_%s.txt" % time.strftime("%Y%m%d_%H%M%S"))
+        anlik = open(anlik_yol, "w", encoding="utf-8", buffering=1)
+        anlik.write("# anlik kayit — kosu bitiminde ozetli nihai dosya "
+                    "ayrica yazilir\n# indeks\tsinif\tcevrim\n")
+        kuyruk.put(("log", "anlık kayıt: " + anlik_yol))
         for i, v in enumerate(vs):
             if durum["dur"]:
                 kuyruk.put(("log", "koşu kullanıcı tarafından durduruldu"))
                 break
-            try:
-                ad, cyc = durum["kart"].vektor_gonder(v)
-                durum["sonuclar"].append((i, ad, cyc))
-                kuyruk.put(("sonuc", i + 1, len(vs), ad, cyc))
-            except Exception as e:
+            # tek zaman asimi kosuyu bozmasin: bir kez otomatik tekrar
+            ad, cyc, hata = None, 0, None
+            for deneme in (1, 2):
+                try:
+                    ad, cyc = durum["kart"].vektor_gonder(v)
+                    break
+                except Exception as e:
+                    hata = e
+                    if deneme == 1:
+                        kuyruk.put(("log",
+                                    "vektor %d: %s — tekrar deneniyor" % (i, e)))
+                        time.sleep(0.3)
+            if ad is None:
                 durum["sonuclar"].append((i, "HATA", 0))
-                kuyruk.put(("log", "vektor %d HATA: %s" % (i, e)))
+                anlik.write("%d\tHATA\t0\n" % i)
+                kuyruk.put(("log", "vektor %d HATA (tekrar da düştü): %s"
+                            % (i, hata)))
+                continue
+            durum["sonuclar"].append((i, ad, cyc))
+            anlik.write("%d\t%s\t%d\n" % (i, ad, cyc))
+            gecen = time.time() - t0
+            kalan = gecen / (i + 1) * (len(vs) - i - 1)
+            kuyruk.put(("sonuc", i + 1, len(vs), ad, cyc, kalan))
+        anlik.close()
         sure = time.time() - t0
         kuyruk.put(("bitti", len(durum["sonuclar"]), sure))
         durum["kosuyor"] = False
@@ -359,7 +385,7 @@ def gui_calistir():
             def bir():
                 try:
                     ad, cyc = durum["kart"].vektor_gonder(durum["vektorler"][0])
-                    kuyruk.put(("sonuc", 1, 1, ad, cyc))
+                    kuyruk.put(("sonuc", 1, 1, ad, cyc, 0.0))
                 except Exception as e:
                     kuyruk.put(("log", "HATA: %s" % e))
                 durum["kosuyor"] = False
@@ -416,6 +442,12 @@ def gui_calistir():
 
     def log(mesaj):
         log_kutu.insert("end", "[%s] %s\n" % (time.strftime("%H:%M:%S"), mesaj))
+        # uzun kosuda log sismesin: 3000 satiri gecince ilk 1000'i at
+        try:
+            if int(log_kutu.index("end-1c").split(".")[0]) > 3000:
+                log_kutu.delete("1.0", "1001.0")
+        except Exception:
+            pass
         log_kutu.see("end")
 
     sayac = {ad: 0 for ad in SINIF_AD}
@@ -431,7 +463,7 @@ def gui_calistir():
             while True:
                 oge = kuyruk.get_nowait()
                 if oge[0] == "sonuc":
-                    _, i, n, ad, cyc = oge
+                    _, i, n, ad, cyc, kalan = oge
                     sinif_etiket.config(text=ad.upper(),
                                         fg=SINIF_RENK.get(ad, INK))
                     detay_etiket.config(
@@ -443,7 +475,12 @@ def gui_calistir():
                             text="%s: %d" % (ad, sayac[ad]))
                     ilerleme["maximum"] = n
                     ilerleme["value"] = i
-                    ilerleme_etiket.config(text="%d/%d" % (i, n))
+                    if kalan > 1.0:
+                        ilerleme_etiket.config(
+                            text="%d/%d · ~%d:%02d" %
+                                 (i, n, int(kalan) // 60, int(kalan) % 60))
+                    else:
+                        ilerleme_etiket.config(text="%d/%d" % (i, n))
                     log("%4d/%d  sinif=%-8s  %d cyc" % (i, n, ad, cyc))
                 elif oge[0] == "log":
                     log(oge[1])
