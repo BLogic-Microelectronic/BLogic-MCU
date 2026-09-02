@@ -138,24 +138,57 @@ def girdi_yukle(yol, uint8=False):
 
 # ---------------- kart iletisimi -------------------------------------------
 class Kart:
-    def __init__(self, port, baud=115200, zaman_asimi=6.0):
+    """Portu TEK okuyucu iplik dinler: gelen her satir hem `dinleyici`
+    geri cagrisina (panel logu - canli terminal) hem ic kuyruga gider;
+    komut cevaplari ic kuyruktan desenle suzulur. Boylece R19/banner gibi
+    kendiliginden gelen ciktilar da panelde gorunur - Tera Term gerekmez."""
+
+    def __init__(self, port, baud=115200, zaman_asimi=6.0, dinleyici=None):
         import serial
         self.ser = serial.Serial(port, baud, timeout=0.25)
         self.zaman_asimi = zaman_asimi
+        self.dinleyici = dinleyici
+        self.hat = queue.Queue()
+        self.calisiyor = True
         time.sleep(0.2)
         self.ser.reset_input_buffer()
+        threading.Thread(target=self._oku, daemon=True).start()
+
+    def _oku(self):
+        while self.calisiyor:
+            try:
+                satir = self.ser.readline()
+            except Exception:
+                break
+            if not satir:
+                continue
+            metin = satir.decode("ascii", "replace").rstrip("\r\n")
+            if metin and self.dinleyici:
+                self.dinleyici(metin)
+            self.hat.put(satir)
 
     def kapat(self):
+        self.calisiyor = False
         try:
             self.ser.close()
         except Exception:
             pass
 
+    def _temizle(self):
+        try:
+            while True:
+                self.hat.get_nowait()
+        except queue.Empty:
+            pass
+
     def _satir_bekle(self, kalip, sure):
         bitis = time.time() + sure
         while time.time() < bitis:
-            satir = self.ser.readline()
-            if satir and kalip in satir:
+            try:
+                satir = self.hat.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            if kalip in satir:
                 return satir.decode("ascii", "replace").strip()
         return None
 
@@ -163,18 +196,21 @@ class Kart:
         """Menu istegi gonderir; iki denemede herhangi bir [DEMO] satiri
         gelirse kart canlidir (ilk istek acilis ciktisina denk gelebilir)."""
         for _ in range(2):
-            self.ser.reset_input_buffer()
+            self._temizle()
             self.ser.write(b"?")
             bitis = time.time() + 1.5
             while time.time() < bitis:
-                satir = self.ser.readline()
-                if satir and (b"menu" in satir or b"DEMO" in satir):
+                try:
+                    satir = self.hat.get(timeout=0.1)
+                except queue.Empty:
+                    continue
+                if b"menu" in satir or b"DEMO" in satir:
                     return True
         return False
 
     def vektor_gonder(self, veri):
         """'v' + el sikisma + cerceve; (sinif_adi, cevrim) ya da exception."""
-        self.ser.reset_input_buffer()
+        self._temizle()
         self.ser.write(b"v")
         self.ser.flush()
         if self._satir_bekle(b"bekleniyor", 3.0) is None and \
@@ -239,7 +275,8 @@ def gui_calistir():
         try:
             if durum["kart"]:
                 durum["kart"].kapat()
-            durum["kart"] = Kart(port_var.get())
+            durum["kart"] = Kart(port_var.get(),
+                                 dinleyici=lambda m: kuyruk.put(("kart", m)))
             if durum["kart"].canli_mi():
                 baglanti_etiket.config(text="● bağlı — kart cevap veriyor",
                                        fg="#9fe0b0")
@@ -439,6 +476,7 @@ def gui_calistir():
     log_kutu = st.ScrolledText(kok, height=9, font=("Consolas", 9),
                                bg="#101820", fg="#c8d4e0")
     log_kutu.pack(fill="both", expand=True, padx=12, pady=(0, 10))
+    log_kutu.tag_config("kart", foreground="#7fd4a8")  # kart satirlari yesilimsi
 
     def log(mesaj):
         log_kutu.insert("end", "[%s] %s\n" % (time.strftime("%H:%M:%S"), mesaj))
@@ -482,6 +520,9 @@ def gui_calistir():
                     else:
                         ilerleme_etiket.config(text="%d/%d" % (i, n))
                     log("%4d/%d  sinif=%-8s  %d cyc" % (i, n, ad, cyc))
+                elif oge[0] == "kart":
+                    log_kutu.insert("end", "KART ▸ %s\n" % oge[1], "kart")
+                    log_kutu.see("end")
                 elif oge[0] == "log":
                     log(oge[1])
                 elif oge[0] == "bitti":
