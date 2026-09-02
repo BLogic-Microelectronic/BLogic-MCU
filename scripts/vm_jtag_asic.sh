@@ -40,14 +40,17 @@ fi
 
 run_synth() {   # $1 = base|jtag
   local d=build/asic_jtag/$1
-  local run=$d/run
+  local run=$REPO/$d/run
   rm -rf "$run"
-  say "$1 sentez basliyor: $run"
-  ( cd "$d" && "$REPO/$ENV" librelane config.yaml --flow Classic --to Yosys.Synthesis \
-        --force-run-dir run ) > "$d/librelane.log" 2>&1
+  say "$1 sentez basliyor: $d/run"
+  # DIKKAT: run_in_env.sh once asic/ dizinine 'cd' yapar -> goreli 'config.yaml'
+  # asic/config.yaml'a (teslim config'i!) ve 'run' asic/run'a cozulur. Bu yuzden
+  # config ve kosu dizini MUTLAK verilir (ilk kosuda bu tuzaga dusuldu, 3 Eylul).
+  "$REPO/$ENV" librelane "$REPO/$d/config.yaml" --flow Classic --to Yosys.Synthesis \
+        --force-run-dir "$run" > "$d/librelane.log" 2>&1
   local rc=$?
   say "$1 sentez bitti, cikis kodu $rc (log: $d/librelane.log)"
-  grep -E "^\[ERROR\]|Error|error:" "$d/librelane.log" | grep -v "ERROR_ON_" | head -5
+  grep -E "^\[ERROR\]|Error|error:" "$d/librelane.log" | grep -v "ERROR_ON_\|network is combinational" | head -5
   return $rc
 }
 has base && run_synth base
@@ -56,17 +59,29 @@ has jtag && run_synth jtag
 if has ozet; then
   say "4) ozet"
   python3 - <<'PY'
-import json, glob, os
+import json, glob, os, re
 def load(name):
-    for p in [f"build/asic_jtag/{name}/run/final/metrics.json"] + sorted(glob.glob(f"build/asic_jtag/{name}/run/*/metrics.json")):
-        if os.path.exists(p):
-            return json.load(open(p)), p
-    return {}, None
-keys = ["design__instance__count", "design__instance__area",
+    p = f"build/asic_jtag/{name}/run/final/metrics.json"
+    return (json.load(open(p)) if os.path.exists(p) else {}), p
+def stat(name):
+    out = {}
+    for p in sorted(glob.glob(f"build/asic_jtag/{name}/run/*yosys-synthesis/reports/stat.rpt")):
+        t = open(p).read()
+        c = re.search(r"Number of cells:\s+(\d+)", t)
+        a = re.search(r"Chip area for (?:top )?module[^\n]*:\s+([\d.]+)", t)
+        ff = sum(int(n) for n in re.findall(r"sky130_fd_sc_hd__df\S+\s+(\d+)", t))
+        sram = sum(int(n) for n in re.findall(r"sky130_sram\S*\s+(\d+)", t))
+        out = {"stat_cells": int(c.group(1)) if c else None,
+               "stat_area_um2": float(a.group(1)) if a else None,
+               "stat_ff_cells": ff, "stat_sram_macros": sram, "stat_rpt": p}
+    return out
+keys = ["stat_cells", "stat_area_um2", "stat_ff_cells", "stat_sram_macros",
+        "design__instance__count", "design__instance__area",
         "design__instance__count__stdcell", "design__instance__area__stdcell",
         "design__instance__count__macros", "synthesis__check_error__count"]
 b, bp = load("base"); j, jp = load("jtag")
-print("base:", bp); print("jtag:", jp)
+b.update(stat("base")); j.update(stat("jtag"))
+print("base:", b.get("stat_rpt"), "|", bp); print("jtag:", j.get("stat_rpt"), "|", jp)
 print("%-40s %14s %14s %14s" % ("metrik", "base", "jtag", "fark"))
 for k in keys:
     vb, vj = b.get(k), j.get(k)
