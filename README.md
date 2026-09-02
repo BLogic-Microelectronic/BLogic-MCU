@@ -802,8 +802,32 @@ write-only from the data port, therefore gdb is configured for **hardware**
 breakpoints only (`gdb_breakpoint_override hard`); the `remote_bitbang` link runs
 at ~11 ms of simulated time per wall-clock second. The synthesis-elaboration check of
 the `JTAG_DEBUG` build (`scripts/jtag_elab_check.sh`, yosys-slang) requires the
-LibreLane environment and is run on the flow VM. The same branch also carries the
-one-line **FC-1** fix (`asic/README.md` §9.5) and the `i2c_sda_i` 2FF synchroniser.
+LibreLane environment and **was run on the flow VM on 3 September 2026: PASS**
+(Yosys 0.62, 0 errors; `dm_top`, `dmi_jtag`/`dmi_jtag_tap`/`dmi_cdc`,
+`dm_csrs`/`dm_mem`/`dm_sba` and `axi_dm_slave` all present in the sky130 hierarchy).
+The sky130 synthesis cost of the revision is measured with `scripts/vm_jtag_asic.sh`
+(same Classic flow, `--to Yosys.Synthesis`, top `soc_top` with and without
+`JTAG_DEBUG`; configs derived by `scripts/jtag_asic_config.py` into `build/asic_jtag/`,
+`asic/` strictly read-only) — result recorded in the line below when available.
+The same branch also carries the one-line **FC-1** fix (`asic/README.md` §9.5) and the
+`i2c_sda_i` 2FF synchroniser.
+
+**FPGA variant (Genesys 2, 3 September 2026).** `rtl/fpga/build_genesys2_jtag.tcl`
+builds `rtl/fpga/fpga_top_jtag.bit` (M3 flash-boot, same firmware as the delivered
+bitstream, so the only difference is `JTAG_DEBUG`). The board has no JTAG pin header,
+so riscv-dbg's `dmi_bscane_tap.sv` (same upstream commit, added to `rtl/debug/vendor/`,
+FPGA build only) replaces the full TAP: the on-board USB-JTAG reaches the DTM through
+Xilinx `BSCANE2` USER3 (dtmcs) / USER4 (dmi) — OpenOCD config
+`rtl/debug/openocd/genesys2_bscan.cfg` (`riscv set_ir dtmcs 0x22 / dmi 0x23`).
+`rtl/fpga_top.sv` ties the unused `soc_top` JTAG pins under `` `ifdef JTAG_DEBUG ``
+(bit-identical without the define); `rtl/fpga/genesys2_jtag.xdc` adds the 10 MHz
+`jtag_tck` clock and an asynchronous group towards `clk_50`. Cost versus the delivered
+bitstream (`rtl/fpga/reports_jtag/`): LUT 12,340 → **13,772** (+1,432, +11.6 %),
+FF 8,639 → **9,713** (+1,074), BRAM 14 / DSP 10 unchanged; timing met at
+WNS **+2.256 ns** / WHS **+0.031 ns** (delivered: +3.089 / +0.068), `jtag_tck` WNS
+94.8 ns, 0 routing errors, 0 DRC violations. The debug blocks themselves take
+`i_dm_top` 470 LUT / 665 FF and `i_dmi_jtag` 582 LUT / 362 FF (TAP 79 LUT),
+`axi_dm_slave` 15 FF.
 
 ---
 
