@@ -17,6 +17,11 @@
 #   - a0 geri okuma: print/z $a0 -> 0x0badcafe
 #   - bellek geri okuma: x/4xw 0x00021000 -> 0x600df00d (gdb yazdi, OpenOCD progbuf okudu)
 #   - "== GDB: done ==" (gdb betigi hatasiz sona ulasti)
+# + G-06 (3 Eylul): cikis kodlari da kriter -> gdb rc==0, openocd rc==0 (143 =
+#   SIGTERM artik FAIL), sim rc==0; gdb.log'da "not supported"/"Error in sourced
+#   command file"/"Protocol error with Rcmd" YOK; sim_gdb.log'da SimJTAG satiri var.
+#   OpenOCD'yi gdb degil bu betik kapatir (telnet :4444 "shutdown").
+#   GDB ikilisi degistirilebilir: GDB=riscv32-unknown-elf-gdb make jtag-gdb
 # Kullanim: make jtag-gdb   (esdegeri: bash scripts/run_jtag_gdb.sh)
 
 set -u
@@ -30,8 +35,9 @@ GDB_SCRIPT=rtl/debug/openocd/demo_gdb.gdb
 ELF=build/test.elf
 SIM_PORT=9999
 GDB_PORT=3333
+OCD_TELNET_PORT=4444
 GDB_TIMEOUT=600
-GDB=gdb-multiarch
+GDB=${GDB:-gdb-multiarch}
 SIM_PID=""
 OCD_PID=""
 
@@ -127,7 +133,20 @@ timeout "$GDB_TIMEOUT" "$GDB" -batch -x "$GDB_SCRIPT" "$ELF" > "$LOG_DIR/gdb.log
 GDB_RC=$?
 log "gdb cikis kodu: $GDB_RC"
 
-# openocd "monitor shutdown" ile, sim 'Q' ile kendiliginden bitmeli (<=30 s)
+# G-06: OpenOCD'yi ARTIK GDB KAPATMIYOR (demo_gdb.gdb'deki python blogu bu
+# ortamdaki gdb'de hic kosmuyordu -> gdb rc=1, openocd SIGTERM rc=143).
+# Kapatmayi kosucu yapar: telnet komut portuna (varsayilan 4444) "shutdown".
+# Bash'in /dev/tcp'si kullanilir (nc bagimliligi yok); alt kabukta acilir ki
+# port kapaliysa kosucu olmesin.
+if [ -n "$OCD_PID" ] && kill -0 "$OCD_PID" 2>/dev/null; then
+    if ( printf 'shutdown\n' > "/dev/tcp/127.0.0.1/$OCD_TELNET_PORT" ) 2>/dev/null; then
+        log "openocd telnet :$OCD_TELNET_PORT -> 'shutdown' gonderildi"
+    else
+        log "UYARI: openocd telnet :$OCD_TELNET_PORT acilamadi (shutdown gonderilemedi)"
+    fi
+fi
+
+# openocd "shutdown" ile, sim 'Q' ile kendiliginden bitmeli (<=30 s)
 OCD_RC="-"; SIM_RC="-"
 for i in $(seq 1 30); do
     if [ -n "$OCD_PID" ] && ! kill -0 "$OCD_PID" 2>/dev/null; then
@@ -165,11 +184,20 @@ grep -aq '0x0badcafe' "$LOG_DIR/gdb.log" && ok_a0=1
 # x/4xw satiri: "0x21000:<TAB>0x600df00d ..."
 grep -aE '^0x[0-9a-fA-F]+:' "$LOG_DIR/gdb.log" | grep -aq '0x600df00d' && ok_mem=1
 grep -aq '== GDB: done ==' "$LOG_DIR/gdb.log" && ok_done=1
+# G-06 ek kriterler: cikis kodlari ve gdb betiginin hatasiz kosmasi.
+# Eski surumde gdb rc=1 / openocd rc=143 (SIGTERM) oldugu halde VERDICT PASS
+# veriyordu; artik bunlar da denetlenir.
+ok_rc=0; ok_clean=0; ok_simexit=0
+[ "$GDB_RC" = 0 ] && [ "$OCD_RC" = 0 ] && [ "$SIM_RC" = 0 ] && ok_rc=1
+grep -aqE 'not supported in this copy of GDB|Error in sourced command file|Protocol error with Rcmd' \
+    "$LOG_DIR/gdb.log" || ok_clean=1
+grep -aq 'SimJTAG' "$LOG_DIR/sim_gdb.log" && ok_simexit=1
 
 log "sure: $((T1 - T0)) s duvar saati (gdb rc=$GDB_RC, openocd rc=$OCD_RC, sim rc=$SIM_RC)"
-if [ "$ok_bp" = 1 ] && [ "$ok_pc" = 1 ] && [ "$ok_a0" = 1 ] && [ "$ok_mem" = 1 ] && [ "$ok_done" = 1 ]; then
-    log "VERDICT: PASS - '$bp_line', pc=$bp_pc, a0 geri okuma 0x0badcafe, bellek 0x00021000 geri okuma 0x600df00d, '== GDB: done ==' (logs/jtag/gdb.log)"
+if [ "$ok_bp" = 1 ] && [ "$ok_pc" = 1 ] && [ "$ok_a0" = 1 ] && [ "$ok_mem" = 1 ] && \
+   [ "$ok_done" = 1 ] && [ "$ok_rc" = 1 ] && [ "$ok_clean" = 1 ] && [ "$ok_simexit" = 1 ]; then
+    log "VERDICT: PASS - '$bp_line', pc=$bp_pc, a0 geri okuma 0x0badcafe, bellek 0x00021000 geri okuma 0x600df00d, '== GDB: done ==', cikis kodlari gdb/openocd/sim = 0/0/0, gdb betiginde hata yok ($GDB) (logs/jtag/gdb.log)"
     exit 0
 fi
-log "VERDICT: FAIL - bp=$ok_bp pc=$ok_pc ($bp_pc) a0=$ok_a0 mem=$ok_mem done=$ok_done (gdb rc=$GDB_RC); bkz $LOG_DIR/gdb.log, $LOG_DIR/openocd_gdb.log"
+log "VERDICT: FAIL - bp=$ok_bp pc=$ok_pc ($bp_pc) a0=$ok_a0 mem=$ok_mem done=$ok_done rc=$ok_rc (gdb=$GDB_RC openocd=$OCD_RC sim=$SIM_RC) temiz=$ok_clean simexit=$ok_simexit; bkz $LOG_DIR/gdb.log, $LOG_DIR/openocd_gdb.log"
 exit 1

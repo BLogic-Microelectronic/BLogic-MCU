@@ -31,8 +31,9 @@
 #   - print/x sifir doldurmaz (0xbadcafe); print/z ve printf %08x doldurur.
 #   - Isaret satirlari ("== GDB: ... ==", "pc = 0x...") run_jtag_gdb.sh
 #     VERDICT'inin ayristirdigi sabit metinlerdir; degistirirken kosucuyu guncelle.
-#   - Sonda "monitor shutdown": OpenOCD kapanir, remote_bitbang 'Q' gonderir ->
-#     SimJTAG exit -> sim biter.
+#   - Sonda gdb yalniz "disconnect" + "quit" yapar (Python YOK, bkz. dosya sonu).
+#     OpenOCD'yi kosucu telnet :4444 'shutdown' ile kapatir; o da remote_bitbang
+#     'Q' gonderir -> SimJTAG exit -> sim biter.
 
 set pagination off
 set confirm off
@@ -88,19 +89,21 @@ maintenance flush register-cache
 info registers pc
 printf "pc = 0x%08x\n", $pc
 
+echo == GDB: mstatus/misa (CSR abstract komutlari) ==\n
+p/x $mstatus
+p/x $misa
+
 echo == GDB: done ==\n
-# OpenOCD "shutdown" komutu qRcmd'ye ERROR_COMMAND_CLOSE_CONNECTION (-600 ->
-# "EA8") ile cevap verir; gdb bunu "Protocol error with Rcmd: A8" diye hata
-# sayar ve -batch'te dosyayi keser (cikis 1). Beklenen davranis: python ile
-# yakalanir, sonra baglanti gdb tarafinda paket gondermeden kapatilir.
-python
-try:
-    gdb.execute("monitor shutdown")
-except gdb.error as e:
-    print("monitor shutdown: %s (OpenOCD kapaniyor, beklenen)" % e)
-try:
-    gdb.execute("disconnect")
-except gdb.error as e:
-    print("disconnect: %s" % e)
-end
+# OpenOCD'yi gdb'den KAPATMIYORUZ. "monitor shutdown" qRcmd'ye
+# ERROR_COMMAND_CLOSE_CONNECTION (-600 -> "EA8") ile cevap verir; gdb bunu
+# "Protocol error with Rcmd: A8" diye hata sayar, -batch'te dosyayi keser ve
+# cikis kodu 1 olur. Onceki surumde bu hata bir `python ... except` blogu ile
+# yutuluyordu; ama bu ortamdaki gdb (xPack riscv 13.2) Python DESTEKLEMIYOR
+# ("Scripting in the Python language is not supported"), dolayisiyla blok
+# hicbir zaman kosmadi: gdb rc=1 ile bitti, OpenOCD acik kaldi ve kosucunun
+# 30 s beklemesinden sonra SIGTERM ile olduruldu (rc=143). VERDICT yalniz log
+# dizelerine baktigi icin bunu PASS gosteriyordu (bosluk G-06).
+# Artik: gdb yalniz baglantiyi birakir; OpenOCD'yi kosucu (scripts/run_jtag_gdb.sh)
+# telnet komut portundan "shutdown" ile kapatir -> gdb rc=0, openocd rc=0.
+disconnect
 quit

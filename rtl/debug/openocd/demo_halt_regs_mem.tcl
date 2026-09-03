@@ -19,6 +19,10 @@
 # abstract CSR erisimiyle kurar. pc == bp adresi iken resume: OpenOCD once
 # tetikleyiciyi kapatip tek adim atar, sonra acip kosturur (yerlesik davranis).
 # Sonda "shutdown": remote_bitbang 'Q' gonderir -> SimJTAG exit -> sim biter.
+# 3 Eylul eklentileri (bosluk G-09): step (dcsr.step), acik CSR erisimi
+# (mstatus/misa), 8 sozcukluk blok okuma (abstractauto yolu), cevre birimi
+# MMIO yazmasi (UART0 TDR), negatif watchpoint (veri tetikleyici yok) ve
+# "reset run" (haltreq'siz ndmreset -> firmware kendiliginden kosar).
 #
 # NOT: OpenOCD 0.12'de -f ile kaynaklanan dosya icindeki komutlarin ciktisi
 # (reg, mdw, bp ...) Tcl sonucu olarak toplanir, loga DUSMEZ; -c "reg pc" ile
@@ -39,11 +43,40 @@ echo [string trimright [reg a0 0x12345678]]
 echo "-- a0 geri oku --"
 echo [string trimright [reg a0]]
 
+# --- G-09: donanim tek-adimi (dcsr.step). OpenOCD "step" komutu dcsr.step=1
+# yazip resume eder; cekirdek TEK buyruk sonra debug moduna geri doner.
+# Sikistirilmis buyruk bolgesinde pc +2 ilerler (uart_hello bosta dongusu).
+echo "== DEMO: step =="
+echo "-- step oncesi pc --"
+echo [string trimright [reg pc]]
+step
+echo "-- step sonrasi pc (2 bayt ilerlemis olmali) --"
+echo [string trimright [reg pc]]
+
+# --- G-09: acik CSR erisimi (abstract komut -> csrr) ---
+echo "== DEMO: CSR =="
+echo [string trimright [reg mstatus]]
+echo [string trimright [reg misa]]
+
 echo "== DEMO: memory (progbuf) =="
 mww 0x00021000 0xCAFEF00D
 echo [string trimright [mdw 0x00021000]]
 mww 0x00021004 0x11223344
 echo [string trimright [mdw 0x00021000 2]]
+
+# --- G-09: blok okuma. OpenOCD 1 sozcukten uzun progbuf okumalarinda
+# abstractauto/autoexec yolunu kullanir (dm_csrs autoexecdata/autoexecprogbuf);
+# tek sozcukluk mdw bu yolu hic uyarmiyordu.
+echo "== DEMO: block memory (8 sozcuk) =="
+for {set i 0} {$i < 8} {incr i} {
+    mww [expr {0x00021000 + 4 * $i}] [expr {0xB10C0000 + $i}]
+}
+echo [string trimright [mdw 0x00021000 8]]
+
+# --- G-09: cevre birimi MMIO. UART0 TDR = 0x4000_000C (sw/drivers/blogic_mcu.h).
+# Cekirdek HALT'ta iken debugger'in yazdigi bayt yine de gonderilir -> sim.log.
+echo "== DEMO: MMIO (UART0 TDR <- 0x41 'A') =="
+mww 0x4000000C 0x41
 
 echo "== DEMO: resume/halt =="
 resume
@@ -71,6 +104,17 @@ echo [string trimright [reg pc]]
 echo "-- rbp $bp_addr --"
 rbp $bp_addr
 
+# --- G-09 (negatif): CV32E40P'de TEK tetikleyici var ve yalniz EXECUTE adres
+# eslesmesini destekler -> veri izleme noktasi (watchpoint) KURULAMAZ.
+# Hata metni belgelenir; demo devam eder (bilinen sinir, README 10.10).
+echo "== DEMO: watchpoint (negatif, veri tetikleyici YOK) =="
+if {[catch {wp 0x00021000 4 w} wp_msg]} {
+    echo "-- wp hata (beklenen): $wp_msg --"
+} else {
+    echo "-- wp kuruldu (beklenmiyordu): $wp_msg --"
+    catch {rwp 0x00021000}
+}
+
 # reset halt: OpenOCD dmcontrol.ndmreset=1 + haltreq=1 -> ndmreset=0 (haltreq
 # kalir) -> allhalted -> ackhavereset. sys_rst_n = rst_ni & ~ndmreset ile
 # cekirdek, bus, cevre birimleri ve SRAM sarmalayicilari resetlenir; cekirdek
@@ -88,6 +132,16 @@ sleep 300
 halt
 wait_halt 5000
 echo "-- firmware yeniden kosuyor: pc (0x0001xxxx beklenir) --"
+echo [string trimright [reg pc]]
+
+# --- G-09: haltreq'siz ndmreset ("reset run"): cekirdek resetten sonra
+# DURMADAN kosar, firmware bastan baslar (sim.log'da UCUNCU selamlama).
+echo "== DEMO: reset run =="
+reset run
+sleep 500
+halt
+wait_halt 5000
+echo "-- reset run sonrasi pc (0x0001xxxx beklenir) --"
 echo [string trimright [reg pc]]
 
 echo "== DEMO: done =="

@@ -1,0 +1,15 @@
+255a256,265
+>     logic i2c_sda_sync1, i2c_sda_sync2;
+>     always_ff @(posedge clk_i or negedge rst_ni) begin
+>         if (!rst_ni) begin
+>             i2c_sda_sync1 <= 1'b1;
+>             i2c_sda_sync2 <= 1'b1;
+>         end else begin
+>             i2c_sda_sync1 <= i2c_sda_i;
+>             i2c_sda_sync2 <= i2c_sda_sync1;
+>         end
+>     end
+268c278
+<         .scl_o(i2c_scl_o), .sda_oe_o(i2c_sda_oe_o), .sda_i(i2c_sda_i)
+---
+>         .scl_o(i2c_scl_o), .sda_oe_o(i2c_sda_oe_o), .sda_i(i2c_sda_sync2)

@@ -1,0 +1,50 @@
+The target architecture is set to "riscv:rv32".
+== GDB: connect (target extended-remote :3333) ==
+0x0001011a in main ()
+DEPRECATED! use 'gdb breakpoint_override', not 'gdb_breakpoint_override'
+force hard breakpoints
+== GDB: reset halt (pc 0x00010000 beklenir) ==
+JTAG tap: blogic.cpu tap/device found: 0x0b1061c1 (mfg: 0x0e0 (Truevision), part: 0xb106, ver: 0x0)
+pc             0x10000	0x10000 <_start>
+pc = 0x00010000
+== GDB: break *main + continue (main 0x000100e8 beklenir) ==
+Breakpoint 1 at 0x100e8
+
+Breakpoint 1, 0x000100e8 in main ()
+pc             0x100e8	0x100e8 <main>
+ra             0x100e6	0x100e6 <hang>
+sp             0x22000	0x22000
+a0             0x0	0
+pc = 0x000100e8
+== GDB: x/8i $pc (kod ELF .text'ten; ISRAM veri portundan okunamaz) ==
+=> 0x100e8 <main>:	lui	a5,0x40000
+   0x100ec <main+4>:	li	a4,434
+   0x100f0 <main+8>:	lui	a3,0x20
+   0x100f4 <main+12>:	sw	a4,0(a5)
+   0x100f6 <main+14>:	mv	a3,a3
+   0x100fa <main+18>:	li	a5,72
+   0x100fe <main+22>:	lui	a4,0x40000
+   0x10102 <main+26>:	li	a1,3
+-- ayni adres hedeften (progbuf lw): DSRAM alias, kod DEGIL --
+0x000100e8: 00000000 00000000 
+== GDB: delete 1 (tek donanim tetikleyicisi stepi icin bosaltilir) ==
+== GDB: stepi x3 ==
+0x000100ec in main ()
+0x000100f0 in main ()
+0x000100f4 in main ()
+pc             0x100f4	0x100f4 <main+12>
+pc = 0x000100f4
+$1 = 0x0
+== GDB: memory write/read 0x00021000 (gdb -> OpenOCD progbuf) ==
+0x21000:	0x600df00d	0x00000000	0x00000000	0x00000000
+== GDB: a0 write/read ==
+$2 = 0xbadcafe
+$3 = 0x0badcafe
+== GDB: monitor resume / sleep 100 / halt ==
+blogic.cpu halted due to debug-request.
+pc             0x1011e	0x1011e <main+54>
+pc = 0x0001011e
+== GDB: mstatus/misa (CSR abstract komutlari) ==
+$4 = 0x1800
+$5 = 0x40001104
+== GDB: done ==

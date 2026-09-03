@@ -109,9 +109,13 @@ fi
 T1=$(date +%s)
 
 echo "---------------- $LOG_DIR/openocd.log: DEMO isaretleri, register/bellek satirlari ----------------"
-grep -aE '== DEMO:|^-- |\(/[0-9]+\):|^0x[0-9a-fA-F]{8}:|breakpoint|unexpectedly|Error|error|timed out' "$LOG_DIR/openocd.log"
+grep -aE '== DEMO:|^-- |\(/[0-9]+\):|^0x[0-9a-fA-F]{8}:|breakpoint|watchpoint|unexpectedly|Error|error|timed out' "$LOG_DIR/openocd.log"
 echo "---------------- $LOG_DIR/sim.log: UART / SimJTAG ----------------"
 grep -aE 'JTAG-OPENOCD|remote_bitbang|Listening|Verilator' "$LOG_DIR/sim.log"
+# Selamlama sayimi ALT DIZE ile yapilir: MMIO demosu UART0 TDR'ye bir 'A'
+# yazdigi icin ikinci selamlama loga "AHello World..." olarak duser.
+greet_n=$(grep -ac "Hello World from BLogic MCU!" "$LOG_DIR/sim.log")
+echo "UART selamlamasi sayisi (ilk boot + 'reset halt'+resume + 'reset run' -> >=3 beklenir): $greet_n"
 echo "----------------------------------------------------------------------"
 
 # --- verdict ---
@@ -134,9 +138,25 @@ rst_pc=$(awk 'f && /^pc \(\/32\):/ { print $3; exit } /== DEMO: reset halt ==/ {
 [ "$rst_pc" = "0x00010000" ] && ok_rst=1
 
 log "sure: $((T1 - T0)) s duvar saati (openocd rc=$OCD_RC, sim rc=$SIM_RC)"
-if [ "$ok_a0" = 1 ] && [ "$ok_mem" = 1 ] && [ "$ok_bp" = 1 ] && [ "$ok_rst" = 1 ] && [ "$ok_done" = 1 ]; then
-    log "VERDICT: PASS - a0 geri okuma 0x12345678, mdw cafef00d, hw breakpoint pc=$bp_pc == bp $bp_addr, reset halt pc=$rst_pc, '== DEMO: done ==' (logs/jtag/)"
+# G-09 ek kriterler: step sonrasi pc, blok okuma ve "reset run" sonrasi 3. selamlama
+ok_step=0; ok_blk=0; ok_run=0
+# 3 Eylul gozden gecirme: yalniz "step sonrasi pc ISRAM araliginda" yetersizdi
+# (step hic ilerlemese de gecerdi). Artik step ONCESI pc de okunur ve ikisinin
+# FARKLI olmasi sart (dcsr.step gercekten bir buyruk ilerletti).
+pre_pc=$(awk 'f && /^pc \(\/32\):/ { print $3; exit } /-- step oncesi pc/ { f = 1 }' "$LOG_DIR/openocd.log")
+step_pc=$(awk 'f && /^pc \(\/32\):/ { print $3; exit } /-- step sonrasi pc/ { f = 1 }' "$LOG_DIR/openocd.log")
+if echo "$step_pc" | grep -qE '^0x0001[0-9a-fA-F]{4}$' &&    echo "$pre_pc"  | grep -qE '^0x0001[0-9a-fA-F]{4}$' &&    [ "$pre_pc" != "$step_pc" ]; then ok_step=1; fi
+grep -aiq "b10c0007" "$LOG_DIR/openocd.log" && ok_blk=1
+[ "${greet_n:-0}" -ge 3 ] && ok_run=1
+
+# G-06: cikis kodlari da kriter (openocd "shutdown" ile 0, sim 'Q' ile 0)
+ok_rc=0
+[ "$OCD_RC" = 0 ] && [ "$SIM_RC" = 0 ] && ok_rc=1
+if [ "$ok_a0" = 1 ] && [ "$ok_mem" = 1 ] && [ "$ok_bp" = 1 ] && [ "$ok_rst" = 1 ] && \
+   [ "$ok_done" = 1 ] && [ "$ok_rc" = 1 ] && [ "$ok_step" = 1 ] && [ "$ok_blk" = 1 ] && \
+   [ "$ok_run" = 1 ]; then
+    log "VERDICT: PASS - a0 geri okuma 0x12345678, mdw cafef00d, hw breakpoint pc=$bp_pc == bp $bp_addr, reset halt pc=$rst_pc, step $pre_pc -> $step_pc, blok okuma (8 sozcuk), 'reset run' -> 3. selamlama, '== DEMO: done ==', cikis kodlari openocd/sim = 0/0 (logs/jtag/)"
     exit 0
 fi
-log "VERDICT: FAIL - a0=$ok_a0 mem=$ok_mem bp=$ok_bp (bp=$bp_addr pc=$bp_pc) rst=$ok_rst (pc=$rst_pc) done=$ok_done (openocd rc=$OCD_RC); bkz $LOG_DIR/openocd.log"
+log "VERDICT: FAIL - a0=$ok_a0 mem=$ok_mem bp=$ok_bp (bp=$bp_addr pc=$bp_pc) rst=$ok_rst (pc=$rst_pc) done=$ok_done rc=$ok_rc (openocd=$OCD_RC sim=$SIM_RC) step=$ok_step ($pre_pc -> $step_pc) blk=$ok_blk run=$ok_run; bkz $LOG_DIR/openocd.log"
 exit 1

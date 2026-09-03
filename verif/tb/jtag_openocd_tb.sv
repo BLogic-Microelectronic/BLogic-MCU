@@ -11,8 +11,8 @@
 //   cd obj_dir_jtag_ocd && ./jtag_openocd_sim          (terminal 1)
 //   openocd -f rtl/debug/openocd/blogic_sim.cfg         (terminal 2)
 // Firmware (uart_hello) ISRAM'e $readmemh ile onyuklenir, BOOT_ADDR=0x10000;
-// UART TX ilk 58 karakteri coz ve bas -> logda cekirdegin kostugu gorulur
-// (2 x 29: "reset halt" + resume sonrasi ikinci selamlama da loga duser).
+// UART TX ilk 145 karakteri coz ve bas -> logda cekirdegin kostugu gorulur
+// (3 selamlama: ilk boot, "reset halt"+resume ve "reset run" sonrasi).
 // Bitis: OpenOCD 'Q' gonderince (shutdown) SimJTAG exit != 0 -> $finish;
 // ayrica 30 s simulasyon zamani bekci (TIMEOUT).
 // OpenOCD'siz hizli kontrol: python3 scripts/jtag_bitbang_probe.py [--quit]
@@ -68,9 +68,13 @@ module jtag_openocd_tb;
         for (int i = 0; i < 8; i++) begin d[i] = uart_tx; #BIT_NS; end
     endtask
 
-    // Ilk 58 karakteri coz (2 x 29: selamlama + '\n'); satir sonunda veya
-    // 58'e ulasinca bas -> ndmreset sonrasi ikinci selamlama da gorunur
-    localparam int UART_NCHAR = 58;
+    // Selamlamalari coz (29 karakter + satir sonu); satir sonunda ya da
+    // sinira ulasinca bas -> her ndmreset sonrasi selamlama loga duser.
+    // 3 Eylul (bosluk G-09): demo artik "reset halt + resume" ve "reset run"
+    // ile firmware'i IKI kez yeniden baslatiyor, arada UART0 TDR'ye
+    // debugger'dan bir 'A' yaziliyor -> 58 karakter yetmiyordu, ucuncu
+    // selamlama loga hic dusmuyordu (run_jtag_openocd.sh VERDICT'i onu arar).
+    localparam int UART_NCHAR = 145;
     string      uart_line = "";
     logic [7:0] uart_ch;
     int         uart_total = 0;

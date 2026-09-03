@@ -792,27 +792,70 @@ IDCODE `0x0B1061C1`.
 
 | Evidence | Tool | Result |
 |---|---|---|
-| `make jtag-sim` | pure-SV TAP bit-bang | **9/9**: UART, IDCODE, DTMCS, DMI→DM, halt (`debug_halted_o`), abstract-command GPR round-trip + progbuf `sw`/`lw` to DSRAM + `dpc`, resume, single-step (`dcsr.cause=4`) + hardware trigger breakpoint (`cause=2`), `ndmreset` → halt at `0x00010000` → firmware restarts (greeting printed twice) |
-| `make jtag-openocd` | OpenOCD 0.12 via `remote_bitbang` | halt, `a0` write/read-back `0x12345678`, `mww`/`mdw 0x21000` → `cafef00d 11223344`, `bp <pc> 4 hw` hit, `reset halt` → `pc=0x00010000` — `rtl/debug/openocd/demo_run_2026-09-02.log` |
-| `make jtag-gdb` | gdb-multiarch 15.1 over OpenOCD `:3333` | `reset halt` → `Breakpoint 1, 0x000100e8 in main ()` → `stepi`×3 → `$a0 = 0x0badcafe`, `*0x21000 = 0x600df00d` — `rtl/debug/openocd/demo_run_gdb_2026-09-02.log` |
-| `make jtag-sim TBCOV=--coverage-line` | Verilator | line coverage of the new RTL: `axi_dm_slave` 35/35 (49/49 after the 3 Sep register stage), crossbar 78/78 (DM legs included), `soc_top` JTAG block 10/10 = **100 %**; vendored `dm_mem` 85 %, `dmi_jtag_tap` 82 % |
+| `make jtag-sim` | pure-SV TAP bit-bang | **17/17**: (1-9) UART, IDCODE, DTMCS, DMI→DM, halt (`debug_halted_o`), abstract-command GPR round-trip + progbuf `sw`/`lw` to DSRAM + `dpc`, resume, single-step (`dcsr.cause=4`) + hardware trigger breakpoint (`cause=2`), `ndmreset` → halt at `0x00010000` → firmware restarts (greeting printed twice); (10) DMI back-pressure: `op=3`, `dtmcs.dmistat=3`, `dmireset` **and** `dmihardreset`, DM `CmdErrBusy` + `abstractcs` W1C; (11) `cmderr=3` from a progbuf exception, an FPR access without an FPU and a non-existent CSR — with the `dm_exception_addr` (`0x0004_0810`) path proven white-box; (12) `cmderr=2` for `aarsize=3` / `AccessMemory` / reserved `regno`, `cmderr=4` for a command while running, `aarsize=0/1` byte/half stores through the bridge's `be` path; (13) SBA: `sbcs` discovery, the error-completing tie-off (`sberror=2`), `sbaccess=3` → `sberror=4`, W1C, no hang; (14) DM discovery: `dmcontrol` WARL, `hartinfo=0x00212380`, `abstractcs`, `haltsum0..3`, `nextdm`, `progbuf0..7`, `data1`, `tinfo`, `transfer+postexec`, `resumereq` auto-clear; (15) TAP corners: IR capture `0b00101`, BYPASS/undefined IR, Pause/Exit2 (DR **and** IR), back-to-back scans without Run-Test/Idle, TLR and TRST recovery mid-traffic; (16) writing the **instruction** SRAM from the debugger, proven by executing it, plus `dcsr.ebreakm` → debug entry (`cause=1`); (17) DM-region behaviour — see known limitations |
+| `make jtag-bridge-sim` | Verilator, directed unit TB | **6/6** for `axi_dm_slave` (`verif/tb/axi_dm_slave_tb.sv` + real `dm_top`): arbitration (data read/write beats instruction fetch), R and B channel hold with `r_ready`/`b_ready` low — the `resp_pending` case that the end-to-end runs **never** reach — `w_strb` byte enables reaching `dm_be_o`, and reset with a request in flight. The old second SVA was a structural tautology and was replaced by a request/response timing contract (`req_q` one cycle, exactly one response channel at T+2) |
+| `make regression-jtag` | Verilator | **6/6** C tests (`uart_hello`, `ai_micro_speech`, `ai_irq`, `timer_irq`, `uart1_strm`, `qspi`) on a model built **with** `+define+JTAG_DEBUG` (own `obj_dir_reg_jtag`) — the debug hardware does not disturb normal firmware |
+| `make jtag-lint` / `make jtag-lint-fpga` | Verilator lint | `asic_top` and `fpga_top` with `JTAG_DEBUG`, **MODDUP/PINMISSING enabled**: 0 errors and a warning profile identical to the define-less lint of the same top (the 3 `PINMISSING` are the unconnected CV32E40P `debug_*_o` status pins, present on `main` too). The FPGA gate uses `rtl/debug/jtag_files_fpga.f` (the `dmi_bscane_tap.sv` variant, which no other target ever compiles) plus `verif/tb/xilinx_prim_stubs.sv` (lint-only BSCANE2/IBUFDS/BUFG/MMCME2_BASE/STARTUPE2 shells) |
+| `make jtag-equiv` | `verilator -E -P` + `git show main:` | scripted proof of the “identical without the define” claim (`scripts/jtag_define_off_equiv.sh`): `asic_top` and `fpga_top` differ by **0 lines**; `soc_top` (63) and the crossbar (20) reduce to **0** after the documented constant-folding rules (`scripts/jtag_equiv_expected.sed`); the 13 lines that remain are the two *deliberate*, unconditional branch changes (the `i2c_sda_i` 2FF synchroniser and the FC-1 `co_re` fix). The gate is a **diff of diffs**: the remaining diff must match the stored expected diff in `scripts/jtag_equiv_expected_diffs/` byte for byte, so a new, changed or vanished difference all fail. (The first version matched line patterns instead, with entries as generic as `^ *end$`, which could have absorbed an unrelated real change; `scripts/jtag_equiv_known_diffs.txt` is now documentation only. Negative control: adding one wire to `asic_top.sv` outside the `ifdef` makes the gate exit 1 and print that line.) Updating the baseline needs an explicit `--kaydet` run |
+| `make jtag-openocd` | OpenOCD 0.12 via `remote_bitbang` | halt, `a0` write/read-back `0x12345678`, `mww`/`mdw 0x21000` → `cafef00d 11223344`, `bp <pc> 4 hw` hit, `reset halt` → `pc=0x00010000`, and since 3 September also `step` (hardware single-step, `pc` +2), explicit CSR reads (`mstatus`, `misa`), an 8-word block read (OpenOCD's `abstractauto` path), a peripheral MMIO write (`UART0.TDR` → an `A` in the sim log), the **negative** watchpoint case (CV32E40P has no data trigger) and `reset run` (ndmreset without `haltreq`, third greeting). Exit codes of OpenOCD and the sim are part of the verdict — `rtl/debug/openocd/demo_run_2026-09-02.log`, latest run `rtl/debug/openocd/demo_run_v3_openocd_2026-09-03.log` (+ `…_openocd_sim_…` for the UART side) |
+| `make jtag-gdb` | xPack `riscv32-unknown-elf-gdb` 13.2 (as `gdb-multiarch`) over OpenOCD `:3333` | `reset halt` → `Breakpoint 1, 0x000100e8 in main ()` → `stepi`×3 → `$a0 = 0x0badcafe`, `*0x21000 = 0x600df00d`, `$mstatus`/`$misa`. **Exit codes are now part of the verdict**: gdb 0, OpenOCD 0, sim 0. Previously the script's closing `python` block silently never ran (this gdb has no Python), so gdb exited 1 and OpenOCD was killed with SIGTERM (143) while the verdict still said PASS; the runner now closes OpenOCD itself over telnet `:4444` and `GDB=…` selects the binary — `rtl/debug/openocd/demo_run_gdb_2026-09-02.log`, latest run `rtl/debug/openocd/demo_run_v3_gdb_2026-09-03.log` |
+| `make jtag-cov` | Verilator + `verilator_coverage` | line coverage, now with a **committed** report (`rtl/debug/sim/jtag_cov_summary.txt`, `jtag_cov.info`, and a dated copy of the run log). New RTL: `axi_dm_slave` 49/49, crossbar 104/104 (DM legs included), `soc_top` JTAG block 10/10 = **100 %**. Vendored riscv-dbg after stages 10-17: `dm_mem` 96.3 % (was 85 %), `dmi_jtag_tap` 99.1 % (was 82 %), `dmi_jtag` 90.3 %, `dm_csrs` 81.3 %, `dm_sba` 80.8 % (was 0 %), `dmi_cdc` 100 % |
 | `make regression` (no define) | Verilator + Spike | 6/6 — main-branch behaviour unchanged |
 
 Re-run on 3 September with the **registered** `axi_dm_slave` (request at T, DM at
-T+1, response at T+2): `make jtag-sim` 9/9, `make jtag-openocd` PASS
+T+1, response at T+2): `make jtag-sim` 9/9 at that point (17/17 after the test
+extension below), `make jtag-openocd` PASS
 (`demo_run_v2_openocd_2026-09-03.log`), `make jtag-gdb` PASS with the xPack
 `riscv32-unknown-elf-gdb` 13.2 standing in for `gdb-multiarch`
 (`demo_run_v2_gdb_2026-09-03.log`: `Breakpoint 1, 0x000100e8 in main ()`, `stepi`×3,
 `a0` = `0x0badcafe`, `*0x21000` = `0x600df00d`); `make regression` without the define:
 the 4 functional tests PASS, the 2 Spike lock-step tests could not run on the laptop
 (no Spike installed — they are the 6/6 of the row above on the machine that has it).
+The same day the test suite was extended along the gaps found in a coverage review:
+`make jtag-sim` 9 → **17** stages, the new `make jtag-bridge-sim`, `make regression-jtag`,
+`make jtag-lint`, `make jtag-lint-fpga`, `make jtag-equiv` and `make jtag-cov` targets, and
+the gdb/OpenOCD demos gained real-debugger paths (`step`, block reads, CSR, MMIO,
+`reset run`, the negative watchpoint) together with exit-code checks in both verdicts.
 
 Known limitations, documented rather than hidden: the firmware is built without `-g`
 (the gdb demo uses `stepi`/`x/i`); CV32E40P has a single hardware trigger, so a
-breakpoint must be deleted before single-stepping; the instruction SRAM is
-write-only from the data port, therefore gdb is configured for **hardware**
-breakpoints only (`gdb_breakpoint_override hard`); the `remote_bitbang` link runs
-at ~11 ms of simulated time per wall-clock second. The synthesis-elaboration check of
+breakpoint must be deleted before single-stepping and **data watchpoints are
+impossible** (`wp` returns *resource not available*, shown in the OpenOCD demo);
+the instruction SRAM is write-only from the data port, therefore gdb is configured
+for **hardware** breakpoints only (`gdb_breakpoint_override hard`) — a software
+breakpoint would read the “old” instruction from the DSRAM alias and corrupt the
+code; System Bus Access is **not** wired (the tie-off completes every SBA request
+with `sberror=2`, so a host without `riscv set_mem_access progbuf` gets errors, not
+a hang); the `remote_bitbang` link runs at ~11 ms of simulated time per wall-clock
+second.
+
+One housekeeping item is still open: `rtl/debug/sim/*.log` (the dated copy of the
+`make jtag-cov` run) is caught by the global `*.log` rule in `.gitignore`, exactly as
+`rtl/debug/openocd/demo_run_*.log` was before its explicit exception. The report itself
+(`jtag_cov_summary.txt`, `jtag_cov.info`) is not ignored; adding the `!rtl/debug/sim/*.log`
+exception is left to a human decision.
+
+Two DM-region findings from stage 17 of `make jtag-sim`, both **open** and both
+outside this branch's edit scope (they would change the crossbar):
+* **The DM region is not qualified by debug mode** (there is no PMP either). Normal
+  firmware can write the `HALTED` flag at `0x0004_0100` and make the DM believe the
+  hart is halted; the test does exactly that and shows `dmstatus.allhalted=1` while
+  the core reports `debug_halted_o=0`. A debugger that then issues an abstract
+  command hangs in `dm_mem`'s *Go* state (`abstractcs.busy` stuck for 50 polls) and
+  only `ndmreset` recovers. `data0` at `0x0004_0380` is likewise readable by
+  firmware. Fix to evaluate before any merge: qualify `*_to_dm` with debug mode and
+  answer with `SLVERR` otherwise, inside `` `ifdef JTAG_DEBUG ``.
+* **`0x0004_1000`-`0x0004_FFFF` silently aliases the SRAMs.** The crossbar only
+  routes `addr[15:12]==0` to the DM, so the rest of the 64 KB window falls through to
+  the default leg: a write to `0x0004_1000` lands in DSRAM `0x0002_1000` with an OKAY
+  response and no error. Reading an *unmapped* offset inside the DM window (e.g.
+  `0x0004_0004`) returns whatever word `dm_mem` currently holds in `rdata_q` — in this
+  test the `ebreak` (`0x0010_0073`) left from the abstract-command fetch — again with
+  an OKAY response and no error. Stage 17 pins that exact value, so any change in the
+  DM decode (a guard, an `SLVERR`) makes the stage fail deliberately rather than
+  silently passing.
+
+The synthesis-elaboration check of
 the `JTAG_DEBUG` build (`scripts/jtag_elab_check.sh`, yosys-slang) requires the
 LibreLane environment and **was run on the flow VM on 3 September 2026: PASS**
 (Yosys 0.62, 0 errors; `dm_top`, `dmi_jtag`/`dmi_jtag_tap`/`dmi_cdc`,
@@ -866,11 +909,34 @@ register stage in `rtl/debug/axi_dm_slave.sv` (DM memory accesses tolerate one c
 latency), which removes the DM endpoints from the SS critical set; hold violations are
 the known AI-accelerator → SRAM-macro family and contain no JTAG endpoints.
 **Applied the same day:** `axi_dm_slave.sv` now registers the accepted request
-(commit "istek yazmaci katmani"); with the registered bridge `make jtag-sim` still
-passes 9/9 and `make jtag-openocd` its full demo (halt, `a0` round-trip, `mdw`,
-hardware breakpoint, `reset halt`). The full sky130 flow of this second revision
-(VM1 run `full/run`, first run kept as `run_v1_kombinasyonel`) is reported in the
-next paragraph.
+(request at T, DM at T+1, response at T+2), and every gate above was re-run against
+the registered bridge.
+
+**Full flow of the registered bridge (VM1, 3 September 2026, 216 min, 80/80 stages,
+`rtl/debug/asic_jtag_sentez/full_v2/`).** Same delivered settings, same deferred hold
+error as the delivered run. The fix did what it was meant to do:
+
+| | delivered | JTAG v1 (combinational) | **JTAG v2 (registered)** |
+|---|---|---|---|
+| Route DRC / KLayout / LVS / XOR | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 | **0 / 0 / 0 / 0** |
+| Antenna violating nets | 0 | 1 | **0** |
+| Setup WNS TT / SS / FF (ns) | +2.210 / −9.083 / +4.375 | +2.303 / −11.983 / +4.390 | +1.060 / **−10.262** / +3.628 |
+| Hold WNS TT / SS / FF (ns) | −0.323 / +0.227 / −0.382 | −0.611 / −0.381 / −0.539 | −0.749 / −0.822 / −0.602 |
+| SS setup TNS (ns) | −10,640 | −14,320 | −12,190 |
+| DM/JTAG endpoints among SS setup violators | — | 140 / 1000 | **0 / 1000** |
+| DM/JTAG endpoints among hold violators | — | 0 | **0** |
+| Std-cell instances / area | 296,005 / 1.249 mm² | 309,985 / 1.337 mm² | 310,754 / 1.347 mm² |
+| Power (TT) / worst IR drop | 118.3 mW / 1.54 mV | 123.2 mW / 2.35 mV | 123.9 mW / 2.92 mV |
+
+The DM and DTM endpoints left the critical set completely, in both setup and hold, and
+the one antenna net of v1 is gone; the register layer itself cost 769 std cells. The
+remaining −10.26 ns is the core's own ALU/divider path (`id_stage` →
+`ex_stage.alu_i.alu_div_i` → `id_stage`), which sits at −8.26 ns in the delivered run.
+That ~2 ns is clock tree, not logic: with 1,213 more flip-flops CTS builds deeper (SS
+clock skew goes from −2.58 ns in the delivered run to +3.58 ns here, and the clock
+delay to the instruction-SRAM macro grows 13.81 → 14.64 ns at TT), so it is a cost
+that CTS settings or another run can take back. The delivered design is untouched by
+any of this — separate branch, separate run directory.
 The same branch also carries the one-line **FC-1** fix (`asic/README.md` §9.5) and the
 `i2c_sda_i` 2FF synchroniser.
 

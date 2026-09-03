@@ -174,20 +174,39 @@ module axi_dm_slave #(
     assign instr_slv.b_resp   = 2'b00;
     assign instr_slv.b_user   = '0;
 
-    // ---- sozlesme denetimleri (yalniz simulasyon) ----
+    // ---- sozlesme denetimleri (yalniz simulasyon, sentez etkisiz) ----
     // Bugunku master'lar (obi_to_axi) r_ready'yi her zaman yuksek tuttugu
     // icin resp_pending pratikte nadiren 1 olur; bu denetimler, ileride bir
     // master degisirse tutma sozlesmesinin sessizce bozulmamasi icindir.
+    // 3 Eylul (test boslugu G-08): ikinci denetim
+    //   busy |-> !(dw_en || dr_en || ir_en)
+    // YAPISAL TOTOLOJIYDI (her *_en zaten !busy ile carpiliyor), yani hicbir
+    // sey dogrulamiyordu. Yerine istek/yanit ZAMANLAMA sozlesmesi kondu:
+    //   - kabul edilen istek TEK cevrim DM'e sunulur (adres T, DM'de T+1),
+    //   - ve o istegin yaniti bir sonraki cevrimde (T+2) uc kanaldan TAM
+    //     BIRINDE gorunur.
+    // Ayrica resp_pending icin cover eklendi: verif/tb/axi_dm_slave_tb.sv
+    // (make jtag-bridge-sim) bunu vurur, jtag_smoke_tb VURMAZ - bu, birim
+    // TB'nin neden gerektiginin kanitidir.
 `ifndef SYNTHESIS
     assert property (@(posedge clk_i) disable iff (!rst_ni)
         resp_pending |-> (!dm_req_o && $stable(dm_addr_o)))
         else $error("axi_dm_slave: yanit beklenirken DM istegi/adresi degisti");
     assert property (@(posedge clk_i) disable iff (!rst_ni)
-        busy |-> !(dw_en || dr_en || ir_en))
-        else $error("axi_dm_slave: mesgulken istek kabul edildi");
+        req_q |-> ##1 !req_q)
+        else $error("axi_dm_slave: DM istegi bir cevrimden uzun surdu");
+    assert property (@(posedge clk_i) disable iff (!rst_ni)
+        req_q |-> ##1 $onehot({instr_slv.r_valid && instr_q,
+                               data_slv.r_valid  && !we_q && !instr_q,
+                               data_slv.b_valid  && we_q}))
+        else $error("axi_dm_slave: istegin yaniti T+2'de tam bir kanalda cikmadi");
     assert property (@(posedge clk_i) disable iff (!rst_ni)
         !(instr_slv.r_valid && data_slv.r_valid))
         else $error("axi_dm_slave: iki portta ayni anda okuma yaniti");
+
+    cover property (@(posedge clk_i) disable iff (!rst_ni) resp_pending);
+    cover property (@(posedge clk_i) disable iff (!rst_ni)
+        req_q && we_q && (dm_be_o != 4'b1111));
 `endif
 
 endmodule
