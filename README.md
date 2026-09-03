@@ -834,7 +834,7 @@ ended with the same deferred error as the delivered run (hold violations, exit 2
 | Antenna violating nets | 0 | **1** (`net8879`, CPU multiplier, not JTAG logic) | +1 |
 | Setup WNS TT / SS / FF (ns) | +2.210 / −9.083 / +4.375 | **+2.303 / −11.983 / +4.390** | +0.09 / **−2.90** / +0.02 |
 | Hold WNS TT / SS / FF (ns) | −0.323 / +0.227 / −0.382 | −0.611 / −0.381 / −0.539 | −0.29 / −0.61 / −0.16 |
-| Hold-violating endpoints TT / SS / FF | 136-class (AI accel → SRAM, §9.9) | 136 / 13 / 207 — **0 in JTAG logic** | same family |
+| Hold-violating endpoints TT / SS / FF | 48 / 0 / 112 (AI accel → SRAM, §9.9) | 136 / 13 / 207 — **0 in JTAG logic** | same family, more endpoints |
 | SS closes at | ≈34.4 MHz | ≈31.3 MHz | −3.1 MHz |
 | Std-cell instances / area | 296,005 / 1.249 mm² | 309,985 / 1.337 mm² | +4.7 % / +7.0 % |
 | Sequential cells | 8,920 | 10,094 | +1,174 |
