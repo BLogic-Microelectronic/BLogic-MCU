@@ -814,9 +814,45 @@ delivered synthesis (61,679 cells / 727,453 µm² vs. 61,823 / 728,153 for `asic
 27 SRAM macros in both); with `JTAG_DEBUG` the design grows to **66,852 cells /
 793,738 µm²** — **+5,173 cells (+8.4 %), +66,285 µm² std-cell area (+9.1 %),
 +1,172 flip-flops** (8,922 → 10,094), macros unchanged. On the 18.77 mm² die that is
-≈0.4 % of the die area, so the revision fits the existing floorplan; its timing impact
-is only known after a full PnR run (planned as a separate VM run, never touching the
-delivered `RUN_teslim_2026-08-14`).
+≈0.4 % of the die area, so the revision fits the existing floorplan.
+
+**Full flow of the JTAG variant (VM1, 3 September 2026, 215 min, all 80 Classic
+stages).** `scripts/vm_jtag_asic.sh STEPS=full` runs the *delivered* `asic/config.yaml`
+settings unchanged (die/core, macro placement, PDN, obstructions, 3-corner STA, KLayout
+DRC, LVS, XOR) on `asic_top` + `JTAG_DEBUG`; `rtl/asic/asic_top.sv` gained the five
+JTAG pins under `` `ifdef JTAG_DEBUG `` (preprocessed output without the define is
+byte-identical, verified with `verilator -E`), and `design_jtag.sdc` = the delivered SDC
+plus a 100 ns `jtag_tck` clock, an asynchronous `clk`/`jtag_tck` group and the JTAG pin
+budgets. Evidence in `rtl/debug/asic_jtag_sentez/full/` (metrics, comparison table,
+STA summary and worst paths per corner, antenna summary, config, SDC, run log). The run
+ended with the same deferred error as the delivered run (hold violations, exit 2).
+
+| metric | delivered (RUN_teslim_2026-08-14) | JTAG variant | Δ |
+|---|---|---|---|
+| Route DRC / KLayout DRC / LVS / XOR | 0 / 0 / 0 / 0 | **0 / 0 / 0 / 0** | — |
+| Magic DRC (macro false positives, see §9.9) | 9,201 | 9,201 | 0 |
+| Antenna violating nets | 0 | **1** (`net8879`, CPU multiplier, not JTAG logic) | +1 |
+| Setup WNS TT / SS / FF (ns) | +2.210 / −9.083 / +4.375 | **+2.303 / −11.983 / +4.390** | +0.09 / **−2.90** / +0.02 |
+| Hold WNS TT / SS / FF (ns) | −0.323 / +0.227 / −0.382 | −0.611 / −0.381 / −0.539 | −0.29 / −0.61 / −0.16 |
+| Hold-violating endpoints TT / SS / FF | 136-class (AI accel → SRAM, §9.9) | 136 / 13 / 207 — **0 in JTAG logic** | same family |
+| SS closes at | ≈34.4 MHz | ≈31.3 MHz | −3.1 MHz |
+| Std-cell instances / area | 296,005 / 1.249 mm² | 309,985 / 1.337 mm² | +4.7 % / +7.0 % |
+| Sequential cells | 8,920 | 10,094 | +1,174 |
+| Utilization (with macros / std-cell) | 49.9 % / 12.3 % | 50.4 % / 13.2 % | +0.5 / +0.9 pt |
+| Power (TT, metrics.json) | 118.3 mW | 123.2 mW | +4.9 mW (+4.1 %) |
+| IR drop worst / avg | 1.54 mV / 9.8 µV | 2.35 mV / 12.2 µV | still < 0.15 % of 1.8 V |
+
+Reading: manufacturability signoff is unchanged (DRC/LVS/XOR clean, one antenna net in
+the CPU multiplier that a rerun or diode insertion would clear). The one real cost is
+**SS setup**: the worst path is now the CPU instruction-fetch address path
+(`id_stage` → `cs_registers` CSR read → interrupt controller → `controller.pc_mux` →
+`if_stage`) continuing through the crossbar and the combinational `axi_dm_slave` into
+`dm_mem` (debug ROM / program buffer at 0x0004_0000) — 451 of the 2,310 worst listed
+SS paths end in DM/DTM logic. The delivered design's own SS limit (−9.08 ns, AI
+accelerator) is untouched underneath. **Recommended fix before any merge:** a request
+register stage in `rtl/debug/axi_dm_slave.sv` (DM memory accesses tolerate one cycle of
+latency), which removes the DM endpoints from the SS critical set; hold violations are
+the known AI-accelerator → SRAM-macro family and contain no JTAG endpoints.
 The same branch also carries the one-line **FC-1** fix (`asic/README.md` §9.5) and the
 `i2c_sda_i` 2FF synchroniser.
 
