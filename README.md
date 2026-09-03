@@ -932,10 +932,34 @@ The DM and DTM endpoints left the critical set completely, in both setup and hol
 the one antenna net of v1 is gone; the register layer itself cost 769 std cells. The
 remaining −10.26 ns is the core's own ALU/divider path (`id_stage` →
 `ex_stage.alu_i.alu_div_i` → `id_stage`), which sits at −8.26 ns in the delivered run.
-That ~2 ns is clock tree, not logic: with 1,213 more flip-flops CTS builds deeper (SS
-clock skew goes from −2.58 ns in the delivered run to +3.58 ns here, and the clock
-delay to the instruction-SRAM macro grows 13.81 → 14.64 ns at TT), so it is a cost
-that CTS settings or another run can take back. The delivered design is untouched by
+**Where the margin actually goes (measured 3 September; this corrects an earlier
+reading in this file).** The first explanation here was "with 1,213 more flip-flops CTS
+builds deeper". That is wrong and the run data refutes it. TritonCTS reports no extra
+depth at all — `clk_i_regs` path depth is 7-8 in the delivered run and 6-7 in v2, i.e.
+one level *shallower* — and v1, which adds 1,176 sinks over the delivered run, produced
+a shallower launch branch and a slightly *better* TT margin (+2.303 vs +2.210 ns). The
+earlier "SS skew −2.58 → +3.58 ns" comparison was also apples to oranges: those two
+numbers come from different register pairs. Global SS skew grows 4.028 → 4.401 ns.
+
+Two things do hold, and they are where the work goes next:
+
+* **On the critical path the launch clock got longer, by placement luck rather than
+  depth.** 0.836 ns of the 1.150 ns TT loss (72.7 %) is launch-side clock delay, the
+  rest being 0.266 ns of post-SRAM logic and 0.067 ns of macro `CLK→Q`. The netlist
+  change moved the CPU clock-gate buffer, it landed under a different parent, and the
+  eight-deep `clkbuf_16` delay-balancing chain (`delaybuf_26…33`) moved from the CPU
+  branch onto the instruction-SRAM branch — that single relocation costs 1.091 ns.
+  The common launch/capture path also collapsed from three stages to one.
+* **The loss is created in the resizers, not in CTS.** Straight out of CTS v2 is
+  *better* than the delivered run (TT +0.694 vs +0.252 ns, with equal global skew).
+  The post-CTS resizer then recovers +2.483 ns for the delivered design but only
+  +1.231 ns for v2. The likely reason is corner budgeting: `RSZ_CORNERS` covers all
+  three corners, and v2's SS is 1.72 ns *better* than v1's (−10.262 vs −11.983) while
+  its TT is 1.24 ns worse — the resizer is spending effort on an SS corner that cannot
+  close at 20 ns in any case.
+
+So the margin looks recoverable through CTS and resizer settings rather than through
+RTL, and a variant sweep is the way to prove it. The delivered design is untouched by
 any of this — separate branch, separate run directory.
 The same branch also carries the one-line **FC-1** fix (`asic/README.md` §9.5) and the
 `i2c_sda_i` 2FF synchroniser.
