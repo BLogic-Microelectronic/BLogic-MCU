@@ -798,6 +798,15 @@ IDCODE `0x0B1061C1`.
 | `make jtag-sim TBCOV=--coverage-line` | Verilator | line coverage of the new RTL: `axi_dm_slave` 35/35, crossbar 78/78 (DM legs included), `soc_top` JTAG block 10/10 = **100 %**; vendored `dm_mem` 85 %, `dmi_jtag_tap` 82 % |
 | `make regression` (no define) | Verilator + Spike | 6/6 — main-branch behaviour unchanged |
 
+Re-run on 3 September with the **registered** `axi_dm_slave` (request at T, DM at
+T+1, response at T+2): `make jtag-sim` 9/9, `make jtag-openocd` PASS
+(`demo_run_v2_openocd_2026-09-03.log`), `make jtag-gdb` PASS with the xPack
+`riscv32-unknown-elf-gdb` 13.2 standing in for `gdb-multiarch`
+(`demo_run_v2_gdb_2026-09-03.log`: `Breakpoint 1, 0x000100e8 in main ()`, `stepi`×3,
+`a0` = `0x0badcafe`, `*0x21000` = `0x600df00d`); `make regression` without the define:
+the 4 functional tests PASS, the 2 Spike lock-step tests could not run on the laptop
+(no Spike installed — they are the 6/6 of the row above on the machine that has it).
+
 Known limitations, documented rather than hidden: the firmware is built without `-g`
 (the gdb demo uses `stepi`/`x/i`); CV32E40P has a single hardware trigger, so a
 breakpoint must be deleted before single-stepping; the instruction SRAM is

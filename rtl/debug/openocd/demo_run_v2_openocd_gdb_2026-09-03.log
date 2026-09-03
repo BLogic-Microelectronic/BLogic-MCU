@@ -1,0 +1,29 @@
+Open On-Chip Debugger 0.12.0+dev-geb01c63 (2026-05-08-21:45)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : Initializing remote_bitbang driver
+Info : Connecting to localhost:9999
+Info : remote_bitbang driver initialized
+Info : Note: The adapter "remote_bitbang" doesn't support configurable speed
+Info : JTAG tap: blogic.cpu tap/device found: 0x0b1061c1 (mfg: 0x0e0 (Truevision), part: 0xb106, ver: 0x0)
+Info : [blogic.cpu] datacount=2 progbufsize=8
+Info : [blogic.cpu] Examined RISC-V core
+Info : [blogic.cpu]  XLEN=32, misa=0x40001104
+[blogic.cpu] Target successfully examined.
+Info : [blogic.cpu] Examination succeed
+Info : [blogic.cpu] starting gdb server on 3333
+Info : Listening on port 3333 for gdb connections
+blogic.cpu halted due to debug-request.
+Info : Listening on port 6666 for tcl connections
+Info : Listening on port 4444 for telnet connections
+Info : accepting 'gdb' connection on tcp/3333
+blogic.cpu halted due to debug-request.
+DEPRECATED! use 'gdb breakpoint_override', not 'gdb_breakpoint_override'
+force hard breakpoints
+Info : JTAG tap: blogic.cpu tap/device found: 0x0b1061c1 (mfg: 0x0e0 (Truevision), part: 0xb106, ver: 0x0)
+Info : [blogic.cpu] Found 1 triggers
+blogic.cpu halted due to debug-request.
+Info : dropped 'gdb' connection
+shutdown command invoked
+Info : remote_bitbang interface quit
