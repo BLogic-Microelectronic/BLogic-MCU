@@ -10,9 +10,22 @@
 // de Halted/Going bayraklarina yazip data0'i okuyabilir (data_slv); bu
 // yuzden iki AXI portu tek DM portuna sabit oncelikle tahkim edilir:
 //   veri yazma > veri okuma > buyruk okuma
-// Zamanlama sozlesmesi axi_sram_wrapper/boot_rom ile aynidir: adres T,
-// veri T+1 (r_valid ile). Okuma yaniti tuketilene kadar yeni okuma
-// kabul edilmez (DM'in tek rdata yazmaci ezilmesin).
+//
+// ISTEK YAZMACI (3 Eylul 2026, SS zamanlama bulgusu):
+//   Ilk surum istegi (adres/veri/req) DM'e KOMBINASYONEL gecirirdi. VM1'de
+//   JTAG_DEBUG'li tam akis (rtl/debug/asic_jtag_sentez/full/) SS kosesinde
+//   en kotu yolun cekirdegin komut-getirme adres yolu (id_stage -> csr ->
+//   controller.pc_mux -> if_stage) + crossbar + bu kopru -> dm_mem oldugunu
+//   gosterdi: -11,98 ns (teslim -9,08), en kotu 1000 SS yolunun 140'i DM
+//   ucunda. Bu surumde kabul edilen istek ONCE yazmaca alinir, DM'e bir
+//   cevrim sonra sunulur; boylece crossbar'dan gelen tum yollar bu modulun
+//   yazmaclarinda biter (axi_sram_wrapper'daki gibi). Bedel: DM erisimi
+//   1 cevrim gec (adres T, DM'de T+1, yanit T+2). Debug ROM / program buffer
+//   erisimleri gecikmeye duyarsizdir; OpenOCD/gdb protokolu etkilenmez.
+//   Yanit tuketilene kadar (r_valid && !r_ready, b_valid && !b_ready) ve
+//   yazmacta istek varken (req_q) yeni istek kabul edilmez: DM'in tek rdata
+//   yazmaci ezilmez, adres DM'e sabit sunulur (dm_mem'in okuma secicileri
+//   addr_i'yi her cevrim ornekler).
 `timescale 1ns / 1ps
 
 module axi_dm_slave #(
@@ -33,67 +46,85 @@ module axi_dm_slave #(
     input  logic [31:0] dm_rdata_i
 );
 
-    // Tuketilmemis okuma yaniti varken DM'e yeni okuma verilmez
-    logic rd_pending;
-    assign rd_pending = (instr_slv.r_valid && !instr_slv.r_ready) ||
-                        (data_slv.r_valid  && !data_slv.r_ready);
+    // ---- istek yazmaci ----
+    logic                    req_q, we_q, instr_q;
+    logic [31:0]             addr_q, wdata_q;
+    logic [ 3:0]             be_q;
+    logic [AXI_ID_WIDTH-1:0] id_q;
 
-    // ---- veri yazma ----
+    // Tuketilmemis yanit varken ya da yazmacta istek beklerken yeni istek yok
+    logic resp_pending, busy;
+    assign resp_pending = (instr_slv.r_valid && !instr_slv.r_ready) ||
+                          (data_slv.r_valid  && !data_slv.r_ready)  ||
+                          (data_slv.b_valid  && !data_slv.b_ready);
+    assign busy = req_q || resp_pending;
+
+    // ---- veri yazma (en yuksek oncelik) ----
     // AW ve W ATOMIK kabul edilir: her ready, kardes kanalin valid'ine de
     // baglidir (AXI: ready valid'e bagli olabilir, tersi olamaz). Boylece
     // AW'yi W'den once gonderen bir master'in AW'si "kabul edilip" dusmez.
-    // Yazma, tuketilmemis okuma yaniti varken de bekletilir: dm_mem'in okuma
-    // secicileri (fwd_rom_q, word_enable32_q) req'siz de addr_i'yi ornekler,
-    // yani araya giren yazma bekleyen r_data'yi bozardi.
-    logic dw_en;
-    assign data_slv.aw_ready = !rd_pending && data_slv.w_valid  &&
-                               (!data_slv.b_valid || data_slv.b_ready);
-    assign data_slv.w_ready  = !rd_pending && data_slv.aw_valid &&
-                               (!data_slv.b_valid || data_slv.b_ready);
-    assign dw_en = data_slv.aw_valid && data_slv.w_valid &&
-                   data_slv.aw_ready && data_slv.w_ready;
+    logic dw_en, dr_en, ir_en;
+    assign data_slv.aw_ready = !busy && data_slv.w_valid;
+    assign data_slv.w_ready  = !busy && data_slv.aw_valid;
+    assign dw_en = data_slv.aw_valid && data_slv.w_valid && !busy;
 
     // ---- veri okuma ----
-    logic dr_en;
-    assign data_slv.ar_ready = !rd_pending && !dw_en;
+    assign data_slv.ar_ready = !busy && !dw_en;
     assign dr_en = data_slv.ar_valid && data_slv.ar_ready;
 
     // ---- buyruk okuma (en dusuk oncelik) ----
-    // NOT: buyruk portunun ar_ready'si (= cekirdege instr_gnt) burada veri
-    // portunun valid/adres dekoduna kombinasyonel bagli olur (dw_en/dr_en).
-    // Dongu yok (valid hicbir yerde ready'ye bagli degil); STA acisindan
-    // yeni bir yol: data adres dekodu -> ir ar_ready -> crossbar -> obi gnt.
-    logic ir_en;
-    assign instr_slv.ar_ready = !rd_pending && !dw_en && !dr_en;
+    // NOT: buyruk portunun ar_ready'si (= cekirdege instr_gnt) veri portunun
+    // valid'ine kombinasyonel baglidir (dw_en/dr_en). Dongu yok (valid hicbir
+    // yerde ready'ye bagli degil); bu, her AXI slave'in ar_ready -> obi gnt
+    // yoluyla ayni siniftadir (axi_sram_wrapper).
+    assign instr_slv.ar_ready = !busy && !dw_en && !dr_en;
     assign ir_en = instr_slv.ar_valid && instr_slv.ar_ready;
 
-    // ---- DM portu ----
-    // dm_mem'in okuma secicileri (word_enable32_q, fwd_rom_q) addr_i'yi
-    // HER cevrim ornekler (req olmasa da). Bu yuzden adres, son istegin
-    // adresinde TUTULUR; yoksa yanit beklerken degisen adres rdata_o'yu
-    // bozardi. Yeni istek geldiginde onun adresi surulur ve kaydedilir.
-    logic [31:0] dm_addr_sel, dm_addr_q;
-    assign dm_req_o    = dw_en || dr_en || ir_en;
-    assign dm_we_o     = dw_en;
-    assign dm_addr_sel = dw_en ? data_slv.aw_addr
-                       : dr_en ? data_slv.ar_addr
-                               : instr_slv.ar_addr;
+    // ---- kabul edilen istek yazmaca alinir ----
     always_ff @(posedge clk_i or negedge rst_ni) begin
-        if (!rst_ni)        dm_addr_q <= 32'h0;
-        else if (dm_req_o)  dm_addr_q <= dm_addr_sel;
+        if (!rst_ni) begin
+            req_q   <= 1'b0;
+            we_q    <= 1'b0;
+            instr_q <= 1'b0;
+            addr_q  <= 32'h0;
+            wdata_q <= 32'h0;
+            be_q    <= 4'b1111;
+            id_q    <= '0;
+        end else begin
+            req_q <= dw_en || dr_en || ir_en;
+            if (dw_en || dr_en || ir_en) begin
+                we_q    <= dw_en;
+                instr_q <= ir_en;
+                addr_q  <= dw_en ? data_slv.aw_addr
+                         : dr_en ? data_slv.ar_addr
+                                 : instr_slv.ar_addr;
+                wdata_q <= data_slv.w_data;
+                be_q    <= dw_en ? data_slv.w_strb : 4'b1111;
+                id_q    <= dw_en ? data_slv.aw_id
+                         : dr_en ? data_slv.ar_id
+                                 : instr_slv.ar_id;
+            end
+        end
     end
-    assign dm_addr_o  = dm_req_o ? dm_addr_sel : dm_addr_q;
-    assign dm_be_o    = dw_en ? data_slv.w_strb : 4'b1111;
-    assign dm_wdata_o = data_slv.w_data;
 
-    // ---- veri B kanali ----
+    // ---- DM portu: tamamen yazmactan surulur ----
+    // Adres, bir sonraki istek kabul edilene kadar TUTULUR (dm_mem'in
+    // fwd_rom_q / word_enable32_q secicileri addr_i'yi req'siz de ornekler;
+    // degisen adres bekleyen rdata'yi bozardi).
+    assign dm_req_o   = req_q;
+    assign dm_we_o    = req_q && we_q;
+    assign dm_addr_o  = addr_q;
+    assign dm_be_o    = be_q;
+    assign dm_wdata_o = wdata_q;
+
+    // ---- veri B kanali (yazma DM'de T+1, yanit T+2) ----
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
             data_slv.b_valid <= 1'b0;
             data_slv.b_id    <= '0;
-        end else if (dw_en) begin
+        end else if (req_q && we_q) begin
             data_slv.b_valid <= 1'b1;
-            data_slv.b_id    <= data_slv.aw_id;
+            data_slv.b_id    <= id_q;
         end else if (data_slv.b_valid && data_slv.b_ready) begin
             data_slv.b_valid <= 1'b0;
         end
@@ -101,14 +132,14 @@ module axi_dm_slave #(
     assign data_slv.b_resp = 2'b00;
     assign data_slv.b_user = '0;
 
-    // ---- veri R kanali ----
+    // ---- veri R kanali (okuma DM'de T+1, rdata T+2'de gecerli) ----
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
             data_slv.r_valid <= 1'b0;
             data_slv.r_id    <= '0;
-        end else if (dr_en) begin
+        end else if (req_q && !we_q && !instr_q) begin
             data_slv.r_valid <= 1'b1;
-            data_slv.r_id    <= data_slv.ar_id;
+            data_slv.r_id    <= id_q;
         end else if (data_slv.r_valid && data_slv.r_ready) begin
             data_slv.r_valid <= 1'b0;
         end
@@ -123,9 +154,9 @@ module axi_dm_slave #(
         if (!rst_ni) begin
             instr_slv.r_valid <= 1'b0;
             instr_slv.r_id    <= '0;
-        end else if (ir_en) begin
+        end else if (req_q && instr_q) begin
             instr_slv.r_valid <= 1'b1;
-            instr_slv.r_id    <= instr_slv.ar_id;
+            instr_slv.r_id    <= id_q;
         end else if (instr_slv.r_valid && instr_slv.r_ready) begin
             instr_slv.r_valid <= 1'b0;
         end
@@ -145,12 +176,15 @@ module axi_dm_slave #(
 
     // ---- sozlesme denetimleri (yalniz simulasyon) ----
     // Bugunku master'lar (obi_to_axi) r_ready'yi her zaman yuksek tuttugu
-    // icin rd_pending pratikte hic 1 olmaz; bu denetimler, ileride bir master
-    // degisirse tutma sozlesmesinin sessizce bozulmamasi icindir.
+    // icin resp_pending pratikte nadiren 1 olur; bu denetimler, ileride bir
+    // master degisirse tutma sozlesmesinin sessizce bozulmamasi icindir.
 `ifndef SYNTHESIS
     assert property (@(posedge clk_i) disable iff (!rst_ni)
-        rd_pending |-> (!dm_req_o && $stable(dm_addr_o)))
+        resp_pending |-> (!dm_req_o && $stable(dm_addr_o)))
         else $error("axi_dm_slave: yanit beklenirken DM istegi/adresi degisti");
+    assert property (@(posedge clk_i) disable iff (!rst_ni)
+        busy |-> !(dw_en || dr_en || ir_en))
+        else $error("axi_dm_slave: mesgulken istek kabul edildi");
     assert property (@(posedge clk_i) disable iff (!rst_ni)
         !(instr_slv.r_valid && data_slv.r_valid))
         else $error("axi_dm_slave: iki portta ayni anda okuma yaniti");
