@@ -781,7 +781,10 @@ The UVM library is vendored under `verif/uvm-lib` — no external clone is neede
 **What was integrated.** PULP `riscv-dbg` (RISC-V Debug Spec 0.13: JTAG TAP, DTM,
 Debug Module) mapped at `0x0004_0000` (4 KB). A new bridge `rtl/debug/axi_dm_slave.sv`
 arbitrates the CPU's instruction and data AXI ports onto the DM's single memory port
-(debug-ROM fetches and `data0`/`progbuf` accesses), the crossbar gained the DM legs,
+(debug-ROM fetches and `data0`/`progbuf` accesses; since 3 September the accepted
+request is registered first and presented to the DM one cycle later — address at T,
+DM at T+1, response at T+2 — so every crossbar path ends in this module's flip-flops,
+see the SS timing finding below), the crossbar gained the DM legs,
 `dm_halt_addr = 0x40800`, `dm_exception_addr = 0x40810`, `debug_req` drives the
 CV32E40P, and `ndmreset` resets the whole SoC except the DM and TAP. Memory access
 is *program-buffer only* (SBA tied off to an error-completing stub);
@@ -853,6 +856,12 @@ accelerator) is untouched underneath. **Recommended fix before any merge:** a re
 register stage in `rtl/debug/axi_dm_slave.sv` (DM memory accesses tolerate one cycle of
 latency), which removes the DM endpoints from the SS critical set; hold violations are
 the known AI-accelerator → SRAM-macro family and contain no JTAG endpoints.
+**Applied the same day:** `axi_dm_slave.sv` now registers the accepted request
+(commit "istek yazmaci katmani"); with the registered bridge `make jtag-sim` still
+passes 9/9 and `make jtag-openocd` its full demo (halt, `a0` round-trip, `mdw`,
+hardware breakpoint, `reset halt`). The full sky130 flow of this second revision
+(VM1 run `full/run`, first run kept as `run_v1_kombinasyonel`) is reported in the
+next paragraph.
 The same branch also carries the one-line **FC-1** fix (`asic/README.md` §9.5) and the
 `i2c_sda_i` 2FF synchroniser.
 
