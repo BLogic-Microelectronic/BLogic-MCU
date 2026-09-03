@@ -889,7 +889,10 @@ FF 8,639 → **9,713** (+1,074), BRAM 14 / DSP 10 unchanged; timing met at
 WNS **+2.256 ns** / WHS **+0.031 ns** (delivered: +3.089 / +0.068), `jtag_tck` WNS
 94.8 ns, 0 routing errors, 0 DRC violations. The debug blocks themselves take
 `i_dm_top` 470 LUT / 665 FF and `i_dmi_jtag` 582 LUT / 362 FF (TAP 79 LUT),
-`axi_dm_slave` 15 FF.
+`axi_dm_slave` 15 FF. Rebuilt with the registered bridge (3 September, second
+build, the committed `fpga_top_jtag.bit` and `reports_jtag/`): LUT 13,775 / FF 9,752
+(`axi_dm_slave` 183 LUT / 54 FF), WNS **+2.538 ns** / WHS **+0.085 ns** — better than
+the first build, still with 0 routing errors.
 
 ---
 

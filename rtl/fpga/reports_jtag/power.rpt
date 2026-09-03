@@ -1,7 +1,7 @@
 Copyright 1986-2021 Xilinx, Inc. All Rights Reserved.
 ----------------------------------------------------------------------------------------
 | Tool Version     : Vivado v.2021.2 (win64) Build 3367213 Tue Oct 19 02:48:09 MDT 2021
-| Date             : Thu Sep  3 02:35:25 2026
+| Date             : Thu Sep  3 10:35:42 2026
 | Host             : Berk66 running 64-bit major release  (build 9200)
 | Command          : report_power -file Y:/build/fpga_jtag_reports/power.rpt
 | Design           : fpga_top
@@ -30,10 +30,10 @@ Table of Contents
 ----------
 
 +--------------------------+--------------+
-| Total On-Chip Power (W)  | 0.326        |
+| Total On-Chip Power (W)  | 0.328        |
 | Design Power Budget (W)  | Unspecified* |
 | Power Budget Margin (W)  | NA           |
-| Dynamic (W)              | 0.164        |
+| Dynamic (W)              | 0.166        |
 | Device Static (W)        | 0.161        |
 | Effective TJA (C/W)      | 1.8          |
 | Max Ambient (C)          | 84.4         |
@@ -53,20 +53,20 @@ Table of Contents
 | On-Chip                 | Power (W) | Used     | Available | Utilization (%) |
 +-------------------------+-----------+----------+-----------+-----------------+
 | Clocks                  |     0.015 |        6 |       --- |             --- |
-| Slice Logic             |     0.011 |    27675 |       --- |             --- |
-|   LUT as Logic          |     0.010 |    13770 |    203800 |            6.76 |
+| Slice Logic             |     0.012 |    27723 |       --- |             --- |
+|   LUT as Logic          |     0.011 |    13773 |    203800 |            6.76 |
 |   CARRY4                |    <0.001 |      495 |     50950 |            0.97 |
-|   Register              |    <0.001 |     9713 |    407600 |            2.38 |
+|   Register              |    <0.001 |     9752 |    407600 |            2.39 |
 |   F7/F8 Muxes           |    <0.001 |     1390 |    203800 |            0.68 |
 |   LUT as Shift Register |    <0.001 |        2 |     64000 |           <0.01 |
 |   Others                |     0.000 |      128 |       --- |             --- |
-| Signals                 |     0.014 |    19906 |       --- |             --- |
+| Signals                 |     0.014 |    19951 |       --- |             --- |
 | Block RAM               |     0.006 |       14 |       445 |            3.15 |
 | MMCM                    |     0.107 |        1 |        10 |           10.00 |
 | DSPs                    |     0.003 |       10 |       840 |            1.19 |
 | I/O                     |     0.009 |       43 |       500 |            8.60 |
 | Static Power            |     0.161 |          |           |                 |
-| Total                   |     0.326 |          |           |                 |
+| Total                   |     0.328 |          |           |                 |
 +-------------------------+-----------+----------+-----------+-----------------+
 
 
@@ -76,7 +76,7 @@ Table of Contents
 +-----------+-------------+-----------+-------------+------------+-------------+-------------+------------+
 | Source    | Voltage (V) | Total (A) | Dynamic (A) | Static (A) | Powerup (A) | Budget (A)  | Margin (A) |
 +-----------+-------------+-----------+-------------+------------+-------------+-------------+------------+
-| Vccint    |       1.000 |     0.119 |       0.050 |      0.069 |       NA    | Unspecified | NA         |
+| Vccint    |       1.000 |     0.121 |       0.051 |      0.069 |       NA    | Unspecified | NA         |
 | Vccaux    |       1.800 |     0.089 |       0.061 |      0.028 |       NA    | Unspecified | NA         |
 | Vcco33    |       3.300 |     0.002 |       0.001 |      0.001 |       NA    | Unspecified | NA         |
 | Vcco25    |       2.500 |     0.000 |       0.000 |      0.000 |       NA    | Unspecified | NA         |
@@ -149,18 +149,18 @@ Table of Contents
 +--------------------+-----------+
 | Name               | Power (W) |
 +--------------------+-----------+
-| fpga_top           |     0.164 |
-|   i_soc            |     0.048 |
+| fpga_top           |     0.166 |
+|   i_soc            |     0.050 |
 |     i_ai_accel     |     0.012 |
 |     i_ai_sram      |     0.004 |
-|     i_cpu          |     0.012 |
-|       core_i       |     0.012 |
+|     i_cpu          |     0.011 |
+|       core_i       |     0.011 |
 |     i_data_sram    |     0.001 |
 |     i_dm_top       |     0.003 |
 |       i_dm_csrs    |     0.002 |
 |     i_instr_sram   |     0.001 |
 |     i_obi_axi_data |     0.002 |
-|     i_qspi         |     0.009 |
+|     i_qspi         |     0.011 |
 +--------------------+-----------+
 
 
