@@ -795,7 +795,7 @@ IDCODE `0x0B1061C1`.
 | `make jtag-sim` | pure-SV TAP bit-bang | **9/9**: UART, IDCODE, DTMCS, DMI→DM, halt (`debug_halted_o`), abstract-command GPR round-trip + progbuf `sw`/`lw` to DSRAM + `dpc`, resume, single-step (`dcsr.cause=4`) + hardware trigger breakpoint (`cause=2`), `ndmreset` → halt at `0x00010000` → firmware restarts (greeting printed twice) |
 | `make jtag-openocd` | OpenOCD 0.12 via `remote_bitbang` | halt, `a0` write/read-back `0x12345678`, `mww`/`mdw 0x21000` → `cafef00d 11223344`, `bp <pc> 4 hw` hit, `reset halt` → `pc=0x00010000` — `rtl/debug/openocd/demo_run_2026-09-02.log` |
 | `make jtag-gdb` | gdb-multiarch 15.1 over OpenOCD `:3333` | `reset halt` → `Breakpoint 1, 0x000100e8 in main ()` → `stepi`×3 → `$a0 = 0x0badcafe`, `*0x21000 = 0x600df00d` — `rtl/debug/openocd/demo_run_gdb_2026-09-02.log` |
-| `make jtag-sim TBCOV=--coverage-line` | Verilator | line coverage of the new RTL: `axi_dm_slave` 35/35, crossbar 78/78 (DM legs included), `soc_top` JTAG block 10/10 = **100 %**; vendored `dm_mem` 85 %, `dmi_jtag_tap` 82 % |
+| `make jtag-sim TBCOV=--coverage-line` | Verilator | line coverage of the new RTL: `axi_dm_slave` 35/35 (49/49 after the 3 Sep register stage), crossbar 78/78 (DM legs included), `soc_top` JTAG block 10/10 = **100 %**; vendored `dm_mem` 85 %, `dmi_jtag_tap` 82 % |
 | `make regression` (no define) | Verilator + Spike | 6/6 — main-branch behaviour unchanged |
 
 Re-run on 3 September with the **registered** `axi_dm_slave` (request at T, DM at
