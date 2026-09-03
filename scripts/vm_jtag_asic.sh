@@ -15,6 +15,9 @@
 # Kullanim (repo kokunden, tercihen nohup ile):
 #   nohup scripts/vm_jtag_asic.sh > build/asic_jtag/run.log 2>&1 &
 # Yalniz bir adim: STEPS="elab" / STEPS="base jtag" / STEPS="ozet"
+#   5) STEPS="full"     - TAM AKIS (sentez->PnR->signoff), asic_top + JTAG_DEBUG,
+#                         teslim config'iyle birebir ayarlar (~3,5 saat, 8 cekirdek)
+#   6) STEPS="fullozet" - tam akis metrikleri (WNS/WHS kose basina, DRC/LVS/anten, alan)
 set -u
 cd "$(dirname "$0")/.."
 REPO=$PWD
@@ -89,6 +92,34 @@ for k in keys:
         print("%-40s %14.1f %14.1f %+14.1f" % (k, vb, vj, vj-vb))
     else:
         print("%-40s %14s %14s" % (k, vb, vj))
+PY
+fi
+if has full; then
+  d=build/asic_jtag/full; run=$REPO/$d/run
+  python3 scripts/jtag_asic_config.py || exit 1
+  rm -rf "$run"; mkdir -p "$run"
+  say "5) TAM AKIS basliyor: $d/run (teslim ayarlari + JTAG_DEBUG)"
+  "$REPO/$ENV" librelane "$REPO/$d/config.yaml" --flow Classic --force-run-dir "$run" > "$d/librelane.log" 2>&1
+  rc=$?
+  say "   tam akis bitti, cikis kodu $rc (log: $d/librelane.log)"
+  grep -E "^\[ERROR\]|Error:" "$d/librelane.log" | grep -v "network is combinational" | head -5
+fi
+
+if has fullozet; then
+  say "6) tam akis ozeti"
+  python3 - <<'PY'
+import json, os, re
+p = "build/asic_jtag/full/run/final/metrics.json"
+if not os.path.exists(p):
+    print("metrics.json yok:", p); raise SystemExit
+m = json.load(open(p))
+pat = re.compile(r"^(timing__(setup|hold)__(ws|tns|vio)|design__instance__(count|area|utilization)|design__die__bbox|"
+                 r"route__drc_errors|route__antenna_violation|antenna__|magic__drc|klayout__drc|design__lvs|"
+                 r"design__xor|power__total|ir__|synthesis__check|design__max_(slew|fanout|cap)|clock__|"
+                 r"timing__unannotated|design__disconnected|design__critical)")
+for k in sorted(m):
+    if pat.match(k):
+        print("%-70s %s" % (k, m[k]))
 PY
 fi
 say "toplam sure: $(( ($(date +%s)-T0)/60 )) dk"

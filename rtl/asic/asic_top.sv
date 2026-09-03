@@ -31,6 +31,16 @@ module asic_top (
     output logic        i2c_scl_o,
     output logic        i2c_sda_oe_o,
     input  logic        i2c_sda_i
+`ifdef JTAG_DEBUG
+    ,
+    // JTAG TAP pinleri - YALNIZ JTAG_DEBUG (deneme/jtag). Tanim yokken port
+    // listesi ve mantik teslimle birebir (soc_top ile ayni koruma).
+    input  logic        jtag_tck_i,
+    input  logic        jtag_tms_i,
+    input  logic        jtag_tdi_i,
+    input  logic        jtag_trst_ni,
+    output logic        jtag_tdo_o
+`endif
 );
 
     soc_top #(
@@ -55,6 +65,14 @@ module asic_top (
         .i2c_scl_o    (i2c_scl_o),
         .i2c_sda_oe_o (i2c_sda_oe_o),
         .i2c_sda_i    (i2c_sda_i)
+`ifdef JTAG_DEBUG
+        ,
+        .jtag_tck_i   (jtag_tck_i),
+        .jtag_tms_i   (jtag_tms_i),
+        .jtag_tdi_i   (jtag_tdi_i),
+        .jtag_trst_ni (jtag_trst_ni),
+        .jtag_tdo_o   (jtag_tdo_o)
+`endif
     );
 
 endmodule
