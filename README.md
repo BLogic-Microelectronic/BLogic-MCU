@@ -959,8 +959,45 @@ Two things do hold, and they are where the work goes next:
   close at 20 ns in any case.
 
 So the margin looks recoverable through CTS and resizer settings rather than through
-RTL, and a variant sweep is the way to prove it. The delivered design is untouched by
-any of this — separate branch, separate run directory.
+RTL — and a 12-variant sweep proved it (`rtl/debug/asic_jtag_sentez/full_v3/`).
+
+**Variant sweep and the v3 run (VM1, 3-4 September 2026).** Each variant reused the
+same `config.yaml` with `-c KEY=VALUE` overrides in its own run directory, stopped at
+`--to OpenROAD.STAMidPNR-3`, six at a time. The result was not what the diagnosis
+predicted: the knob that targets the measured mechanism did **nothing**.
+`CTS_DELAY_BUFFER_DERATE_PCT` at both 50.0 and 0.0 reproduced v2 bit for bit (the flag
+did reach OpenROAD — `-delay_buffer_derate 0.5` is in `openroad-cts.log`), and so did
+`CTS_MAX_CAP` with `CTS_SINK_BUFFER_MAX_CAP_DERATE_PCT`. Widening the resizer setup
+margin made things *worse*, and `PL_TIMING_DRIVEN=true` crashes OpenROAD at step 28
+(`CRITICAL RSZ-2007`). What worked was clustering the macro clock sub-tree, plus
+obstruction-aware CTS and a clock wire-length cap. The full flow with those four
+settings (v3, 3 h 28 min, 78/78 stages) gives:
+
+| | delivered | v2 | **v3** |
+|---|---|---|---|
+| TT setup WS | +2.210 | +1.060 | **+1.684** |
+| SS setup WS | −9.083 | −10.262 | −10.537 |
+| FF setup WS | +4.375 | +3.628 | **+4.010** |
+| TT / SS / FF hold WS | −0.323 / +0.227 / −0.382 | −0.749 / −0.822 / −0.602 | **−0.309 / −0.122 / −0.290** |
+| TT hold TNS | −6.996 | −27.9 | **−8.36** |
+| Route DRC / KLayout / LVS / XOR / antenna | 0 | 0 | **0** |
+| Worst IR drop | 1.54 mV | 2.92 mV | **0.95 mV** |
+
+54 % of the TT setup loss comes back, hold improves at all three corners and returns
+to the delivered level at TT, and area and power are unchanged. The cost, stated
+plainly: SS setup loses another 0.275 ns and 48 JTAG endpoints re-enter the SS
+violator list (v2 had none, v1 had 140). SS does not close in any version — the
+delivered run sits at −9.083 ns — and the limit there is the ALU cone's logic depth,
+not the clock tree, so the trade looks acceptable for a prototype.
+
+One detail worth keeping: straight out of CTS, v2 and v3 report the *same* number
+(+0.6936). The gap opens in the next step (v2 1.925, v3 2.523). These settings do not
+change the tree CTS builds so much as how well the resizer can repair it.
+
+These settings were passed on the command line and deliberately **not** written into
+`asic/config.yaml`; making them permanent would first need a run on the delivered RTL,
+which has not been measured. The delivered design is untouched by any of this —
+separate branch, separate run directory.
 The same branch also carries the one-line **FC-1** fix (`asic/README.md` §9.5) and the
 `i2c_sda_i` 2FF synchroniser.
 

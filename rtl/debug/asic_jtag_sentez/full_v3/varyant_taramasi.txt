@@ -1,0 +1,34 @@
+JTAG v2 TT marj geri kazanim taramasi - adim 45 (OpenROAD.STAMidPNR-3), 3 Eylul 2026
+Tum varyantlar ayni config.yaml + '-c ANAHTAR=DEGER'; v2 referans kosusuna DOKUNULMADI.
+
+id        setup WS    hold WS  ayar
+teslim      1.5659     0.1242  TABAN
+v1          1.5360     0.0515  TABAN
+DB          1.2509     0.2153  D + B  (KAZANAN)
+DBM         1.2191     0.2162  D + CTS_OBSTRUCTION_AWARE + GRT_RESIZER_SETUP_SLACK_MARGIN=0.15
+DBL         1.2132     0.2194  D + CTS_OBSTRUCTION_AWARE + CTS_BALANCE_LEVELS
+D           1.2132     0.2194  CTS_MACRO_CLUSTERING_MAX_DIAMETER=600 + SIZE=2
+B           1.0564     0.1973  CTS_OBSTRUCTION_AWARE + CTS_CLK_MAX_WIRE_LENGTH=900
+A50B        1.0564     0.1973  A50 + B
+D300        0.8526     0.2061  CTS_MACRO_CLUSTERING_MAX_DIAMETER=300 + SIZE=2
+v2          0.7821     0.2527  TABAN
+C           0.7821     0.2527  CTS_MAX_CAP=0.3 + CTS_SINK_BUFFER_MAX_CAP_DERATE_PCT=60.0 [olculdu, kosu dizini sonra silindi]
+A50         0.7821     0.2527  CTS_DELAY_BUFFER_DERATE_PCT=50.0 [olculdu, kosu dizini sonra silindi]
+A00         0.7821     0.2527  CTS_DELAY_BUFFER_DERATE_PCT=0.0 [olculdu, kosu dizini sonra silindi]
+RSZM        0.7534     0.2430  GRT/PL_RESIZER_SETUP_SLACK_MARGIN=0.15
+PLTD         COKTU          -  PL_TIMING_DRIVEN=true  [OpenROAD 28. adimda CRITICAL RSZ-2007 ile cokuyor]
+
+Okuma notlari:
+ * Adim 45 SIRALAMAYI dogru verir, BUYUKLUGU ~%45 eksik raporlar (parazitikler
+   henuz cikarilmamis). Gercek imza rakami adim 57'dedir: v2 adim 45'te 0,782,
+   adim 57'de 1,060 idi.
+ * Etkisiz ciktigi OLCULEN kollar: CTS_DELAY_BUFFER_DERATE_PCT (0.0 ve 50.0 ->
+   v2 ile birebir ayni sonuc; bayragin OpenROAD komut satirina gectigi
+   openroad-cts.log ile dogrulandi), CTS_MAX_CAP + SINK_BUFFER_MAX_CAP_DERATE.
+ * ZARARLI cikan kol: resizer setup marjini 0.15'e cikarmak (taban altina dustu).
+ * KULLANILAMAZ kol: PL_TIMING_DRIVEN=true -> OpenROAD 28. adimda cokuyor
+   ([CRITICAL RSZ-2007] buffering pin i_soc.i_obi_axi_instr._109_/X:
+   wire step options empty).
+ * D ve B TOPLANMIYOR: ayri ayri +0,431 ve +0,274, birlikte +0,469. Ikisi buyuk
+   olcude ayni kusuru duzeltiyor; asil is makro kumelemede.
+ * Daha SIKI kumeleme (300 um) kotu: 0,853. 600 um tatli nokta.

@@ -1,0 +1,2 @@
+[v3] basliyor 18:34:42
+[v3] bitti 22:02:48 rc=2
