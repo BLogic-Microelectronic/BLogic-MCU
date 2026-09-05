@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-sim jtag-openocd-build jtag-openocd jtag-gdb jtag-lint jtag-lint-fpga jtag-equiv jtag-bridge-sim regression-jtag jtag-cov
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-sim jtag-openocd-build jtag-openocd jtag-gdb jtag-board jtag-lint jtag-lint-fpga jtag-equiv jtag-bridge-sim regression-jtag jtag-cov
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -320,6 +320,12 @@ jtag-openocd:
 # (gdb.log, openocd_gdb.log, sim_gdb.log), VERDICT PASS/FAIL (cikis 0/1).
 jtag-gdb:
 	bash scripts/run_jtag_gdb.sh
+
+# GERCEK KARTTA OpenOCD demosu (deneme/jtag, 6 Eylul 2026 PASS). Onkosul: kartta
+# fpga_top_jtag.bit yuklu, FT2232H usbipd ile WSL'e verilmis (scripts/jtag_kart_wsl.ps1),
+# Vivado hw_server kapali. Kanit: rtl/debug/openocd/demo_run_board_<tarih>.log
+jtag-board:
+	bash scripts/run_jtag_board.sh
 
 # JTAG_DEBUG DERLEMESIYLE NORMAL FIRMWARE REGRESYONU (deneme/jtag, bosluk G-12).
 # Bugune kadar JTAG'li SoC'nin normal firmware'i bozmadigi yalniz uart_hello ile
