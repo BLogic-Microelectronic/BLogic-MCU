@@ -80,6 +80,7 @@ The design has been verified through Verilator-based directed and randomized sim
 - The **Peripheral Decoder** (`periph_decoder.sv`) decodes the 32-bit address bus into seven AXI4-Lite slave channels (UART_0, GPIO, Timer, UART_1 Stream, I²C, QSPI, AI Accelerator CSR).
 - Three independent **interrupt sources** feed the CV32E40P irq vector: `timer_irq[16]`, `ai_irq[17]`, `strm_irq[18]`.
 - The **QSPI Master** also connects to an **External Flash** through the FPGA's dedicated CCLK/STARTUPE2 path (Boot Loader flow).
+- The **JTAG debug subsystem** (PULP `riscv-dbg`): an IEEE 1149.1 TAP (`dmi_jtag_tap`; BSCANE2 on the FPGA) and DTM drive the **Debug Module** through a two-phase CDC; the DM's memory window (`0x0004_0000`, debug ROM, program buffer, `data0`) is a fifth AXI4 slave reached through the `axi_dm_slave` bridge from both CPU ports, `debug_req` enters the CV32E40P debug port and `ndmreset` resets everything except the DM and TAP (§10.10). *(Not yet drawn in the diagram above.)*
 
 ---
 
@@ -91,6 +92,7 @@ The design has been verified through Verilator-based directed and randomized sim
 | `0x0001_0000` – `0x0001_1FFF` | **Instruction SRAM** | 8 KB | RWX | Firmware is loaded here from flash |
 | `0x0002_0000` – `0x0002_1FFF` | **Data SRAM** | 8 KB | RW | `.data`, `.bss`, stack, heap |
 | `0x0003_0000` – `0x0003_77FF` | **AI SRAM** | 30 KB | RW | Shared by CPU + AI Accel + UART_1 DMA |
+| `0x0004_0000` – `0x0004_0FFF` | **Debug Module** (riscv-dbg) | 4 KB | RWX | Debug ROM (halt address `0x0004_0800`, exception `0x0004_0810`), program buffer, `data0`; reached from both CPU ports via `axi_dm_slave` (§10.10) |
 | `0x4000_0000` | **UART_0** (general) | 32 B map | RW | TX/RX, baud-configurable |
 | `0x4000_0100` | **GPIO** (16 in / 16 out) | 32 B map | RW | IDR (RO) + ODR (RW) |
 | `0x4000_0200` | **Timer** | 32 B map | RW | Auto-reload + IRQ |
