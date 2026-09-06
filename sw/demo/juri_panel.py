@@ -2427,7 +2427,8 @@ def selftest():
     k = make_komut("lint", "Ubuntu-24.04", "/home/potato/blogic-mcu")
     kontrol("(v) make command", k[-1] == "lint" and k[-2] == "/home/potato/blogic-mcu"
             and "setsid" in k and "bash" in k and "tflite-venv" in MAKE_BETIK
-            and k[:4] == ["wsl.exe", "-d", "Ubuntu-24.04", "-e"]
+            and (k[:4] == ["wsl.exe", "-d", "Ubuntu-24.04", "-e"] if os.name == "nt"
+                 else k[:3] == ["setsid", "-w", "bash"])   # Linux: wsl.exe yok
             and "PANEL_MAKE_START" in MAKE_BETIK and "PANEL_MAKE_RC" in MAKE_BETIK
             and not make_satir_goster("ccache g++ x")
             and make_satir_goster("[SIM] PASS"), " ".join(k[:3]))
