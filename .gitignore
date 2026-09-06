@@ -68,6 +68,8 @@ sw/ai_model/accuracy_report.txt
 !sw/ai_model/golden_vectors/*.hex
 !sw/bootloader/bootrom.hex
 !sw/bootloader/flash_helloworld.hex
+# Questa dalga-formu akisinin firmware paketleri (verif/questa/README.md)
+!verif/questa/fw/**/*.hex
 !teknotest/**/*.hex
 !teknotest/**/*.mem
 !bootrom.hex
@@ -119,3 +121,9 @@ juri_sonuclar_*.txt
 juri_anlik_*.txt
 sw/ai_model/kart_sweep_raporu.txt
 build/vivado_m2.log
+
+# Questa / ModelSim kosu urunleri (verif/questa akisi kok dizinden de kosabilir)
+modelsim.ini
+transcript
+*.wlf
+vsim_stacktrace.vstf
