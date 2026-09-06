@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-gates jtag-sim jtag-openocd-build jtag-openocd jtag-gdb jtag-board lint-fpga jtag-equiv jtag-bridge-sim jtag-cov questa-pack
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-gates jtag-sim jtag-openocd-build jtag-openocd jtag-gdb jtag-board lint-fpga jtag-equiv jtag-bridge-sim jtag-cov questa-pack test-full
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -637,6 +637,38 @@ test-all:
 	echo "====================================================="; \
 	exit $$overall
 
+# TEK KOMUTLA YEREL HER SEY: test-all (18) + kapilar + fiziksel simler + KF5/M3
+# kanitlari. Kart (jtag-board) ve VM (asic_run) adimlari disarida kalir;
+# jtag-gates icindeki OpenOCD/gdb demolari arac yoksa SKIP der. Sure ~40 dk.
+# test-all'in 18 bilesenlik anlami degismez (README 9.2 / dogrulama plani 6).
+test-full:
+	@overall=0; \
+	ta=PASS; $(MAKE) test-all      || { ta=FAIL; overall=1; }; \
+	l=PASS;  $(MAKE) lint          || { l=FAIL;  overall=1; }; \
+	lf=PASS; $(MAKE) lint-fpga     || { lf=FAIL; overall=1; }; \
+	jg=PASS; $(MAKE) jtag-gates    || { jg=FAIL; overall=1; }; \
+	as=PASS; $(MAKE) asic-sram-sim || { as=FAIL; overall=1; }; \
+	at=PASS; $(MAKE) asic-top-sim  || { at=FAIL; overall=1; }; \
+	br=PASS; $(MAKE) boot-real     || { br=FAIL; overall=1; }; \
+	ic=PASS; $(MAKE) isa-compliance || { ic=FAIL; overall=1; }; \
+	au=PASS; $(MAKE) ai-uart-load  || { au=FAIL; overall=1; }; \
+	echo ""; \
+	echo "====================================================="; \
+	echo " TEST-FULL OZETI"; \
+	echo "-----------------------------------------------------"; \
+	echo "  test-all      (18 bilesen, ozeti yukarida) : $$ta"; \
+	echo "  lint          (asic_top, teslim listesi)   : $$l"; \
+	echo "  lint-fpga     (fpga_top + BSCANE2)         : $$lf"; \
+	echo "  jtag-gates    (equiv + OpenOCD/gdb demolari): $$jg"; \
+	echo "  asic-sram-sim (OpenRAM makro modelleri)    : $$as"; \
+	echo "  asic-top-sim  (asic_top + 27 makro, argmax): $$at"; \
+	echo "  boot-real     (gercek C firmware flash boot): $$br"; \
+	echo "  isa-compliance (ISA uyumluluk C testi)     : $$ic"; \
+	echo "  ai-uart-load  (KF5 UART demo yolu simi)    : $$au"; \
+	echo "  (kart: make jtag-board; VM: make -C asic asic_run)"; \
+	echo "====================================================="; \
+	exit $$overall
+
 # JTAG demo paketi: test-all'daki iki JTAG simulasyonu + lint-fpga + define-off
 # izolasyon kaniti (jtag-equiv) + arac varsa OpenOCD/gdb ucdan-uca demolari
 # (openocd / gdb-multiarch yoksa SKIP). Ilk hatada durmaz, sonda ozet basar.
@@ -681,6 +713,7 @@ logs-clean:
 help:
 	@echo "=== Test hedefleri (ana Makefile) ==="
 	@echo "  make test-all    - TUM suit, 18 bilesen (JTAG dahil); sonda ozet tablo (tek komutluk kanit)"
+	@echo "  make test-full   - test-all + lint/lint-fpga + jtag-gates + asic-sram-sim/asic-top-sim + boot-real + isa-compliance + ai-uart-load (~40 dk)"
 	@echo "  make regression  - fonksiyonel+protokol regresyonu (UARTx3 + lockstep minimal/deep + QSPI)"
 	@echo "  make uart-baud   - EK-2 cok-baud kaniti (115200 -> 1 Mbps -> 9600)"
 	@echo "  make uart-stp    - EK-2 stop-bit 1/1.5/2 dogrulamasi (uart_axil TB)"
@@ -719,6 +752,11 @@ help:
 	@echo "  make spike       - etkilesimli spike; HTIF yok -> KENDI KENDINE CIKMAZ (Ctrl+C)"
 	@echo "  make coverage    - line coverage raporu (logs/coverage/)"
 	@echo "  make coverage-tb - modul kapsama kosusu (satir/dal)"
+	@echo "  make isa-compliance - ISA uyumluluk C testi (self-checking, DTR bolum 4)"
+	@echo "  make ai-uart-load - KF5: gorulmemis vektor UART0'dan surulur, sinif dogrulanir (sim); -field: saha zamanlamasi CPB=434 (~10 M cevrim)"
+	@echo "  make ai-acc      - EK-1 dogruluk penceresi: uretim + sim + rapor (40 ornek); ai-batch1000: 1000 ornek (~4 dk)"
+	@echo "  make asic-elab   - sv2v + yosys elaborasyon kapisi (sentez oncesi erken uyari; sv2v/yosys gerekir)"
+	@echo "  make questa-pack - Questa dalga-formu akisi icin firmware paketleri (verif/questa/README.md; verif/questa/wave.bat <test>)"
 	@echo "=== Imaj / kart hedefleri ==="
 	@echo "  make flash-image - tam imaj: fw@0x0 + veri@0x8000 + YZ@0x10000 (FW_SRC=..., FLASH_DATA=...)"
 	@echo "  make flash-bin   - kart icin imaj .bin (flash_firmware.tcl ile yazilir)"

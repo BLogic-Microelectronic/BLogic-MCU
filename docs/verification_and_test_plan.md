@@ -243,7 +243,12 @@ and the `jtag-equiv` isolation proof are grouped in `make jtag-gates`
 demo, `lint-fpga`, `jtag-equiv`) on the same tree. One environment note for
 a fresh machine: `spike` must be on `PATH`; otherwise the two lockstep
 sub-tests report `Spike kayit: 0` and the regression component fails
-without any design fault.
+without any design fault. `make test-full` chains `test-all` with the gates
+and the physical simulations (`lint`, `lint-fpga`, `jtag-gates`,
+`asic-sram-sim`, `asic-top-sim`, `boot-real`, `isa-compliance`,
+`ai-uart-load`) for a single local command; the board demo and the VM flow
+stay separate. The same targets can be launched from the jury panel
+(`sw/demo/juri_panel.py`, "Verification suite").
 
 | # | Target | What it exercises | Pass criterion / key measurement |
 |---|---|---|---|

@@ -526,6 +526,7 @@ make test-all
 | `make jtag-gates` | JTAG package: `jtag-sim`, `jtag-bridge-sim`, `lint-fpga`, `jtag-equiv`, plus the OpenOCD/gdb end-to-end demos when the tools are installed (`SKIP` otherwise) |
 | `make jtag-board` | **OpenOCD on the real Genesys 2** through the on-board USB-JTAG (BSCANE2 tunnel): halt, register and memory read/write, single-step, CSR, hardware breakpoint, `reset halt`/`reset run` — `scripts/run_jtag_board.sh`, evidence `rtl/debug/openocd/demo_run_board_2026-09-06.log` |
 | `scripts/kart_jtag_entegrasyon.py` | **JTAG + AI inference together on the board**: halt/inspect/resume leaves results bit-identical; a hardware breakpoint on `run_hw` catches the UART-delivered vector before inference — evidence `rtl/debug/openocd/demo_run_board_entegrasyon_2026-09-06.log` |
+| `make test-full` | **Everything that runs locally in one command**: `test-all` (18) + `lint` + `lint-fpga` + `jtag-gates` + `asic-sram-sim` + `asic-top-sim` + `boot-real` + `isa-compliance` + `ai-uart-load`, with a second summary table (~40 min). Only the board demo (`jtag-board`) and the VM flow (`asic_run`) stay outside |
 | `verif/questa/wave.bat <test>` (Windows) / `verif/questa/wave.sh <test>` | **Questa / ModelSim waveform flow**: recompiles the delivered configuration from `soc_files.f` in Questa 10.7c, loads the chosen testbench (the ten SystemVerilog testbenches and, through `verif/questa/questa_soc_tb.sv`, the eleven firmware-driven SoC tests) with a ready-made wave window and runs it to its verdict; firmware bundles come from `make questa-pack` and are committed under `verif/questa/fw/` — `verif/questa/README.md` |
 | `make coverage` | SoC line + branch coverage (15 self-checking C tests, single build) |
 | `make coverage-tb` | Per-module block-testbench coverage |
@@ -1557,6 +1558,21 @@ python sw/demo/juri_panel.py
 > (`subst X: "<repo path>"`) and work from `X:\`; the panel copies bitstreams to
 > an ASCII temp directory on its own. Board-verified 2026-09-03: 1000/1000 with
 > `kart_sweep.py --n 1000`, M2 backup boots and classifies without flash.
+
+5. **Verification suite** — the `make` targets from a table inside the panel:
+   the 18 `test-all` components, the gates (`lint`, `lint-fpga`, `jtag-gates`,
+   `asic-sram-sim`, `asic-top-sim`, `coverage`) and the other checks
+   (`boot-real`, `isa-compliance`, `ai-uart-load`, `test-full`, ...). Select
+   rows or a group heading and press **Run selected** (or **Run test-all**);
+   the targets run one after another inside WSL (the panel derives the
+   distro and repository path from its own location, both are editable),
+   their output streams into the panel log as `MAKE ▸` lines with the
+   compiler noise filtered out (**verbose log** shows everything), each row
+   turns green `PASS` or red `FAIL` with its duration, the `test-all` /
+   `test-full` summary tables colour the individual rows, and a
+   `juri_make_<date>.txt` report is written at the end. **Stop** kills the
+   whole process group of the running target (Verilator simulations
+   included); closing the panel does the same.
 
 #### D. JTAG debug session on the board
 
