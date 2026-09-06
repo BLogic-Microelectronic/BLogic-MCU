@@ -1541,11 +1541,11 @@ def gui_calistir(smoke_ms=0):
     ayar_satir.grid(row=1, column=0, columnspan=3, sticky="w", padx=6, pady=(0, 4))
     tk.Label(ayar_satir, text="WSL distro (empty = default):", bg=MIST,
              fg="#5a6472", font=("Segoe UI", 9)).pack(side="left")
-    ttk.Entry(ayar_satir, textvariable=distro_var, width=16).pack(side="left", padx=(4, 12))
+    ttk.Entry(ayar_satir, textvariable=distro_var, width=12).pack(side="left", padx=(4, 12))
     tk.Label(ayar_satir, text="repo path inside WSL:", bg=MIST, fg="#5a6472",
              font=("Segoe UI", 9)).pack(side="left")
-    ttk.Entry(ayar_satir, textvariable=depo_var, width=44).pack(side="left", padx=(4, 12))
-    tk.Checkbutton(ayar_satir, text="verbose log (compiler lines)", variable=ayrinti_var,
+    ttk.Entry(ayar_satir, textvariable=depo_var, width=34).pack(side="left", padx=(4, 12))
+    tk.Checkbutton(ayar_satir, text="verbose log", variable=ayrinti_var,
                    bg=MIST).pack(side="left")
 
     # ---- Questa dalga akisi sekmesi: verif/questa testleri tablodan secilir.
