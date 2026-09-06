@@ -1431,15 +1431,15 @@ The firmware `sw/tests/uart_add_test.c` reads two digits from the host, computes
 
 The demo firmware (`sw/demo/demo_main.c`) drives the board's 128×32 OLED
 (SSD1306, 4-wire SPI bit-banged from GPIO `ODR[15:10]`, `rtl/fpga_top.sv`)
-with four lines: the title, `sinif = yes|no|silence|unknown` after every
+with four lines: the title, `class = yes|no|silence|unknown` after every
 inference, the live `HW cycle` count and the active UART baud. The baud is
 chosen with the switches, read at boot and re-read in the idle loop:
 `sw0` up alone → **9600**, `sw1` up alone → **115200**, both down → 115200
 (default), both up → invalid: the last valid rate is kept, LED7 lights and
-the OLED reports `SW0+SW1 HATA`. A change prints a banner at the new rate, so
+the OLED reports `SW0+SW1 ERROR`. A change prints a banner at the new rate, so
 the host terminal (or the panel's *Baud* box) must follow. The class is still
-shown on LED3-6 and printed on UART_0 exactly as before, so every script that
-parses `sinif = … HW cycle = …` keeps working. The font is
+shown on LED3-6 and printed on UART_0 as a single line, so every script that
+parses `class = … HW cycle = …` keeps working. The font is
 `sw/demo/oled_font.h` (5×7, generated from ASCII-art glyph definitions).
 
 #### QSPI Boot-Flow Live Trace
@@ -1507,17 +1507,20 @@ One window replaces Vivado GUI + terminal + scripts on demo day:
 python sw/demo/juri_panel.py
 ```
 
-1. **Bitstream Yükle…** — pick `rtl/fpga/fpga_top.bit` (normal, flash boot) or
-   `rtl/fpga/fpga_top_m2_demo.bit` (backup: same demo firmware embedded, boots
-   from SRAM, needs no flash at all; no JTAG debug subsystem). The panel programs the FPGA over JTAG via
+1. **Load bitstream…** — pick `rtl/fpga/fpga_top.bit` (normal, flash boot) or
+   `rtl/fpga/fpga_top_m2_demo.bit` (backup: demo firmware embedded, boots
+   from SRAM, needs no flash at all; no JTAG debug subsystem). Note that the backup
+   image still embeds the earlier demo firmware build whose UART/OLED strings are
+   Turkish (`sinif = …` rather than `class = …`); rebuild it with
+   `build_genesys2_m2demo.tcl` to embed the current English-string firmware. The panel programs the FPGA over JTAG via
    Vivado batch; the bitstream is volatile, so re-load after every power cycle.
-2. **Bağlan / Test** — opens the UART port at the rate in the *Baud* box
+2. **Connect / Test** — opens the UART port at the rate in the *Baud* box
    (115200 or 9600; it must match the board's `sw0`/`sw1` selection, §12.6);
    from then on every line the board prints (boot banner after R19, menu,
    results) appears live in the panel log.
-3. **Jüri dosyasını seç…** — auto-detects `.bin` / `.npy` / `.csv` / `.txt` /
+3. **Select jury file…** — auto-detects `.bin` / `.npy` / `.csv` / `.txt` /
    `.hex` or a folder, validates every vector (1960 bytes, int8) *before*
-   touching the board, then **TOPLU KOŞU** streams them with the BLG1
+   touching the board, then **RUN ALL** streams them with the BLG1
    frame + checksum. A timeout retries once; each result is written to disk
    as it arrives; the final file carries a one-line summary (class
    distribution, mean cycles/ms).

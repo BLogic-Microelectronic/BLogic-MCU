@@ -69,14 +69,14 @@ def vektor_gonder_baslat(ser, veri):
     """'v' + el sikisma + cerceve. Sonucu BEKLEMEZ (breakpoint senaryosu icin)."""
     ser.reset_input_buffer()
     ser.write(b"v"); ser.flush()
-    if satir_bekle(ser, "bekleniyor", 3.0) is None:
+    if satir_bekle(ser, "waiting", 3.0) is None:
         raise TimeoutError("'v' el sikismasi yok")
     ser.write(cerceve(veri)); ser.flush()
 
 def sonuc_bekle(ser, saniye=8.0):
-    hat = satir_bekle(ser, "sinif =", saniye)
+    hat = satir_bekle(ser, "class =", saniye)
     if hat is None: raise TimeoutError("sinif cevabi gelmedi")
-    m = re.search(r"sinif = (\w+)\s+HW cycle = (\d+)", hat)
+    m = re.search(r"class = (\w+)\s+HW cycle = (\d+)", hat)
     if not m: raise ValueError("cevap cozulemedi: " + hat)
     return m.group(1), int(m.group(2))
 

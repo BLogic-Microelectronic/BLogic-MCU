@@ -12,7 +12,7 @@
 //   sw1 yukari (tek)  -> 115200 (CPB 434)
 //   ikisi asagi       -> 115200 (varsayilan)
 //   ikisi yukari      -> GECERSIZ: son gecerli ayar korunur, LED7 yanar,
-//                        OLED 4. satir "SW0+SW1 HATA" yazar
+//                        OLED 4. satir "SW0+SW1 ERROR" yazar
 // Secim acilista ve ana dongude (UART bosken) okunur; degisince yeni hizda
 // banner basilir - host terminalinin de yeni hiza gecmesi gerekir.
 //
@@ -186,10 +186,10 @@ static uint32_t cpb_from_sw(uint32_t sw) {
 }
 static void oled_baud_line(uint32_t sw) {
     char b[24]; uint32_t n;
-    if (sw == 3U) { oled_line(3U, "UART: SW0+SW1 HATA"); return; }
+    if (sw == 3U) { oled_line(3U, "UART: SW0+SW1 ERROR"); return; }
     n = str_cpy(b, "UART: ");
     n += utoa_dec(b + n, (g_cpb == CPB_9600) ? 9600U : 115200U);
-    str_cpy(b + n, (sw == 1U) ? " [sw0]" : (sw == 2U) ? " [sw1]" : " [vars]");
+    str_cpy(b + n, (sw == 1U) ? " [sw0]" : (sw == 2U) ? " [sw1]" : " [def]");
     oled_line(3U, b);
 }
 /* sw okunur; gecerliyse hiz uygulanir (degistiyse banner), gecersizse LED7 */
@@ -198,7 +198,7 @@ static void baud_apply(uint32_t sw, uint32_t banner) {
     if (cpb == 0U) {
         gpo_set(GPO_LED_WARN);
         oled_baud_line(sw);
-        uart_puts(UART0, "[DEMO] UYARI: sw0 ve sw1 birlikte yukari - baud degismedi\n");
+        uart_puts(UART0, "[DEMO] WARNING: sw0 and sw1 both up - baud unchanged\n");
         return;
     }
     gpo_clr(GPO_LED_WARN);
@@ -209,7 +209,7 @@ static void baud_apply(uint32_t sw, uint32_t banner) {
         if (banner) {
             uart_puts(UART0, "\n[DEMO] UART baud = ");
             uart_putu(UART0, (cpb == CPB_9600) ? 9600U : 115200U);
-            uart_puts(UART0, (sw == 1U) ? " (sw0)\n" : (sw == 2U) ? " (sw1)\n" : " (varsayilan)\n");
+            uart_puts(UART0, (sw == 1U) ? " (sw0)\n" : (sw == 2U) ? " (sw1)\n" : " (default)\n");
         }
     }
     oled_baud_line(sw);
@@ -223,25 +223,25 @@ static void run_hw(void) {
     uint32_t timeout = 2000000U;
     while ((g_isr_fired == 0U) && (timeout != 0U)) { timeout--; __asm__ volatile("nop"); }
     uint32_t t1 = rdcycle();
-    if (g_isr_fired == 0U) { uart_puts(UART0, "[DEMO] FAIL: ISR gelmedi\n"); oled_line(1U, "sinif = ? (ISR yok)"); return; }
+    if (g_isr_fired == 0U) { uart_puts(UART0, "[DEMO] FAIL: no ISR\n"); oled_line(1U, "class = ? (no IRQ)"); return; }
     uint32_t argmax = (g_isr_status >> STATUS_RESULT_SHIFT) & STATUS_RESULT_MASK;
     uint32_t hwcyc  = t1 - t0;
     const char *ad  = (argmax < 4U) ? CLASS_NAMES[argmax] : "?";
-    uart_puts(UART0, "[DEMO] sinif = ");
+    uart_puts(UART0, "[DEMO] class = ");
     uart_puts(UART0, ad);
     uart_puts(UART0, "  HW cycle = ");
     uart_putu(UART0, hwcyc);
     if (hwcyc != 0U) {
         uint32_t r10 = (SW_BASELINE_CYC * 10U) / hwcyc;   /* tek ondalik */
-        uart_puts(UART0, "  hizlanma ~");
+        uart_puts(UART0, "  speedup ~");
         uart_putu(UART0, r10 / 10U); uart_putc(UART0, '.');
-        uart_putu(UART0, r10 % 10U); uart_puts(UART0, "x (SW taban 9.684.726)");
+        uart_putu(UART0, r10 % 10U); uart_puts(UART0, "x (SW baseline 9,684,726)");
     }
     uart_putc(UART0, '\n');
     gpo_leds(1U << argmax);           /* sinif -> LED biti (LED3..LED6) */
     {
         char b[24]; uint32_t n;
-        n = str_cpy(b, "sinif = "); str_cpy(b + n, ad);
+        n = str_cpy(b, "class = "); str_cpy(b + n, ad);
         oled_line(1U, b);
         n = str_cpy(b, "HW cycle = "); utoa_dec(b + n, hwcyc);
         oled_line(2U, b);
@@ -270,30 +270,30 @@ static uint32_t rx_u32(uint32_t *out, uint32_t timeout) {
 #define RX_TMO 60000000U
 
 static void load_vector_uart(void) {
-    uart_puts(UART0, "[DEMO] BLG1 cercevesi bekleniyor (send_vector.py)...\n");
+    uart_puts(UART0, "[DEMO] waiting for BLG1 frame (send_vector.py)...\n");
     static const char MAGIC[4] = {'B','L','G','1'};
     uint32_t got = 0U, b, len = 0U, sum = 0U, chk = 0U;
     while (got < 4U) {
         if (!rx_byte(&b, RX_TMO)) { uart_puts(UART0, "[DEMO] RX timeout (magic)\n"); return; }
         got = ((char)b == MAGIC[got]) ? got + 1U : (((char)b == MAGIC[0]) ? 1U : 0U);
     }
-    if (!rx_u32(&len, RX_TMO)) { uart_puts(UART0, "[DEMO] RX timeout (uzunluk)\n"); return; }
-    if (len == 0U || len > AI_INPUT_BYTES) { uart_puts(UART0, "[DEMO] gecersiz uzunluk\n"); return; }
+    if (!rx_u32(&len, RX_TMO)) { uart_puts(UART0, "[DEMO] RX timeout (length)\n"); return; }
+    if (len == 0U || len > AI_INPUT_BYTES) { uart_puts(UART0, "[DEMO] invalid length\n"); return; }
     volatile uint8_t *dst = (volatile uint8_t *)(AI_SRAM_BASE + AI_INPUT_OFF);
     for (uint32_t i = 0U; i < len; i++) {
-        if (!rx_byte(&b, RX_TMO)) { uart_puts(UART0, "[DEMO] RX timeout (veri)\n"); return; }
+        if (!rx_byte(&b, RX_TMO)) { uart_puts(UART0, "[DEMO] RX timeout (data)\n"); return; }
         dst[i] = (uint8_t)b; sum += b;
     }
-    if (!rx_u32(&chk, RX_TMO)) { uart_puts(UART0, "[DEMO] RX timeout (saglama)\n"); return; }
-    if (chk != sum) { uart_puts(UART0, "[DEMO] SAGLAMA HATASI - cikarim yapilmadi\n"); return; }
-    uart_puts(UART0, "[DEMO] girdi dogrulandi ("); uart_putu(UART0, len);
-    uart_puts(UART0, " bayt), cikarim:\n");
+    if (!rx_u32(&chk, RX_TMO)) { uart_puts(UART0, "[DEMO] RX timeout (checksum)\n"); return; }
+    if (chk != sum) { uart_puts(UART0, "[DEMO] CHECKSUM ERROR - inference skipped\n"); return; }
+    uart_puts(UART0, "[DEMO] input verified ("); uart_putu(UART0, len);
+    uart_puts(UART0, " bytes), inference:\n");
     run_hw();
 }
 
 static void menu(void) {
-    uart_puts(UART0, "[DEMO] h=HW cikarim  v=BLG1 ile yeni girdi (send_vector.py)  r=rapor  ?=menu\n");
-    uart_puts(UART0, "[DEMO] baud: sw0=9600 sw1=115200 (ikisi asagi=115200); OLED: sinif/cevrim/baud\n");
+    uart_puts(UART0, "[DEMO] h=HW inference  v=new input via BLG1 (send_vector.py)  r=report  ?=menu\n");
+    uart_puts(UART0, "[DEMO] baud: sw0=9600 sw1=115200 (both down=115200); OLED: class/cycles/baud\n");
 }
 
 int main(void) {
@@ -319,12 +319,12 @@ int main(void) {
     oled_init();                      /* ~105 ms; UART banner'dan once */
     oled_baud_line(sw_last);
 
-    uart_puts(UART0, "\n[DEMO] BLogic MCU - Micro Speech canli demo (QSPI boot)\n");
+    uart_puts(UART0, "\n[DEMO] BLogic MCU - Micro Speech live demo (QSPI boot)\n");
     uart_puts(UART0, "[DEMO] UART baud = ");
     uart_putu(UART0, (g_cpb == CPB_9600) ? 9600U : 115200U);
     uart_puts(UART0, (sw_last == 1U) ? " (sw0)\n" : (sw_last == 2U) ? " (sw1)\n"
-                   : (sw_last == 3U) ? " (sw0+sw1 GECERSIZ, varsayilan)\n" : " (varsayilan)\n");
-    uart_puts(UART0, "[DEMO] Acilis cikarimi (flash'tan yuklenen golden girdi):\n");
+                   : (sw_last == 3U) ? " (sw0+sw1 INVALID, default)\n" : " (default)\n");
+    uart_puts(UART0, "[DEMO] Boot inference (golden input loaded from flash):\n");
     run_hw();
     menu();
 
@@ -335,8 +335,8 @@ int main(void) {
             if      (c == 'h') run_hw();
             else if (c == 'v') load_vector_uart();
             else if (c == 'r') {
-                uart_puts(UART0, "[DEMO] SW taban 9.684.726 cycle (xPack 13.2.0 -O2,"
-                                 " soc-perf); HW canli olcum ustte. Detay: README.\n");
+                uart_puts(UART0, "[DEMO] SW baseline 9,684,726 cycles (xPack 13.2.0 -O2,"
+                                 " soc-perf); live HW measurement above. Details: README.\n");
             }
             else if (c == '?') menu();
         } else {

@@ -8,13 +8,13 @@
 #
 # Protokol send_vector.py ile BIREBIR aynidir (BLG1 + toplam-saglama +
 # 0xFF onek + 'v' el sikismasi); firmware tarafinda degisiklik gerekmez.
-# Cevap ayristirma kart_sweep.py ile aynidir: "sinif = <ad>  HW cycle = <n>".
+# Cevap ayristirma kart_sweep.py ile aynidir: "class = <ad>  HW cycle = <n>".
 #
 # Desteklenen girdi bicimleri (otomatik algilama):
 #   .bin  : N x 1960 bayt ardisik int8
 #   .npy  : int8/uint8 dizi, [N,1960] veya [N,49,40] (numpy gerekir)
 #   .csv/.txt : satir basina 1960 sayi (virgul/bosluk), -128..127 ya da 0..255
-#   .hex  : satir basina 8 haneli word (golden_vectors bicimi), tek vektor
+#   .hex  : satir basina 8 haneli word (golden_vectors bicimi), 1 ya da N vektor (1960 bayt katlari)
 #   klasor: icindeki dosyalar tek tek (yukaridaki bicimlerle)
 #
 # Kullanim:  python sw/demo/juri_panel.py
@@ -83,11 +83,11 @@ def _metin_oku(yol):
             if not sayilar:
                 continue
             if len(sayilar) != VEKTOR_BOY:
-                raise ValueError("satirda %d deger var, %d bekleniyordu"
+                raise ValueError("row has %d values, expected %d"
                                  % (len(sayilar), VEKTOR_BOY))
             if any(s < -128 or s > 255 for s in sayilar):
-                raise ValueError("deger araligi disi: int8 (-128..127) ya da "
-                                 "uint8 (0..255) bekleniyor")
+                raise ValueError("value out of range: expected int8 (-128..127) "
+                                 "or uint8 (0..255)")
             if any(s > 127 for s in sayilar):     # uint8 satiri
                 vektorler.append(bytes((s - 128) & 0xFF for s in sayilar))
             else:
@@ -103,7 +103,7 @@ def _npy_oku(yol):
     elif d.ndim == 1:
         d = d.reshape(1, -1)
     if d.shape[1] != VEKTOR_BOY:
-        raise ValueError("npy sekli %s: son boyut %d olmali"
+        raise ValueError("npy shape %s: last dimension must be %d"
                          % (d.shape, VEKTOR_BOY))
     if d.dtype == np.uint8:
         d = (d.astype(np.int16) - 128).astype(np.int8)
@@ -114,7 +114,7 @@ def _npy_oku(yol):
 def _bin_oku(yol):
     ham = open(yol, "rb").read()
     if len(ham) % VEKTOR_BOY:
-        raise ValueError("dosya boyu %d, %d'in kati degil"
+        raise ValueError("file size %d is not a multiple of %d"
                          % (len(ham), VEKTOR_BOY))
     return [ham[i:i + VEKTOR_BOY] for i in range(0, len(ham), VEKTOR_BOY)]
 
@@ -129,22 +129,22 @@ def girdi_yukle(yol, uint8=False):
                 v, _ = girdi_yukle(alt, uint8)
                 vs += v
                 notlar.append("%s(%d)" % (ad, len(v)))
-        return vs, "klasor: " + ", ".join(notlar)
+        return vs, "folder: " + ", ".join(notlar)
     uz = os.path.splitext(yol)[1].lower()
     if uz == ".npy":
         vs = _npy_oku(yol); bicim = "npy"
     elif uz in (".csv", ".txt"):
         vs = _metin_oku(yol); bicim = uz[1:]
     elif uz == ".hex":
-        vs = [_hex_oku(yol)]; bicim = "hex"
+        vs = []; ham = _hex_oku(yol); vs = [ham[i:i + VEKTOR_BOY] for i in range(0, len(ham), VEKTOR_BOY)]; bicim = "hex"
     else:
         vs = _bin_oku(yol); bicim = "bin"
     if uint8 and bicim in ("bin", "hex"):
         vs = [uint8_to_int8(v) for v in vs]
     for i, v in enumerate(vs):
         if len(v) != VEKTOR_BOY:
-            raise ValueError("vektor %d: %d bayt (1960 olmali)" % (i, len(v)))
-    return vs, "%s, %d vektor" % (bicim, len(vs))
+            raise ValueError("vector %d: %d bytes (must be 1960)" % (i, len(v)))
+    return vs, "%s, %d vectors" % (bicim, len(vs))
 
 
 # ---------------- kart iletisimi -------------------------------------------
@@ -224,17 +224,17 @@ class Kart:
         self._temizle()
         self.ser.write(b"v")
         self.ser.flush()
-        if self._satir_bekle(b"bekleniyor", 3.0) is None and \
+        if self._satir_bekle(b"waiting", 3.0) is None and \
            self._satir_bekle(b"BLG1", 0.5) is None:
-            raise TimeoutError("el sikisma yok ('v' cevapsiz)")
+            raise TimeoutError("no handshake ('v' unanswered)")
         self.ser.write(cerceve_yap(veri))
         self.ser.flush()
-        hat = self._satir_bekle(b"sinif =", self.zaman_asimi)
+        hat = self._satir_bekle(b"class =", self.zaman_asimi)
         if hat is None:
-            raise TimeoutError("sinif cevabi gelmedi")
-        m = re.search(r"sinif = (\w+)\s+HW cycle = (\d+)", hat)
+            raise TimeoutError("no class response from board")
+        m = re.search(r"class = (\w+)\s+HW cycle = (\d+)", hat)
         if not m:
-            raise ValueError("cevap cozulemedi: " + hat)
+            raise ValueError("could not parse response: " + hat)
         return m.group(1), int(m.group(2))
 
 
@@ -245,7 +245,7 @@ def gui_calistir():
 
     KOYU, MIST, INK = "#17324a", "#f2f5f8", "#20262f"
     kok = tk.Tk()
-    kok.title("BLogic MCU — Jüri Veri Paneli")
+    kok.title("BLogic MCU — Jury Data Panel")
     kok.geometry("980x640")
     kok.configure(bg=MIST)
 
@@ -258,9 +258,9 @@ def gui_calistir():
     ust.pack(fill="x")
     tk.Label(ust, text="BLogic MCU", fg="white", bg=KOYU,
              font=("Segoe UI", 16, "bold")).pack(side="left", padx=12, pady=8)
-    tk.Label(ust, text="Micro Speech — canlı jüri paneli", fg="#9fb4c8",
+    tk.Label(ust, text="Micro Speech — live jury panel", fg="#9fb4c8",
              bg=KOYU, font=("Segoe UI", 10)).pack(side="left")
-    baglanti_etiket = tk.Label(ust, text="● bağlı değil", fg="#e0a0a0",
+    baglanti_etiket = tk.Label(ust, text="● not connected", fg="#e0a0a0",
                                bg=KOYU, font=("Segoe UI", 10, "bold"))
     baglanti_etiket.pack(side="right", padx=12)
 
@@ -296,21 +296,21 @@ def gui_calistir():
             durum["kart"] = Kart(port_var.get(), baud=int(baud_var.get()),
                                  dinleyici=lambda m: kuyruk.put(("kart", m)))
             if durum["kart"].canli_mi():
-                baglanti_etiket.config(text="● bağlı — kart cevap veriyor",
+                baglanti_etiket.config(text="● connected — board responding",
                                        fg="#9fe0b0")
-                log("kart bağlandı: %s @ %s baud" % (port_var.get(), baud_var.get()))
+                log("board connected: %s @ %s baud" % (port_var.get(), baud_var.get()))
             else:
-                baglanti_etiket.config(text="● port açık, kart sessiz",
+                baglanti_etiket.config(text="● port open, board silent",
                                        fg="#e8d27a")
-                log("UYARI: port açıldı ama menü cevabı yok (R19'a basın?)")
+                log("WARNING: port opened but no menu response (press R19?)")
         except Exception as e:
-            messagebox.showerror("Bağlantı", str(e))
+            messagebox.showerror("Connection", str(e))
 
-    ttk.Button(ayarlar, text="Bağlan / Test",
+    ttk.Button(ayarlar, text="Connect / Test",
                command=bagla).grid(row=0, column=3, padx=6)
 
     uint8_var = tk.BooleanVar(value=False)
-    tk.Checkbutton(ayarlar, text="girdi uint8 (0..255) → int8 çevir",
+    tk.Checkbutton(ayarlar, text="input is uint8 (0..255) → convert to int8",
                    variable=uint8_var, bg=MIST).grid(row=0, column=4, padx=14)
 
     def bitstream_yukle():
@@ -319,20 +319,20 @@ def gui_calistir():
         Kalici degil (flash'a yazmaz); guc kesilirse yeniden yuklenir."""
         viv = vivado_bul()
         if not viv:
-            messagebox.showerror("Vivado", "C:\\Xilinx\\Vivado altinda "
-                                 "vivado.bat bulunamadi.")
+            messagebox.showerror("Vivado", "vivado.bat not found under "
+                                 "C:\\Xilinx\\Vivado.")
             return
         yol = filedialog.askopenfilename(
-            title="Yüklenecek bitstream",
+            title="Bitstream to load",
             initialdir=os.path.join(REPO, "rtl", "fpga"),
             filetypes=[("Bitstream", "*.bit")])
         if not yol:
             return
         if durum["kosuyor"]:
-            messagebox.showwarning("Meşgul", "Önce koşuyu bitirin/durdurun.")
+            messagebox.showwarning("Busy", "Finish or stop the run first.")
             return
-        prog_dugme.config(state="disabled", text="Yükleniyor…")
-        log("bitstream yükleme başladı: " + os.path.basename(yol))
+        prog_dugme.config(state="disabled", text="Loading…")
+        log("bitstream load started: " + os.path.basename(yol))
 
         def isci():
             try:
@@ -369,49 +369,49 @@ def gui_calistir():
                 p.wait()
                 if p.returncode == 0 or basarili:
                     kuyruk.put(("log",
-                                "BITSTREAM YÜKLENDİ ✓ — şimdi R19 reset'e "
-                                "basın, banner burada görünecek"))
+                                "BITSTREAM LOADED ✓ — now press R19 reset, "
+                                "the banner will appear here"))
                 else:
                     kuyruk.put(("log",
-                                "YÜKLEME BAŞARISIZ (kod %d) — Vivado "
-                                "GUI'de Hardware Manager açıksa bağlantıyı "
-                                "kapatıp tekrar deneyin" % p.returncode))
+                                "LOAD FAILED (code %d) — if Hardware Manager "
+                                "is open in the Vivado GUI, close its "
+                                "connection and retry" % p.returncode))
             except Exception as e:
-                kuyruk.put(("log", "YÜKLEME HATASI: %s" % e))
+                kuyruk.put(("log", "LOAD ERROR: %s" % e))
             finally:
                 kuyruk.put(("prog_bitti", None))
         threading.Thread(target=isci, daemon=True).start()
 
-    prog_dugme = ttk.Button(ayarlar, text="Bitstream Yükle…",
+    prog_dugme = ttk.Button(ayarlar, text="Load bitstream…",
                             command=bitstream_yukle)
     prog_dugme.grid(row=0, column=5, padx=6)
 
     # ---- dosya secimi
     dosya_cerceve = tk.Frame(kok, bg=MIST)
     dosya_cerceve.pack(fill="x", padx=12, pady=(8, 0))
-    dosya_etiket = tk.Label(dosya_cerceve, text="dosya seçilmedi", bg=MIST,
+    dosya_etiket = tk.Label(dosya_cerceve, text="no file selected", bg=MIST,
                             fg=INK, font=("Segoe UI", 10))
 
     def dosya_sec():
         yol = filedialog.askopenfilename(
-            title="Jüri veri dosyası",
-            filetypes=[("Tüm desteklenenler", "*.bin *.npy *.csv *.txt *.hex"),
-                       ("Hepsi", "*.*")])
+            title="Jury data file",
+            filetypes=[("All supported", "*.bin *.npy *.csv *.txt *.hex"),
+                       ("All files", "*.*")])
         if not yol:
             return
         try:
             vs, aciklama = girdi_yukle(yol, uint8_var.get())
         except Exception as e:
-            messagebox.showerror("Dosya", "Yükleme hatası:\n" + str(e))
+            messagebox.showerror("File", "Load error:\n" + str(e))
             return
         durum["vektorler"] = vs
-        dosya_etiket.config(text="%s  →  %s  ✓ doğrulandı"
+        dosya_etiket.config(text="%s  →  %s  ✓ verified"
                             % (os.path.basename(yol), aciklama))
-        log("yüklendi: %s (%s)" % (yol, aciklama))
+        log("loaded: %s (%s)" % (yol, aciklama))
         ilerleme["maximum"] = max(1, len(vs))
         ilerleme["value"] = 0
 
-    ttk.Button(dosya_cerceve, text="Jüri dosyasını seç…",
+    ttk.Button(dosya_cerceve, text="Select jury file…",
                command=dosya_sec).pack(side="left")
     dosya_etiket.pack(side="left", padx=10)
 
@@ -421,7 +421,7 @@ def gui_calistir():
     sinif_etiket = tk.Label(orta, text="—", font=("Segoe UI", 52, "bold"),
                             bg="white", fg="#9aa1ab")
     sinif_etiket.pack(pady=(14, 0))
-    detay_etiket = tk.Label(orta, text="son çıkarım burada görünecek",
+    detay_etiket = tk.Label(orta, text="last inference will appear here",
                             font=("Consolas", 11), bg="white", fg="#5a6472")
     detay_etiket.pack(pady=(0, 12))
 
@@ -448,10 +448,10 @@ def gui_calistir():
         if durum["kosuyor"]:
             return
         if not durum["kart"]:
-            messagebox.showwarning("Kart", "Önce Bağlan / Test.")
+            messagebox.showwarning("Board", "Connect / Test first.")
             return
         if not durum["vektorler"]:
-            messagebox.showwarning("Dosya", "Önce jüri dosyasını seçin.")
+            messagebox.showwarning("File", "Select the jury file first.")
             return
         durum["kosuyor"], durum["dur"] = True, False
         durum["sonuclar"] = []
@@ -467,12 +467,12 @@ def gui_calistir():
             os.getcwd(),
             "juri_anlik_%s.txt" % time.strftime("%Y%m%d_%H%M%S"))
         anlik = open(anlik_yol, "w", encoding="utf-8", buffering=1)
-        anlik.write("# anlik kayit — kosu bitiminde ozetli nihai dosya "
-                    "ayrica yazilir\n# indeks\tsinif\tcevrim\n")
-        kuyruk.put(("log", "anlık kayıt: " + anlik_yol))
+        anlik.write("# live record — a final file with summary is written "
+                    "separately when the run ends\n# index\tclass\tcycles\n")
+        kuyruk.put(("log", "live record: " + anlik_yol))
         for i, v in enumerate(vs):
             if durum["dur"]:
-                kuyruk.put(("log", "koşu kullanıcı tarafından durduruldu"))
+                kuyruk.put(("log", "run stopped by user"))
                 break
             # tek zaman asimi kosuyu bozmasin: bir kez otomatik tekrar
             ad, cyc, hata = None, 0, None
@@ -484,12 +484,12 @@ def gui_calistir():
                     hata = e
                     if deneme == 1:
                         kuyruk.put(("log",
-                                    "vektor %d: %s — tekrar deneniyor" % (i, e)))
+                                    "vector %d: %s — retrying" % (i, e)))
                         time.sleep(0.3)
             if ad is None:
-                durum["sonuclar"].append((i, "HATA", 0))
-                anlik.write("%d\tHATA\t0\n" % i)
-                kuyruk.put(("log", "vektor %d HATA (tekrar da düştü): %s"
+                durum["sonuclar"].append((i, "ERROR", 0))
+                anlik.write("%d\tERROR\t0\n" % i)
+                kuyruk.put(("log", "vector %d ERROR (retry also failed): %s"
                             % (i, hata)))
                 continue
             durum["sonuclar"].append((i, ad, cyc))
@@ -515,7 +515,7 @@ def gui_calistir():
                     ad, cyc = durum["kart"].vektor_gonder(durum["vektorler"][0])
                     kuyruk.put(("sonuc", 1, 1, ad, cyc, 0.0))
                 except Exception as e:
-                    kuyruk.put(("log", "HATA: %s" % e))
+                    kuyruk.put(("log", "ERROR: %s" % e))
                 durum["kosuyor"] = False
             threading.Thread(target=bir, daemon=True).start()
 
@@ -533,9 +533,9 @@ def gui_calistir():
             else:
                 hatali += 1
         ort = sum(cevrimler) / len(cevrimler) if cevrimler else 0
-        return ("%d vektör işlendi · " % len(sonuc)
+        return ("%d vectors processed · " % len(sonuc)
                 + " · ".join("%s %d" % (a, dagilim[a]) for a in SINIF_AD)
-                + " · hata %d · ortalama %.0f çevrim = %.2f ms @ 50 MHz"
+                + " · errors %d · average %.0f cycles = %.2f ms @ 50 MHz"
                 % (hatali, ort, ort / 50000.0))
 
     def kaydet():
@@ -545,22 +545,22 @@ def gui_calistir():
         yol = os.path.join(os.getcwd(), ad)
         ozet = ozet_metni()
         with open(yol, "w", encoding="utf-8") as f:
-            f.write("# BLogic MCU juri kosusu — %s\n" %
+            f.write("# BLogic MCU jury run — %s\n" %
                     time.strftime("%Y-%m-%d %H:%M:%S"))
             f.write("# %s\n" % ozet)
-            f.write("# yol: PC -> UART 115200 -> BLG1 cerceve+saglama -> "
-                    "AI SRAM -> HW cikarim -> irq17 -> UART sonuc\n")
-            f.write("# indeks\tsinif_no\tsinif\tcevrim\n")
+            f.write("# path: PC -> UART 115200 -> BLG1 frame+checksum -> "
+                    "AI SRAM -> HW inference -> irq17 -> UART result\n")
+            f.write("# index\tclass_id\tclass\tcycles\n")
             for i, adx, cyc in durum["sonuclar"]:
                 no = SINIF_AD.index(adx) if adx in SINIF_AD else -1
                 f.write("%d\t%d\t%s\t%d\n" % (i, no, adx, cyc))
-        log("ÖZET: " + ozet)
-        log("sonuçlar yazıldı: " + yol)
+        log("SUMMARY: " + ozet)
+        log("results written: " + yol)
 
-    ttk.Button(alt, text="Tekli Gönder", command=tekli).pack(side="left", padx=3)
-    ttk.Button(alt, text="TOPLU KOŞU", command=kosuyu_baslat).pack(side="left", padx=3)
-    ttk.Button(alt, text="Durdur", command=durdur).pack(side="left", padx=3)
-    ttk.Button(alt, text="Sonuçları Kaydet", command=kaydet).pack(side="left", padx=3)
+    ttk.Button(alt, text="Send Single", command=tekli).pack(side="left", padx=3)
+    ttk.Button(alt, text="RUN ALL", command=kosuyu_baslat).pack(side="left", padx=3)
+    ttk.Button(alt, text="Stop", command=durdur).pack(side="left", padx=3)
+    ttk.Button(alt, text="Save Results", command=kaydet).pack(side="left", padx=3)
 
     # ---- log
     import tkinter.scrolledtext as st
@@ -596,7 +596,7 @@ def gui_calistir():
                     sinif_etiket.config(text=ad.upper(),
                                         fg=SINIF_RENK.get(ad, INK))
                     detay_etiket.config(
-                        text="vektör %d/%d   ·   %d çevrim = %.2f ms @ 50 MHz"
+                        text="vector %d/%d   ·   %d cycles = %.2f ms @ 50 MHz"
                              % (i, n, cyc, cyc / 50000.0))
                     if ad in sayac:
                         sayac[ad] += 1
@@ -610,17 +610,17 @@ def gui_calistir():
                                  (i, n, int(kalan) // 60, int(kalan) % 60))
                     else:
                         ilerleme_etiket.config(text="%d/%d" % (i, n))
-                    log("%4d/%d  sinif=%-8s  %d cyc" % (i, n, ad, cyc))
+                    log("%4d/%d  class=%-8s  %d cyc" % (i, n, ad, cyc))
                 elif oge[0] == "kart":
-                    log_kutu.insert("end", "KART ▸ %s\n" % oge[1], "kart")
+                    log_kutu.insert("end", "BOARD ▸ %s\n" % oge[1], "kart")
                     log_kutu.see("end")
                 elif oge[0] == "prog_bitti":
-                    prog_dugme.config(state="normal", text="Bitstream Yükle…")
+                    prog_dugme.config(state="normal", text="Load bitstream…")
                 elif oge[0] == "log":
                     log(oge[1])
                 elif oge[0] == "bitti":
                     _, n, sure = oge
-                    log("KOŞU BİTTİ: %d vektör, %.1f sn" % (n, sure))
+                    log("RUN FINISHED: %d vectors, %.1f s" % (n, sure))
                     kaydet()
         except queue.Empty:
             pass
@@ -639,34 +639,34 @@ def selftest():
     assert c[:8] == ONEK and c[8:12] == MAGIC
     assert struct.unpack("<I", c[12:16])[0] == VEKTOR_BOY
     assert struct.unpack("<I", c[-4:])[0] == sum(v) & 0xFFFFFFFF
-    print("cerceve: OK (%d bayt)" % len(c))
+    print("frame: OK (%d bytes)" % len(c))
     with tempfile.TemporaryDirectory() as td:
         b = os.path.join(td, "t.bin")
         open(b, "wb").write(v * 3)
         vs, a = girdi_yukle(b)
         assert len(vs) == 3 and vs[0] == v
-        print("bin yukleyici: OK (%s)" % a)
+        print("bin loader: OK (%s)" % a)
         t = os.path.join(td, "t.csv")
         open(t, "w").write(",".join(str(b_ - 128) for b_ in v) + "\n")
         vs, a = girdi_yukle(t)
         assert len(vs) == 1 and len(vs[0]) == VEKTOR_BOY
-        print("csv yukleyici: OK (%s)" % a)
+        print("csv loader: OK (%s)" % a)
         try:
             import numpy as np
             n = os.path.join(td, "t.npy")
             np.save(n, np.frombuffer(v * 2, dtype=np.int8).reshape(2, -1))
             vs, a = girdi_yukle(n)
             assert len(vs) == 2 and vs[1] == v
-            print("npy yukleyici: OK (%s)" % a)
+            print("npy loader: OK (%s)" % a)
         except ImportError:
-            print("npy yukleyici: atlandi (numpy yok)")
-    print("SELFTEST: %s" % ("GECTI" if ok else "KALDI"))
+            print("npy loader: skipped (no numpy)")
+    print("SELFTEST: %s" % ("PASS" if ok else "FAIL"))
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--selftest", action="store_true",
-                    help="kartsiz kuru test (cerceve + yukleyiciler)")
+                    help="dry test without board (frame + loaders)")
     a = ap.parse_args()
     if a.selftest:
         selftest()

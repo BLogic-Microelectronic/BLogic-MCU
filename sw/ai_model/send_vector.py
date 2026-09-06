@@ -65,7 +65,7 @@ def gonder(args, paket):
         time.sleep(0.2)
         ser.reset_input_buffer()
         # EL SIKISMA (14 Agu, kart olcumu): UART'ta RX FIFO YOK - tek RDR
-        # yazmaci var. Kart "bekleniyor" satirini basarken (~50 karakter =
+        # yazmaci var. Kart "waiting" satirini basarken (~50 karakter =
         # ~4,3 ms) gelen baytlar uzerine yazilir ve KAYBOLUR. Bu yuzden veri
         # ancak kart okuma dongusune girdikten SONRA gonderilebilir.
         # Karsi taraf komut kabuklu bir firmware ise (demo 'v') once komutu
@@ -79,7 +79,7 @@ def gonder(args, paket):
             satir = ser.readline()
             if not satir:
                 continue
-            if b"bekleniyor" in satir or b"BLG1" in satir:
+            if b"waiting" in satir or b"BLG1" in satir:
                 print("el sikisma: %s" % satir.decode("ascii", "replace").strip())
                 break
         ser.write(paket)
