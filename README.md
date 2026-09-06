@@ -861,7 +861,7 @@ IDCODE `0x0B1061C1`.
 | `make jtag-openocd` | OpenOCD 0.12 via `remote_bitbang` | halt, `a0` write/read-back `0x12345678`, `mww`/`mdw 0x21000` → `cafef00d 11223344`, `bp <pc> 4 hw` hit, `reset halt` → `pc=0x00010000`, and since 3 September also `step` (hardware single-step, `pc` +2), explicit CSR reads (`mstatus`, `misa`), an 8-word block read (OpenOCD's `abstractauto` path), a peripheral MMIO write (`UART0.TDR` → an `A` in the sim log), the **negative** watchpoint case (CV32E40P has no data trigger) and `reset run` (ndmreset without `haltreq`, third greeting). Exit codes of OpenOCD and the sim are part of the verdict — `rtl/debug/openocd/demo_run_2026-09-02.log`, latest run `rtl/debug/openocd/demo_run_v3_openocd_2026-09-03.log` (+ `…_openocd_sim_…` for the UART side) |
 | `make jtag-gdb` | xPack `riscv32-unknown-elf-gdb` 13.2 (as `gdb-multiarch`) over OpenOCD `:3333` | `reset halt` → `Breakpoint 1, 0x000100e8 in main ()` → `stepi`×3 → `$a0 = 0x0badcafe`, `*0x21000 = 0x600df00d`, `$mstatus`/`$misa`. **Exit codes are now part of the verdict**: gdb 0, OpenOCD 0, sim 0. Previously the script's closing `python` block silently never ran (this gdb has no Python), so gdb exited 1 and OpenOCD was killed with SIGTERM (143) while the verdict still said PASS; the runner now closes OpenOCD itself over telnet `:4444` and `GDB=…` selects the binary — `rtl/debug/openocd/demo_run_gdb_2026-09-02.log`, latest run `rtl/debug/openocd/demo_run_v3_gdb_2026-09-03.log` |
 | `make jtag-board` | OpenOCD 0.12 (WSL, `ftdi` driver) → on-board FT2232H **channel B** → Kintex-7 TAP → `BSCANE2` USER3/USER4 → riscv-dbg DTM | **PASS on hardware, 6 September 2026** (`rtl/debug/openocd/demo_run_board_2026-09-06.log`): TAP `0x43651093` found, hart halted inside the flash-booted demo firmware at `pc=0x000104fe`, `a0` write/read-back `0x12345678`, `step` `0x104fe → 0x10500` (+2, compressed), `misa = 0x40001104` (RV32IMC), `mww`/`mdw 0x21000` → `cafef00d 11223344`, 8-word block, UART0 MMIO write, resume/halt, **hardware breakpoint hit**, watchpoint refused as expected (no data trigger), `reset halt` catches `pc=0x00000000` in the boot ROM, `reset run`. OpenOCD exit 0. The board's JTAG is on the FT2232H's *second* channel; channel 0 reads all zeros — measured, now fixed in `genesys2_bscan.cfg` |
-| `scripts/kart_jtag_entegrasyon.py` (Windows, COM7 + OpenOCD telnet) | JTAG **and** the AI demo on the same board at the same time | **PASS on hardware, 6 September 2026** (`rtl/debug/openocd/demo_run_board_entegrasyon_2026-09-06.log`): (0) the DSRAM data region read over JTAG equals `firmware_flash.bin[0x8000]`, and a data-port read of `0x0001_0000` returns the same words — the documented ISRAM-is-write-only-from-the-data-port aliasing, now observed on silicon-equivalent hardware; (1) two golden vectors over UART give `yes`/`no` at 459,062 cycles; (2) halt in the idle loop (`pc=0x000104fa`), read the AI CSR block (`CTRL=0`, `STATUS=0x30`, `DATA_ADDR=0x30000`, `OUT_ADDR=0x35a58`), write and read back a DSRAM scratch word, resume — the next inference is bit-identical; (3) hardware breakpoint on `run_hw` (`0x0001015a`, located by matching the code bytes in the committed flash image): the vector arrives over UART, the checksum passes, and the core stops **before** the accelerator starts, with the 1,960 received bytes already visible in the AI input SRAM; `rbp` + resume then completes the inference with the same result; (4) a final vector confirms the system is untouched. Triggers can only be set while halted — the script halts before `bp`/`rbp` |
+| `scripts/kart_jtag_entegrasyon.py` (Windows, COM7 + OpenOCD telnet) | JTAG **and** the AI demo on the same board at the same time | **PASS on hardware, 6 September 2026** (`rtl/debug/openocd/demo_run_board_entegrasyon_2026-09-06.log`): (0) the DSRAM data region read over JTAG equals `firmware_flash.bin[0x8000]`, and a data-port read of `0x0001_0000` returns the same words — the documented ISRAM-is-write-only-from-the-data-port aliasing, now observed on silicon-equivalent hardware; (1) two golden vectors over UART give `yes`/`no` at 459,062 cycles; (2) halt in the idle loop (`pc=0x000104fa`), read the AI CSR block (`CTRL=0`, `STATUS=0x30`, `DATA_ADDR=0x30000`, `OUT_ADDR=0x35a58`), write and read back a DSRAM scratch word, resume — the next inference is bit-identical; (3) hardware breakpoint on `run_hw` (`0x0001015a` in the firmware of that day; the current demo firmware v1 places `run_hw` at `0x000104b8`, which is the script's default now — re-derive with `riscv32-unknown-elf-nm` whenever the firmware changes; the address was located by matching the code bytes in the committed flash image): the vector arrives over UART, the checksum passes, and the core stops **before** the accelerator starts, with the 1,960 received bytes already visible in the AI input SRAM; `rbp` + resume then completes the inference with the same result; (4) a final vector confirms the system is untouched. Triggers can only be set while halted — the script halts before `bp`/`rbp` |
 | `make jtag-cov` | Verilator + `verilator_coverage` | line coverage, now with a **committed** report (`rtl/debug/sim/jtag_cov_summary.txt`, `jtag_cov.info`; the run log itself goes to `logs/jtag/` and is not tracked). New RTL: `axi_dm_slave` 49/49, crossbar 104/104 (DM legs included), `soc_top` JTAG block 10/10 = **100 %**. Vendored riscv-dbg after stages 10-17: `dm_mem` 96.3 % (was 85 %), `dmi_jtag_tap` 99.1 % (was 82 %), `dmi_jtag` 90.3 %, `dm_csrs` 81.3 %, `dm_sba` 80.8 % (was 0 %), `dmi_cdc` 100 % |
 
 Re-run on 3 September with the **registered** `axi_dm_slave` (request at T, DM at
@@ -1131,10 +1131,12 @@ bridge; `impl_utilization_hier.rpt` / `impl_timing_summary.rpt` of that build):
 LUT 12,340 → **13,775** (+1,435, +11.6 %), FF 8,639 → **9,752** (+1,113), BRAM 14 /
 DSP 10 unchanged; timing met at WNS **+2.538 ns** / WHS **+0.085 ns** (JTAG-less:
 +3.089 / +0.068), `jtag_tck` WNS 94.7 ns, 0 routing errors, 0 DRC errors (80 advisory
-DRC warnings: DSP/BRAM pipelining and async-control checks). The official
-`rtl/fpga/fpga_top.bit` of 6 September 2026 (`build_genesys2.tcl`, §12.4) reproduces
-these numbers exactly — Vivado is deterministic for identical inputs — so the board
-evidence of 6 September applies to the delivered image. The debug blocks
+DRC warnings: DSP/BRAM pipelining and async-control checks). The 6 September 04:39
+rebuild of the same sources with `build_genesys2.tcl` reproduced these numbers
+exactly (Vivado is deterministic for identical inputs), so the board evidence of
+6 September applies to that image; the delivered `rtl/fpga/fpga_top.bit` (17:43)
+adds the six OLED outputs of §12.6 to the same design and closes at WNS +2.433 ns /
+WHS +0.059 ns (§12.4). The debug blocks
 themselves take `i_dm_top` 488 LUT / 665 FF, `i_dmi_jtag` 583 LUT / 362 FF (TAP 79
 LUT) and `axi_dm_slave` 183 LUT / 54 FF. The first build of the same day
 (combinational bridge, not committed) came in at LUT 13,772 / FF 9,713 and WNS
@@ -1330,7 +1332,9 @@ The SoC stays in reset until both the user reset button is released **and** the 
 | `cpu_resetn` | `R19` | LVCMOS33 | Active-low reset button (BTNR) |
 | `uart_tx_in` | `Y20` | LVCMOS33 | FT232 host TX → SoC UART_0 RXD |
 | `uart_rx_out` | `Y23` | LVCMOS33 | SoC UART_0 TXD → FT232 host RX |
-| `led[7:0]` | `T28 / V19 / U30 / U29 / V20 / V26 / W24 / W23` | LVCMOS33 | GPIO `ODR[7:0]` |
+| `led[7:0]` | `T28 / V19 / U30 / U29 / V20 / V26 / W24 / W23` | LVCMOS33 | LED0-2 heartbeat / MMCM lock / reset, LED3-7 = GPIO `ODR[4:0]` (LED3-6 inference class, LED7 switch warning) |
+| `sw[7:0]` | `G19 / G25 / H24 / K19 / N19 / P19 / P26 / P27` | LVCMOS12 / 33 | GPIO `IDR[7:0]`; `sw0` up = UART_0 9600 baud, `sw1` up = 115200 (demo firmware v1) |
+| `oled_*` (dc / res / sclk / sdin / vbat / vdd) | `AC17 / AB17 / AF17 / Y15 / AB22 / AG17` | LVCMOS18 (vbat LVCMOS33) | On-board 128×32 SSD1306 OLED, 4-wire SPI bit-banged from GPIO `ODR[15:10]` (VDD/VBAT switches are active-low on the board and inverted in `fpga_top`) |
 | `ja[0..7]` | Pmod JA | LVCMOS33 | UART_1, I²C SCL / SDA |
 | `QSPI` | U19 (CS) + R21 / R20 / R25 / P24 (D[3:0]) | LVCMOS33 | Onboard S25FL256S flash + STARTUPE2 CCLK |
 
@@ -1339,37 +1343,40 @@ The SoC stays in reset until both the user reset button is released **and** the 
 > All values below come from the committed signoff reports under `rtl/fpga/reports/`,
 > regenerated end-to-end by `vivado -mode batch -source rtl/fpga/build_genesys2.tcl`.
 > The reports in the repository were produced by the current bitstream
-> (`rtl/fpga/fpga_top.bit`, built 6 September 2026 from the delivered
+> (`rtl/fpga/fpga_top.bit`, built 6 September 2026 17:43 from the delivered
 > configuration — JTAG debug subsystem on the BSCANE2 TAP, `FC1_FIX`,
-> `I2C_SDA_SYNC`; hash and summary in `rtl/fpga/reports/build_summary_2026-09-06.txt`),
-> which is the image to run on the board.
+> `I2C_SDA_SYNC`, plus the on-board OLED outputs of §12.6; hash and summary in
+> `rtl/fpga/reports/build_summary_2026-09-06.txt`), which is the image to run
+> on the board.
 
 | Resource | Used (Impl) | Used (Synth) | Available | Utilization |
 |---|---|---|---|---|
-| **LUT** (13,773 as logic + 2 as memory) | 13,775 | 14,032 | 203,800 | **6.76 %** |
-| **FF** | 9,752 | 9,738 | 407,600 | **2.39 %** |
+| **LUT** (13,770 as logic + 2 as memory) | 13,772 | 14,034 | 203,800 | **6.76 %** |
+| **FF** | 9,756 | 9,738 | 407,600 | **2.39 %** |
 | **BRAM (36k tiles)** | 14 (13× RAMB36 + 2× RAMB18) | 14 | 445 | **3.15 %** |
 | **DSP48E1** | 10 | 10 | 840 | **1.19 %** |
-| **IO (bonded IOB)** | 43 | 43 | 500 | **8.6 %** |
+| **IO (bonded IOB)** | 49 (43 + 6 OLED) | 49 | 500 | **9.8 %** |
 | **BUFG** | 3 (50 MHz system clock, gated CV32E40P core clock, BSCANE2 TCK) | 3 | 32 | **9.4 %** |
 | **MMCM** | 1 | 1 | 10 | **10 %** |
 | **BSCANE2** | 2 (USER3 = DTMCS, USER4 = DMI) | 2 | 4 | **50 %** |
-| **Total estimated power** | — | — | — | **0.328 W** (dynamic 0.166 + static 0.161) |
-| **WNS / TNS / WHS / THS** | **+2.538 ns / 0 / +0.085 ns / 0** (timing met, positive slack) | | | |
-| **Failed routes** | **0** (19,962 / 19,962 routable nets fully routed) | | | |
+| **Total estimated power** | — | — | — | **0.330 W** (dynamic 0.167 + static 0.163) |
+| **WNS / TNS / WHS / THS** | **+2.433 ns / 0 / +0.059 ns / 0** (timing met, positive slack) | | | |
+| **Failed routes** | **0** (19,973 / 19,973 routable nets fully routed) | | | |
 | **Implementation DRC** | **0 errors**, 80 warnings (see 12.4.1) | | | |
 
 Two clock domains are constrained: the synchronous `clk_50_mmcm` SoC domain
-(19,264 intra-clock setup endpoints plus 4,661 recovery/removal checks in the
-same domain, WNS +2.538 ns / WHS +0.085 ns, zero failing) and the
-BSCANE2 `jtag_tck` domain of the debug TAP (100 ns period, 320 endpoints, WNS
-+94.703 ns / WHS +0.092 ns); the two are an asynchronous clock group and cross
-only through the riscv-dbg two-phase handshake. With a 20 ns period and
-+2.538 ns of setup slack the SoC domain closes with **~57 MHz of achievable
-headroom** while running at 50 MHz. The debug subsystem costs 1,254 LUT /
-1,081 FF (`i_dm_top` 488 / 665, `i_dmi_jtag` 583 / 362, `axi_dm_slave` 183 /
-54, `impl_utilization_hier.rpt`); the JTAG-less build of the same RTL closed at
-WNS +3.089 ns / WHS +0.068 ns with 12,340 LUT / 8,639 FF.
+(WNS +2.433 ns / WHS +0.059 ns, zero failing among 24,260 setup / 24,257 hold
+endpoints in total) and the BSCANE2 `jtag_tck` domain of the debug TAP (100 ns
+period, 320 endpoints, WNS +94.976 ns / WHS +0.087 ns); the two are an
+asynchronous clock group and cross only through the riscv-dbg two-phase
+handshake. With a 20 ns period and +2.433 ns of setup slack the SoC domain
+closes with **~57 MHz of achievable headroom** while running at 50 MHz. The
+debug subsystem costs 1,254 LUT / 1,081 FF (`i_dm_top` 488 / 665, `i_dmi_jtag`
+582 / 362, `axi_dm_slave` 184 / 54, `impl_utilization_hier.rpt`); the JTAG-less
+build of the same RTL closed at WNS +3.089 ns / WHS +0.068 ns with 12,340 LUT /
+8,639 FF, and the JTAG build without the OLED outputs (6 September 04:39, the
+image used for the board evidence of §10.10) at WNS +2.538 ns / WHS +0.085 ns
+with 13,775 LUT / 9,752 FF.
 
 Note on the drop versus earlier revisions: the accelerator's `conv_out`
 storage originally presented three combinational read ports, which Yosys could
@@ -1416,6 +1423,21 @@ The SoC continuously emits `Hello World from BLogic MCU!` on UART_0 at 115200-8-
 ![FPGA Calculator Demo](images/fpga_calc_demo.jpg)
 
 The firmware `sw/tests/uart_add_test.c` reads two digits from the host, computes the sum on the CV32E40P core, and prints the result over UART_0 — fully exercising the OBI → AXI4 → AXI-Lite path on real silicon (FPGA).
+
+#### On-board OLED and switch-selected UART baud (demo firmware v1, 6 September 2026)
+
+The demo firmware (`sw/demo/demo_main.c`) drives the board's 128×32 OLED
+(SSD1306, 4-wire SPI bit-banged from GPIO `ODR[15:10]`, `rtl/fpga_top.sv`)
+with four lines: the title, `sinif = yes|no|silence|unknown` after every
+inference, the live `HW cycle` count and the active UART baud. The baud is
+chosen with the switches, read at boot and re-read in the idle loop:
+`sw0` up alone → **9600**, `sw1` up alone → **115200**, both down → 115200
+(default), both up → invalid: the last valid rate is kept, LED7 lights and
+the OLED reports `SW0+SW1 HATA`. A change prints a banner at the new rate, so
+the host terminal (or the panel's *Baud* box) must follow. The class is still
+shown on LED3-6 and printed on UART_0 exactly as before, so every script that
+parses `sinif = … HW cycle = …` keeps working. The font is
+`sw/demo/oled_font.h` (5×7, generated from ASCII-art glyph definitions).
 
 #### QSPI Boot-Flow Live Trace
 
@@ -1486,8 +1508,10 @@ python sw/demo/juri_panel.py
    `rtl/fpga/fpga_top_m2_demo.bit` (backup: same demo firmware embedded, boots
    from SRAM, needs no flash at all; no JTAG debug subsystem). The panel programs the FPGA over JTAG via
    Vivado batch; the bitstream is volatile, so re-load after every power cycle.
-2. **Bağlan / Test** — opens the UART port; from then on every line the board
-   prints (boot banner after R19, menu, results) appears live in the panel log.
+2. **Bağlan / Test** — opens the UART port at the rate in the *Baud* box
+   (115200 or 9600; it must match the board's `sw0`/`sw1` selection, §12.6);
+   from then on every line the board prints (boot banner after R19, menu,
+   results) appears live in the panel log.
 3. **Jüri dosyasını seç…** — auto-detects `.bin` / `.npy` / `.csv` / `.txt` /
    `.hex` or a folder, validates every vector (1960 bytes, int8) *before*
    touching the board, then **TOPLU KOŞU** streams them with the BLG1
@@ -1520,7 +1544,7 @@ openocd -f rtl/debug/openocd/genesys2_bscan.cfg -c "bindto 0.0.0.0"
 ```powershell
 # 3. Windows, with the interactive OpenOCD of step 2 running: JTAG and the AI demo together —
 #    halt/inspect/resume between live inferences, hardware breakpoint on run_hw before the accelerator starts
-py -3 scripts/kart_jtag_entegrasyon.py --port COM7 --bp 0x1015a `
+py -3 scripts/kart_jtag_entegrasyon.py --port COM7 --bp 0x104b8 `   # run_hw of demo firmware v1 (nm build/test.elf)
     --inputs sw/ai_model/golden_vectors/acc_batch_inputs.hex `
     --expected sw/ai_model/golden_vectors/acc_batch_expected.hex `
     --bin rtl/fpga/firmware_flash.bin

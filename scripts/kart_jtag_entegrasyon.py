@@ -15,12 +15,15 @@
 #   WSL'de 'openocd -f rtl/debug/openocd/genesys2_bscan.cfg -c "bindto 0.0.0.0"'
 #   kosuyor (telnet 4444 Windows'tan erisilebilir), COM7 Windows'ta serbest.
 # Kullanim (Windows, ana depo dizininden ya da mutlak yollarla):
-#   py -3 scripts/kart_jtag_entegrasyon.py --port COM7 --bp 0x1015a \
+#   py -3 scripts/kart_jtag_entegrasyon.py --port COM7 --bp 0x104b8 \
 #       --inputs <main>/sw/ai_model/golden_vectors/acc_batch_inputs.hex \
 #       --expected <main>/sw/ai_model/golden_vectors/acc_batch_expected.hex \
 #       --bin <main>/rtl/fpga/firmware_flash.bin
-# --bp: run_hw adresi. firmware_flash.bin icinde run_hw kod baytlari 0x1015a'da
-#   dogrulandi (3 Eylul 2026 ELF'i ile ayni; .rodata farklari kodu kaydirmiyor).
+# --bp: run_hw adresi. Demo firmware v1 (6 Eylul 2026, OLED + switch'le baud):
+#   run_hw = 0x000104b8 (riscv32-unknown-elf-nm build/test.elf). 6 Eylul kart
+#   kaniti (demo_run_board_entegrasyon_2026-09-06.log) onceki firmware ile
+#   0x1015a'da alindi. Firmware degisirse nm ile yeniden cikar; yanlis adres
+#   breakpoint'in hic vurmamasina yol acar (asama 3 FAIL).
 import argparse, os, re, socket, struct, sys, time
 
 try:
@@ -139,8 +142,9 @@ def main():
     global LOG
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", default="COM7")
+    ap.add_argument("--baud", type=int, default=115200, help="karttaki switch secimiyle ayni olmali (sw0 yukari = 9600)")
     ap.add_argument("--ocd", default="127.0.0.1:4444")
-    ap.add_argument("--bp", default="0x1015a", help="run_hw adresi (hw breakpoint)")
+    ap.add_argument("--bp", default="0x104b8", help="run_hw adresi (hw breakpoint; demo firmware v1 = 0x104b8, nm ile dogrula)")
     ap.add_argument("--inputs", required=True); ap.add_argument("--expected", required=True)
     ap.add_argument("--bin", default=None, help="rtl/fpga/firmware_flash.bin (flash icerigi karsilastirmasi)")
     ap.add_argument("--vek", type=int, nargs="+", default=[0, 1], help="acc_batch indeksleri (0=yes_real, 1=no_real)")
@@ -158,7 +162,7 @@ def main():
 
     host, port = a.ocd.split(":")
     ocd = Ocd(host, int(port))
-    ser = serial.Serial(a.port, 115200, timeout=0.2)
+    ser = serial.Serial(a.port, a.baud, timeout=0.2)
     try:
         # 0) Flash icerigi = depo imaji mi (JTAG ile okunarak)
         # NOT (mimari, belgeli): buyruk SRAM'i veri portundan OKUNAMAZ - crossbar'in

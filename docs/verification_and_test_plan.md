@@ -429,14 +429,14 @@ what is delivered in git.
 
 | Metric | Value | Note |
 |---|---|---|
-| Setup / hold WNS | +2.538 ns / +0.085 ns | 0 violations / 24,248 setup endpoints (19,264 intra-`clk_50_mmcm` + 4,661 recovery/removal in that domain + 320 `jtag_tck` at WNS +94.703 ns + 4 inter-clock) |
-| LUT | 13,775 | 6.76% (debug subsystem 1,254) |
-| Flip-flops | 9,752 | 2.39% (debug subsystem 1,081) |
+| Setup / hold WNS | +2.433 ns / +0.059 ns | 0 violations / 24,260 setup endpoints (320 of them in `jtag_tck`, WNS +94.976 ns); bitstream of 6 Sep 2026 17:43 (JTAG + on-board OLED) |
+| LUT | 13,772 | 6.76% (debug subsystem 1,254) |
+| Flip-flops | 9,756 | 2.39% (debug subsystem 1,081) |
 | Block RAM | 14 | 3.15% |
 | DSP | 10 | 1.19% |
-| BUFG / BSCANE2 | 3 / 2 | BSCANE2 TCK on a BUFG; USER3 = DTMCS, USER4 = DMI |
-| Power (estimate) | 0.328 W | 0.166 dynamic + 0.161 static |
-| Routing | 19,962 / 19,962 | 0 failures |
+| IOB / BUFG / BSCANE2 | 49 / 3 / 2 | 6 IOBs drive the OLED; BSCANE2 TCK on a BUFG; USER3 = DTMCS, USER4 = DMI |
+| Power (estimate) | 0.330 W | 0.167 dynamic + 0.163 static |
+| Routing | 19,973 / 19,973 | 0 failures |
 | Implementation DRC | 0 errors | 80 warnings, each justified |
 
 Resource note: an earlier accelerator revision exposed three

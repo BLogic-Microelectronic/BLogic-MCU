@@ -282,16 +282,23 @@ def gui_calistir():
     ttk.Button(ayarlar, text="↻", width=3,
                command=portlari_tazele).grid(row=0, column=2)
 
+    # Baud: karttaki switch secimiyle ayni olmali (sw0 yukari = 9600,
+    # sw1 yukari / ikisi asagi = 115200; demo firmware v1, OLED 4. satir).
+    tk.Label(ayarlar, text="Baud:", bg=MIST).grid(row=0, column=4, sticky="w", padx=(10, 0))
+    baud_var = tk.StringVar(value="115200")
+    ttk.Combobox(ayarlar, textvariable=baud_var, width=7,
+                 values=["115200", "9600"], state="readonly").grid(row=0, column=5, padx=(4, 6))
+
     def bagla():
         try:
             if durum["kart"]:
                 durum["kart"].kapat()
-            durum["kart"] = Kart(port_var.get(),
+            durum["kart"] = Kart(port_var.get(), baud=int(baud_var.get()),
                                  dinleyici=lambda m: kuyruk.put(("kart", m)))
             if durum["kart"].canli_mi():
                 baglanti_etiket.config(text="● bağlı — kart cevap veriyor",
                                        fg="#9fe0b0")
-                log("kart bağlandı: " + port_var.get())
+                log("kart bağlandı: %s @ %s baud" % (port_var.get(), baud_var.get()))
             else:
                 baglanti_etiket.config(text="● port açık, kart sessiz",
                                        fg="#e8d27a")
