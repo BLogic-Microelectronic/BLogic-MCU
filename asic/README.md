@@ -3,24 +3,36 @@
 > **STATUS.** The headings match DDK "Final Istenen Ciktilar" (EN: Final
 > Required Deliverables) sections 9.1-9.13 one-to-one. All sections are
 > complete. **All signoff/timing/power/area results come from a SINGLE
-> run: `RUN_teslim_2026-08-14`** (from scratch on a clean clone,
-> `make pdk` + `make asic_run`, 3 h 28 min). Decision and experiment
+> run: `RUN_final_2026-09-06`** (VM1, from scratch on a clean clone of
+> commit `248069b`, `make asic_run` 3 h 28 min, `make pdk` excluded). Decision and experiment
 > measurements taken DURING the design process (August 3-11;
 > channel-widening, derate derivation, hold-repair trials) are marked
 > separately with their own dates and document decision rationales, not
 > final results. The full text of the DDK errata and written decisions
 > dated August 17, 2026: `asic/DDK_KARARLARI.md`.
+> **Delivered configuration (September 6, 2026):** the riscv-dbg JTAG debug
+> subsystem (`JTAG_DEBUG`), the FC-1 fix (`FC1_FIX`) and the `i2c_sda_i`
+> synchronizer (`I2C_SDA_SYNC`) are enabled in `config.yaml`/`filelist.f`
+> (9.4, 9.5, 9.9/3, 9.9/9); the official run of this configuration is
+> `RUN_final_2026-09-06` (VM1, clean clone of commit `248069b`). The signed
+> run of August 14, 2026 (JTAG-less RTL, commit `73d8dcd`) is the historical
+> reference used by the exploration comparisons in root README Section 10.10.
 
 ## 9.1 Design Summary
 
 RISC-V (CV32E40P) based microcontroller SoC: AXI4/AXI4-Lite interconnect,
 QSPI boot, UART/GPIO/Timer/I2C peripherals, and a TFLite Micro Speech
 (2D convolution + fully connected layer) AI accelerator. Top-level module:
-`asic_top`. Clock: `clk_i` (single clock domain), reset: `rst_ni`
-(asynchronous assert, synchronous release). Inputs/outputs are macro pins
+`asic_top`. Clocks: `clk_i` (system clock, all SoC logic) and `jtag_tck_i`
+(JTAG TAP clock, asynchronous to `clk_i`; the only crossing is riscv-dbg's
+`dmi_cdc` two-phase handshake - 9.6, 9.9/9). Resets: `rst_ni` (asynchronous
+assert, synchronous release) and `jtag_trst_ni` (TAP reset, false path). The
+design also carries the specification's optional JTAG debug interface (PULP
+riscv-dbg debug module on an IEEE 1149.1 TAP, connected to the CV32E40P debug
+port - `JTAG_DEBUG`, 9.4, 9.9/9). Inputs/outputs are macro pins
 in the final LEF/DEF (Section 2).
 
-**Top-level interface (16 ports, `rtl/asic/asic_top.sv`):**
+**Top-level interface (21 ports, `rtl/asic/asic_top.sv`):**
 
 | Port | Direction | Width | Function |
 |---|---|---|---|
@@ -30,20 +42,23 @@ in the final LEF/DEF (Section 2).
 | `gpio_in_i` / `gpio_out_o` | input/output | 32/32 | GPIO (inputs with 2FF synchronizers) |
 | `qspi_sclk_o` `qspi_cs_no` `qspi_io_o` `qspi_io_i` `qspi_io_oe` | output x3, input | 1/1/4/4/4 | QSPI flash (boot + data) |
 | `i2c_scl_o` `i2c_sda_oe_o` `i2c_sda_i` | output x2, input | 1/1/1 | I2C master (open-drain drive via `sda_oe`) |
+| `jtag_tck_i` `jtag_tms_i` `jtag_tdi_i` `jtag_trst_ni` / `jtag_tdo_o` | input x4 / output | 1 each | JTAG debug port (IEEE 1149.1 TAP -> riscv-dbg DTM/DM -> CV32E40P debug port; specification "1x JTAG (Opsiyonel)", EK-2 debug module); `jtag_tck` is a second, asynchronous clock (9.6) |
 
 **Target clock frequency and per-corner closure (final delivery run
-`RUN_teslim_2026-08-14`):**
+`RUN_final_2026-09-06`):**
 
 | Corner | Setup WS | Setup TNS | Closing frequency |
 |---|---|---|---|
-| tt_025C_1v80 | **+2.210 ns** | 0 | 50 MHz target CLOSES (fmax ~56.2 MHz) |
-| ss_100C_1v60 | -9.083 ns | -10,639.4 ns | ~34.4 MHz (equivalent to 29.08 ns) |
-| ff_n40C_1v95 | **+4.375 ns** | 0 | CLOSES (fmax ~64.0 MHz) |
+| tt_025C_1v80 | **+1.684 ns** | 0 | 50 MHz target CLOSES (fmax ~54.6 MHz) |
+| ss_100C_1v60 | -10.537 ns | -12,533.0 ns | ~32.7 MHz (equivalent to 30.54 ns) |
+| ff_n40C_1v95 | **+4.010 ns** | 0 | CLOSES (fmax ~62.5 MHz) |
 
 Declared statement: target clock is **50 MHz**; it closes in the TT corner
-with a +2.210 ns margin. In the SS (1.6 V / 100 C) corner 50 MHz does not
-close — the closing frequency in this corner is **~34.4 MHz** and the
-worst path is a pure standard-cell CPU path (it is NOT SRAM/derate
+with a +1.684 ns margin. In the SS (1.6 V / 100 C) corner 50 MHz does not
+close — the closing frequency in this corner is **~32.7 MHz** and the
+worst path is a pure standard-cell CPU path (`id_stage` -> `ex_stage.alu_i`
+/ `alu_div_i` -> `id_stage`, first path of
+`reports/timing/nom_ss_100C_1v60/max.rpt`; it is NOT SRAM/derate
 induced; it is a consequence of the corner physics). The STA reports for
 all three corners are delivered in full (`reports/timing/`); details:
 sections 9.9 and 9.11. `config.yaml` CLOCK_PERIOD = 20 ns, identical to
@@ -99,12 +114,14 @@ metric summary), `make asic_clean` (cleans `run/`), `make check_filelist`
 (config.yaml <-> filelist.f consistency).
 
 **Approximate runtime and resources:** the verified environment is GCP
-8 vCPU / 60 GB RAM; the final run took **3 hours 28 minutes** (clean
-clone, excluding `make pdk`; VM: 8 vCPU / 60 GB RAM / NVMe).
+8 vCPU / 60 GB RAM; the final run `RUN_final_2026-09-06` took
+**3 hours 28 minutes** (01:19-04:47 UTC, September 6, 2026; clean clone,
+excluding `make pdk`; VM: 8 vCPU / 60 GB RAM / NVMe).
 On low-RAM machines the `magic-writelef` step may OOM; with 60 GB it runs
 without issues. Disk: run directory (`run/`, deleted at delivery)
-**~17 GB**; the collected report+output tree is ~4.2 GB before packaging
-and ~0.8 GB after packaging.
+**~18 GB**; the collected report+output tree as committed is ~0.9 GB
+(`reports/` 269 MB + `results/` 641 MB; files above GitHub's 100 MB limit
+are gzipped - `results/BUYUK_DOSYALAR.md`).
 
 ## 9.4 RTL and Flow Inputs
 
@@ -112,8 +129,12 @@ and ~0.8 GB after packaging.
   `VERILOG_FILES` list inside `asic/config.yaml`; `filelist.f` is
   generated from it (`python3 scripts/check_filelist.py --generate`) and
   consistency is checked automatically at the start of every
-  `make asic_run` (the automation requested by DDK page 20). 67 source
-  files, in compilation order.
+  `make asic_run` (the automation requested by DDK page 20). 84 source
+  files, in compilation order: the SoC RTL plus the JTAG debug subsystem
+  (riscv-dbg DM/DTM/TAP and debug ROM, common_cells v1.38.0 CDC cells,
+  tech_cells_generic `tc_clk`, `rtl/debug/axi_dm_slave.sv`); the same
+  list heads `soc_files.f` (simulation/lint) and is read by
+  `rtl/fpga/build_genesys2.tcl` (FPGA).
 - **Path base:** all paths inside `filelist.f` are resolved **relative to
   the `asic/` directory** (`../rtl/...`) and the flow is started from
   this directory (`cd asic && make asic_run`). This is exactly in line
@@ -122,18 +143,27 @@ and ~0.8 GB after packaging.
   that said paths were to be defined relative to the repository root. The
   main RTL sources, verification/testbench and FPGA files are NOT COPIED
   under `asic/` (Section 3/4 rule).
-- **Include directories:** `rtl/asic`, `rtl/core/cv32e40p/rtl/include`,
+- **Include directories:** `rtl/debug/vendor/common_cells_v1.38.0/include`
+  (listed FIRST: riscv-dbg's `dmi_cdc` needs the v1.38.0 `assertions.svh`/
+  `registers.svh`, a strict superset of the 1.20.0 copy under cv32e40p),
+  `rtl/asic`, `rtl/core/cv32e40p/rtl/include`,
   `.../pulp_platform_common_cells/include`, `rtl/bus/axi/include`.
 - **Compile defines (MANDATORY):** `SYNTHESIS`, `ASIC_SRAM_MACRO`
   (selects the SRAM macro branches), `BOOTROM_CONTENT` (embeds the boot
-  ROM content). Both `config.yaml` and `filelist.f` carry the same
-  defines.
+  ROM content), `JTAG_DEBUG` (JTAG TAP + riscv-dbg debug module: five extra
+  ports, the `jtag_tck` clock, the DM window at 0x0004_0000), `FC1_FIX`
+  (FC-1 erratum fix, 9.5) and `I2C_SDA_SYNC` (2FF synchronizer on
+  `i2c_sda_i`, 9.9/3). Both `config.yaml` and `filelist.f` carry the same
+  six defines; `soc_files.f` and the FPGA build enable the same three design
+  defines, so simulation, FPGA and ASIC share one configuration.
 - **Main configuration:** `asic/config.yaml` (LibreLane Classic).
 - **Timing constraints:** `asic/constraints/design.sdc` (section 9.6).
 - **Third-party RTL locations:** `rtl/core/cv32e40p/` (vendored:
   common_cells, including the fpnew package), `rtl/bus/axi/`, the UART
-  core originating from `rtl/peripherals/verilog-uart`. Details and
-  licenses: `asic/THIRD_PARTY.md`.
+  core originating from `rtl/peripherals/verilog-uart`, and
+  `rtl/debug/vendor/` (riscv-dbg, common_cells v1.38.0 CDC subset,
+  tech_cells_generic; pins and file lists in `rtl/debug/VENDOR.md`).
+  Details and licenses: `asic/THIRD_PARTY.md`.
 - **Top-level module:** `asic_top` — the RTL, `config.yaml` and this
   README all use the same name (Section 3.1 consistency requirement).
 
@@ -196,13 +226,19 @@ accelerator's **internal** macros (input read from `u_input_mem`,
 weights from `u_conv_w_mem`, results written to and drained back out of
 `u_conv_out`), so this run exercises **all 27 macro instances**
 functionally, including the three inside the accelerator that the boot
-flow alone never touches. Verified 2026-09-01, **PASS**.
+flow alone never touches. Verified 2026-09-01 (conv checksum), **PASS**.
+Since September 6, 2026 the target compiles the delivered configuration
+(`soc_files.f`: `JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC`) and additionally
+checks the FC argmax (== 2, "yes") and the result word (`+define+CHECK_ARGMAX`,
+firmware built with `-DCHECK_ARGMAX`): it is the proof that the FC-1 erratum
+described below is fixed in the delivered RTL. Negative control (September 6,
+2026): the same testbench on RTL without `FC1_FIX` fails with `AI ARGMAX BA`.
 
-**Known issue FC-1 (found by `asic-top-sim`, declared — RTL and the
-signed run were NOT modified):** in the `ASIC_SRAM_MACRO` branch, the
-fully-connected stage issues a `conv_out` read in `ST_FC_FETCH_W` but
-consumes `co_rdata` only after the AXI weight fetch completes, ≥3 cycles
-later (`rtl/ai_accelerator/ai_accelerator.sv:799-812`). The delivered
+**Erratum FC-1 (found by `asic-top-sim` on 2026-09-01, after the August 14
+signoff; FIXED in the delivered RTL, `FC1_FIX`):** in the `ASIC_SRAM_MACRO`
+branch, the fully-connected stage issued a `conv_out` read in `ST_FC_FETCH_W` but
+consumed `co_rdata` only after the AXI weight fetch completes, ≥3 cycles
+later (`rtl/ai_accelerator/ai_accelerator.sv`, state `ST_FC_FETCH_W_WAIT`). The delivered
 OpenRAM functional model drives `dout1` to `X` on **every** rising edge
 (`#(T_HOLD) dout1 = 32'bx;` — the model's own comment: *"Delay to hold
 dout value after posedge. Value is arbitrary"*), so read data is valid
@@ -222,16 +258,18 @@ output stage and holds its last read value while `csb1` stays high (no
 new sense operation occurs), so the fabricated chip is expected to
 compute FC correctly; the delivered functional model simply forbids
 relying on that hold, and under that model contract the FC output is
-treated as unverified. Remediation for any future re-spin is a one-line
+treated as unverified. The remediation is a one-line
 RTL change (keep re-issuing `co_re` with the same address during
-`ST_FC_FETCH_W_WAIT`); per Section 1.3 and the signed-run consistency
-rule, neither the RTL nor `RUN_teslim_2026-08-14` was touched — the
-finding is declared here instead. That one-line change now exists in the
-RTL behind the `FC1_FIX` define (validated in the JTAG-variant flow runs
-and the FPGA JTAG build, root README Section 10.10); it is **not** enabled
-in the delivered configuration, so this run and this declaration remain
-accurate. Argmax correctness itself is proven on
-the behavioural side (Section 9.11 / root README Section 11).
+`ST_FC_FETCH_W_WAIT`, define `FC1_FIX`). History: the August 14 signed run
+was built without it and carried FC-1 as a declared erratum (Section 1.3 and
+the signed-run consistency rule); the fix was first validated in the sky130
+exploration runs and the FPGA build of September 3 (root README Section
+10.10), and since September 6, 2026 `FC1_FIX` is enabled at every entry
+point of the delivered configuration (`config.yaml`, `filelist.f`,
+`soc_files.f`, `rtl/fpga/build_genesys2.tcl`); `make asic-top-sim` proves
+the fix under the OpenRAM model contract (argmax == 2). Argmax correctness
+is also proven on the behavioural side (Section 9.11 / root README
+Section 11).
 
 **Corner assumption (the most important item of this section):** both
 macros are distributed in the PDK with only the `TT_1p8V_25C` Liberty;
@@ -276,19 +314,31 @@ same file (`PNR_SDC_FILE` = `SIGNOFF_SDC_FILE`); per Section 6.2, a
 single SDC delivery is sufficient.
 
 - **Primary clock:** `clk` = `clk_i` port, period 20.000 ns (50 MHz).
+- **Primary clock (JTAG):** `jtag_tck` = `jtag_tck_i` port, period
+  100.000 ns (OpenOCD adapter speed <= 10 MHz); uncertainty setup 0.500 /
+  hold 0.100 ns, transition 0.150 ns (JTAG block at the end of `design.sdc`).
 - **Generated clock:** NONE. QSPI SCLK is generated from `clk` via a
   register output (at most clk/2 = 25 MHz), is not used as an internal
-  clock, and all data paths are in the same clock domain; therefore no
+  clock, and its data paths stay in the `clk` domain; therefore no
   generated clock definition is required.
-- **Clock domain relations / asynchronous clock groups:** the design has
-  a SINGLE clock domain, there is no CDC path (the FPGA's MMCM is inside
-  `fpga_top` and does not enter the ASIC). The related conditional
-  definitions are not required.
+- **Clock domain relations / asynchronous clock groups:** TWO clock
+  domains. `clk` (all SoC logic) and `jtag_tck` (the riscv-dbg TAP and DTM
+  registers) are declared asynchronous with
+  `set_clock_groups -asynchronous -group clk -group jtag_tck`. The only
+  crossing is riscv-dbg's `dmi_cdc` (two-phase handshake built from
+  common_cells v1.38.0 `cdc_2phase_clearable` with 2FF synchronizers,
+  structurally safe); no timing relation between the two clocks is
+  constrained. The FPGA's MMCM is inside `fpga_top` and does not enter the
+  ASIC.
 - **Input/output delay:** for the synchronously constrained inputs
   (`i2c_sda_i`, `qspi_io_i*`) and ALL outputs: max 6.000 ns / min
   0.500 ns budget; the ports are given as an explicit list. Asynchronous
   inputs (`gpio_in_i*`, `uart*_rxd_i`) carry NO input_delay — they are
-  declared as false paths below.
+  declared as false paths below. JTAG pins are budgeted against `jtag_tck`:
+  `jtag_tms_i`/`jtag_tdi_i` input delay max 20.000 / min 2.000 ns,
+  `jtag_tdo_o` output delay max 20.000 / min 2.000 ns and a 5 pF load (TMS/TDI
+  are sampled on the rising and TDO driven on the falling TCK edge; a 100 ns
+  period leaves ample margin).
 - **Design-wide rules:** `set_max_transition 1.000 ns`,
   `set_max_fanout 32` (design.sdc).
 - **Clock uncertainty:** setup 0.500 ns, hold 0.100 ns.
@@ -300,7 +350,9 @@ single SDC delivery is sufficient.
   reset controller), and this class of path carries no real data timing.
   Recovery/removal behavior is guaranteed by the release
   synchronization. No path that genuinely needs to be timed has been
-  put under an exception.
+  put under an exception. `jtag_trst_ni` (asynchronous TAP reset, IEEE
+  1149.1 TRST) is a false path for the same reason (JTAG block at the end of
+  `design.sdc`).
 - **False path (asynchronous inputs):** via `set_false_path -from`:
   `gpio_in_i*` (2FF synchronizer, `gpio_axil.sv:44-50`), `uart_rxd_i` and
   `uart1_rxd_i` (asynchronous serial lines, sampled via `rxd_reg`). These
@@ -319,17 +371,19 @@ single SDC delivery is sufficient.
 ### 9.6.1 Constraint-rationale table (with design.sdc line references)
 
 The table below gives EVERY constraint in `design.sdc`, its value and its
-rationale at a glance. The SDC file itself is an input of the signed-off
-run (`RUN_teslim_2026-08-14`) and has not been modified; this table is
-documentation consolidation only.
+rationale at a glance. The line numbers refer to the base
+constraints; the JTAG constraints (added September 6, 2026, when the debug
+subsystem entered the delivered configuration) are the block at the end of
+`design.sdc` and are listed without line numbers. The file is an input of
+the official run; this table is documentation consolidation only.
 
 | Constraint (design.sdc line) | Value | Rationale |
 |---|---|---|
-| `create_clock clk` (line 22) | 20.000 ns (50 MHz) | Primary and only clock; must equal config.yaml `CLOCK_PERIOD` (9.13 consistency rule). In the ASIC the clock comes from a pad; the FPGA's MMCM stays in `fpga_top`. |
+| `create_clock clk` (line 22) | 20.000 ns (50 MHz) | Primary system clock (the second clock, `jtag_tck`, is below); must equal config.yaml `CLOCK_PERIOD` (9.13 consistency rule). In the ASIC the clock comes from a pad; the FPGA's MMCM stays in `fpga_top`. |
 | `set_clock_uncertainty -setup` (line 25) | 0.500 ns | Jitter + skew budget (Section 3.2 "recommended" item); a pessimistic constant since the source is not finalized. |
 | `set_clock_uncertainty -hold` (line 26) | 0.100 ns | Hold side of the same budget; margin against the skew measured after CTS. |
 | `set_clock_transition` (line 27) | 0.150 ns | Clock input transition time assumption (typical value in the absence of a pad model). |
-| `set_false_path -from rst_ni` (line 41) | - | The design's ONLY exception. `rst_ni` is asynchronous assert / synchronous release; release synchronization at the chip top level. Carries no real data timing; the Section 3.2 rule "gercekte zamanlanan yol false path yapilamaz" (EN: a genuinely timed path must not be made a false path) is not violated. |
+| `set_false_path -from rst_ni` (line 41) | - | One of the two reset false paths (the other is `jtag_trst_ni`, JTAG block). `rst_ni` is asynchronous assert / synchronous release; release synchronization at the chip top level. Carries no real data timing; the Section 3.2 rule "gercekte zamanlanan yol false path yapilamaz" (EN: a genuinely timed path must not be made a false path) is not violated. |
 | `set_false_path -from` asynchronous inputs (lines 58-59) | `gpio_in_i*`, `uart_rxd_i`, `uart1_rxd_i` | 2FF synchronizer (`gpio_axil.sv:44-50`) and asynchronous serial lines; no meaningful arrival window relative to `clk`. A synchronous input_delay produces spurious violations (measured: the TT worst hold path had come out as `gpio_in_i[0]`). |
 | `set_input_delay` (lines 67-68) | max 6.000 / min 0.500 ns | ~30% input budget for the inputs that remain synchronous (`i2c_sda_i`, `qspi_io_i*`); ports are given as an explicit list for tool portability. |
 | `set_output_delay` (lines 69-70) | max 6.000 / min 0.500 ns | ~30% output budget for ALL outputs; sufficient margin for the low-speed peripherals (UART/I2C/QSPI/GPIO). |
@@ -337,16 +391,21 @@ documentation consolidation only.
 | `set_max_transition` (line 79) | 1.000 ns | Design-wide signal integrity rule (Section 3.2). |
 | `set_max_fanout` (line 80) | 32 | Design-wide fanout limit; synthesis/PnR buffer accordingly. |
 | SRAM corner-conditional derate (lines 124-146) | SS: late 2.661 / FF: early 0.500 / TT: 1.0 | The macro Liberty is TT-only; for SS/FF analysis, a proxy coefficient MEASURED from the `dfxtp_1` clk->Q TT/SS ratio (not a waiver but a measurement correction; DDK decision 3 + section 9.5). 1.0 in TT: the TT lib is the exactly correct model. In the PnR context the unconditional pessimistic legacy behavior is retained (freeze discipline). |
-| Generated clock | NONE | QSPI SCLK is generated from `clk` via a register output (<= clk/2), not used as an internal clock; all data paths are in one clock domain (the "ilgili yapi varsa zorunlu" (EN: mandatory only if the relevant structure exists) condition is not triggered). |
-| Clock groups / CDC | NONE | Single clock domain; no CDC path (MMCM outside `asic_top`). The conditional Section 3.2 items are not triggered. |
+| Generated clock | NONE | QSPI SCLK is generated from `clk` via a register output (<= clk/2), not used as an internal clock; its data paths stay in the `clk` domain (the "ilgili yapi varsa zorunlu" (EN: mandatory only if the relevant structure exists) condition is not triggered). |
+| `create_clock jtag_tck` (JTAG block, end of design.sdc) | 100.000 ns | JTAG TAP clock on `jtag_tck_i`; OpenOCD adapter speed <= 10 MHz. Uncertainty setup 0.500 / hold 0.100 ns, transition 0.150 ns - same budget logic as `clk`. |
+| `set_clock_groups -asynchronous` clk / jtag_tck (JTAG block) | 2 groups | The two clocks have no phase relation; the only crossing is riscv-dbg's `dmi_cdc` two-phase handshake (2FF synchronizers), so no timing path between them is real. MMCM outside `asic_top`. |
+| `set_false_path -from jtag_trst_ni` (JTAG block) | - | Asynchronous TAP reset (IEEE 1149.1 TRST); same rationale as `rst_ni`. |
+| `set_input_delay -clock jtag_tck` on `jtag_tms_i`/`jtag_tdi_i` (JTAG block) | max 20.000 / min 2.000 ns | TMS/TDI are sampled on the rising TCK edge; 20% of the 100 ns period as external budget. |
+| `set_output_delay -clock jtag_tck` on `jtag_tdo_o` + `set_load` (JTAG block) | max 20.000 / min 2.000 ns, 5.0 pF | TDO is driven on the falling TCK edge (IEEE 1149.1); pad + probe-cable budget. |
 | Multicycle path | NONE | All paths are closed under the single-cycle rule; no exception is defined. |
 
 ## 9.7 Physical Design Configuration
 
-Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
+Measurement source: **`RUN_final_2026-09-06`** (final delivery run).
 
 - **Floorplan (absolute):** `DIE_AREA` 4180 x 4490 um = **18.77 mm2**,
-  `CORE_AREA` (60,60)-(4120,4430) = 17.74 mm2; `FP_SIZING: absolute`.
+  `CORE_AREA` (60,60)-(4120,4430) = 17.74 mm2 configured (17.72 mm2 after
+  row snapping, `design__core__area`); `FP_SIZING: absolute`.
 - **Aspect ratio:** 4180/4490 = **0.931** (approximately square). Since
   `FP_SIZING: absolute` is used, the `FP_ASPECT_RATIO` parameter is not
   in effect; the ratio derives from the width of the 4-column macro array
@@ -357,8 +416,8 @@ Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
   spacing 60 -> 100 um, route DRC went 1348 -> 0 and convergence
   195 -> 10 iterations (cost: die +12.2%). The experiment chain is in the
   `config.yaml` comments.
-- **Utilization (measured):** instance total 49.9% (including macros);
-  std-cell 12.3%. Target `PL_TARGET_DENSITY_PCT: 35`,
+- **Utilization (measured):** instance total 50.4% (including macros);
+  std-cell 13.3%. Target `PL_TARGET_DENSITY_PCT: 35`,
   `PL_MAX_DISPLACEMENT_Y: 300`.
 - **Macro placement:** `macro_placement.cfg` — 27 SRAM macros, manual
   placement in 4 columns x bottom/top bands (coordinates in the file,
@@ -374,13 +433,31 @@ Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
   `ROUTING_OBSTRUCTIONS` boxes over the macros (met1/met2/met5 x
   27 macros, rationale in the config comment: met5 OBS missing in the
   SRAM LEF). `GRT_ALLOW_CONGESTION: true`, `GRT_OVERFLOW_ITERS: 25`.
-  Measured result: route DRC 0, total wire 6.13 m, 740,817 vias.
-- **CTS:** LibreLane default CTS configuration; measured clock tree
-  1,785 clock buffers + 280 clock inverters. Post-route hold repair
-  `RUN_POST_GRT_RESIZER_TIMING: true` (63 -> 10 measurement, Aug 11
-  configuration experiment, in-PnR tt check; the FINAL signoff violation
-  counts are in the 9.11 table: tt 48 / ss 0 / ff 112, mechanism in
-  9.9/2).
+  Measured result: route DRC 0 (TritonRoute iterations 170 -> 20 -> 7 ->
+  0 -> 0 -> 1 -> 0), total wire 6.52 m, 812,086 vias.
+- **CTS (configuration):** four explicit TritonCTS settings in
+  `config.yaml` (added September 6, 2026): `CTS_MACRO_CLUSTERING_MAX_DIAMETER:
+  600`, `CTS_MACRO_CLUSTERING_SIZE: 2`, `CTS_OBSTRUCTION_AWARE: true`,
+  `CTS_CLK_MAX_WIRE_LENGTH: 900`. Rationale (measured): with the debug module
+  in the netlist, the CTS delay-balancing chain moved onto the
+  instruction-SRAM branch and the post-CTS resizer recovered less TT setup
+  margin; a 12-variant sweep on VM1 (September 3-4, 2026,
+  `rtl/debug/asic_jtag_sentez/full_v3/varyant_taramasi.txt` and `OZET.md`)
+  showed that clustering the macro clock sub-tree plus obstruction-aware CTS
+  and a clock wire-length cap recovers it (exploration run v3: TT setup
+  +1.684 ns against +1.060 ns without the settings, hold back to the
+  JTAG-less level at all three corners, worst IR-drop 0.95 mV; the official
+  run `RUN_final_2026-09-06` reproduces these figures, 9.11), while the
+  knobs aimed directly at the mechanism (`CTS_DELAY_BUFFER_DERATE_PCT`,
+  `CTS_MAX_CAP`) measured no effect and a wider resizer setup margin was
+  harmful - those are deliberately absent. Otherwise LibreLane default CTS.
+- **CTS (measured):** clock tree
+  2,104 clock buffers + 311 clock inverters (`metrics.json`
+  `design__instance__count__class:clock_buffer` / `clock_inverter`).
+  Post-route hold repair `RUN_POST_GRT_RESIZER_TIMING: true` (63 -> 10
+  measurement, Aug 11 configuration experiment on the JTAG-less RTL,
+  in-PnR tt check; the FINAL signoff violation counts are in the 9.11
+  table: tt 87 / ss 5 / ff 142, mechanism in 9.9/2).
 - **Area/frequency trade-off (DDK Aug 17 decision):** die/core area
   carries no separate scoring weight; timing and signoff cleanliness are
   what matters. The +12.2% area cost of the channel-widening is
@@ -390,7 +467,7 @@ Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
   `scripts/` (filelist check, output collection, environment wrapper).
 
 <p align="center"><img src="results/images/asic_top.png" width="480" alt="asic_top final layout"></p>
-<p align="center"><sub>asic_top final layout (RUN_teslim_2026-08-14)</sub></p>
+<p align="center"><sub>asic_top final layout (RUN_final_2026-09-06)</sub></p>
 
 <p align="center"><img src="results/images/asic_top_render_hd.png" width="820" alt="asic_top high-resolution render (PDN hidden)"></p>
 <p align="center"><sub>High-resolution KLayout render of the delivered GDS (<code>results/gds/asic_top.gds.gz</code>, sky130 layer palette, met4/met5 PDN layers hidden) — 27 SRAM macros, the central logic corridor and the die frame are directly visible.</sub></p>
@@ -402,57 +479,85 @@ Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
 ## 9.8 Lint Results and Exceptions
 
 Measurement source: the flow's Verilator lint step (Verilator 5.044),
-`reports/lint/verilator_lint.log`, `RUN_teslim_2026-08-14`.
+`reports/lint/verilator_lint.log`, `RUN_final_2026-09-06`.
 
-- **Errors: 0. Warnings: 932. NO waiver file was USED** — no warning was
+Repository gate: `make lint` runs the same Verilator lint on the delivered
+configuration (`asic/filelist.f` with its six defines, top `asic_top`,
+MODDUP/PINMISSING deliberately enabled; the full log goes to
+`logs/lint/asic_lint.log` and any `%Error` fails the target). `make lint-fpga`
+lints `fpga_top` with the BSCANE2 TAP (`dmi_bscane_tap.sv`) and lint-only
+Xilinx primitive shells.
+
+- **Errors: 0. Warnings: 979. NO waiver file was USED** — no warning was
   suppressed, the log is delivered in its raw form
   (`reports/lint/waivers/` empty, deliberately).
 - **No inferred latches:** LATCH-class warnings 0.
 - Warning distribution and assessment:
-  - `TIMESCALEMOD` 452: mix of files with/without a timescale directive;
+  - `TIMESCALEMOD` 472: mix of files with/without a timescale directive;
     resolved on the simulation side with a compiler flag, does not affect
     the synthesis result.
-  - `UNUSEDSIGNAL` 230 / `UNUSEDPARAM` 62: mostly unused fields of
+  - `UNUSEDSIGNAL` 238 / `UNUSEDPARAM` 68: mostly unused fields of
     interface bundles and configuration constants (example: unused AXI
     side signals). Automatically pruned in synthesis.
-  - `WIDTHEXPAND` 63 / `WIDTHTRUNC` 31: deliberate width conversions;
+  - `WIDTHEXPAND` 65 / `WIDTHTRUNC` 32: deliberate width conversions;
     the critical arithmetic paths were verified by regression (root
-    `README.md` verification section: make test-all 16/16, coverage
-    measurements).
-  - `PINCONNECTEMPTY` 28: deliberately left-open output pins.
+    `README.md` verification section: the `make test-all` package - 16 SoC
+    components green on two machines, 18 with the two JTAG simulations -
+    and coverage measurements).
+  - `PINCONNECTEMPTY` 37: deliberately left-open output pins.
   - The rest (`PROCASSINIT` 15, `BLKSEQ` 13, `VARHIDDEN` 9,
-    `CASEINCOMPLETE` 8, `ASCRANGE` 7, `GENUNNAMED` 5, `UNDRIVEN` 4,
+    `CASEINCOMPLETE` 8, `ASCRANGE` 7, `GENUNNAMED` 6, `UNDRIVEN` 4,
     `PINMISSING` 3, `UNOPTFLAT` 2): style/informational level; functional
-    correctness was demonstrated with 16/16 test-all + 46/46 arch-test
-    signature equality.
+    correctness was demonstrated with the `make test-all` package (16 SoC
+    components 16/16 on two machines + `jtag-sim` 17/17 and
+    `jtag-bridge-sim` 6/6) and 46/46 arch-test signature equality.
 
 ## 9.9 Known Issues and Accepted Exceptions
 
 Known errors/warnings/violations; tool or flow issues that could affect
 the results; team assessment.
 
-Known and accepted limits (final run `RUN_teslim_2026-08-14`):
+Known and accepted limits (final run `RUN_final_2026-09-06`):
 
 1. **50 MHz does not close in the SS corner.** In the `ss_100C_1v60`
-   (1.6 V / 100 C) corner, setup WS is -9.083 ns (2,521 paths); the worst
-   path is a pure standard-cell CPU path (inside `id_stage`; NO
-   SRAM/derate effect). This is a consequence of the corner physics;
-   since RTL changes are out of scope, a dual declaration was made
-   (section 9.1): TT 50 MHz / SS ~34.4 MHz. The reports for all three
+   (1.6 V / 100 C) corner, setup WS is -10.537 ns (2,219 paths); the worst
+   path is a pure standard-cell CPU path (`id_stage` -> `ex_stage.alu_i` /
+   `alu_div_i` -> `id_stage`; NO SRAM/derate effect). This is a consequence of the corner physics -
+   the logic depth of the core's ALU cone, which no constraint or
+   clock-tree setting removes - so a dual declaration was made
+   (section 9.1): TT 50 MHz / SS ~32.7 MHz. The reports for all three
    corners are complete.
-2. **Remaining hold violations: tt -0.323 ns (48 paths), ff -0.382 ns
-   (112 paths); NO hold violation in the ss corner (+0.227 ns).** Of the
-   112 paths in the FF corner, 111 are at SRAM macro data inputs
-   (distribution in 9.9/7: `u_input_mem` 32, `i_ai_sram` 34,
-   `u_conv_out` 27, `u_conv_w_mem` 18) and 1 is a CPU control path
-   (`id_stage.controller`); the root cause is macro clock skew (CTS
-   arrives at the macro clock pins ~1 ns late). Margin-based repair was
-   MEASURED and rejected (0.3 margin: hold unchanged, SS setup collapsed
-   to -10.3; 0.5: tool crash). The FF figure is the result of the
-   deliberately pessimistic early-0.5 derate model. The delivery is at
-   macro level (Section 2); the limit is declared with its mechanism.
-3. **`i2c_sda_i` is sampled without a synchronizer** (RTL review note);
-   it is kept synchronously constrained in the SDC. `gpio_in_i` (2FF
+2. **Remaining hold violations: tt -0.309 ns (87 paths), ss -0.122 ns
+   (5 paths), ff -0.290 ns (142 paths).** The worst path is the same at
+   all three corners: an `i_obi_axi_instr` register -> instruction-SRAM
+   bank 1 `addr1[3]` macro pin. Endpoint classification
+   (`reports/timing/<corner>/violator_list.rpt`; per-macro breakdown in
+   9.9/7): of the 142 FF paths, 50 end at SRAM macro pins (address /
+   chip-select / data-in: `i_instr_sram` 20, `i_data_sram` 3, and the AI
+   accelerator's `u_input_mem` 16, `u_conv_out` 9, `u_conv_w_mem` 2;
+   `i_ai_sram` 0), 78 are launched from the debug module's `dm_mem` /
+   `dm_csrs` registers into CPU registers (instruction prefetch: FIFO 52 +
+   aligner 5, load-store unit 19, `id_stage` 2) and 14 are boot-ROM / OBI-bridge /
+   CPU-internal control paths; in the TT corner the same three families
+   are 25 / 50 / 12 of 87, in the SS corner 4 macro pins + 1 CPU control
+   path (`sleep_unit` -> `id_stage.controller`). No hold path ENDS in
+   JTAG/DM logic. The root cause of the macro family is macro clock skew:
+   CTS delivers the clock late to the macro clock pins (TT `clock.rpt`:
+   network latency 3.31 ns at the earliest flop vs 5.19 ns at the latest
+   macro clock pin, 1.88 ns skew); the DM -> CPU family is the read-data
+   return of the debug-memory window (`dm_mem` registers -> CPU prefetch
+   buffer / load-store unit). Margin-based repair was MEASURED and
+   rejected (0.3 margin: hold unchanged, SS setup collapsed to -10.3;
+   0.5: tool crash; August 3-11 experiments on the JTAG-less RTL). The FF
+   figure on the macro paths is the result of the deliberately
+   pessimistic early-0.5 derate model. The delivery is at macro level
+   (Section 2); the limit is declared with its mechanism.
+3. **`i2c_sda_i` 2FF synchronizer - APPLIED.** The RTL review of the
+   August 14 run noted that `i2c_sda_i` was sampled without a synchronizer;
+   a 2FF synchronizer (`rtl/soc_top.sv`, `I2C_SDA_SYNC`; reset value 1 =
+   idle SDA, +2 cycles = 40 ns, negligible against the I2C bit time) is
+   enabled in the delivered configuration. The port is kept synchronously
+   constrained in the SDC (6.000 / 0.500 ns budget). `gpio_in_i` (2FF
    synchronizer) and `uart*_rxd_i` are false paths as asynchronous inputs
    (section 9.6).
 4. **Magic DRC 9,201 markers — all from a SINGLE rule: `nwell.4`. The
@@ -466,7 +571,8 @@ Known and accepted limits (final run `RUN_teslim_2026-08-14`):
      i.e. the distinct violation count is on the order of
      **~2,300-3,100**.
    - Marker geometry: horizontal strips spanning standard-cell rows
-     (median marker height 2.79 um; sky130_fd_sc_hd row height 2.72 um —
+     (mean marker height 2.79 um, median 2.83 um; sky130_fd_sc_hd row
+     height 2.72 um —
      `scripts/tap_analiz.py` uses 2.72 in its row grouping), at 23
      distinct X positions; within the standard-cell area.
    - **There are zero markers INSIDE the SRAM macro footprints** (checked
@@ -479,8 +585,9 @@ Known and accepted limits (final run `RUN_teslim_2026-08-14`):
      furthermore LVS is 0 and XOR is 0, i.e. netlist equivalence and the
      geometry of the two flows are verified.
    - **ROOT CAUSE MEASURED — NOT missing taps.** The positions of the
-     135,957 tap cells (1,605 rows) were extracted from the final DEF and
-     the nearest-tap distance from each marker's center was computed:
+     135,957 tap cells (1,605 rows) were extracted from the final DEF of
+     `RUN_final_2026-09-06` and the nearest-tap distance from each
+     marker's center was computed:
 
      | Measurement | Result |
      |---|---|
@@ -507,10 +614,13 @@ Known and accepted limits (final run `RUN_teslim_2026-08-14`):
    - Note: the Magic steps **do complete** in the flow; the report has
      been produced and delivered. The rationale for
      `MAGIC_CAPTURE_ERRORS=false` is in the comment inside `config.yaml`.
-5. LVS = 0 (real GDS extraction, 1,795,705 elements). The previous
-   197/205 differences came from the diode placement of the old
-   narrow-channel floorplan; they are fully closed in the wide-channel
-   final floorplan.
+5. LVS = 0 (real GDS extraction; `reports/lvs/lvs.netgen.rpt`: "Circuits
+   match uniquely" - the top-level `asic_top` comparison is 92,149
+   devices / 81,121 nets per side after netgen merged 2,185,771 parallel
+   devices; `metrics.json` `design__lvs_error__count` = 0, device / net /
+   pin / property differences all 0). The previous 197/205 differences
+   came from the diode placement of the old narrow-channel floorplan;
+   they are fully closed in the wide-channel final floorplan.
 6. Some timing fields of `metrics.json` may not match the corner report
    of the same run one-to-one (observed in the Aug 11 verification run:
    the `timing__setup__ws` metric showed -91.57 while the ss `max.rpt`
@@ -541,13 +651,14 @@ Known and accepted limits (final run `RUN_teslim_2026-08-14`):
      x2/x4 modes; that is not a fresh-regression risk to take on freeze
      day (the same day, registering `tx_io_q` had produced the WP#/HOLD#
      tieoff regression — see commit `285698b`).
-   **Follow-up RESULT (final run, closed):** NONE of the 112 hold
+   **Follow-up RESULT (final run, closed):** NONE of the 142 hold
    violations in the `ff_n40C_1v95` corner is `qspi_io_o`
    (`grep -c qspi_io_o reports/timing/nom_ff_n40C_1v95/violator_list.rpt`
-   -> 0). Of the 112 violations, 111 are SRAM macro data inputs
-   (`u_input_mem` 32, `i_ai_sram` 34, `u_conv_out` 27, `u_conv_w_mem` 18;
-   +1 CPU control path) and the mechanism is the macro falling-edge
-   interface explained in 9.9/2.
+   -> 0). Of the 142 violations, 50 end at SRAM macro pins
+   (`i_instr_sram` 20, `u_input_mem` 16, `u_conv_out` 9, `i_data_sram` 3,
+   `u_conv_w_mem` 2; `i_ai_sram` 0), 78 are debug-module -> CPU
+   read-return paths and 14 are boot-ROM / bridge / CPU-internal paths;
+   the mechanisms are explained in 9.9/2.
    The decision is validated: leaving `io_oe` combinational produced no
    measurable hold risk in the fast corner.
 
@@ -563,27 +674,73 @@ Known and accepted limits (final run `RUN_teslim_2026-08-14`):
      accepted as a documented substitute in the SS/FF analyses; no
      scaling is required (section 9.5).
 
-9. **Optional JTAG debug block — present in the RTL, not enabled in this
-   run.** The RTL carries a riscv-dbg based debug interface (IEEE 1149.1
-   TAP, RISC-V Debug 0.13 DTM and DM, `rtl/debug/axi_dm_slave.sv`) behind
-   the `JTAG_DEBUG` define. `RUN_teslim_2026-08-14` was built without it;
-   `make jtag-equiv` (scripted, in the repository) proves that the RTL
-   without the define is byte-identical to the signed inputs, so every
-   number in this document describes the delivered configuration. When the
-   define is enabled the design gains five JTAG pins and a second clock
-   domain (`jtag_tck`, asynchronous to `clk`, crossed inside riscv-dbg's
-   `dmi_cdc`); the single-clock statements of 9.1 and 9.6 therefore apply to
-   the delivered configuration only. The variant has its own full sky130
-   flow results (DRC/LVS/XOR/antenna 0, TT setup +1.684 ns) and one open
-   finding — the DM address window is not qualified by debug mode — both
-   documented in root README Section 10.10. The `I2C_SDA_SYNC` define
-   (2FF synchroniser for `i2c_sda_i`, item 3 above) and the `FC1_FIX`
-   define (9.5) follow the same rule: available in the RTL, off in this
-   run.
+9. **JTAG debug subsystem - part of the delivered chip; one timing note
+   and two accepted limitations.** The specification lists JTAG as optional
+   ("1x JTAG (Opsiyonel)"; EK-2: a debug module reached through an on-chip
+   JTAG TAP controller and connected to the CV32E40P debug port, +3 bonus
+   points) and suggests pulp-platform/riscv-dbg; that is what is integrated:
+   IEEE 1149.1 TAP (`dmi_jtag_tap`), DTM with a two-phase CDC
+   (`dmi_jtag`/`dmi_cdc`), Debug Module (`dm_top`, window
+   0x0004_0000-0x0004_0FFF, program-buffer memory access only - System Bus
+   Access is tied off), the `rtl/debug/axi_dm_slave.sv` bridge (registered
+   request stage) and the five top-level pins of 9.1. `JTAG_DEBUG` is
+   enabled in `config.yaml` / `filelist.f`; the `ifdef` guards remain in the
+   RTL only as isolation evidence: `make jtag-equiv` preprocesses the RTL
+   with `JTAG_DEBUG`, `FC1_FIX` and `I2C_SDA_SYNC` all off and compares it
+   with commit 73d8dcd (the RTL of the August 14 signed run) - `asic_top`,
+   `fpga_top` and `ai_accelerator` byte-identical, `soc_top` and the
+   crossbar identical after constant folding of the tied-off DM signals and
+   the `sys_rst_n` alias (`scripts/jtag_equiv_expected.sed`, residual diff
+   0 lines). Verification: the 17-stage TAP/DTM/DM testbench and the bridge
+   unit test inside `make test-all`, OpenOCD and gdb sessions on the
+   Verilator model, and OpenOCD on the Genesys 2 board on September 6, 2026
+   (root README Section 10.10).
+   - *Timing:* the second clock domain (`jtag_tck`, 100 ns, asynchronous
+     group, 9.6) adds no constrained crossing. In the official run
+     (`RUN_final_2026-09-06`) no setup or hold violating path ENDS in
+     JTAG/DM logic (0 endpoints in `dm_top` / `dmi_jtag` / TAP at all
+     three corners). Paths that START in the debug module do appear: 41 of
+     the 2,219 SS setup violators are launched from the `ndmreset`
+     register of `dm_csrs` (`i_dm_top.i_dm_csrs._3330_`, net
+     `dm_ndmreset`) through the system reset gating into `i_qspi`
+     registers (slack -0.443 to -0.028 ns), and 50 (TT) / 78 (FF) hold
+     violators are launched from `dm_mem` / `dm_csrs` registers into CPU
+     registers (9.9/2). The v3 exploration run that preceded the official
+     run (`rtl/debug/asic_jtag_sentez/full_v3/`, same RTL and settings;
+     its `metrics.json` is byte-identical to the official one) counted 48
+     such paths in its step-45 sweep report; the final STA lists the 41
+     above (v2 without the CTS settings of 9.7 had none). SS is the
+     corner that does not close at 50 MHz in any version of this design
+     (9.9/1); its worst path remains the core's own ALU/divider cone.
+   - *Accepted limitation A - the DM window is not qualified by debug
+     mode.* The crossbar routes 0x0004_0xxx to the DM for every access; the
+     MCU has no PMP and runs M-mode only, so firmware can write the DM's own
+     `Halted`/`Going`/`Resuming` flag addresses (e.g. `HALTED` at
+     0x0004_0100) and mislead the DM (`dmstatus.allhalted = 1` while the
+     core runs; a subsequent abstract command hangs in `dm_mem`'s Go state
+     until `ndmreset`). The rest of the 64 KB window
+     (0x0004_1000-0x0004_FFFF) falls through to the default SRAM legs. For
+     an MCU without a security requirement this is accepted and documented;
+     stage 17 of `make jtag-sim` pins the current behaviour so that any
+     decode change is caught deliberately. The fix - qualifying the
+     `*_to_dm` legs with debug mode in the crossbar and answering `SLVERR`
+     otherwise - is a crossbar change reserved for a future revision.
+   - *Accepted limitation B - the instruction SRAM is not readable from the
+     data port.* The crossbar's data-port read decode has no ISRAM leg
+     (0x0001_xxxx reads fall to the DSRAM alias; by design - the bootloader
+     copies `.rodata` to DSRAM for the same reason), so a debugger can
+     download code into ISRAM but cannot read it back through the data
+     port. OpenOCD is configured with `riscv set_mem_access progbuf`, gdb
+     with `trust-readonly-sections on` (code read from the ELF) and
+     hardware breakpoints only (`gdb_breakpoint_override hard`; CV32E40P
+     has one trigger and no data watchpoints) - `rtl/debug/openocd/demo_gdb.gdb`.
+   - Licences: `asic/licenses/riscv-dbg_SHL-0.51.txt`,
+     `common_cells_v1.38.0_SHL-0.51.txt`, `tech_cells_generic_SHL-0.51.txt`
+     (9.13); pins in `rtl/debug/VENDOR.md`.
 
 ## 9.10 Power and IR-Drop Analysis
 
-Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
+Measurement source: **`RUN_final_2026-09-06`** (final delivery run).
 
 - **Conditions:** clock 50 MHz (`create_clock` 20 ns); supply 1.80 V
   nominal; power reports at the three signoff corners (Table 4).
@@ -594,24 +751,24 @@ Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
 
   | Corner | Supply | Total |
   |---|---|---|
-  | tt_025C_1v80 | 1.80 V | **112.1 mW** |
-  | ss_100C_1v60 | 1.60 V | 104.4 mW |
-  | ff_n40C_1v95 | 1.95 V | 118.3 mW |
+  | tt_025C_1v80 | 1.80 V | **117.2 mW** |
+  | ss_100C_1v60 | 1.60 V | 108.5 mW |
+  | ff_n40C_1v95 | 1.95 V | 124.2 mW |
 
   TT breakdown (by group, from `nom_tt_025C_1v80/power.rpt`): SRAM
-  macros 66.2%; clock network 16.8%; sequential 16.1%; combinational
-  0.9%. The dominant item of the power budget is memory — the expected
+  macros 63.3%; clock network 18.1%; sequential 17.3%; combinational
+  1.3%. The dominant item of the power budget is memory — the expected
   picture for 27 macros. The single declared figure is the TT corner
-  (**112.1 mW**); the 9.11 table carries the same value.
+  (**117.2 mW**); the 9.11 table carries the same value.
 
 <p align="center"><img src="results/images/power_breakdown.png" width="760" alt="power breakdown tt"></p>
 <p align="center"><sub>Total-power split, tt corner — rendered from the delivered report by <code>scripts/power_breakdown.py</code>.</sub></p>
-- **IR-drop (OpenROAD PSM, tt corner):** VPWR worst drop **1.54 mV**,
-  VGND worst rise **1.57 mV** -> **0.09%** of the supply voltage (far
-  below the typical 5% limit). PSM verification for both nets:
+- **IR-drop (OpenROAD PSM, tt corner):** VPWR worst drop **0.95 mV**,
+  VGND worst rise **1.00 mV** -> **0.05% / 0.06%** of the supply voltage
+  (average 12.5 uV; far below the typical 5% limit). PSM verification for both nets:
   "All shapes connected". Report: `reports/power/irdrop.rpt`.
 - **Node-level voltage dump (5.7):** `reports/power/net-VPWR.csv` and
-  `net-VGND.csv` are ~137 MB in raw form, so per GitHub's 100 MB
+  `net-VGND.csv` are ~144 MB (137 MiB) each in raw form, so per GitHub's 100 MB
   single-file limit they are stored in the repository **gzipped**
   (`net-VPWR.csv.gz`, `net-VGND.csv.gz`). Decompression:
   `gunzip -k <name>.gz`; integrity: `sha256sum -c <name>.sha256`
@@ -622,23 +779,25 @@ Measurement source: **`RUN_teslim_2026-08-14`** (final delivery run).
   them.
 - **IR-drop heatmap (visualization of the dumps):** worst-case deviation
   per 20 um bin, rendered directly from the compressed dumps by
-  `scripts/irdrop_heatmap.py`. Cross-checks: 2,588,379 nodes per net
+  `scripts/irdrop_heatmap.py`. Cross-checks: 2,578,862 nodes per net
   (= the instance count in 9.11) and worst values identical to
-  `irdrop.rpt` (1.54 mV / 1.57 mV). The die is essentially flat; the
+  `irdrop.rpt` (0.952 mV / 1.005 mV). The die is essentially flat; the
   white rectangles are the SRAM macro footprints (no standard-cell
-  nodes inside), and the worst bins sit in the logic corridor near
-  (1951, 1470) um.
+  nodes inside), and the worst bins sit in the vertical macro channel
+  between `i_instr_sram` bank 1 and `i_data_sram` bank 0 in the upper
+  macro band, near (2224, 3732) um (VPWR) and (2224, 3838) um (VGND).
 
 <p align="center"><img src="results/images/irdrop_heatmap.png" width="820" alt="IR-drop heatmap VPWR/VGND"></p>
-<p align="center"><sub>Worst-case IR-drop per 20 um bin, tt corner — VPWR drop (left) and VGND rise (right); the full color scale is 1.6 mV, i.e. 0.09% of the 1.80 V supply.</sub></p>
+<p align="center"><sub>Worst-case IR-drop per 20 um bin, tt corner — VPWR drop (left) and VGND rise (right); the full color scale is 1.1 mV, i.e. 0.06% of the 1.80 V supply.</sub></p>
 
 - **No custom voltage source location file was used** (default pad/strap
   supply).
 
 ## 9.11 Signoff Results Summary
 
-Source run: **`RUN_teslim_2026-08-14`** (final delivery run; produced
-from scratch on a clean clone with `make pdk` + `make asic_run`).
+Source run: **`RUN_final_2026-09-06`** (final delivery run; produced
+from scratch on a clean clone of commit `248069b` on VM1 with `make pdk` +
+`make asic_run`).
 Corner set: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 
 | Item | Result |
@@ -648,26 +807,26 @@ Corner set: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 | Magic DRC | 9,201 — all from a single rule (`nwell.4`); root cause measured, accepted exception (9.9/4) |
 | Netgen LVS (real GDS extraction) | **0 errors / 0 device differences** |
 | XOR (Magic vs KLayout GDS) | **0** |
-| Antenna violations | **0 nets / 0 pins** |
+| Antenna violations | **0 nets / 0 pins** (101 diodes inserted, `antenna_diodes_count`) |
 | Disconnected pins | 880 (classification: note below the table) |
 | PDN grid errors (VPWR / VGND) | **0 / 0** (report files empty) |
-| Setup WS (tt / ss / ff) | **+2.210** / -9.083 / **+4.375** ns |
-| Setup TNS (tt / ss / ff) | 0 / -10,639.4 / 0 ns |
-| Setup violation count (tt / ss / ff) | 0 / 2,521 / 0 |
-| Hold WS (tt / ss / ff) | -0.323 / **+0.227** / -0.382 ns (section 9.9/2) |
-| Hold TNS (tt / ss / ff) | -7.00 / 0 / -14.68 ns |
-| Hold violation count (tt / ss / ff) | 48 / 0 / 112 |
-| Max cap violation count (tt / ss / ff) | 266 / 662 / 219 |
-| Max slew violation count (tt / ss / ff) | 6,848 / 30,668 / 3,396 |
-| Power (total, estimated, tt corner) | **112.1 mW** |
-| IR-drop (tt) | 0.09% (worst 1.57 mV) |
+| Setup WS (tt / ss / ff) | **+1.684** / -10.537 / **+4.010** ns |
+| Setup TNS (tt / ss / ff) | 0 / -12,533.0 / 0 ns |
+| Setup violation count (tt / ss / ff) | 0 / 2,219 / 0 |
+| Hold WS (tt / ss / ff) | -0.309 / -0.122 / -0.290 ns (section 9.9/2) |
+| Hold TNS (tt / ss / ff) | -8.36 / -0.40 / -13.16 ns |
+| Hold violation count (tt / ss / ff) | 87 / 5 / 142 |
+| Max cap violation count (tt / ss / ff) | 224 / 647 / 194 |
+| Max slew violation count (tt / ss / ff) | 5,506 / 34,716 / 2,852 |
+| Power (total, estimated, tt corner) | **117.2 mW** |
+| IR-drop (tt) | 0.05% VPWR / 0.06% VGND (worst 0.95 mV / 1.00 mV) |
 | Die area | 18.77 mm2 (4180 x 4490 um) |
-| Instance count / std cells | 2,588,379 / 296,010 |
-| Transistor count (MOS gates, measured on the delivered GDS) | **12,683,650** (`scripts/count_transistors.py`: flat poly-over-diffusion count, SRAM bitcells and decap devices included) |
-| Utilization | 49.87% |
+| Instance count / std cells | 2,578,862 / 310,510 |
+| Transistor count (MOS gates, measured on the delivered GDS) | **12,715,215** (`scripts/count_transistors.py`: flat poly-over-diffusion count, SRAM bitcells and decap devices included) |
+| Utilization | 50.40% (std-cell 13.25%) |
 
 <p align="center"><img src="results/images/setup_slack_histogram.png" width="860" alt="setup slack histograms per corner"></p>
-<p align="center"><sub>Setup-slack distribution of the 1000 worst reported paths per corner (<code>scripts/timing_histogram.py</code>). TT closes with margin; the negative ss population is the declared ~34.4 MHz limitation (9.9/1).</sub></p>
+<p align="center"><sub>Setup-slack distribution of the 2,310 reported paths per corner (<code>scripts/timing_histogram.py</code>). TT closes with margin; the negative ss population is the declared ~32.7 MHz limitation (9.9/1).</sub></p>
 
 **Table notes:**
 
@@ -688,17 +847,18 @@ Corner set: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
   library characterization limits (max cap / max slew). The violations
   are concentrated predominantly in the SS (1.6 V / 100 C) corner; they
   stem from the same corner conditions as the SS closure statement in
-  9.1. Setup/hold closure is achieved in the TT corner (WS +2.210 ns,
-  TNS 0).
+  9.1. Setup closure is achieved in the TT corner (WS +1.684 ns,
+  TNS 0); the remaining hold violations are classified in 9.9/2.
 
 ## 9.12 Report and Output Locations
 
-- **Run tag:** **`RUN_teslim_2026-08-14`** (produced from scratch on a
-  clean clone; the chain was verified end to end:
-  `make asic_run` -> collection -> `make asic_verify` OK).
-- **Primary GDSII:** `results/gds/asic_top.gds` — the **Magic** streamout
-  output is authoritative. The KLayout streamout
-  (`asic_top_klayout.gds`) is delivered alongside for comparison; the
+- **Run tag:** **`RUN_final_2026-09-06`** (produced from scratch on a
+  clean clone of commit `248069b` on VM1; the chain was verified end to
+  end: `make asic_run` -> collection -> `make asic_verify` OK).
+- **Primary GDSII:** `results/gds/asic_top.gds` (delivered gzipped as
+  `asic_top.gds.gz`, see the packaging note below) — the **Magic**
+  streamout output is authoritative. The KLayout streamout
+  (`asic_top_klayout.gds.gz`) is delivered alongside for comparison; the
   **XOR difference between the two outputs is 0** (9.11).
 - **Use of `run/`:** `make asic_run` cleans the workspace, runs the flow
   under `run/<TAG>/`, then `scripts/collect_outputs.sh` copies to the
@@ -706,8 +866,11 @@ Corner set: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
   `checksums/SHA256SUMS` — SHA-256 digests of the mandatory outputs
   under results/, produced by `collect_outputs.sh` (DDK 6.3 scope).
   Report and result files exceeding GitHub's 100 MB limit are packaged
-  before commit with `scripts/guard_large_files.sh`; if any are created,
-  the details are in `results/BUYUK_DOSYALAR.md`.
+  before commit with `scripts/guard_large_files.sh`; for this run 14
+  files were packaged (`results/BUYUK_DOSYALAR.md`: the three GDS files,
+  DEF, MAG, the PnR and powered netlists, ODB in 2 parts, the three SPEF
+  files, the SPICE netlist and the two IR-drop CSV dumps; the original
+  SHA-256 of each is in the adjacent `.sha256` file).
 - **Section 5 reports -> `asic/reports/`:**
 
   | DDK 5.x | Location |
@@ -735,7 +898,16 @@ Corner set: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 
 ## 9.13 Third-Party Components and Licenses
 
-See `asic/THIRD_PARTY.md` and `asic/licenses/`.
+See `asic/THIRD_PARTY.md` (inventory with versions, commit ids and our
+modifications) and `asic/licenses/` (licence texts). Components entering the
+ASIC flow: CV32E40P, pulp axi, pulp common_cells 1.20.0 (with the fpnew
+package), verilog-uart, and - for the JTAG debug subsystem - pulp riscv-dbg
+(commit `21a5fbe`, `asic/licenses/riscv-dbg_SHL-0.51.txt`), the pulp
+common_cells v1.38.0 CDC subset (`common_cells_v1.38.0_SHL-0.51.txt`) and pulp
+tech_cells_generic v0.2.3 (`tech_cells_generic_SHL-0.51.txt`), all Solderpad
+HL 0.51, vendored verbatim under `rtl/debug/vendor/` (pins and file lists:
+`rtl/debug/VENDOR.md`). The riscv-dbg `SimJTAG`/`remote_bitbang` files
+(Apache-2.0 / BSD-3) are simulation-only and not in `filelist.f`.
 
 ---
 
@@ -743,4 +915,4 @@ See `asic/THIRD_PARTY.md` and `asic/licenses/`.
 among `asic/README.md`, `asic/environment/versions.txt`,
 `asic/config.yaml`, the delivered reports and the final outputs.
 
-<!-- English translation of README.md, 2026-09-01; numeric values converted from Turkish to English number format. -->
+<!-- English edition; numbers refreshed for RUN_final_2026-09-06 on 2026-09-06 (English number format). -->

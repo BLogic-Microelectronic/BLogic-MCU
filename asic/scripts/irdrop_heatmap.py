@@ -14,7 +14,7 @@ Reproduce: python3 scripts/irdrop_heatmap.py   (run from asic/)
 
 The script only READS delivered reports; it does not touch the flow.
 Cross-check: printed worst values must match reports/power/irdrop.rpt
-(1.54 mV VPWR / 1.57 mV VGND, 0.09% of supply).
+(0.952 mV VPWR / 1.005 mV VGND, 0.05% / 0.06% of supply).
 """
 import csv
 import gzip

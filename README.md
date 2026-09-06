@@ -45,7 +45,7 @@
 
 **BLogic MCU** is a 32-bit RISC-V based System-on-Chip (SoC) developed by **BLogic Mikroelektronik (Ostim Technical University)** for the **TEKNOFEST 2026 Chip Design Competition, Microcontroller Design Category**. The system is built around the open-source **CV32E40P** processor core (RV32IMC, 4-stage in-order pipeline) and integrates an AXI4 / AXI4-Lite bus fabric, on-chip SRAMs, a Boot ROM with QSPI boot loader, a full set of peripherals (UART × 2, GPIO, Timer, I²C Master, QSPI Master), and a custom **TFLite Micro Speech** hardware AI accelerator.
 
-The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, a UVM environment covering **four peripheral blocks (8/8 tests passing)**, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite (46/46), and end-to-end AI accuracy regression (**1000/1000 samples bit-exact**; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). SoC-level line coverage is **91.1 %** (branch 91.3 %), with every remaining uncovered line classified and justified in `verif/coverage_siniflandirma.md`. The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +3.089 ns` / `WHS = +0.068 ns` (timing met, zero failing endpoints in the synchronous `clk_50_mmcm` domain) and `0.328 W` total estimated on-chip power. On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
+The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, a UVM environment covering **four peripheral blocks (8/8 tests passing)**, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite (46/46), and end-to-end AI accuracy regression (**1000/1000 samples bit-exact**; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). SoC-level line coverage is **90.7 %** (branch 88.6 %; the JTAG bridge reaches 100 % under its own testbench), with every remaining uncovered line classified and justified in `verif/coverage_siniflandirma.md`. The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +2.538 ns` / `WHS = +0.085 ns` (timing met, zero failing endpoints across 24,248 setup and 24,245 hold endpoints; `jtag_tck` domain WNS +94.703 ns) and `0.328 W` total estimated on-chip power. On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). The chip also carries the specification's optional JTAG debug interface — a PULP riscv-dbg debug module on an IEEE 1149.1 TAP, connected to the CV32E40P debug port — exercised with OpenOCD and gdb in simulation and, through the board's own USB-JTAG, on the Genesys 2 (§10.10). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
 
 ---
 
@@ -61,7 +61,7 @@ The design has been verified through Verilator-based directed and randomized sim
 | **AI Accelerator** | TFLite Micro Speech **Tiny Conv** (Conv2D + ReLU + FC + Argmax), INT8 × INT8 → INT32 MAC, AXI4 master + AXI-Lite slave CSR, hardware interrupt on completion |
 | **Boot Flow** | Boot ROM → QSPI Flash loader → Instruction SRAM (M3 flash-boot mode active) |
 | **Interrupts** | CV32E40P CLINT-style vector: Timer (bit 16), AI Accelerator (bit 17), UART-stream DMA (bit 18) |
-| **Debug (optional)** | PULP riscv-dbg JTAG (IEEE 1149.1 TAP, RISC-V Debug 0.13 DTM/DM) behind `JTAG_DEBUG` — verified in simulation, on the Genesys 2 (OpenOCD/gdb, hardware breakpoints, alongside the AI demo) and in the sky130 flow; **not enabled in the delivered tapeout configuration** (§10.10) |
+| **Debug** | PULP riscv-dbg debug module (RISC-V Debug 0.13 DTM/DM) on an IEEE 1149.1 JTAG TAP — 5 pins (`jtag_tck_i`, `jtag_tms_i`, `jtag_tdi_i`, `jtag_trst_ni`, `jtag_tdo_o`), **part of the delivered chip** (`JTAG_DEBUG` on in `soc_files.f`, `asic/config.yaml` and the FPGA build); verified in simulation (17-stage TAP/DTM/DM testbench, OpenOCD, gdb), on the Genesys 2 (OpenOCD through the on-board USB-JTAG, hardware breakpoints, alongside the AI demo) and through the sky130 flow — the specification's optional "1x JTAG" item (EK-2, +3 bonus points), §10.10 |
 | **Target Frequency** | **50 MHz** (post-implementation, met) |
 | **FPGA Platform** | Digilent Genesys 2 — Xilinx Kintex-7 `XC7K325T-2FFG900C` |
 | **Source Lang.** | SystemVerilog (RTL) + C / RISC-V Assembly (firmware) + Python (golden vectors & AI model) |
@@ -195,9 +195,11 @@ The design has been verified through Verilator-based directed and randomized sim
 │   │   ├── ai_accelerator.sv             # Tiny Conv hardware
 │   │   └── ai_sram_arbiter.sv            # CPU / Accel / DMA arbiter
 │   ├── asic/                             # ASIC-only RTL (asic_top, boot ROM, SRAM macro wrappers)
-│   ├── debug/                            # JTAG prototype (branch deneme/jtag): axi_dm_slave, vendored riscv-dbg,
-│   │                                     #   DPI remote_bitbang bridge, OpenOCD/gdb scripts + evidence logs
-│   └── fpga/                             # FPGA build & board files (xdc, tcl, committed bitstream)
+│   ├── debug/                            # JTAG debug subsystem (delivered chip): axi_dm_slave bridge, vendored riscv-dbg /
+│   │                                     #   common_cells v1.38.0 / tech_cells_generic (VENDOR.md), DPI remote_bitbang bridge,
+│   │                                     #   OpenOCD/gdb scripts + evidence logs, sky130 exploration runs (asic_jtag_sentez/)
+│   └── fpga/                             # FPGA build & board files: build_genesys2.tcl (reads soc_files.f), genesys2.xdc,
+│                                         #   fpga_top.bit + reports/, fpga_top_m2_demo.bit (JTAG-less SRAM-boot backup)
 ├── sw/
 │   ├── common/
 │   │   ├── crt0.S                        # C runtime + IRQ vector table
@@ -237,6 +239,11 @@ The design has been verified through Verilator-based directed and randomized sim
 │   │   ├── i2c_master_tb.sv, i2c_system_tb.sv
 │   │   ├── uart_stp_tb.sv                # Stop-bit 1 / 1.5 / 2
 │   │   ├── uart_stream_tb.sv             # DMA → AI SRAM 5-scenario test
+│   │   ├── jtag_smoke_tb.sv              # riscv-dbg TAP/DTM/DM, 17 stages (make jtag-sim)
+│   │   ├── jtag_openocd_tb.sv            # SimJTAG + DPI bridge for the OpenOCD/gdb demos
+│   │   ├── axi_dm_slave_tb.sv            # Debug-module bridge unit TB, 6 scenarios (make jtag-bridge-sim)
+│   │   ├── asic_top_boot_tb.sv           # asic_top + 27 macro models: boot + AI, argmax check (make asic-top-sim)
+│   │   ├── xilinx_prim_stubs.sv          # Lint-only BSCANE2/MMCM/BUFG shells (make lint-fpga)
 │   ├── sva/                              # SystemVerilog Assertions
 │   │   ├── axi_lite_protocol_checker.sv
 │   │   ├── axi4_protocol_checker.sv
@@ -255,10 +262,11 @@ The design has been verified through Verilator-based directed and randomized sim
 │   │   ├── spi_flash_model.sv            # QSPI flash device
 │   │   ├── i2c_slave_model.sv            # I²C echo slave
 │   │   └── xilinx_prims_stub.sv          # IBUFDS/MMCM stubs (Verilator)
-│   ├── coverage_summary.txt              # SoC line + branch coverage (15 tests, 91.1 % / 91.3 %)
+│   ├── coverage_summary.txt              # SoC line + branch coverage (15 tests, 90.7 % / 88.6 %; JTAG bridge 100 % via jtag-cov)
 │   ├── coverage_tb_summary.txt           # Per-module block-TB coverage
 │   ├── coverage_siniflandirma.md         # Uncovered-line classification (A/B/C, per-line evidence)
 │   ├── perf_summary.txt                  # HW vs SW speedup measurement (21.0x)
+│   ├── jtag_cov_waivers.vlt              # jtag-sim coverage waiver (testbench file only)
 │   └── coverage_waivers.vlt              # Vendor (CV32E40P) waivers
 ├── teknotest/                            # TEKNOFEST jury reference DDK testbench
 │   ├── tb/teknotest_tb.sv
@@ -267,8 +275,10 @@ The design has been verified through Verilator-based directed and randomized sim
 ├── asic/                                 # DDK "Final İstenen Çıktılar" delivery tree (Tablo 8)
 │   ├── README.md                         # §9.1–9.13 master delivery document
 │   ├── Makefile                          # make pdk / asic_run / asic_verify / asic_clean
-│   ├── config.yaml + filelist.f          # LibreLane Classic config + RTL file list
-│   ├── constraints/design.sdc            # single SDC (PnR = signoff)
+│   ├── config.yaml + filelist.f          # LibreLane Classic config + RTL file list (84 files incl. riscv-dbg;
+│   │                                     #   JTAG_DEBUG / FC1_FIX / I2C_SDA_SYNC defines; 4 CTS settings)
+│   ├── constraints/design.sdc            # single SDC (PnR = signoff): clk 20 ns + jtag_tck 100 ns, asynchronous groups
+│   ├── THIRD_PARTY.md + licenses/        # third-party inventory + licence copies (riscv-dbg, common_cells, tech_cells_generic, ...)
 │   ├── environment/                      # flake.nix + flake.lock + versions.txt
 │   ├── macros/                           # SRAM GDS / LEF / LIB / Verilog / SPICE views
 │   ├── reports/ + results/ + checksums/  # filled by collect_outputs.sh after the run
@@ -282,12 +292,17 @@ The design has been verified through Verilator-based directed and randomized sim
 │   ├── run_coverage.sh                   # SoC coverage harness (15 tests, annotate + summary)
 │   ├── run_coverage_tb.sh                # per-module block-TB coverage
 │   ├── gen_perf_report.py                # soc-perf → verif/perf_summary.txt
-│   └── arch_test_size_check.sh           # 8 KB budget audit for arch-test
+│   ├── arch_test_size_check.sh           # 8 KB budget audit for arch-test
+│   ├── run_jtag_openocd.sh, run_jtag_gdb.sh   # OpenOCD / gdb end-to-end demos on the Verilator model
+│   ├── run_jtag_board.sh, jtag_kart_wsl.ps1   # OpenOCD on the Genesys 2 (usbipd -> WSL), make jtag-board
+│   ├── kart_jtag_entegrasyon.py               # JTAG + AI inference together on the board
+│   ├── jtag_define_off_equiv.sh + jtag_equiv_expected_diffs/   # isolation proof (make jtag-equiv)
+│   └── jtag_asic_config.py, vm_jtag_asic.sh, jtag_asic_cmp.py  # sky130 exploration tooling (historical, §10.10)
 ├── images/                               # README figures
 ├── Makefile                              # Top-level thin wrapper
 ├── Makefile.verilator                    # Verilator build + sim
 ├── Makefile.uvm                          # UVM build
-├── soc_files.f                           # Single source of truth for RTL list
+├── soc_files.f                           # Single source of truth for the RTL list + delivery defines (JTAG_DEBUG, FC1_FIX, I2C_SDA_SYNC)
 ├── bootrom.hex                           # Pre-built top-level boot ROM image
 ├── run_teknotest_2021.tcl                # Jury sim entry point
 └── README.md                             # (this file)
@@ -424,11 +439,13 @@ under `verif/arch_tests/`** — no external clone is needed for `make arch-test`
 Suite provenance is pinned in `asic/THIRD_PARTY.md` via a header fingerprint of
 `verif/arch_tests/suite/env/arch_test.h`.
 
-### 8.8 OpenOCD & gdb-multiarch (JTAG debug prototype — branch `deneme/jtag` only)
+### 8.8 OpenOCD & gdb-multiarch (host tools for the JTAG debug subsystem — optional to install)
 
-The JTAG debug prototype (§10.10) is driven by **real debugger software** talking to
-the Verilator model, so no probe hardware is needed. Both tools come straight from
-the Ubuntu 24.04 archive; the RISC-V target support is built into them:
+The JTAG debug subsystem (§10.10) is part of the delivered chip; OpenOCD and gdb are the
+**host-side debugger software** that drives it — in simulation through the Verilator
+model's `remote_bitbang` bridge (no probe hardware needed) and on the Genesys 2 through
+the board's own USB-JTAG. Both tools come straight from the Ubuntu 24.04 archive; the
+RISC-V target support is built into them:
 
 ```bash
 sudo apt-get install -y openocd gdb-multiarch iproute2
@@ -441,9 +458,12 @@ gdb-multiarch --version    # -> GNU gdb 15.1  (use: set architecture riscv:rv32)
 OpenOCD's gdb server (`target remote :3333`). The debug-module RTL itself
 (PULP `riscv-dbg`, the `common_cells` CDC cells and `tech_cells_generic` clock
 cells) is **vendored under `rtl/debug/vendor/`** with exact commit/tag pins and
-licences recorded in `rtl/debug/VENDOR.md` — nothing to install. Both tools are
-optional: `make test-all` skips `jtag-openocd` / `jtag-gdb` with a `SKIP` note when
-they are absent; `make jtag-sim` (pure-SV bit-bang) needs only Verilator.
+licences recorded in `rtl/debug/VENDOR.md` (licence copies in `asic/licenses/`) —
+nothing to install. Installing the two tools is optional: `make test-all` (18
+components, including `jtag-sim` and `jtag-bridge-sim`) needs only Verilator, and
+`make jtag-gates` skips `jtag-openocd` / `jtag-gdb` with a `SKIP` note when they are
+absent. On the board, OpenOCD runs inside WSL with the FT2232H attached through usbipd
+(`scripts/jtag_kart_wsl.ps1`, §12.7 D).
 
 ---
 
@@ -461,7 +481,7 @@ make sim
 # 2. Run the full regression (UART × 3 baud, Spike lockstep, QSPI flash)
 make regression
 
-# 3. Run absolutely everything (regression + boot + AI + ISA + UVM + …)
+# 3. Run absolutely everything (regression + boot + AI + ISA + UVM + JTAG + …) — 18 components
 make test-all
 ```
 
@@ -481,7 +501,9 @@ make test-all
 | `make uart-stream` | UART_1 DMA → AI SRAM, 5 scenarios (A–E) |
 | `make boot` | Full QSPI boot flow (Boot ROM → flash → SRAM → user code) |
 | `make asic-sram-sim` | Same boot flow, but with the **delivered SRAM macro Verilog models** (`ASIC_SRAM_MACRO`) — DDK §1.3 functional-verification proof |
-| `make asic-top-sim` | Full-stack GDS-equivalent run: DUT = `asic_top` + all **27 macro instances**; flash boot + conv layer bit-exact vs golden (FC errata: `asic/README.md` §9.5) |
+| `make asic-top-sim` | Full-stack GDS-equivalent run on the **delivered RTL** (`soc_files.f` defines: `JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC`): DUT = `asic_top` + all **27 macro instances**; flash boot + conv layer bit-exact vs golden (FNV-1a checksum) **and** FC argmax == 2 ("yes") + result word (`+CHECK_ARGMAX`) — the proof that erratum FC-1 is fixed in the delivered RTL (negative control, 6 Sep 2026: the same run fails on RTL without `FC1_FIX`; `asic/README.md` §9.5) |
+| `make lint` | ASIC lint of the delivered configuration: `asic_top` on `asic/filelist.f` (its six defines included), MODDUP/PINMISSING deliberately enabled, any `%Error` fails |
+| `make lint-fpga` | `fpga_top` lint with the BSCANE2 TAP (`dmi_bscane_tap.sv` swapped in for `dmi_jtag_tap.sv`) and lint-only Xilinx primitive shells (`verif/tb/xilinx_prim_stubs.sv`) |
 | `make qspi-modes` | QSPI x1 / x2 / x4 data-phase + 3B/4B addressing |
 | `make i2c-sys` | I²C system test (NBY rounding, ADR mask, TX/RX echo, NACK) |
 | `make ai` | Standalone AI accelerator TB (6 scenarios: 2 real audio + 4 synthetic) |
@@ -492,16 +514,20 @@ make test-all
 | `make arch-test` | Official `riscv-arch-test` ISA compliance (default `ARCH_EXT=I`) |
 | `make qspi-err` | QSPI FIFO overflow / flush / status error paths (25 checks) |
 | `make uvm` | UVM — 4 blocks (GPIO + Timer + UART_0 + I2C), 8 tests, directed + constrained-random |
-| `make jtag-sim` | JTAG prototype (branch `deneme/jtag`): `+define+JTAG_DEBUG` build, pure-SV TAP bit-bang, 9 stages (IDCODE → DMI → halt → abstract/progbuf → step/trigger → ndmreset) — no external tool |
+| `make jtag-sim` | riscv-dbg JTAG subsystem on the delivered build (`soc_files.f`): pure-SV TAP bit-bang, 17 stages (IDCODE → DMI → halt → abstract/progbuf → step/trigger → ndmreset, then DMI back-pressure, `cmderr` paths, SBA tie-off, TAP corner cases, ISRAM write + `ebreak`, DM region) — no external tool; component 17 of `make test-all` |
+| `make jtag-bridge-sim` | `axi_dm_slave` unit TB with the real `dm_top`: arbitration, R/B channel hold, `w_strb`, reset with a request in flight — 6 scenarios + timing-contract SVA; component 18 of `make test-all` |
 | `make jtag-openocd-build` | Builds the OpenOCD-driven simulation (`SimJTAG` + DPI `remote_bitbang` server on `localhost:9999`) |
 | `make jtag-openocd` | End-to-end **OpenOCD 0.12** demo: halt, register write/read, progbuf memory access, hw breakpoint, `reset halt` — evidence log in `rtl/debug/openocd/` |
 | `make jtag-gdb` | **gdb-multiarch** over OpenOCD: `reset halt` → `break *main` → `stepi` → register/memory write-back (§8.8 tools) |
+| `make jtag-equiv` | **Isolation proof**: with `JTAG_DEBUG`, `FC1_FIX` and `I2C_SDA_SYNC` all off, the preprocessed RTL equals commit `73d8dcd` (the RTL of the 14 August signed run) — `scripts/jtag_define_off_equiv.sh`, diff-of-diffs against `scripts/jtag_equiv_expected_diffs/` |
+| `make jtag-cov` | Line coverage of `jtag-sim`, committed report `rtl/debug/sim/jtag_cov_summary.txt` |
+| `make jtag-gates` | JTAG package: `jtag-sim`, `jtag-bridge-sim`, `lint-fpga`, `jtag-equiv`, plus the OpenOCD/gdb end-to-end demos when the tools are installed (`SKIP` otherwise) |
 | `make jtag-board` | **OpenOCD on the real Genesys 2** through the on-board USB-JTAG (BSCANE2 tunnel): halt, register and memory read/write, single-step, CSR, hardware breakpoint, `reset halt`/`reset run` — `scripts/run_jtag_board.sh`, evidence `rtl/debug/openocd/demo_run_board_2026-09-06.log` |
 | `scripts/kart_jtag_entegrasyon.py` | **JTAG + AI inference together on the board**: halt/inspect/resume leaves results bit-identical; a hardware breakpoint on `run_hw` catches the UART-delivered vector before inference — evidence `rtl/debug/openocd/demo_run_board_entegrasyon_2026-09-06.log` |
 | `make coverage` | SoC line + branch coverage (15 self-checking C tests, single build) |
 | `make coverage-tb` | Per-module block-testbench coverage |
 | `make spike` | Run firmware directly on Spike ISS |
-| `make test-all` | Everything above + summary table |
+| `make test-all` | The 16 SoC components from `regression` to `uvm` plus `jtag-sim` and `jtag-bridge-sim` — **18 components** — + summary table (OpenOCD/gdb demos and lint gates: `make jtag-gates`, `make lint`, `make lint-fpga`) |
 | `make clean` | Remove `obj_dir/` and `build/` |
 | `make logs-clean` | Remove `logs/` |
 | `make help` | Print this list |
@@ -550,7 +576,7 @@ cd obj_dir && ./blogic_sim +CPB=434
 | **Bus protocol** | SystemVerilog Assertions (SVA) bound to 10 AXI / AXI-Lite interfaces | Protocol-level legality |
 | **UVM** | Vendored UVM (`verif/uvm-lib`) + block-agnostic AXI-Lite agent | 4 blocks (GPIO / Timer / UART_0 / I2C), directed + constrained-random, reference-model scoreboards |
 | **AI accuracy** | Python `run_accuracy_window.py` + RTL TB | 1000-sample bit-exact SW vs RTL match |
-| **Coverage** | Verilator `--coverage-line` + uncovered-line classification | SoC 91.1 % line / 91.3 % branch; every remaining line justified (`verif/coverage_siniflandirma.md`) |
+| **Coverage** | Verilator `--coverage-line` + uncovered-line classification | SoC 90.7 % line / 88.6 % branch on the delivered configuration (JTAG bridge 100 % under `make jtag-cov`); every remaining line justified (`verif/coverage_siniflandirma.md`) |
 
 ### 10.2 Regression Test Suite
 
@@ -659,7 +685,7 @@ Block-TB verdict string: `*** TEST SUCCESS *** I2C SISTEM YOLU DOGRULANDI` (syst
 
 ### 10.8 Coverage Report
 
-All numbers in this section are from the **2026-09-01** clean run (Verilator 5.049, Spike enabled).
+All SoC-level numbers in this section are from the **2026-09-06** clean run on the delivered configuration (Verilator 5.049, Spike enabled); the module-level table is the 2026-09-01 run (`verif/coverage_tb_summary.txt`).
 
 <p align="center"><img src="images/coverage_summary.png" width="860" alt="coverage summary chart"></p>
 <p align="center"><sub>Left: SoC-level coverage vs. the 90% mark. Right: uncovered point-lines per team-RTL module (A/B classification below). Rendered from <code>verif/coverage_summary.txt</code> by <code>scripts/coverage_chart.py</code>.</sub></p>
@@ -679,17 +705,27 @@ classification of everything the first eleven left uncovered — the full
 uncovered-line audit, with per-line evidence and A/B/C verdicts, is
 committed as **`verif/coverage_siniflandirma.md`**.
 
-**Scope:** design RTL only. Excluded via `verif/coverage_waivers.vlt`:
-CV32E40P / PULP vendor code, testbenches, behavioural models, SVA checkers and
+**Scope:** design RTL only (15 files, the JTAG bridge `axi_dm_slave.sv`
+included). Excluded via `verif/coverage_waivers.vlt`: CV32E40P / PULP and
+riscv-dbg vendor code, testbenches, behavioural models, SVA checkers and
 covergroup binds — these are verification infrastructure, not design under test.
+The C tests never drive the TAP, so the JTAG bridge shows only its idle-state
+lines here; its full measurement (100 % of `axi_dm_slave.sv`, plus the vendor
+riscv-dbg files) comes from the 17-stage JTAG testbench, `make jtag-cov`,
+and is appended to the same summary.
 
-| Metric | Result |
+| Metric | Result (6 September 2026, delivered configuration) |
 |---|---|
-| **Line coverage** | **91.1 %** (347 / 381) |
-| **Branch coverage** | **91.3 %** (778 / 852) |
-| Lines fully covered (annotation) | 92.0 % (1636 / 1764) |
+| **Line coverage** | **90.7 %** (359 / 396) |
+| **Branch coverage** | **88.6 %** (819 / 924) |
+| Lines fully covered (annotation) | 90.0 % (1685 / 1856) |
+| JTAG bridge `axi_dm_slave.sv` via `make jtag-cov` | **100 %** (49 / 49); riscv-dbg `dmi_jtag_tap` 99.1 %, `dm_mem` 96.3 %, `dmi_jtag` 90.3 %, `dm_csrs` 81.3 % |
 
-<p align="center"><sub>🖼️ placeholder — add screenshot: <code>make coverage</code> summary block (91.1 % line / 91.3 % branch)</sub></p>
+Before the JTAG bridge entered the denominator (1 September 2026, 14 files)
+the same 15 tests measured 91.1 % line / 91.3 % branch; the 22 idle-only
+lines of `axi_dm_slave.sv` account for the whole difference.
+
+<p align="center"><sub>🖼️ placeholder — add screenshot: <code>make coverage</code> summary block (90.7 % line / 88.6 % branch)</sub></p>
 
 Every remaining uncovered line falls into one of three documented classes
 (`verif/coverage_siniflandirma.md`):
@@ -701,15 +737,17 @@ Every remaining uncovered line falls into one of three documented classes
 | **C — single accepted exception** | 5 | QSPI dummy-cycles-with-TX combination (legal but exotic; deliberately left open and documented) |
 
 Per-file uncovered counts after the 15-test run: `obi_to_axi` 23 (A),
+`axi_dm_slave` 22 (TAP idle in the C tests; 0 under `make jtag-cov`),
 `ai_accelerator` 9 (A), `qspi_master_axil` 9 (4 A + 5 C), `boot_rom` 4 (A),
 `i2c_master_axil` 3 (2 B + 1 A), `uart_stream_axil` 1 (A) — **`uart_axil`,
 `gpio_axil`, `timer_axil`, `ai_sram_arbiter`, `periph_decoder`,
-`soc_axi_interconnect` and `axi_sram_wrapper` are all at 0**.
+`soc_axi_interconnect`, `soc_top` and `axi_sram_wrapper` are all at 0**.
 
 Annotated sources: `logs/coverage/annotate/` (`%`-prefixed lines are uncovered;
 `--annotate-all` writes fully-covered files too, so "absent" unambiguously means
-"not instrumented" — structural RTL such as `soc_top.sv` produces no line points).
-Committed summary: `verif/coverage_summary.txt`.
+"not instrumented" — e.g. the purely structural `axi4_to_axilite_bridge.sv`;
+`soc_top.sv` now carries the ten line points of its JTAG reset/debug-request
+logic, all covered). Committed summary: `verif/coverage_summary.txt`.
 
 #### Module level — `make coverage-tb`
 
@@ -732,9 +770,13 @@ Committed summary: `verif/coverage_tb_summary.txt`.
 
 SVA-based covergroups are bound to the UART, QSPI, AI-accelerator CSR and IRQ
 interfaces (`verif/sva/*_func_cov.sv`). Over a full `make coverage` run the merged
-covergroups reach **20 / 22 bins (91 %)**: UART 5 / 7, QSPI 7 / 7, AI-CSR 5 / 5,
-IRQ 3 / 3 (timer irq16, AI irq17, stream irq18). The UART auto-clear checker
-(EK-2 v1.3) logs **6694 checks, 0 violations**.
+covergroups reach **21 / 22 bins (95 %)**: UART 6 / 7 (CPB 434 / 50 / 5208 and
+stop-bit codes 00 / 01 / 10; the reserved code 11 is programmed by no test),
+QSPI 7 / 7, AI-CSR 5 / 5, IRQ 3 / 3 (timer irq16, AI irq17, stream irq18). The
+UART auto-clear checker (EK-2 v1.3) logs **6432 checks, 0 violations**. (Until
+6 September the summary script took the best single test instead of the union
+over tests and reported UART 5 / 7 — the union is what the script has always
+documented as the meaningful figure.)
 
 ### 10.9 UVM Testbench — 4 Blocks, 8 Tests
 
@@ -771,20 +813,29 @@ The UVM library is vendored under `verif/uvm-lib` — no external clone is neede
 
 ---
 
-### 10.10 JTAG Debug Prototype (branch `deneme/jtag`, riscv-dbg + OpenOCD + gdb)
+### 10.10 JTAG Debug Subsystem (riscv-dbg, OpenOCD, gdb) — part of the delivered chip
 
-> **Status (merged into `main` on 6 September 2026 as an option).** JTAG is an
-> *optional* item of the competition specification. It is implemented and verified
-> — in simulation, on the Genesys 2 board and through the full sky130 flow — but
-> **not enabled in the delivered tapeout configuration**: `RUN_teslim_2026-08-14`
-> and the default FPGA image are built without `JTAG_DEBUG`. The signed ASIC run
-> and `asic/` are untouched; `make jtag-equiv` proves the RTL without the define
-> byte-identical to the signed inputs (0 differing lines across `soc_top`, the
-> crossbar, `asic_top`, `fpga_top` and `ai_accelerator`). JTAG builds
-> (`make jtag-*`, `build_genesys2_jtag.tcl`, `jtag_asic_config.py`) also enable two
-> small fixes that the delivered run declares but does not carry: `FC1_FIX`
-> (`asic/README.md` §9.5) and `I2C_SDA_SYNC` (`asic/README.md` §9.9/3). The
-> development history is on the `deneme/jtag` branch.
+> **Status (6 September 2026): the JTAG debug subsystem is part of the delivered chip.**
+> The competition specification lists "1x JTAG (Opsiyonel)" and, in EK-2, an optional
+> debug module reached through an on-chip JTAG TAP controller and connected to the
+> CV32E40P debug port (+3 bonus points), naming pulp-platform/riscv-dbg as the suggested
+> open-source implementation — that is exactly what is integrated here. The `JTAG_DEBUG`,
+> `FC1_FIX` and `I2C_SDA_SYNC` defines are enabled at every official entry point:
+> `soc_files.f` (every simulation target and `make lint-fpga`), `asic/config.yaml` +
+> `asic/filelist.f` (the sky130 flow and `make lint`; the file list is generated from
+> the config with `check_filelist.py --generate`) and `rtl/fpga/build_genesys2.tcl`
+> (reads `soc_files.f` and turns its `+define` lines into synthesis defines). The
+> `ifdef` guards stay in the RTL only as isolation evidence: `make jtag-equiv`
+> preprocesses the RTL with all three defines off and shows it identical to commit
+> `73d8dcd`, the RTL of the 14 August 2026 signed run (`asic_top`, `fpga_top` and
+> `ai_accelerator` byte-identical; `soc_top` and the crossbar identical after constant
+> folding of the tied-off DM signals and the `sys_rst_n` alias — rules in
+> `scripts/jtag_equiv_expected.sed`, residual diff 0 lines). The official ASIC run of
+> the delivered configuration is `RUN_final_2026-09-06` (§13.7, `asic/README.md`); the
+> 14 August run is the historical reference of the exploration tables below. Two
+> accepted limitations of the delivered chip are documented at the end of this section
+> and in `asic/README.md` §9.9/9. The development history (branch `deneme/jtag`) is in
+> `rtl/debug/JTAG_DENEME_PLANI.md` and the git log.
 
 **What was integrated.** PULP `riscv-dbg` (RISC-V Debug Spec 0.13: JTAG TAP, DTM,
 Debug Module) mapped at `0x0004_0000` (4 KB). A new bridge `rtl/debug/axi_dm_slave.sv`
@@ -800,17 +851,16 @@ IDCODE `0x0B1061C1`.
 
 | Evidence | Tool | Result |
 |---|---|---|
-| `make jtag-sim` | pure-SV TAP bit-bang | **17/17**: (1-9) UART, IDCODE, DTMCS, DMI→DM, halt (`debug_halted_o`), abstract-command GPR round-trip + progbuf `sw`/`lw` to DSRAM + `dpc`, resume, single-step (`dcsr.cause=4`) + hardware trigger breakpoint (`cause=2`), `ndmreset` → halt at `0x00010000` → firmware restarts (greeting printed twice); (10) DMI back-pressure: `op=3`, `dtmcs.dmistat=3`, `dmireset` **and** `dmihardreset`, DM `CmdErrBusy` + `abstractcs` W1C; (11) `cmderr=3` from a progbuf exception, an FPR access without an FPU and a non-existent CSR — with the `dm_exception_addr` (`0x0004_0810`) path proven white-box; (12) `cmderr=2` for `aarsize=3` / `AccessMemory` / reserved `regno`, `cmderr=4` for a command while running, `aarsize=0/1` byte/half stores through the bridge's `be` path; (13) SBA: `sbcs` discovery, the error-completing tie-off (`sberror=2`), `sbaccess=3` → `sberror=4`, W1C, no hang; (14) DM discovery: `dmcontrol` WARL, `hartinfo=0x00212380`, `abstractcs`, `haltsum0..3`, `nextdm`, `progbuf0..7`, `data1`, `tinfo`, `transfer+postexec`, `resumereq` auto-clear; (15) TAP corners: IR capture `0b00101`, BYPASS/undefined IR, Pause/Exit2 (DR **and** IR), back-to-back scans without Run-Test/Idle, TLR and TRST recovery mid-traffic; (16) writing the **instruction** SRAM from the debugger, proven by executing it, plus `dcsr.ebreakm` → debug entry (`cause=1`); (17) DM-region behaviour — see known limitations |
-| `make jtag-bridge-sim` | Verilator, directed unit TB | **6/6** for `axi_dm_slave` (`verif/tb/axi_dm_slave_tb.sv` + real `dm_top`): arbitration (data read/write beats instruction fetch), R and B channel hold with `r_ready`/`b_ready` low — the `resp_pending` case that the end-to-end runs **never** reach — `w_strb` byte enables reaching `dm_be_o`, and reset with a request in flight. The old second SVA was a structural tautology and was replaced by a request/response timing contract (`req_q` one cycle, exactly one response channel at T+2) |
-| `make regression-jtag` | Verilator | **6/6** C tests (`uart_hello`, `ai_micro_speech`, `ai_irq`, `timer_irq`, `uart1_strm`, `qspi`) on a model built **with** `+define+JTAG_DEBUG` (own `obj_dir_reg_jtag`) — the debug hardware does not disturb normal firmware |
-| `make jtag-lint` / `make jtag-lint-fpga` | Verilator lint | `asic_top` and `fpga_top` with `JTAG_DEBUG`, **MODDUP/PINMISSING enabled**: 0 errors and a warning profile identical to the define-less lint of the same top (the 3 `PINMISSING` are the unconnected CV32E40P `debug_*_o` status pins, present on `main` too). The FPGA gate uses `rtl/debug/jtag_files_fpga.f` (the `dmi_bscane_tap.sv` variant, which no other target ever compiles) plus `verif/tb/xilinx_prim_stubs.sv` (lint-only BSCANE2/IBUFDS/BUFG/MMCME2_BASE/STARTUPE2 shells) |
-| `make jtag-equiv` | `verilator -E -P` + `git show main:` | scripted proof of the “identical without the define” claim (`scripts/jtag_define_off_equiv.sh`): `asic_top` and `fpga_top` differ by **0 lines**; `soc_top` (63) and the crossbar (20) reduce to **0** after the documented constant-folding rules (`scripts/jtag_equiv_expected.sed`); the 13 lines that remain are the two *deliberate*, unconditional branch changes (the `i2c_sda_i` 2FF synchroniser and the FC-1 `co_re` fix). The gate is a **diff of diffs**: the remaining diff must match the stored expected diff in `scripts/jtag_equiv_expected_diffs/` byte for byte, so a new, changed or vanished difference all fail. (The first version matched line patterns instead, with entries as generic as `^ *end$`, which could have absorbed an unrelated real change; `scripts/jtag_equiv_known_diffs.txt` is now documentation only. Negative control: adding one wire to `asic_top.sv` outside the `ifdef` makes the gate exit 1 and print that line.) Updating the baseline needs an explicit `--kaydet` run |
+| `make jtag-sim` | pure-SV TAP bit-bang | **17/17**: (1-9) UART, IDCODE, DTMCS, DMI→DM, halt (`debug_halted_o`), abstract-command GPR round-trip + progbuf `sw`/`lw` to DSRAM + `dpc`, resume, single-step (`dcsr.cause=4`) + hardware trigger breakpoint (`cause=2`), `ndmreset` → halt at `0x00010000` → firmware restarts (greeting printed twice); (10) DMI back-pressure: `op=3`, `dtmcs.dmistat=3`, `dmireset` **and** `dmihardreset`, DM `CmdErrBusy` + `abstractcs` W1C; (11) `cmderr=3` from a progbuf exception, an FPR access without an FPU and a non-existent CSR — with the `dm_exception_addr` (`0x0004_0810`) path proven white-box; (12) `cmderr=2` for `aarsize=3` / `AccessMemory` / reserved `regno`, `cmderr=4` for a command while running, `aarsize=0/1` byte/half stores through the bridge's `be` path; (13) SBA: `sbcs` discovery, the error-completing tie-off (`sberror=2`), `sbaccess=3` → `sberror=4`, W1C, no hang; (14) DM discovery: `dmcontrol` WARL, `hartinfo=0x00212380`, `abstractcs`, `haltsum0..3`, `nextdm`, `progbuf0..7`, `data1`, `tinfo`, `transfer+postexec`, `resumereq` auto-clear; (15) TAP corners: IR capture `0b00101`, BYPASS/undefined IR, Pause/Exit2 (DR **and** IR), back-to-back scans without Run-Test/Idle, TLR and TRST recovery mid-traffic; (16) writing the **instruction** SRAM from the debugger, proven by executing it, plus `dcsr.ebreakm` → debug entry (`cause=1`); (17) DM-region behaviour — see known limitations. Component 17 of `make test-all` |
+| `make jtag-bridge-sim` | Verilator, directed unit TB | **6/6** for `axi_dm_slave` (`verif/tb/axi_dm_slave_tb.sv` + real `dm_top`): arbitration (data read/write beats instruction fetch), R and B channel hold with `r_ready`/`b_ready` low — the `resp_pending` case that the end-to-end runs **never** reach — `w_strb` byte enables reaching `dm_be_o`, and reset with a request in flight. The old second SVA was a structural tautology and was replaced by a request/response timing contract (`req_q` one cycle, exactly one response channel at T+2). Component 18 of `make test-all` |
+| `make regression` / `make test-all` on the delivered build | Verilator + Spike | since 6 September every simulation target compiles the delivered configuration from `soc_files.f` (`JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC`); the six regression firmwares (`uart_hello`, `ai_micro_speech`, `ai_irq`, `timer_irq`, `uart1_strm`, `qspi`) were first shown to pass **6/6** on a `+define+JTAG_DEBUG` model on 3 September (then a separate `regression-jtag` target) — the debug hardware does not disturb normal firmware. `jtag-sim` and `jtag-bridge-sim` are components 17 and 18 of `make test-all` |
+| `make lint` / `make lint-fpga` | Verilator lint | `asic_top` on the delivery file list (`asic/filelist.f`, its six defines included) and `fpga_top` (BSCANE2 TAP `dmi_bscane_tap.sv` swapped in for `dmi_jtag_tap.sv`, plus `verif/tb/xilinx_prim_stubs.sv` — lint-only BSCANE2/IBUFDS/BUFG/MMCME2_BASE/STARTUPE2 shells), **MODDUP/PINMISSING enabled**: 0 errors; the 3 `PINMISSING` are the unconnected CV32E40P `debug_*_o` status pins, present before the debug module too |
+| `make jtag-equiv` | `verilator -E -P` + `git show 73d8dcd:` | scripted **isolation proof** — with `JTAG_DEBUG`, `FC1_FIX` and `I2C_SDA_SYNC` all off, the preprocessed RTL equals the RTL of the 14 August signed run (`scripts/jtag_define_off_equiv.sh`), reference = commit `73d8dcd` (the last pre-merge `main` commit; `EQUIV_REF=` overrides): `asic_top`, `fpga_top` and `ai_accelerator` differ by **0 lines**; `soc_top` (51 raw) and the crossbar (20 raw) reduce to **0** after the documented constant-folding rules (`scripts/jtag_equiv_expected.sed`: tied-off DM signals, the `sys_rst_n` alias). All five expected diffs are **empty** — the `i2c_sda_i` 2FF synchroniser and the FC-1 `co_re` fix sit behind `I2C_SDA_SYNC` / `FC1_FIX`, both **on** in the delivered configuration like `JTAG_DEBUG`; the gate turns all three off. So everything added since the 14 August run lives inside the three `ifdef`s and nothing else in the RTL changed. The gate is a **diff of diffs**: the remaining diff must match the stored expected diff in `scripts/jtag_equiv_expected_diffs/` byte for byte, so a new, changed or vanished difference all fail. (The first version matched line patterns instead, with entries as generic as `^ *end$`, which could have absorbed an unrelated real change; `scripts/jtag_equiv_known_diffs.txt` is now documentation only. Negative control: adding one wire to `asic_top.sv` outside the `ifdef` makes the gate exit 1 and print that line.) Updating the baseline needs an explicit `--kaydet` run |
 | `make jtag-openocd` | OpenOCD 0.12 via `remote_bitbang` | halt, `a0` write/read-back `0x12345678`, `mww`/`mdw 0x21000` → `cafef00d 11223344`, `bp <pc> 4 hw` hit, `reset halt` → `pc=0x00010000`, and since 3 September also `step` (hardware single-step, `pc` +2), explicit CSR reads (`mstatus`, `misa`), an 8-word block read (OpenOCD's `abstractauto` path), a peripheral MMIO write (`UART0.TDR` → an `A` in the sim log), the **negative** watchpoint case (CV32E40P has no data trigger) and `reset run` (ndmreset without `haltreq`, third greeting). Exit codes of OpenOCD and the sim are part of the verdict — `rtl/debug/openocd/demo_run_2026-09-02.log`, latest run `rtl/debug/openocd/demo_run_v3_openocd_2026-09-03.log` (+ `…_openocd_sim_…` for the UART side) |
 | `make jtag-gdb` | xPack `riscv32-unknown-elf-gdb` 13.2 (as `gdb-multiarch`) over OpenOCD `:3333` | `reset halt` → `Breakpoint 1, 0x000100e8 in main ()` → `stepi`×3 → `$a0 = 0x0badcafe`, `*0x21000 = 0x600df00d`, `$mstatus`/`$misa`. **Exit codes are now part of the verdict**: gdb 0, OpenOCD 0, sim 0. Previously the script's closing `python` block silently never ran (this gdb has no Python), so gdb exited 1 and OpenOCD was killed with SIGTERM (143) while the verdict still said PASS; the runner now closes OpenOCD itself over telnet `:4444` and `GDB=…` selects the binary — `rtl/debug/openocd/demo_run_gdb_2026-09-02.log`, latest run `rtl/debug/openocd/demo_run_v3_gdb_2026-09-03.log` |
 | `make jtag-board` | OpenOCD 0.12 (WSL, `ftdi` driver) → on-board FT2232H **channel B** → Kintex-7 TAP → `BSCANE2` USER3/USER4 → riscv-dbg DTM | **PASS on hardware, 6 September 2026** (`rtl/debug/openocd/demo_run_board_2026-09-06.log`): TAP `0x43651093` found, hart halted inside the flash-booted demo firmware at `pc=0x000104fe`, `a0` write/read-back `0x12345678`, `step` `0x104fe → 0x10500` (+2, compressed), `misa = 0x40001104` (RV32IMC), `mww`/`mdw 0x21000` → `cafef00d 11223344`, 8-word block, UART0 MMIO write, resume/halt, **hardware breakpoint hit**, watchpoint refused as expected (no data trigger), `reset halt` catches `pc=0x00000000` in the boot ROM, `reset run`. OpenOCD exit 0. The board's JTAG is on the FT2232H's *second* channel; channel 0 reads all zeros — measured, now fixed in `genesys2_bscan.cfg` |
 | `scripts/kart_jtag_entegrasyon.py` (Windows, COM7 + OpenOCD telnet) | JTAG **and** the AI demo on the same board at the same time | **PASS on hardware, 6 September 2026** (`rtl/debug/openocd/demo_run_board_entegrasyon_2026-09-06.log`): (0) the DSRAM data region read over JTAG equals `firmware_flash.bin[0x8000]`, and a data-port read of `0x0001_0000` returns the same words — the documented ISRAM-is-write-only-from-the-data-port aliasing, now observed on silicon-equivalent hardware; (1) two golden vectors over UART give `yes`/`no` at 459,062 cycles; (2) halt in the idle loop (`pc=0x000104fa`), read the AI CSR block (`CTRL=0`, `STATUS=0x30`, `DATA_ADDR=0x30000`, `OUT_ADDR=0x35a58`), write and read back a DSRAM scratch word, resume — the next inference is bit-identical; (3) hardware breakpoint on `run_hw` (`0x0001015a`, located by matching the code bytes in the committed flash image): the vector arrives over UART, the checksum passes, and the core stops **before** the accelerator starts, with the 1,960 received bytes already visible in the AI input SRAM; `rbp` + resume then completes the inference with the same result; (4) a final vector confirms the system is untouched. Triggers can only be set while halted — the script halts before `bp`/`rbp` |
-| `make jtag-cov` | Verilator + `verilator_coverage` | line coverage, now with a **committed** report (`rtl/debug/sim/jtag_cov_summary.txt`, `jtag_cov.info`, and a dated copy of the run log). New RTL: `axi_dm_slave` 49/49, crossbar 104/104 (DM legs included), `soc_top` JTAG block 10/10 = **100 %**. Vendored riscv-dbg after stages 10-17: `dm_mem` 96.3 % (was 85 %), `dmi_jtag_tap` 99.1 % (was 82 %), `dmi_jtag` 90.3 %, `dm_csrs` 81.3 %, `dm_sba` 80.8 % (was 0 %), `dmi_cdc` 100 % |
-| `make regression` (no define) | Verilator + Spike | 6/6 — main-branch behaviour unchanged |
+| `make jtag-cov` | Verilator + `verilator_coverage` | line coverage, now with a **committed** report (`rtl/debug/sim/jtag_cov_summary.txt`, `jtag_cov.info`; the run log itself goes to `logs/jtag/` and is not tracked). New RTL: `axi_dm_slave` 49/49, crossbar 104/104 (DM legs included), `soc_top` JTAG block 10/10 = **100 %**. Vendored riscv-dbg after stages 10-17: `dm_mem` 96.3 % (was 85 %), `dmi_jtag_tap` 99.1 % (was 82 %), `dmi_jtag` 90.3 %, `dm_csrs` 81.3 %, `dm_sba` 80.8 % (was 0 %), `dmi_cdc` 100 % |
 
 Re-run on 3 September with the **registered** `axi_dm_slave` (request at T, DM at
 T+1, response at T+2): `make jtag-sim` 9/9 at that point (17/17 after the test
@@ -818,12 +868,13 @@ extension below), `make jtag-openocd` PASS
 (`demo_run_v2_openocd_2026-09-03.log`), `make jtag-gdb` PASS with the xPack
 `riscv32-unknown-elf-gdb` 13.2 standing in for `gdb-multiarch`
 (`demo_run_v2_gdb_2026-09-03.log`: `Breakpoint 1, 0x000100e8 in main ()`, `stepi`×3,
-`a0` = `0x0badcafe`, `*0x21000` = `0x600df00d`); `make regression` without the define:
+`a0` = `0x0badcafe`, `*0x21000` = `0x600df00d`); `make regression` on the JTAG-less build of that day:
 the 4 functional tests PASS, the 2 Spike lock-step tests could not run on the laptop
-(no Spike installed — they are the 6/6 of the row above on the machine that has it).
+(no Spike installed — they are the 6/6 of the regression row above on the team machine that has it).
 The same day the test suite was extended along the gaps found in a coverage review:
-`make jtag-sim` 9 → **17** stages, the new `make jtag-bridge-sim`, `make regression-jtag`,
-`make jtag-lint`, `make jtag-lint-fpga`, `make jtag-equiv` and `make jtag-cov` targets, and
+`make jtag-sim` 9 → **17** stages, the new `make jtag-bridge-sim`, `make jtag-equiv` and
+`make jtag-cov` targets, a JTAG-build regression and `asic_top`/`fpga_top` lint gates
+(today `make lint` / `make lint-fpga` on the delivered configuration), and
 the gdb/OpenOCD demos gained real-debugger paths (`step`, block reads, CSR, MMIO,
 `reset run`, the negative watchpoint) together with exit-code checks in both verdicts.
 
@@ -831,7 +882,10 @@ Known limitations, documented rather than hidden: the firmware is built without 
 (the gdb demo uses `stepi`/`x/i`); CV32E40P has a single hardware trigger, so a
 breakpoint must be deleted before single-stepping and **data watchpoints are
 impossible** (`wp` returns *resource not available*, shown in the OpenOCD demo);
-the instruction SRAM is write-only from the data port, therefore gdb is configured
+the instruction SRAM is write-only from the data port (the crossbar's data-port read
+decode has no ISRAM leg, so a `0x0001_xxxx` read falls to the DSRAM alias: the debugger
+can download code into ISRAM but not read it back, and gdb reads `.text` from the ELF
+with `trust-readonly-sections on`), therefore gdb is configured
 for **hardware** breakpoints only (`gdb_breakpoint_override hard`) — a software
 breakpoint would read the “old” instruction from the DSRAM alias and corrupt the
 code; System Bus Access is **not** wired (the tie-off completes every SBA request
@@ -839,22 +893,24 @@ with `sberror=2`, so a host without `riscv set_mem_access progbuf` gets errors, 
 a hang); the `remote_bitbang` link runs at ~11 ms of simulated time per wall-clock
 second.
 
-One housekeeping item is still open: `rtl/debug/sim/*.log` (the dated copy of the
-`make jtag-cov` run) is caught by the global `*.log` rule in `.gitignore`, exactly as
-`rtl/debug/openocd/demo_run_*.log` was before its explicit exception. The report itself
-(`jtag_cov_summary.txt`, `jtag_cov.info`) is not ignored; adding the `!rtl/debug/sim/*.log`
-exception is left to a human decision.
+The dated run log of `make jtag-cov` is written to `logs/jtag/` (untracked, like every
+other run log); only the report files under `rtl/debug/sim/` (`jtag_cov_summary.txt`,
+`jtag_cov.info`) are committed.
 
-Two DM-region findings from stage 17 of `make jtag-sim`, both **open** and both
-outside this branch's edit scope (they would change the crossbar):
+Two DM-region findings from stage 17 of `make jtag-sim`, both **open and declared as
+accepted limitations of the delivered chip** (`asic/README.md` §9.9/9). The MCU is
+M-mode only with no PMP and has no security requirement, so firmware that deliberately
+writes the debug module's own flag addresses is a misbehaving program rather than a
+threat model; the fix is a crossbar change (debug-mode-qualified DM legs) reserved for a
+future revision:
 * **The DM region is not qualified by debug mode** (there is no PMP either). Normal
   firmware can write the `HALTED` flag at `0x0004_0100` and make the DM believe the
   hart is halted; the test does exactly that and shows `dmstatus.allhalted=1` while
   the core reports `debug_halted_o=0`. A debugger that then issues an abstract
   command hangs in `dm_mem`'s *Go* state (`abstractcs.busy` stuck for 50 polls) and
   only `ndmreset` recovers. `data0` at `0x0004_0380` is likewise readable by
-  firmware. Fix to evaluate before any merge: qualify `*_to_dm` with debug mode and
-  answer with `SLVERR` otherwise, inside `` `ifdef JTAG_DEBUG ``.
+  firmware. Fix reserved for a future revision: qualify `*_to_dm` with debug mode and
+  answer with `SLVERR` otherwise.
 * **`0x0004_1000`-`0x0004_FFFF` silently aliases the SRAMs.** The crossbar only
   routes `addr[15:12]==0` to the DM, so the rest of the 64 KB window falls through to
   the default leg: a write to `0x0004_1000` lands in DSRAM `0x0002_1000` with an OKAY
@@ -875,24 +931,39 @@ The sky130 synthesis cost of the revision is measured with `scripts/vm_jtag_asic
 `JTAG_DEBUG`; configs derived by `scripts/jtag_asic_config.py` into `build/asic_jtag/`,
 `asic/` strictly read-only). **Result (VM, 3 September 2026, both runs exit 0,
 `rtl/debug/asic_jtag_sentez/`):** the JTAG-less `soc_top` baseline reproduces the
-delivered synthesis (61,679 cells / 727,453 µm² vs. 61,823 / 728,153 for `asic_top`,
+14 August synthesis (61,679 cells / 727,453 µm² vs. 61,823 / 728,153 for `asic_top`,
 27 SRAM macros in both); with `JTAG_DEBUG` the design grows to **66,852 cells /
 793,738 µm²** — **+5,173 cells (+8.4 %), +66,285 µm² std-cell area (+9.1 %),
 +1,172 flip-flops** (8,922 → 10,094), macros unchanged. On the 18.77 mm² die that is
-≈0.4 % of the die area, so the revision fits the existing floorplan.
+≈0.4 % of the die area, so the revision fits the existing floorplan. Both scripts
+(`jtag_elab_check.sh`, `vm_jtag_asic.sh` with `jtag_asic_config.py`) are exploration
+tooling from before the subsystem entered `asic/`; their evidence is kept under
+`rtl/debug/asic_jtag_sentez/`, and the gates of the delivered configuration are
+`make lint`, `make asic-elab` and the official run (§13.7).
 
-**Full flow of the JTAG variant (VM1, 3 September 2026, 215 min, all 80 Classic
-stages).** `scripts/vm_jtag_asic.sh STEPS=full` runs the *delivered* `asic/config.yaml`
+**Design-space exploration that produced the delivered CTS settings (VM1, 3-4
+September 2026).** The three full sky130 runs below — v1, v2, v3 — were made with
+`scripts/vm_jtag_asic.sh` on configurations derived from `asic/config.yaml` by
+`scripts/jtag_asic_config.py` (at that time `asic/` was read-only for this work).
+They are what produced the four CTS settings now in `asic/config.yaml` and the JTAG
+block now at the end of `asic/constraints/design.sdc`. They are exploration, not the
+delivered numbers: **the delivered numbers are those of the official run in §13.7 and
+`asic/README.md`**. Their reference column is the 14 August 2026 signed run of the
+JTAG-less RTL (commit `73d8dcd`).
+
+**v1 — combinational bridge (215 min, all 80 Classic stages).**
+`scripts/vm_jtag_asic.sh STEPS=full` ran the then-current `asic/config.yaml`
 settings unchanged (die/core, macro placement, PDN, obstructions, 3-corner STA, KLayout
 DRC, LVS, XOR) on `asic_top` + `JTAG_DEBUG`; `rtl/asic/asic_top.sv` gained the five
 JTAG pins under `` `ifdef JTAG_DEBUG `` (preprocessed output without the define is
-byte-identical, verified with `verilator -E`), and `design_jtag.sdc` = the delivered SDC
+byte-identical, verified with `verilator -E`), and `design_jtag.sdc` = that SDC
 plus a 100 ns `jtag_tck` clock, an asynchronous `clk`/`jtag_tck` group and the JTAG pin
-budgets. Evidence in `rtl/debug/asic_jtag_sentez/full/` (metrics, comparison table,
+budgets — the same block that is now part of `asic/constraints/design.sdc`. Evidence in
+`rtl/debug/asic_jtag_sentez/full/` (metrics, comparison table,
 STA summary and worst paths per corner, antenna summary, config, SDC, run log). The run
-ended with the same deferred error as the delivered run (hold violations, exit 2).
+ended with the same deferred error as the 14 August run (hold violations, exit 2).
 
-| metric | delivered (RUN_teslim_2026-08-14) | JTAG variant | Δ |
+| metric | 14 Aug run (JTAG-less RTL) | v1 (JTAG, combinational bridge) | Δ |
 |---|---|---|---|
 | Route DRC / KLayout DRC / LVS / XOR | 0 / 0 / 0 / 0 | **0 / 0 / 0 / 0** | — |
 | Magic DRC (macro false positives, see §9.9) | 9,201 | 9,201 | 0 |
@@ -901,10 +972,10 @@ ended with the same deferred error as the delivered run (hold violations, exit 2
 | Hold WNS TT / SS / FF (ns) | −0.323 / +0.227 / −0.382 | −0.611 / −0.381 / −0.539 | −0.29 / −0.61 / −0.16 |
 | Hold-violating endpoints TT / SS / FF | 48 / 0 / 112 (AI accel → SRAM, §9.9) | 136 / 13 / 207 — **0 in JTAG logic** | same family, more endpoints |
 | SS closes at | ≈34.4 MHz | ≈31.3 MHz | −3.1 MHz |
-| Std-cell instances / area | 296,005 / 1.249 mm² | 309,985 / 1.337 mm² | +4.7 % / +7.0 % |
+| Std-cell instances / area | 296,010 / 1.249 mm² | 309,985 / 1.337 mm² | +4.7 % / +7.0 % |
 | Sequential cells | 8,920 | 10,094 | +1,174 |
 | Utilization (with macros / std-cell) | 49.9 % / 12.3 % | 50.4 % / 13.2 % | +0.5 / +0.9 pt |
-| Power (TT, metrics.json) | 118.3 mW | 123.2 mW | +4.9 mW (+4.1 %) |
+| Power (metrics.json `power__total`, FF corner) | 118.3 mW | 123.2 mW | +4.9 mW (+4.1 %) |
 | IR drop worst / avg | 1.54 mV / 9.8 µV | 2.35 mV / 12.2 µV | still < 0.15 % of 1.8 V |
 
 Reading: manufacturability signoff is unchanged (DRC/LVS/XOR clean, one antenna net in
@@ -913,8 +984,8 @@ the CPU multiplier that a rerun or diode insertion would clear). The one real co
 (`id_stage` → `cs_registers` CSR read → interrupt controller → `controller.pc_mux` →
 `if_stage`) continuing through the crossbar and the combinational `axi_dm_slave` into
 `dm_mem` (debug ROM / program buffer at 0x0004_0000) — 451 of the 2,310 worst listed
-SS paths end in DM/DTM logic. The delivered design's own SS limit (−9.08 ns, AI
-accelerator) is untouched underneath. **Recommended fix before any merge:** a request
+SS paths end in DM/DTM logic. The 14 August design's own SS limit (−9.08 ns, AI
+accelerator) is untouched underneath. **Fix applied in v2/v3, see below:** a request
 register stage in `rtl/debug/axi_dm_slave.sv` (DM memory accesses tolerate one cycle of
 latency), which removes the DM endpoints from the SS critical set; hold violations are
 the known AI-accelerator → SRAM-macro family and contain no JTAG endpoints.
@@ -922,11 +993,11 @@ the known AI-accelerator → SRAM-macro family and contain no JTAG endpoints.
 (request at T, DM at T+1, response at T+2), and every gate above was re-run against
 the registered bridge.
 
-**Full flow of the registered bridge (VM1, 3 September 2026, 216 min, 80/80 stages,
-`rtl/debug/asic_jtag_sentez/full_v2/`).** Same delivered settings, same deferred hold
-error as the delivered run. The fix did what it was meant to do:
+**v2 — registered bridge (216 min, 80/80 stages,
+`rtl/debug/asic_jtag_sentez/full_v2/`).** Same settings as v1, same deferred hold
+error as the 14 August run. The fix did what it was meant to do:
 
-| | delivered | JTAG v1 (combinational) | **JTAG v2 (registered)** |
+| | 14 Aug run (JTAG-less) | JTAG v1 (combinational) | **JTAG v2 (registered)** |
 |---|---|---|---|
 | Route DRC / KLayout / LVS / XOR | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 | **0 / 0 / 0 / 0** |
 | Antenna violating nets | 0 | 1 | **0** |
@@ -935,18 +1006,18 @@ error as the delivered run. The fix did what it was meant to do:
 | SS setup TNS (ns) | −10,640 | −14,320 | −12,190 |
 | DM/JTAG endpoints among SS setup violators | — | 140 / 1000 | **0 / 1000** |
 | DM/JTAG endpoints among hold violators | — | 0 | **0** |
-| Std-cell instances / area | 296,005 / 1.249 mm² | 309,985 / 1.337 mm² | 310,754 / 1.347 mm² |
-| Power (TT) / worst IR drop | 118.3 mW / 1.54 mV | 123.2 mW / 2.35 mV | 123.9 mW / 2.92 mV |
+| Std-cell instances / area | 296,010 / 1.249 mm² | 309,985 / 1.337 mm² | 310,754 / 1.347 mm² |
+| Power (metrics.json `power__total`, FF corner) / worst IR drop | 118.3 mW / 1.54 mV | 123.2 mW / 2.35 mV | 123.9 mW / 2.92 mV |
 
 The DM and DTM endpoints left the critical set completely, in both setup and hold, and
 the one antenna net of v1 is gone; the register layer itself cost 769 std cells. The
 remaining −10.26 ns is the core's own ALU/divider path (`id_stage` →
-`ex_stage.alu_i.alu_div_i` → `id_stage`), which sits at −8.26 ns in the delivered run.
+`ex_stage.alu_i.alu_div_i` → `id_stage`), which sits at −8.26 ns in the 14 August run.
 **Where the margin actually goes (measured 3 September; this corrects an earlier
 reading in this file).** The first explanation here was "with 1,213 more flip-flops CTS
 builds deeper". That is wrong and the run data refutes it. TritonCTS reports no extra
-depth at all — `clk_i_regs` path depth is 7-8 in the delivered run and 6-7 in v2, i.e.
-one level *shallower* — and v1, which adds 1,176 sinks over the delivered run, produced
+depth at all — `clk_i_regs` path depth is 7-8 in the 14 August run and 6-7 in v2, i.e.
+one level *shallower* — and v1, which adds 1,176 sinks over the 14 August run, produced
 a shallower launch branch and a slightly *better* TT margin (+2.303 vs +2.210 ns). The
 earlier "SS skew −2.58 → +3.58 ns" comparison was also apples to oranges: those two
 numbers come from different register pairs. Global SS skew grows 4.028 → 4.401 ns.
@@ -961,8 +1032,8 @@ Two things do hold, and they are where the work goes next:
   branch onto the instruction-SRAM branch — that single relocation costs 1.091 ns.
   The common launch/capture path also collapsed from three stages to one.
 * **The loss is created in the resizers, not in CTS.** Straight out of CTS v2 is
-  *better* than the delivered run (TT +0.694 vs +0.252 ns, with equal global skew).
-  The post-CTS resizer then recovers +2.483 ns for the delivered design but only
+  *better* than the 14 August run (TT +0.694 vs +0.252 ns, with equal global skew).
+  The post-CTS resizer then recovers +2.483 ns for the 14 August design but only
   +1.231 ns for v2. The likely reason is corner budgeting: `RSZ_CORNERS` covers all
   three corners, and v2's SS is 1.72 ns *better* than v1's (−10.262 vs −11.983) while
   its TT is 1.24 ns worse — the resizer is spending effort on an SS corner that cannot
@@ -983,7 +1054,7 @@ margin made things *worse*, and `PL_TIMING_DRIVEN=true` crashes OpenROAD at step
 obstruction-aware CTS and a clock wire-length cap. The full flow with those four
 settings (v3, 3 h 28 min, 78/78 stages) gives:
 
-| | delivered | v2 | **v3** |
+| | 14 Aug run (JTAG-less) | v2 | **v3** |
 |---|---|---|---|
 | TT setup WS | +2.210 | +1.060 | **+1.684** |
 | SS setup WS | −9.083 | −10.262 | −10.537 |
@@ -993,43 +1064,81 @@ settings (v3, 3 h 28 min, 78/78 stages) gives:
 | Route DRC / KLayout / LVS / XOR / antenna | 0 | 0 | **0** |
 | Worst IR drop | 1.54 mV | 2.92 mV | **0.95 mV** |
 
+The official run `RUN_final_2026-09-06` (VM1, commit `248069b`, the same four
+CTS settings read from `asic/config.yaml` instead of `-c` overrides) reproduced
+the v3 column figure for figure — TT +1.684 / SS −10.537 / FF +4.010 ns setup,
+−0.309 / −0.122 / −0.290 ns hold, TT hold TNS −8.36 ns, 0.95 mV worst IR drop,
+124.2 mW (`power__total`, FF corner) and 310,510 std-cells — `full_v3/metrics.json`
+is byte-identical to the official `metrics.json`: the settings moved into the
+config give the same result as the command-line overrides (§13.7).
+
 54 % of the TT setup loss comes back, hold improves at all three corners and returns
-to the delivered level at TT, and area and power are unchanged. The cost, stated
-plainly: SS setup loses another 0.275 ns and 48 JTAG endpoints re-enter the SS
-violator list (v2 had none, v1 had 140). SS does not close in any version — the
-delivered run sits at −9.083 ns — and the limit there is the ALU cone's logic depth,
-not the clock tree, so the trade looks acceptable for a prototype.
+to the 14 August level at TT, and area and power are unchanged. The cost, stated
+plainly: SS setup loses another 0.275 ns and debug-module-launched paths re-enter
+the SS violator list (48 were counted in the step-45 sweep report; the final STA,
+byte-identical between v3 and the official run, lists 41, all launched from the
+`ndmreset` register; v2 had none, v1 had 140). SS does not close in any version — the
+14 August run sits at −9.083 ns — and the limit there is the ALU cone's logic depth,
+not the clock tree, so the trade was accepted: these four settings are the CTS
+configuration of the delivered chip, and the debug-module-launched paths in the SS
+violator list (41, all from the `ndmreset` register) are declared in
+`asic/README.md` §9.9/9.
 
 One detail worth keeping: straight out of CTS, v2 and v3 report the *same* number
 (+0.6936). The gap opens in the next step (v2 1.925, v3 2.523). These settings do not
 change the tree CTS builds so much as how well the resizer can repair it.
 
-These settings were passed on the command line and deliberately **not** written into
-`asic/config.yaml`; making them permanent would first need a run on the delivered RTL,
-which has not been measured. The delivered design is untouched by any of this —
-separate branch, separate run directory.
-The same branch also carries the one-line **FC-1** fix (`asic/README.md` §9.5) and the
-`i2c_sda_i` 2FF synchroniser.
+In the exploration these settings were passed on the command line (`-c KEY=VALUE`); on
+6 September 2026 they were written into `asic/config.yaml`
+(`CTS_MACRO_CLUSTERING_MAX_DIAMETER: 600`, `CTS_MACRO_CLUSTERING_SIZE: 2`,
+`CTS_OBSTRUCTION_AWARE: true`, `CTS_CLK_MAX_WIRE_LENGTH: 900`) together with the JTAG
+sources, the three defines and the `jtag_tck` SDC block, so the official run
+`RUN_final_2026-09-06` is the v3 configuration run from the committed `asic/` tree. The
+knobs measured ineffective (`CTS_DELAY_BUFFER_DERATE_PCT`, `CTS_MAX_CAP`) and the harmful
+one (resizer setup margin 0.15) are deliberately absent. The exploration evidence stays
+under `rtl/debug/asic_jtag_sentez/` (`full/`, `full_v2/`, `full_v3/` with
+`varyant_taramasi.txt`); the delivered numbers are in §13.7 and `asic/README.md`. The
+one-line **FC-1** fix (`FC1_FIX`, `asic/README.md` §9.5) and the `i2c_sda_i` 2FF
+synchroniser (`I2C_SDA_SYNC`) were validated in these runs as well and are on in the
+delivered configuration.
 
-**FPGA variant (Genesys 2, 3 September 2026).** `rtl/fpga/build_genesys2_jtag.tcl`
-builds `rtl/fpga/fpga_top_jtag.bit` (M3 flash-boot, same firmware as the delivered
-bitstream, so the only difference is `JTAG_DEBUG`). The board has no JTAG pin header,
-so riscv-dbg's `dmi_bscane_tap.sv` (same upstream commit, added to `rtl/debug/vendor/`,
-FPGA build only) replaces the full TAP: the on-board USB-JTAG reaches the DTM through
-Xilinx `BSCANE2` USER3 (dtmcs) / USER4 (dmi) — OpenOCD config
-`rtl/debug/openocd/genesys2_bscan.cfg` (`riscv set_ir dtmcs 0x22 / dmi 0x23`). **Proven on the board on 6 September 2026**: the FT2232H is attached to WSL with usbipd (`scripts/jtag_kart_wsl.ps1`), OpenOCD reaches the DTM through the FPGA's own TAP and the full demo passes on the flash-booted demo firmware — see the `make jtag-board` row above. Two facts learnt the hard way: the Genesys 2 wires JTAG to the FT2232H's channel B (channel A reads all zeros), and the UART is a separate FT232R, so COM7 stays usable during a debug session.
-`rtl/fpga_top.sv` ties the unused `soc_top` JTAG pins under `` `ifdef JTAG_DEBUG ``
-(bit-identical without the define); `rtl/fpga/genesys2_jtag.xdc` adds the 10 MHz
-`jtag_tck` clock and an asynchronous group towards `clk_50`. Cost versus the delivered
-bitstream (`rtl/fpga/reports_jtag/`): LUT 12,340 → **13,772** (+1,432, +11.6 %),
-FF 8,639 → **9,713** (+1,074), BRAM 14 / DSP 10 unchanged; timing met at
-WNS **+2.256 ns** / WHS **+0.031 ns** (delivered: +3.089 / +0.068), `jtag_tck` WNS
-94.8 ns, 0 routing errors, 0 DRC violations. The debug blocks themselves take
-`i_dm_top` 470 LUT / 665 FF and `i_dmi_jtag` 582 LUT / 362 FF (TAP 79 LUT),
-`axi_dm_slave` 15 FF. Rebuilt with the registered bridge (3 September, second
-build, the committed `fpga_top_jtag.bit` and `reports_jtag/`): LUT 13,775 / FF 9,752
-(`axi_dm_slave` 183 LUT / 54 FF), WNS **+2.538 ns** / WHS **+0.085 ns** — better than
-the first build, still with 0 routing errors.
+**The delivered bitstream (Genesys 2).** `rtl/fpga/build_genesys2.tcl` builds
+`rtl/fpga/fpga_top.bit` from `soc_files.f` with the same three defines as the ASIC flow
+(M3 flash boot; signoff reports in `rtl/fpga/reports/`, numbers in §12.4). The board has
+no JTAG pin header, so riscv-dbg's `dmi_bscane_tap.sv` (same upstream commit, in
+`rtl/debug/vendor/`, FPGA build only) replaces the full TAP: the on-board USB-JTAG
+reaches the DTM through Xilinx `BSCANE2` USER3 (dtmcs) / USER4 (dmi) — OpenOCD config
+`rtl/debug/openocd/genesys2_bscan.cfg` (`riscv set_ir dtmcs 0x22 / dmi 0x23`). **Proven
+on the board on 6 September 2026**: the FT2232H is attached to WSL with usbipd
+(`scripts/jtag_kart_wsl.ps1`), OpenOCD reaches the DTM through the FPGA's own TAP and
+the full demo passes on the flash-booted demo firmware — see the `make jtag-board` row
+above. Two facts learnt the hard way: the Genesys 2 wires JTAG to the FT2232H's channel
+B (channel A reads all zeros), and the UART is a separate FT232R, so COM7 stays usable
+during a debug session. `rtl/fpga_top.sv` ties the unused `soc_top` JTAG pins under
+`` `ifdef JTAG_DEBUG ``; `rtl/fpga/genesys2.xdc` adds the 100 ns `jtag_tck` clock on the
+BSCANE2 TCK pin, an asynchronous group towards `clk_50` and 20 ns max-delay constraints
+on the BSCANE2 TDI/TDO paths. The 6 September board evidence was taken with the
+bitstream built from this same RTL on 3 September (then named `fpga_top_jtag.bit` and
+built by a since-removed JTAG-specific script; the build is now the standard one — build
+log excerpt and bitstream hash in
+`rtl/debug/openocd/vivado_ozet_2026-09-03_jtag_bitstream.txt`, board boot and a 20-vector
+sweep on that image in `kart_boot_2026-09-03_jtag_bitstream.txt` /
+`kart_sweep20_2026-09-03_jtag_bitstream.txt`). Cost of the debug subsystem, measured on
+that 3 September build against the JTAG-less bitstream of the same day (registered
+bridge; `impl_utilization_hier.rpt` / `impl_timing_summary.rpt` of that build):
+LUT 12,340 → **13,775** (+1,435, +11.6 %), FF 8,639 → **9,752** (+1,113), BRAM 14 /
+DSP 10 unchanged; timing met at WNS **+2.538 ns** / WHS **+0.085 ns** (JTAG-less:
++3.089 / +0.068), `jtag_tck` WNS 94.7 ns, 0 routing errors, 0 DRC errors (80 advisory
+DRC warnings: DSP/BRAM pipelining and async-control checks). The official
+`rtl/fpga/fpga_top.bit` of 6 September 2026 (`build_genesys2.tcl`, §12.4) reproduces
+these numbers exactly — Vivado is deterministic for identical inputs — so the board
+evidence of 6 September applies to the delivered image. The debug blocks
+themselves take `i_dm_top` 488 LUT / 665 FF, `i_dmi_jtag` 583 LUT / 362 FF (TAP 79
+LUT) and `axi_dm_slave` 183 LUT / 54 FF. The first build of the same day
+(combinational bridge, not committed) came in at LUT 13,772 / FF 9,713 and WNS
++2.256 ns / WHS +0.031 ns; the registered bridge is better on both. The demo-day backup
+image `rtl/fpga/fpga_top_m2_demo.bit` (SRAM-direct boot, `build_genesys2_m2demo.tcl`)
+has no debug subsystem.
 
 ---
 
@@ -1128,7 +1237,7 @@ not a synthetic pattern. Source: `sw/tests/ai_sw_reference.c`.
 the entire gap: the `tflite_requant` pipeline cut plus the `data_sram` output register
 (timing closure) cost +5.2 % cycles (436,344 → **459,016**) and bought the ASIC frequency
 ceiling (38.2 → 45.0 MHz at the time of the change; the final LibreLane 3.0.6 signoff
-closes **50 MHz with +2.210 ns of TT slack** — see §13.7) without changing
+closes **50 MHz with +1.684 ns of TT slack** — see §13.7) without changing
 any result — `conv_out` remains 1000 / 1000 words bit-exact. The software baseline is
 essentially unchanged (9,683,882 → 9,684,726, +0.009 %): 22.1 × (436,344 ÷) → 21.0 ×
 (459,016 ÷), same truncating arithmetic as the on-chip report (`(sw × 10) / hw`,
@@ -1181,6 +1290,13 @@ make ai-acc
 
 **Digilent Genesys 2** — Xilinx Kintex-7 `XC7K325T-2FFG900C`, speed grade -2.
 
+The delivered bitstream `rtl/fpga/fpga_top.bit` is built by `rtl/fpga/build_genesys2.tcl`
+from `soc_files.f` with the same three design defines as the ASIC flow (`JTAG_DEBUG`,
+`FC1_FIX`, `I2C_SDA_SYNC`); the JTAG debug subsystem is reached through the board's own
+USB-JTAG (Xilinx `BSCANE2` USER3/USER4 in place of the ASIC TAP pins), so no extra header
+is needed (§12.7 D). `rtl/fpga/fpga_top_m2_demo.bit` is the JTAG-less SRAM-boot backup
+for demo day (`build_genesys2_m2demo.tcl`).
+
 ![Genesys 2 Board](images/genesys2_board.jpg)
 
 ### 12.2 Clock Architecture
@@ -1221,33 +1337,44 @@ The SoC stays in reset until both the user reset button is released **and** the 
 > All values below come from the committed signoff reports under `rtl/fpga/reports/`,
 > regenerated end-to-end by `vivado -mode batch -source rtl/fpga/build_genesys2.tcl`.
 > The reports in the repository were produced by the current bitstream
-> (`rtl/fpga/fpga_top.bit`), which is the image running on the board.
+> (`rtl/fpga/fpga_top.bit`, built 6 September 2026 from the delivered
+> configuration — JTAG debug subsystem on the BSCANE2 TAP, `FC1_FIX`,
+> `I2C_SDA_SYNC`; hash and summary in `rtl/fpga/reports/build_summary_2026-09-06.txt`),
+> which is the image to run on the board.
 
 | Resource | Used (Impl) | Used (Synth) | Available | Utilization |
 |---|---|---|---|---|
-| **LUT** (all as logic) | 12,340 | 12,546 | 203,800 | **6.05 %** |
-| **FF** | 8,639 | 8,625 | 407,600 | **2.12 %** |
+| **LUT** (13,773 as logic + 2 as memory) | 13,775 | 14,032 | 203,800 | **6.76 %** |
+| **FF** | 9,752 | 9,738 | 407,600 | **2.39 %** |
 | **BRAM (36k tiles)** | 14 (13× RAMB36 + 2× RAMB18) | 14 | 445 | **3.15 %** |
 | **DSP48E1** | 10 | 10 | 840 | **1.19 %** |
 | **IO (bonded IOB)** | 43 | 43 | 500 | **8.6 %** |
-| **BUFG** | 2 | 2 | 32 | **6.3 %** |
+| **BUFG** | 3 (50 MHz system clock, gated CV32E40P core clock, BSCANE2 TCK) | 3 | 32 | **9.4 %** |
 | **MMCM** | 1 | 1 | 10 | **10 %** |
-| **Total estimated power** | — | — | — | **0.328 W** (dynamic 0.167 + static 0.161) |
-| **WNS / TNS / WHS / THS** | **+3.089 ns / 0 / +0.068 ns / 0** (timing met, positive slack) | | | |
-| **Failed routes** | **0** (17,720 / 17,720 routable nets fully routed) | | | |
+| **BSCANE2** | 2 (USER3 = DTMCS, USER4 = DMI) | 2 | 4 | **50 %** |
+| **Total estimated power** | — | — | — | **0.328 W** (dynamic 0.166 + static 0.161) |
+| **WNS / TNS / WHS / THS** | **+2.538 ns / 0 / +0.085 ns / 0** (timing met, positive slack) | | | |
+| **Failed routes** | **0** (19,962 / 19,962 routable nets fully routed) | | | |
 | **Implementation DRC** | **0 errors**, 80 warnings (see 12.4.1) | | | |
 
-All timing endpoints belong to the synchronous `clk_50_mmcm` domain
-(17,741 endpoints, WNS +3.089 ns / WHS +0.068 ns, zero failing). With a 20 ns
-period and +3.089 ns of setup slack the design closes with **~59 MHz of
-achievable headroom** while running at 50 MHz.
+Two clock domains are constrained: the synchronous `clk_50_mmcm` SoC domain
+(19,264 intra-clock setup endpoints plus 4,661 recovery/removal checks in the
+same domain, WNS +2.538 ns / WHS +0.085 ns, zero failing) and the
+BSCANE2 `jtag_tck` domain of the debug TAP (100 ns period, 320 endpoints, WNS
++94.703 ns / WHS +0.092 ns); the two are an asynchronous clock group and cross
+only through the riscv-dbg two-phase handshake. With a 20 ns period and
++2.538 ns of setup slack the SoC domain closes with **~57 MHz of achievable
+headroom** while running at 50 MHz. The debug subsystem costs 1,254 LUT /
+1,081 FF (`i_dm_top` 488 / 665, `i_dmi_jtag` 583 / 362, `axi_dm_slave` 183 /
+54, `impl_utilization_hier.rpt`); the JTAG-less build of the same RTL closed at
+WNS +3.089 ns / WHS +0.068 ns with 12,340 LUT / 8,639 FF.
 
 Note on the drop versus earlier revisions: the accelerator's `conv_out`
 storage originally presented three combinational read ports, which Yosys could
 not infer as memory and implemented as ~32,000 flip-flops. Rewriting it as a
 single synchronous port with a byte mask (see `rtl/ai_accelerator/ai_accelerator.sv`)
-let the tools map every array to Block RAM — `LUT as Memory` is now **0** and
-all storage sits in the 14 BRAM tiles above.
+let the tools map every array to Block RAM — `LUT as Memory` is **2** and
+all SoC storage sits in the 14 BRAM tiles above.
 
 #### 12.4.1 Implementation DRC
 
@@ -1257,7 +1384,7 @@ break down as follows and are all benign for this design:
 | Rule | Count | Meaning |
 |---|---|---|
 | `REQP-1839` / `REQP-1840` | 20 + 20 | Asynchronous control on RAMB36 / RAMB18. Our memories use synchronous reads and are reset only through the synchronous SoC reset; the check fires on the shared asynchronous reset net. |
-| `DPIP-1`, `DPOP-1`, `DPOP-2` | 19 + 8 + 8 | DSP48 input / output pipelining advisories. Adding those pipeline stages would raise DSP `Fmax`; at 50 MHz the multiplier path already has +3.089 ns of slack, so the extra latency is not worth taking. |
+| `DPIP-1`, `DPOP-1`, `DPOP-2` | 19 + 8 + 8 | DSP48 input / output pipelining advisories. Adding those pipeline stages would raise DSP `Fmax`; at 50 MHz the design already has +2.538 ns of setup slack, so the extra latency is not worth taking. |
 | `RPBF-3` | 3 | Incomplete IO buffering. Expected: the QSPI clock does not use a regular IO buffer — it reaches the flash through `STARTUPE2`/`USRCCLKO` (see 12.3). |
 | `CHECK-3` | 2 | Vivado stopped listing after 20 violations of the two `REQP` rules above. |
 
@@ -1311,6 +1438,12 @@ vivado -mode batch -source rtl/fpga/build_genesys2.tcl
 
 Output: `rtl/fpga/fpga_top.bit` (bitstream) + `rtl/fpga/reports/*.rpt` (synthesis / timing / utilization / power / DRC signoff reports). Intermediate files and routed checkpoints go to `build/fpga_genesys2/`.
 
+The script parses `soc_files.f`: every `+define+` line becomes a synthesis define
+(`JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC` — the delivered configuration) and
+`dmi_jtag_tap.sv` is replaced by the BSCANE2-based `dmi_bscane_tap.sv`; `genesys2.xdc`
+carries the matching `jtag_tck` clock (100 ns on the BSCANE2 TCK pin), the asynchronous
+group towards `clk_50` and the TDI/TDO max-delay constraints.
+
 > The build uses `BOOT_ADDR_HEX = 00000000` (M3 flash-boot mode). For SRAM-direct boot (M2), edit `build_genesys2.tcl` to `BOOT_ADDR_HEX = 00010000` and rebuild.
 
 #### B. Program the QSPI Flash + load the bitstream
@@ -1349,7 +1482,7 @@ python sw/demo/juri_panel.py
 
 1. **Bitstream Yükle…** — pick `rtl/fpga/fpga_top.bit` (normal, flash boot) or
    `rtl/fpga/fpga_top_m2_demo.bit` (backup: same demo firmware embedded, boots
-   from SRAM, needs no flash at all). The panel programs the FPGA over JTAG via
+   from SRAM, needs no flash at all; no JTAG debug subsystem). The panel programs the FPGA over JTAG via
    Vivado batch; the bitstream is volatile, so re-load after every power cycle.
 2. **Bağlan / Test** — opens the UART port; from then on every line the board
    prints (boot banner after R19, menu, results) appears live in the panel log.
@@ -1365,6 +1498,35 @@ python sw/demo/juri_panel.py
 > (`subst X: "<repo path>"`) and work from `X:\`; the panel copies bitstreams to
 > an ASCII temp directory on its own. Board-verified 2026-09-03: 1000/1000 with
 > `kart_sweep.py --n 1000`, M2 backup boots and classifies without flash.
+
+#### D. JTAG debug session on the board
+
+```powershell
+# 1. Windows: hand the FT2232H USB-JTAG (0403:6010) to WSL2 with usbipd. Vivado hw_server
+#    and the serial terminal must be closed; the UART is a separate FT232R (COM7) and stays usable.
+.\scripts\jtag_kart_wsl.ps1            # -Detach gives the device back to Windows
+```
+
+```bash
+# 2. WSL: OpenOCD demo on the flash-booted firmware — halt, registers, single-step, CSR,
+#    memory and MMIO access, hardware breakpoint, reset halt / reset run; verdict + log in logs/jtag/
+make jtag-board                        # scripts/run_jtag_board.sh + rtl/debug/openocd/genesys2_bscan.cfg
+# interactive session instead of the demo script (telnet :4444, gdb :3333):
+openocd -f rtl/debug/openocd/genesys2_bscan.cfg -c "bindto 0.0.0.0"
+```
+
+```powershell
+# 3. Windows, with the interactive OpenOCD of step 2 running: JTAG and the AI demo together —
+#    halt/inspect/resume between live inferences, hardware breakpoint on run_hw before the accelerator starts
+py -3 scripts/kart_jtag_entegrasyon.py --port COM7 --bp 0x1015a `
+    --inputs sw/ai_model/golden_vectors/acc_batch_inputs.hex `
+    --expected sw/ai_model/golden_vectors/acc_batch_expected.hex `
+    --bin rtl/fpga/firmware_flash.bin
+```
+
+Evidence of both on hardware (6 September 2026): `rtl/debug/openocd/demo_run_board_2026-09-06.log`
+and `demo_run_board_entegrasyon_2026-09-06.log` (§10.10). The backup image
+`fpga_top_m2_demo.bit` has no debug subsystem — use `fpga_top.bit` for JTAG.
 
 ---
 
@@ -1388,17 +1550,20 @@ reproducible from a clean clone; no step depends on a commercial EDA licence.
 
 | Path | Purpose |
 |---|---|
-| `asic/filelist.f` | synthesis file list (canonical source is `config.yaml`; regenerated from it and cross-checked on every `make asic_run`; SVA/TB excluded, top = `asic_top`) |
-| `asic/config.yaml` | LibreLane Classic master configuration (floorplan, PDN, obstructions, STA corners) |
+| `asic/filelist.f` | synthesis file list — 84 source files in compilation order (SoC RTL + the JTAG debug subsystem: riscv-dbg, common_cells v1.38.0 CDC cells, tech_cells_generic, `axi_dm_slave`) and the six defines `SYNTHESIS`, `ASIC_SRAM_MACRO`, `BOOTROM_CONTENT`, `JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC` (canonical source is `config.yaml`; regenerated from it with `check_filelist.py --generate` and cross-checked on every `make asic_run`; SVA/TB excluded, top = `asic_top`) |
+| `asic/config.yaml` | LibreLane Classic master configuration (floorplan, PDN, obstructions, STA corners; the JTAG source block, the three design defines, the v1.38.0 include directory listed first, and the four CTS settings of §10.10: `CTS_MACRO_CLUSTERING_MAX_DIAMETER`, `CTS_MACRO_CLUSTERING_SIZE`, `CTS_OBSTRUCTION_AWARE`, `CTS_CLK_MAX_WIRE_LENGTH`) |
 | `asic/Makefile` | `make pdk` / `make asic_run` / `make asic_verify` — DDK §8 automation |
 | `asic/README.md` | DDK §9.1–9.13 master delivery document (run tag, results, known issues) |
-| `asic/constraints/design.sdc` | timing constraints — 50 MHz, single SDC for PnR + signoff |
+| `asic/constraints/design.sdc` | timing constraints — `clk` 20 ns (50 MHz) and `jtag_tck` 100 ns (JTAG block at the end of the file: asynchronous `clk`/`jtag_tck` group, `jtag_trst_ni` false path, TMS/TDI input and TDO output budgets of 20 ns, 5 pF TDO load); single SDC for PnR + signoff |
 | `asic/BELLEK_ENVANTERI.md` | memory inventory, macro/banking plan, corner analysis |
 | `rtl/asic/asic_top.sv` | ASIC top level — no MMCM/BUFG/IOBUF, clock and reset from pads |
 | `rtl/asic/sram_macro_bank.sv` | 512-word banked SRAM macro wrapper |
 | `rtl/asic/sram_macro_blackbox.sv` | macro port contracts (timing from `.lib`, layout from `.lef`/`.gds`) |
 | `rtl/asic/boot_rom.sv` | synthesised boot ROM (content generated from `bootrom.hex`) |
 | `rtl/asic/cv32e40p_clock_gate_asic.sv` | ASIC clock gate replacing the simulation-only vendor cell |
+| `rtl/debug/axi_dm_slave.sv` | bridge from the two CPU-side AXI ports to the debug module's single memory port (registered request stage) |
+| `rtl/debug/vendor/` + `rtl/debug/VENDOR.md` | vendored riscv-dbg (`21a5fbe`), common_cells v1.38.0 CDC subset, tech_cells_generic v0.2.3 — pins, file lists, licences |
+| `rtl/debug/asic_jtag_sentez/` | sky130 exploration runs v1/v2/v3 that produced the CTS settings (§10.10) — evidence only, not flow inputs |
 | `scripts/asic_elab.sh` | elaboration gate (`make asic-elab`) |
 
 ### 13.3 Frontend: yosys-slang, not sv2v
@@ -1455,13 +1620,19 @@ layer, comparing the 1000-word `conv_out` region in AI SRAM **bit-exactly**
 (FNV-1a) against the committed golden vector. That region can only be produced
 through the accelerator's *internal* macros, so all **27 macro instances** are
 functionally exercised, including the three the boot flow never touches.
-Result (2026-09-01): **PASS** (42.9 s wall time). The FC argmax is deliberately
-*not* checked in this run: the delivered OpenRAM model drives `dout` to `X`
-every cycle after a read, and the FC stage consumes its `conv_out` read ≥3
-cycles late — a genuine macro-branch read-hold contract violation that this
-very run discovered. It is declared (not silently patched — the RTL and the
-signed ASIC run are unchanged) as **Known issue FC-1** in `asic/README.md`
-§9.5, together with the isolation evidence and the expected-silicon analysis.
+First result (2026-09-01, conv checksum only): **PASS** (42.9 s wall time). That
+run's FC argmax check discovered erratum **FC-1**: the delivered OpenRAM model
+drives `dout` to `X` every cycle after a read, and the FC stage consumed its
+`conv_out` read ≥3 cycles late — a genuine macro-branch read-hold contract
+violation, documented with isolation evidence and the expected-silicon analysis
+in `asic/README.md` §9.5. The one-line fix (`co_re` re-issued with the same
+address during `ST_FC_FETCH_W_WAIT`, define `FC1_FIX`) is **on in the delivered
+configuration**, and `make asic-top-sim` now checks the conv checksum **and** the
+FC argmax (== 2, "yes") plus the result word (`+define+CHECK_ARGMAX`, firmware
+built with `-DCHECK_ARGMAX`). Negative control (6 September 2026): the same
+testbench on RTL without `FC1_FIX` fails with `AI ARGMAX BA` — the gate is not
+vacuous. The 14 August signed run was built without the fix and carried FC-1 as
+a declared erratum; that history stays in §9.5.
 
 ### 13.5 Resolved blockers
 
@@ -1479,11 +1650,13 @@ After these, the design contains **no latches** and elaborates cleanly.
 ### 13.6 Running the flow
 
 ```bash
-make lint                    # ASIC lint (MODDUP / PINMISSING deliberately NOT waived)
+make lint                    # ASIC lint of the delivered configuration (asic/filelist.f, defines included; MODDUP / PINMISSING deliberately NOT waived)
+make lint-fpga               # fpga_top lint (BSCANE2 TAP + lint-only Xilinx shells)
+make jtag-gates              # JTAG package: jtag-sim, jtag-bridge-sim, lint-fpga, jtag-equiv (+ OpenOCD/gdb demos if installed)
 make asic-elab               # slang elaboration gate, behavioural memories
 ASIC_SRAM=1 make asic-elab   # same, with SRAM macros bound
 make asic-sram-sim           # boot flow simulated WITH the delivered SRAM macro models (DDK §1.3)
-make asic-top-sim            # full-stack: asic_top (GDS top) + all 27 macros, boot + conv layer bit-exact
+make asic-top-sim            # full-stack: asic_top (GDS top) + all 27 macros, boot + conv layer bit-exact + FC argmax (FC-1 fix proof)
 make bootrom                 # regenerate boot ROM content from bootrom.hex
 
 # Full physical flow — DDK "Final İstenen Çıktılar" §8 mandatory target:
@@ -1494,32 +1667,40 @@ cd asic && make asic_run     # LibreLane Classic; fills reports/ + results/ (asi
 `make asic-elab` fails if `$display` / `$readmemh` residue reaches the synthesis view,
 and reports any latch it finds — both are regression gates, not one-off checks.
 
-### 13.7 Final Signoff Results — `RUN_teslim_2026-08-14`
+### 13.7 Final Signoff Results — `RUN_final_2026-09-06`
 
-Every number below comes from a **single LibreLane run on a clean clone**
-(GCP VM, 8 vCPU / 60 GB RAM, 3 h 28 min: `make pdk` + `make asic_run`), with
+Every number below comes from a **single LibreLane run on a clean clone**,
+`RUN_final_2026-09-06` (GCP VM1, 8 vCPU / 60 GB RAM, 3 h 28 min for
+`make asic_run`, `make pdk` excluded), with
 reports delivered unmodified under `asic/reports/` and outputs under
 `asic/results/`. The authoritative document is `asic/README.md` §9.1–9.13.
+The delivered configuration is the one of §13.2: 21-port `asic_top` with the
+riscv-dbg JTAG debug subsystem (`JTAG_DEBUG`), `FC1_FIX` and `I2C_SDA_SYNC`,
+two asynchronous clocks (`clk` 20 ns, `jtag_tck` 100 ns) and the four CTS
+settings of §10.10; its official run is `RUN_final_2026-09-06` (VM1, fresh
+clone of commit `248069b`, LibreLane 3.0.6 Classic, sky130A). The 14 August 2026
+signed run of the JTAG-less RTL (commit `73d8dcd`) is the historical reference
+that the exploration tables of §10.10 compare against.
 
 | Item | Result |
 |---|---|
-| Die / core area | **4180 × 4490 µm = 18.77 mm²** / 17.74 mm² (`FP_SIZING: absolute`) |
-| Utilization | 49.87 % total (std-cell 12.33 %) |
-| Standard cells | 296,010 instances (2.59 M total incl. fill + tap) |
+| Die / core area | **4180 × 4490 µm = 18.77 mm²** / 17.74 mm² configured, 17.72 mm² after row snapping (`FP_SIZING: absolute`) |
+| Utilization | 50.40 % total (std-cell 13.25 %) |
+| Standard cells | 310,510 instances (2.58 M total incl. fill + tap) |
 | SRAM macros | **27** (26 × `sky130_sram_2kbyte_1rw1r_32x512_8` + 1 × `32x256`), hand-placed 4 × 7 grid |
-| Routing | 6.14 m wire, 746,392 vias, **routing DRC = 0** |
-| **Setup (tt_025C_1v80)** | **+2.210 ns @ 50 MHz — target met** (fmax ≈ 56.2 MHz) |
-| Setup (ff_n40C_1v95) | +4.375 ns (met) |
-| Setup (ss_100C_1v60) | −9.083 ns → **~34.4 MHz closes** at the SS corner (worst path is a pure std-cell CPU path; declared openly, see `asic/README.md` §9.9) |
-| Hold | TT 48 / FF 112 violations, 111 of them SRAM-macro data inputs under a deliberately pessimistic derate — root-caused in §9.9 |
+| Routing | 6.52 m wire, 812,086 vias, **routing DRC = 0** |
+| **Setup (tt_025C_1v80)** | **+1.684 ns @ 50 MHz — target met** (fmax ≈ 54.6 MHz) |
+| Setup (ff_n40C_1v95) | +4.010 ns (met) |
+| Setup (ss_100C_1v60) | −10.537 ns → **~32.7 MHz closes** at the SS corner (worst path is a pure std-cell CPU path, `id_stage` → ALU/divider → `id_stage`; declared openly, see `asic/README.md` §9.9) |
+| Hold | TT 87 / SS 5 / FF 142 violations — of the FF paths, 50 end at SRAM-macro pins under a deliberately pessimistic derate, 78 are launched from the debug module into CPU registers, 14 are boot-ROM/bridge/CPU-internal; no violating path ends in JTAG/DM logic — root-caused in `asic/README.md` §9.9/2 |
 | **KLayout DRC** | **0** (257 rules) |
-| **LVS (Netgen, GDS extraction)** | **"Circuits match uniquely"** — 0 errors, 1.79 M elements |
+| **LVS (Netgen, GDS extraction)** | **"Circuits match uniquely"** — 0 errors (top level 92,149 devices / 81,121 nets after parallel-device merge) |
 | XOR (Magic vs KLayout GDS) | **0** |
-| Antenna | **0** nets / 0 pins (114 diodes inserted) |
-| PDN | 0 grid errors; IR-drop **0.09 %** (1.54 mV VPWR / 1.57 mV VGND) |
+| Antenna | **0** nets / 0 pins (101 diodes inserted) |
+| PDN | 0 grid errors; IR-drop **0.05 % VPWR / 0.06 % VGND** (0.95 mV drop / 1.00 mV rise) |
 | Magic DRC | 9,201 markers, **all one rule (`nwell.4`)** — measured root-cause analysis (every marker ≤ 6.13 µm from a tap, 0 markers inside SRAM footprints) documents it as a Magic connectivity-resolution artefact; KLayout/LVS/XOR are clean on the same GDS (`asic/README.md` §9.9/4) |
-| Power (estimated, no VCD) | TT **112.1 mW** (SRAM 66 %, clock 17 %, seq. 16 %) |
-| Lint | Verilator **0 errors** / 932 warnings, no waivers |
+| Power (estimated, no VCD) | TT **117.2 mW** (SRAM 63 %, clock 18 %, seq. 17 %) |
+| Lint | Verilator **0 errors** / 979 warnings, no waivers |
 
 <p align="center">
   <img src="asic/results/images/asic_top.png" alt="asic_top final layout" width="480">
@@ -1562,7 +1743,7 @@ All firmware tests live in `sw/tests/` and link against `sw/drivers/blogic_mcu.h
 | `ai_multi_class_test.c` | All four classes in a single firmware |
 | `ai_uart_load_test.c` | BLG1-framed feature-vector load over UART_0 (jury input path) |
 | `ai_sat_test.c` | Requantize saturation rails (±2³⁰ bias → all conv outputs at 0x7F / 0x80) |
-| `ai_boot_macro_test.c` | `asic-top-sim` firmware: flash boot + conv layer bit-exact (FNV-1a vs golden) on `asic_top` with the delivered SRAM macro models |
+| `ai_boot_macro_test.c` | `asic-top-sim` firmware: flash boot + conv layer bit-exact (FNV-1a vs golden) + FC argmax == 2 and result word (`CHECK_ARGMAX`, FC-1 fix proof) on `asic_top` with the delivered SRAM macro models |
 | `ai_sw_reference.c` | Pure-software TFLite-equivalent reference for speedup measurement |
 
 Switch firmware on any target with `FW_SRC=`, e.g.:
@@ -1589,9 +1770,9 @@ make sim FW_SRC=sw/tests/ai_irq_test.c TRACE=1
 | **TensorFlow / tflite-runtime** | 2.15+ | Reference inference for AI golden vectors |
 | **NumPy** | 1.26+ | Array math in AI scripts |
 | **GTKWave** | 3.3+ | Waveform inspection (`TRACE=1` VCDs) |
-| **OpenOCD** | 0.12.0 (Ubuntu 24.04 package, RISC-V target) | JTAG debug host for the prototype (§10.10): `remote_bitbang` to the Verilator model, gdb server on `:3333` |
+| **OpenOCD** | 0.12.0 (Ubuntu 24.04 package, RISC-V target) | JTAG debug host for the delivered debug subsystem (§10.10): `remote_bitbang` to the Verilator model, `ftdi` driver to the Genesys 2 on-board USB-JTAG (BSCANE2), gdb server on `:3333` |
 | **gdb-multiarch** | GNU gdb 15.1 (`riscv:rv32`) | Source-level debug over OpenOCD (`make jtag-gdb`) |
-| **PULP `riscv-dbg`** | commit `21a5fbe` (vendored, `rtl/debug/vendor/`) | RISC-V Debug Spec 0.13 TAP / DTM / Debug Module |
+| **PULP `riscv-dbg`** | commit `21a5fbe` (vendored, `rtl/debug/vendor/`) | RISC-V Debug Spec 0.13 TAP / DTM / Debug Module — the JTAG debug subsystem of the delivered chip |
 | **PULP `common_cells`** (CDC subset) | v1.38.0 (vendored) | `cdc_2phase_clearable` chain used by `dmi_cdc` |
 | **PULP `tech_cells_generic`** | v0.2.3 (vendored) | `tc_clk_inverter` / `tc_clk_mux2` for the TAP TDO clock |
 | **KLayout** (Python module) | — | GDS renders, transistor count and layout images in `asic/scripts/` |
@@ -1633,9 +1814,9 @@ This project was developed by **BLogic Mikroelektronik** for the **TEKNOFEST 202
 | `verilog-uart` | Alex Forencich | MIT | `rtl/peripherals/verilog-uart/` |
 | Accellera UVM | Accellera | Apache 2.0 | `verif/uvm-lib/` |
 | TFLite Micro Speech model & features | Google / TensorFlow Authors | Apache 2.0 | `sw/ai_model/` |
-| PULP `riscv-dbg` (JTAG prototype branch) | PULP Platform | Solderpad Hardware Licence v0.51 | `rtl/debug/vendor/riscv-dbg/` |
-| PULP `common_cells` v1.38.0 CDC cells, `tech_cells_generic` v0.2.3 | PULP Platform | Solderpad Hardware Licence v0.51 | `rtl/debug/vendor/` |
-| `remote_bitbang` server / `SimJTAG` | UC Regents / SiFive | BSD-3-Clause / Apache 2.0 | `rtl/debug/vendor/riscv-dbg/tb/` |
+| PULP `riscv-dbg` (JTAG debug subsystem of the delivered chip, commit `21a5fbe`) | PULP Platform | Solderpad Hardware Licence v0.51 (copy: `asic/licenses/riscv-dbg_SHL-0.51.txt`) | `rtl/debug/vendor/riscv-dbg/` |
+| PULP `common_cells` v1.38.0 CDC cells, `tech_cells_generic` v0.2.3 | PULP Platform | Solderpad Hardware Licence v0.51 (copies: `asic/licenses/common_cells_v1.38.0_SHL-0.51.txt`, `tech_cells_generic_SHL-0.51.txt`) | `rtl/debug/vendor/common_cells_v1.38.0/`, `rtl/debug/vendor/tech_cells_generic/` |
+| `remote_bitbang` server / `SimJTAG` (simulation only) | UC Regents / SiFive | BSD-3-Clause / Apache 2.0 | `rtl/debug/vendor/riscv-dbg/tb/` |
 
 The original work (custom RTL, AI accelerator, peripherals, verification environment, FPGA wrapper, software, scripts) is © 2026 **BLogic Mikroelektronik — Berk Muammer Kuzu & Berkin Demircan**.
 
