@@ -245,12 +245,15 @@ MAKE_PATH_ONEK = "/opt/riscv/bin:/usr/local/bin"
 # Python venv: ai-acc / ai-batch1000 TensorFlow (ya da tflite-runtime) ister.
 # Depo kokundeki .venv (README 8.5) ya da ~/tflite-venv varsa PATH'in basina
 # alinir; PANEL_VENV=<yol> satiri panelde bilgi olarak gosterilir.
-MAKE_BETIK = ('echo PANEL_PGID=$(ps -o pgid= -p $$ | tr -d " "); '
-              'export PATH=%s:$PATH; cd "$1" || exit 1; '
+# Betik wsl.exe -e (kabuksuz) ile argv olarak gecer; make'in gercekten
+# basladigini ve cikis kodunu PANEL_MAKE_START / PANEL_MAKE_RC satirlari
+# bildirir - panel karari bu satirdan alir, satir yoksa "NO RUN" (FAIL).
+MAKE_BETIK = ('echo PANEL_PGID=$(ps -o pgid= -p $$ 2>/dev/null | tr -d " "); '
+              'export PATH=%s:$PATH; cd "$1" || { echo "PANEL_NO_DIR=$1"; exit 1; }; '
               'for v in "$PWD/.venv/bin" "$HOME/tflite-venv/bin"; do '
               'if [ -x "$v/python3" ]; then export PATH="$v:$PATH"; '
               'echo "PANEL_VENV=$v"; break; fi; done; '
-              'make "$2" 2>&1' % MAKE_PATH_ONEK)
+              'echo PANEL_MAKE_START; make "$2" 2>&1; echo PANEL_MAKE_RC=$?' % MAKE_PATH_ONEK)
 MAKE_GURULTU = ("ccache ", "g++ ", "make[", "python3 /usr/local/share/verilator",
                 "%Warning-", "      |", "rm V")
 
@@ -457,10 +460,15 @@ def wsl_hedef(depo=None):
 
 
 def make_komut(hedef, distro, yol):
-    """make <hedef> komut listesi: Windows'ta wsl.exe uzerinden, Linux'ta dogrudan."""
-    ic = ["setsid", "bash", "-c", MAKE_BETIK, "_", yol, hedef]
+    """make <hedef> komut listesi: Windows'ta wsl.exe -e uzerinden (kabuksuz:
+    'wsl.exe --' komutu kullanicinin oturum kabugundan gecirir ve betigin
+    kacisli tirnaklarini bozar - zsh'li makinede 'tr: extra operand', 39 hedef
+    0:00'da sahte PASS; 6 Eylul), Linux'ta dogrudan. setsid -w: -e ile setsid
+    ilk surec = grup lideri olur ve catallanir; -w olmadan wsl.exe hemen doner
+    ve cikti kaybolur. -w ile bekler, cocugun cikis kodunu dondurur."""
+    ic = ["setsid", "-w", "bash", "-c", MAKE_BETIK, "_", yol, hedef]
     if os.name == "nt":
-        return ["wsl.exe"] + (["-d", distro] if distro else []) + ["--"] + ic
+        return ["wsl.exe"] + (["-d", distro] if distro else []) + ["-e"] + ic
     return ic
 
 
@@ -468,7 +476,7 @@ def make_oldur(pgid, distro):
     """Surec grubunu TERM ile oldurur (kill -- -<pgid>)."""
     ic = ["kill", "-TERM", "--", "-%s" % pgid]
     if os.name == "nt":
-        return ["wsl.exe"] + (["-d", distro] if distro else []) + ["--"] + ic
+        return ["wsl.exe"] + (["-d", distro] if distro else []) + ["-e"] + ic
     return ic
 
 
@@ -1475,11 +1483,13 @@ def gui_calistir(smoke_ms=0):
             kuyruk.put(("make_durum", hedef, "running…", "", "run"))
             kuyruk.put(("make_baslik", hedef, "make %s   (WSL%s: %s)"
                         % (hedef, " " + distro if distro else "", yol)))
-            t0, kod = time.time(), -1
+            t0, kod, basladi, make_rc = time.time(), -1, False, None
             try:
                 ek = {"creationflags": subprocess.CREATE_NO_WINDOW} \
                     if os.name == "nt" else {}
                 p = subprocess.Popen(make_komut(hedef, distro, yol),
+                                     cwd=(os.path.expanduser("~") if os.name == "nt"
+                                          else None),
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, text=True,
                                      encoding="utf-8", errors="replace", **ek)
@@ -1492,6 +1502,19 @@ def gui_calistir(smoke_ms=0):
                     if satir.startswith("PANEL_VENV="):
                         kuyruk.put(("make_satir", "Python venv on PATH: "
                                     + satir.split("=", 1)[1].strip()))
+                        continue
+                    if satir.startswith("PANEL_NO_DIR="):
+                        kuyruk.put(("make_satir", "ERROR: repo path not found inside WSL: "
+                                    + satir.split("=", 1)[1].strip()))
+                        continue
+                    if satir.strip() == "PANEL_MAKE_START":
+                        basladi = True
+                        continue
+                    if satir.startswith("PANEL_MAKE_RC="):
+                        try:
+                            make_rc = int(satir.split("=", 1)[1].strip())
+                        except ValueError:
+                            pass
                         continue
                     if hedef in ("test-all", "test-full"):   # ozet tablolari -> satirlar
                         m = re.match(r"^\s+([a-z0-9-]+)\s+\(.*\)\s*:\s*(PASS|FAIL)\s*$",
@@ -1508,8 +1531,14 @@ def gui_calistir(smoke_ms=0):
             make_durum["proc"], make_durum["pgid"] = None, None
             sure = time.time() - t0
             sure_s = "%d:%02d" % (int(sure) // 60, int(sure) % 60)
+            if make_rc is not None:          # make'in kendi cikis kodu
+                kod = make_rc
             if make_durum["dur"]:
                 durum_s, etiket = "stopped", "fail"
+            elif not basladi:                # betik make'e hic ulasmadi
+                kuyruk.put(("make_satir", "ERROR: make did not start (WSL command / "
+                            "repo path problem, exit %d) - not a test verdict" % kod))
+                durum_s, etiket = "NO RUN", "fail"
             else:
                 durum_s, etiket = ("PASS", "pass") if kod == 0 else ("FAIL", "fail")
             sonuclar.append((hedef, durum_s, sure_s, kod))
@@ -2363,6 +2392,8 @@ def selftest():
     k = make_komut("lint", "Ubuntu-24.04", "/home/potato/blogic-mcu")
     kontrol("(v) make command", k[-1] == "lint" and k[-2] == "/home/potato/blogic-mcu"
             and "setsid" in k and "bash" in k and "tflite-venv" in MAKE_BETIK
+            and k[:4] == ["wsl.exe", "-d", "Ubuntu-24.04", "-e"]
+            and "PANEL_MAKE_START" in MAKE_BETIK and "PANEL_MAKE_RC" in MAKE_BETIK
             and not make_satir_goster("ccache g++ x")
             and make_satir_goster("[SIM] PASS"), " ".join(k[:3]))
     # (vi) Questa sekmesi: katalog = tests.tcl, dalga gruplari, komut / ortam /
