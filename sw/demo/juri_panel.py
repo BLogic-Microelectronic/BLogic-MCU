@@ -238,7 +238,12 @@ MAKE_ACIKLAMA = {
         "breakpoint, reset halt / run. PASS = script verdict.",
 }
 # spike / verilator dizinleri: etkilesimsiz kabuk ~/.bashrc'yi okumaz
-MAKE_PATH_ONEK = "/opt/riscv/bin:/usr/local/bin"
+# WSL'de etkilesimsiz bash'in PATH'i .profile'i okumaz: kullanici kurulumu
+# ($HOME/.local/bin: xPack riscv32-unknown-elf-gcc, Verilator 5.049) one alinir;
+# yoksa /usr/local/bin'deki eski Verilator (5.046) axi_dm_slave SVA'sini
+# derleyemez ve firmware hedefleri 'riscv32-unknown-elf-gcc: command not
+# found' ile duser (6 Eylul, Berk'in laptopu).
+MAKE_PATH_ONEK = "$HOME/.local/bin:/opt/riscv/bin:/usr/local/bin"
 # Ilk cikti satiri PANEL_PGID=<grup>: Stop, grubun tamamini (make + sh +
 # verilator simleri) oldurur. Ayni kabuk make'i kosturur, cikis kodu wsl.exe
 # uzerinden panele gelir.
@@ -2394,6 +2399,7 @@ def selftest():
             and "setsid" in k and "bash" in k and "tflite-venv" in MAKE_BETIK
             and k[:4] == ["wsl.exe", "-d", "Ubuntu-24.04", "-e"]
             and "PANEL_MAKE_START" in MAKE_BETIK and "PANEL_MAKE_RC" in MAKE_BETIK
+            and "$HOME/.local/bin:" in MAKE_BETIK
             and not make_satir_goster("ccache g++ x")
             and make_satir_goster("[SIM] PASS"), " ".join(k[:3]))
     # (vi) Questa sekmesi: katalog = tests.tcl, dalga gruplari, komut / ortam /

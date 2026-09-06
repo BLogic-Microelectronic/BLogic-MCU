@@ -1530,7 +1530,9 @@ python sw/demo/juri_panel.py
 The window has three tabs above one shared log: **Board demo** (items 1-4),
 **Verification suite (make)** (the 39 `make` targets of the Makefile in a
 table, run inside WSL with a PASS/FAIL line and a `juri_make_<date>.txt`
-report) and **Questa waves** (item 5).
+report; the panel puts `~/.local/bin`, `/opt/riscv/bin`, `/usr/local/bin` and
+a TFLite venv in front of the WSL `PATH`, so a user-local RISC-V toolchain and
+Verilator are found by the non-interactive shell) and **Questa waves** (item 5).
 
 1. **Load bitstream…** — pick `rtl/fpga/fpga_top.bit` (normal, flash boot) or
    `rtl/fpga/fpga_top_m2_demo.bit` (backup: demo firmware embedded, boots
