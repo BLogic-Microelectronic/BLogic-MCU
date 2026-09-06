@@ -41,6 +41,8 @@ HEADER = """\
 # ============================================================
 
 # --- Include dizinleri (config.yaml VERILOG_INCLUDE_DIRS ile birebir) ---
+# v1.38.0 common_cells basliklari eski cv32e40p kopyasindan ONCE aranmali
++incdir+../rtl/debug/vendor/common_cells_v1.38.0/include
 +incdir+../rtl/asic
 +incdir+../rtl/core/cv32e40p/rtl/include
 +incdir+../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include
@@ -49,9 +51,15 @@ HEADER = """\
 # --- Derleme tanimlari (config.yaml VERILOG_DEFINES ile birebir) ---
 # ASIC_SRAM_MACRO : SRAM makro dallarini secer (ifndef korumali RTL)
 # BOOTROM_CONTENT : boot ROM icerigini gomer
+# JTAG_DEBUG      : JTAG TAP + riscv-dbg Debug Module (sartname "JTAG (Opsiyonel)")
+# FC1_FIX         : ai_accelerator FC-1 erratasinin duzeltmesi
+# I2C_SDA_SYNC    : i2c_sda_i girisine 2FF senkronizator
 +define+SYNTHESIS
 +define+ASIC_SRAM_MACRO
 +define+BOOTROM_CONTENT
++define+JTAG_DEBUG
++define+FC1_FIX
++define+I2C_SDA_SYNC
 
 # --- RTL kaynaklari (derleme sirasina gore) ---
 """
