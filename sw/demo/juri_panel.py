@@ -37,6 +37,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import textwrap
 import threading
 import time
 
@@ -107,6 +108,119 @@ MAKE_KATALOG = [
         ("jtag-board",      "OpenOCD on the real Genesys 2 (board attached to WSL via usbipd)"),
     ]),
 ]
+# Her hedefin panelde basilan UZUN aciklamasi: ne kosar, neye bakar, gecme
+# olcutu nedir (juri paneli okunur rapor: kok README 9.2 / dogrulama plani 6).
+MAKE_ACIKLAMA = {
+    "regression": "Six firmware runs on the full SoC model with every AXI / AXI-Lite protocol checker "
+        "armed: uart_hello at 115200, 1 Mbps and 9600 baud (the testbench UART decoder must receive "
+        "the exact greeting), two Spike ISS lockstep runs (minimal and deep: every retired PC of the "
+        "RTL is compared with Spike, the diff must be empty) and the QSPI flash read test (0xAA bytes "
+        "from the flash stub). PASS = 6/6 result=PASS and 40/40 protocol interfaces without a violation.",
+    "uart-baud": "One firmware reprograms the UART divider three times (CPB 434 -> 50 -> 5208 = 115200 / "
+        "1 Mbps / 9600); the testbench receiver follows and must decode BAUD-OK in every phase. "
+        "PASS = 3/3 phases.",
+    "uart-stp": "Stop-bit field 00 / 01 / 10 / 11 on the bare uart_axil block: start-to-start spacing of 1, "
+        "1.5 and 2 stop bits (+216 / +432 clocks) and the hardware guarantee of the stop extension. "
+        "PASS = TEST SUCCESS.",
+    "uart-stream": "uart_stream_axil DMA block: A basic 16-byte DMA into AI SRAM, B partial word with byte "
+        "strobes, C SADR locked while busy, D ABORT then restart, E normal RX / TX with DMA off. "
+        "PASS = 5/5 scenarios.",
+    "boot": "The boot ROM boots from the QSPI flash model loaded with flash_helloworld: the bootloader "
+        "copies the image over QSPI (x1 READ), jumps to it and the firmware prints Hello World! on "
+        "UART0. PASS = TEST SUCCESS.",
+    "qspi-modes": "Firmware drives the QSPI master in x1 READ, x2 DOR, x4 QOR, 4-byte READ4B, a high "
+        "address and back to 3-byte mode against the flash model; every read must return the expected "
+        "pattern. PASS = 6/6 (QSPI MODES OK).",
+    "qspi-err": "25 self-checks of the QSPI error paths from firmware: FIFO overflow and flush, status "
+        "and done flags, address register, 4-byte flag set / clear, address-less and command-only "
+        "transfers, x4 writes. PASS = gecen=25 kalan=0.",
+    "i2c-sys": "CPU -> AXI-Lite -> i2c_master with an echo-slave model at address 0x42: NBY / ADR "
+        "registers, multi-byte TX / RX echo, latch and NACK handling. PASS = TEST SUCCESS (I2C SYS OK).",
+    "ai": "Standalone accelerator testbench: preloads weights and biases from golden_vectors, runs "
+        "yes_real, no_real and four synthetic inputs, checks argmax and the full 1000-word conv_out "
+        "tensor bit-exactly, then a 40-sample batch against the software (TFLite) reference. "
+        "PASS = 6/6 scenarios + 40/40 batch, |acc_SW - acc_RTL| = 0.",
+    "soc-ai": "The C test ai_micro_speech_test on the SoC: firmware loads the vector into AI SRAM, "
+        "starts the accelerator, waits for irq17 and prints the class; the UART decoder must see the "
+        "greeting. PASS = result=PASS.",
+    "soc-perf": "ai_sw_reference runs the same inference in software on the CPU (9,684,726 cycles) and "
+        "compares it with the hardware run (459,016 cycles): speed-up 21.0x, written to "
+        "verif/perf_summary.txt. PASS = result=PASS.",
+    "soc-ai-irq": "Accelerator interrupt path from firmware: ISR on irq17, DONE flag, clear and re-arm, "
+        "a second inference after the ISR. PASS = result=PASS.",
+    "soc-timer": "Timer peripheral from firmware: prescaler, auto-reload, count direction, clear, event "
+        "counter and the irq16 ISR. PASS = result=PASS.",
+    "soc-strm": "UART_1 stream DMA from firmware: received bytes land in memory through the stream "
+        "engine and irq18 fires. PASS = result=PASS.",
+    "arch-test": "The official riscv-arch-test suite for RV32I and RV32M (46 tests): the signature "
+        "region of every test is dumped from DSRAM and compared with the Spike reference signature. "
+        "PASS = 46/46 signatures equal.",
+    "uvm": "UVM environment (Verilator, verif/uvm-lib) on GPIO, Timer, UART_0 and I2C: a directed and a "
+        "constrained-random test per block, scoreboard comparison and the AXI-Lite protocol monitor. "
+        "PASS = 8/8 tests, 0 scoreboard mismatches, 0 protocol failures.",
+    "jtag-sim": "Pure SystemVerilog bit-bang of the JTAG TAP through 17 stages: IDCODE / DTMCS / DMI, "
+        "halt and resume, abstract commands, program buffer, single step and trigger, ndmreset, DMI "
+        "busy + dmireset / dmihardreset, cmderr 2 / 3 / 4, SBA tie-off, DM discovery registers, TAP "
+        "corner cases, ISRAM write + ebreak, DM-region behaviour. PASS = 17/17.",
+    "jtag-bridge-sim": "axi_dm_slave unit testbench with the real dm_top: arbitration (data beats "
+        "instruction), R / B channel hold under back-pressure, byte enables, reset with a request in "
+        "flight, request / response timing-contract assertions. PASS = 6/6.",
+    "test-all": "The 18 components above in sequence, each with its own verdict, then the summary "
+        "table (each row of this table is coloured from the summary). PASS = every component PASS.",
+    "lint": "Verilator lint of asic_top on the delivery file list (asic/filelist.f, all six defines) "
+        "with MODDUP / PINMISSING enabled. PASS = 0 %Error.",
+    "lint-fpga": "Verilator lint of fpga_top with the BSCANE2 TAP swapped in and the Xilinx primitive "
+        "shells. PASS = 0 %Error.",
+    "jtag-equiv": "Preprocesses the RTL with JTAG_DEBUG / FC1_FIX / I2C_SDA_SYNC all off and diffs it "
+        "against commit 73d8dcd (the RTL of the 14 August signed run) after the documented "
+        "constant-folding rules. PASS = 0 residual lines in all five files.",
+    "jtag-openocd": "Builds the SimJTAG / DPI simulation, connects OpenOCD 0.12 over remote_bitbang and "
+        "runs the demo script: halt, register write / read, program-buffer memory access, step, CSR "
+        "read, block read, MMIO write, hardware breakpoint, the negative watchpoint case, reset halt "
+        "and reset run. PASS = script verdict + OpenOCD and simulation exit 0. SKIP without openocd.",
+    "jtag-gdb": "gdb (riscv32 or gdb-multiarch) over OpenOCD: reset halt, break main, stepi, register "
+        "and memory write-back. PASS = gdb, OpenOCD and simulation exit codes all 0. SKIP without gdb.",
+    "jtag-gates": "jtag-sim + jtag-bridge-sim + lint-fpga + jtag-equiv, plus jtag-openocd and jtag-gdb "
+        "when the tools are installed, with a summary table. PASS = every gate PASS (SKIP allowed for "
+        "the two demos).",
+    "asic-sram-sim": "The boot flow again, but with the delivered sky130 OpenRAM Verilog models in place "
+        "of the behavioural SRAMs (ASIC_SRAM_MACRO). PASS = TEST SUCCESS (Hello World from the macro "
+        "models).",
+    "asic-top-sim": "GDS-equivalent full-stack run: asic_top (the real top of the GDS) + all 27 macro "
+        "instances, flash boot + AI inference; conv_out compared bit-exactly (FNV-1a checksum) and the "
+        "FC argmax == 2 check (+CHECK_ARGMAX, the proof that erratum FC-1 is fixed). "
+        "PASS = TEST SUCCESS.",
+    "coverage": "Rebuilds the SoC with --coverage-line and runs the 15 C tests; writes "
+        "verif/coverage_summary.txt (line 90.7 %, branch 88.6 % on 6 September). Report target: "
+        "PASS = the run completes.",
+    "test-full": "test-all plus lint, lint-fpga, jtag-gates, asic-sram-sim, asic-top-sim, boot-real, "
+        "isa-compliance and ai-uart-load, with a second summary table (about 40 minutes). Only the "
+        "board demo and the VM flow stay outside. PASS = every line PASS.",
+    "boot-real": "A real C firmware with .rodata / .data boots from the flash image: the bootloader "
+        "copies the data region to DSRAM (the M3 proof). Negative control: FLASH_DATA=/dev/null must "
+        "FAIL. PASS = TEST SUCCESS.",
+    "isa-compliance": "Self-checking ISA compliance C test (DTR section 4): arithmetic, logic, "
+        "load / store, branches and CSR access from firmware. PASS = result=PASS.",
+    "ai-uart-load": "KF5 jury path in simulation: an unseen feature vector (index 784) is streamed into "
+        "UART0 by the host model as a BLG1 frame, the firmware validates the checksum, runs the "
+        "accelerator and reports the class; the AI SRAM dump is compared with the frame. "
+        "PASS = correct class + SRAM match.",
+    "ai-uart-load-field": "Same as ai-uart-load at the field baud timing (CPB=434): about 10 M cycles, "
+        "slow. PASS = correct class + SRAM match.",
+    "ai-acc": "EK-1 accuracy window: generates the 40-sample batch, runs the accelerator testbench and "
+        "writes the accuracy report. PASS = |acc_SW - acc_RTL| = 0.",
+    "ai-batch1000": "The 1000-sample version of the accuracy window (about 4 minutes). "
+        "PASS = |acc_SW - acc_RTL| = 0 over 1000 samples.",
+    "coverage-tb": "Block-testbench coverage (line / branch) per module, written to "
+        "verif/coverage_tb_summary.txt. Report target: PASS = the run completes.",
+    "jtag-cov": "jtag-sim rebuilt with --coverage-line; per-module line coverage of the JTAG subsystem "
+        "into rtl/debug/sim/. Report target: PASS = the run completes.",
+    "asic-elab": "sv2v + yosys elaboration of the delivery configuration as an early synthesis warning; "
+        "needs sv2v and yosys installed (normally run on the flow VM). PASS = elaboration without error.",
+    "jtag-board": "OpenOCD on the real Genesys 2 through the on-board USB-JTAG (FT2232H attached to WSL "
+        "with usbipd, fpga_top.bit loaded, Vivado hw_server closed): halt, registers, memory, step, "
+        "breakpoint, reset halt / run. PASS = script verdict.",
+}
 # spike / verilator dizinleri: etkilesimsiz kabuk ~/.bashrc'yi okumaz
 MAKE_PATH_ONEK = "/opt/riscv/bin:/usr/local/bin"
 # Ilk cikti satiri PANEL_PGID=<grup>: Stop, grubun tamamini (make + sh +
@@ -1138,7 +1252,7 @@ def gui_calistir():
             if make_durum["dur"]:
                 break
             kuyruk.put(("make_durum", hedef, "running…", "", "run"))
-            kuyruk.put(("make_baslik", "make %s   (WSL%s: %s)"
+            kuyruk.put(("make_baslik", hedef, "make %s   (WSL%s: %s)"
                         % (hedef, " " + distro if distro else "", yol)))
             t0, kod = time.time(), -1
             try:
@@ -1175,6 +1289,7 @@ def gui_calistir():
                 durum_s, etiket = ("PASS", "pass") if kod == 0 else ("FAIL", "fail")
             sonuclar.append((hedef, durum_s, sure_s, kod))
             kuyruk.put(("make_durum", hedef, durum_s, sure_s, etiket))
+            kuyruk.put(("make_karar", hedef, durum_s, sure_s, kod))
         kuyruk.put(("make_bitti", sonuclar, time.time() - t_hepsi))
         make_durum["kosuyor"] = False
 
@@ -1240,13 +1355,37 @@ def gui_calistir():
     tk.Checkbutton(ayar_satir, text="verbose log (compiler lines)", variable=ayrinti_var,
                    bg=MIST).pack(side="left")
 
-    # ---- log
+    # ---- log (arac cubugu: temizle / kaydet)
     import tkinter.scrolledtext as st
+    log_arac = tk.Frame(kok, bg=MIST)
+    log_arac.pack(fill="x", padx=12)
+    tk.Label(log_arac, text="Log", bg=MIST, fg=INK,
+             font=("Segoe UI", 9, "bold")).pack(side="left")
+
+    def log_temizle():
+        log_kutu.delete("1.0", "end")
+
+    def log_kaydet():
+        yol = filedialog.asksaveasfilename(
+            title="Save log", defaultextension=".txt",
+            initialfile="juri_panel_log_%s.txt" % time.strftime("%Y%m%d_%H%M%S"),
+            filetypes=[("Text", "*.txt"), ("All files", "*.*")])
+        if not yol:
+            return
+        with open(yol, "w", encoding="utf-8") as f:
+            f.write(log_kutu.get("1.0", "end"))
+        log("log saved: " + yol)
+
+    ttk.Button(log_arac, text="Clear log", command=log_temizle).pack(side="right", padx=3)
+    ttk.Button(log_arac, text="Save log…", command=log_kaydet).pack(side="right", padx=3)
     log_kutu = st.ScrolledText(kok, height=9, font=("Consolas", 9),
                                bg="#101820", fg="#c8d4e0")
     log_kutu.pack(fill="both", expand=True, padx=12, pady=(0, 10))
     log_kutu.tag_config("kart", foreground="#7fd4a8")  # kart satirlari yesilimsi
     log_kutu.tag_config("make", foreground="#9fc5e8")  # make ciktisi mavimsi
+    log_kutu.tag_config("bilgi", foreground="#e8d27a") # hedef aciklamasi sari
+    log_kutu.tag_config("pass", foreground="#7fe0a0", font=("Consolas", 9, "bold"))
+    log_kutu.tag_config("fail", foreground="#ff8080", font=("Consolas", 9, "bold"))
 
     def log(mesaj):
         log_kutu.insert("end", "[%s] %s\n" % (time.strftime("%H:%M:%S"), mesaj))
@@ -1331,7 +1470,25 @@ def gui_calistir():
                     log_kutu.insert("end", "MAKE ▸ %s\n" % oge[1], "make")
                     log_kutu.see("end")
                 elif oge[0] == "make_baslik":
-                    log("── " + oge[1])
+                    _, hedef, baslik = oge
+                    log("────────────────────────────────────────────────────────")
+                    log("▶ " + baslik)
+                    for satir in textwrap.wrap(
+                            "WHAT IT DOES: " + MAKE_ACIKLAMA.get(hedef, "(no description)"), 100):
+                        log_kutu.insert("end", "    " + satir + "\n", "bilgi")
+                    log_kutu.see("end")
+                elif oge[0] == "make_karar":
+                    _, hedef, durum_s, sure_s, kod = oge
+                    if durum_s == "PASS":
+                        log_kutu.insert("end", "[%s] ✔ PASS   make %s   (%s) — all checks of this "
+                                        "target passed, see the MAKE ▸ lines above\n"
+                                        % (time.strftime("%H:%M:%S"), hedef, sure_s), "pass")
+                    else:
+                        log_kutu.insert("end", "[%s] ✘ %s   make %s   (%s, exit %d) — read the last "
+                                        "MAKE ▸ lines above; the target's own log is under logs/\n"
+                                        % (time.strftime("%H:%M:%S"), durum_s, hedef, sure_s, kod),
+                                        "fail")
+                    log_kutu.see("end")
                 elif oge[0] == "make_durum":
                     _, hedef, durum_s, sure_s, etiket = oge
                     satir_guncelle(hedef, durum_s, sure_s, etiket)
@@ -1343,19 +1500,41 @@ def gui_calistir():
                     make_etiket.config(
                         text="last run: %d/%d PASS" % (gecen, len(sonuclar)),
                         fg="#1f7a3f" if gecen == len(sonuclar) else "#b02a2a")
-                    log(ozet)
+                    log("════════════════════════════════════════════════════════")
+                    log_kutu.insert("end", "[%s] %s\n" % (time.strftime("%H:%M:%S"), ozet),
+                                    "pass" if gecen == len(sonuclar) else "fail")
+                    for h, d, sr, k in sonuclar:
+                        log_kutu.insert("end", "    %-6s make %-20s %s\n" % (d, h, sr),
+                                        "pass" if d == "PASS" else "fail")
+                    log_kutu.see("end")
                     yol = os.path.join(os.getcwd(), "juri_make_%s.txt"
                                        % time.strftime("%Y%m%d_%H%M%S"))
                     try:
                         with open(yol, "w", encoding="utf-8") as f:
-                            f.write("# BLogic MCU verification suite from the jury "
-                                    "panel — %s\n# %s\n# target\tstatus\ttime\texit\n"
-                                    % (time.strftime("%Y-%m-%d %H:%M:%S"), ozet))
+                            f.write("BLogic MCU - verification suite report (jury panel)\n")
+                            f.write("date   : %s\n" % time.strftime("%Y-%m-%d %H:%M:%S"))
+                            f.write("result : %s\n\n" % ozet)
                             for h, d, sr, k in sonuclar:
-                                f.write("%s\t%s\t%s\t%d\n" % (h, d, sr, k))
-                        log("make report written: " + yol)
+                                f.write("%s  make %s  (%s, exit %d)\n" % (d, h, sr, k))
+                                for satir in textwrap.wrap(
+                                        MAKE_ACIKLAMA.get(h, ""), 96):
+                                    f.write("    " + satir + "\n")
+                                f.write("\n")
+                        log("report written: " + yol)
                     except Exception as e:
                         log("report write failed: %s" % e)
+                    if gecen == len(sonuclar):
+                        messagebox.showinfo("Verification suite — PASS",
+                                            "%d/%d targets PASSED\n\n%s\n\nreport: %s"
+                                            % (gecen, len(sonuclar),
+                                               "\n".join("PASS  make %s  (%s)" % (h, sr)
+                                                         for h, d, sr, k in sonuclar), yol))
+                    else:
+                        messagebox.showerror("Verification suite — FAILED",
+                                             "%d/%d targets passed\n\n%s\n\nreport: %s"
+                                             % (gecen, len(sonuclar),
+                                                "\n".join("%s  make %s  (%s)" % (d, h, sr)
+                                                          for h, d, sr, k in sonuclar), yol))
                 elif oge[0] == "log":
                     log(oge[1])
                 elif oge[0] == "bitti":
@@ -1615,6 +1794,9 @@ def selftest():
     kontrol("(v) WSL path mapping",
             (d1, y1) == ("Ubuntu-24.04", "/home/potato/blogic-mcu")
             and (d2, y2) == ("", "/mnt/c/Users/x/repo"), "%s:%s | %s" % (d1, y1, y2))
+    eksik = [h for h in hedefler if h not in MAKE_ACIKLAMA]
+    kontrol("(v) make descriptions", not eksik,
+            "missing: %s" % ", ".join(eksik) if eksik else "%d described" % len(hedefler))
     k = make_komut("lint", "Ubuntu-24.04", "/home/potato/blogic-mcu")
     kontrol("(v) make command", k[-1] == "lint" and k[-2] == "/home/potato/blogic-mcu"
             and "setsid" in k and "bash" in k and not make_satir_goster("ccache g++ x")
