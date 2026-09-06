@@ -14,6 +14,8 @@
 # ============================================================
 
 # --- Include dizinleri (config.yaml VERILOG_INCLUDE_DIRS ile birebir) ---
+# v1.38.0 common_cells basliklari eski cv32e40p kopyasindan ONCE aranmali
++incdir+../rtl/debug/vendor/common_cells_v1.38.0/include
 +incdir+../rtl/asic
 +incdir+../rtl/core/cv32e40p/rtl/include
 +incdir+../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include
@@ -22,11 +24,34 @@
 # --- Derleme tanimlari (config.yaml VERILOG_DEFINES ile birebir) ---
 # ASIC_SRAM_MACRO : SRAM makro dallarini secer (ifndef korumali RTL)
 # BOOTROM_CONTENT : boot ROM icerigini gomer
+# JTAG_DEBUG      : JTAG TAP + riscv-dbg Debug Module (sartname "JTAG (Opsiyonel)")
+# FC1_FIX         : ai_accelerator FC-1 erratasinin duzeltmesi
+# I2C_SDA_SYNC    : i2c_sda_i girisine 2FF senkronizator
 +define+SYNTHESIS
 +define+ASIC_SRAM_MACRO
 +define+BOOTROM_CONTENT
++define+JTAG_DEBUG
++define+FC1_FIX
++define+I2C_SDA_SYNC
 
 # --- RTL kaynaklari (derleme sirasina gore) ---
+../rtl/debug/vendor/common_cells_v1.38.0/cdc_reset_ctrlr_pkg.sv
+../rtl/debug/vendor/common_cells_v1.38.0/cdc_4phase.sv
+../rtl/debug/vendor/common_cells_v1.38.0/cdc_reset_ctrlr.sv
+../rtl/debug/vendor/common_cells_v1.38.0/cdc_2phase_clearable.sv
+../rtl/debug/vendor/tech_cells_generic/tc_clk.sv
+../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/sync.sv
+../rtl/debug/vendor/riscv-dbg/src/dm_pkg.sv
+../rtl/debug/vendor/riscv-dbg/debug_rom/debug_rom.sv
+../rtl/debug/vendor/riscv-dbg/debug_rom/debug_rom_one_scratch.sv
+../rtl/debug/vendor/riscv-dbg/src/dm_csrs.sv
+../rtl/debug/vendor/riscv-dbg/src/dm_mem.sv
+../rtl/debug/vendor/riscv-dbg/src/dm_sba.sv
+../rtl/debug/vendor/riscv-dbg/src/dm_top.sv
+../rtl/debug/vendor/riscv-dbg/src/dmi_cdc.sv
+../rtl/debug/vendor/riscv-dbg/src/dmi_jtag_tap.sv
+../rtl/debug/vendor/riscv-dbg/src/dmi_jtag.sv
+../rtl/debug/axi_dm_slave.sv
 ../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/cf_math_pkg.sv
 ../rtl/bus/axi/src/axi_pkg.sv
 ../rtl/core/cv32e40p/rtl/vendor/pulp_platform_fpnew/src/fpnew_pkg.sv

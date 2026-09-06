@@ -51,6 +51,15 @@ for T in $TESTS; do
     DATS="$DATS logs/sim/$T/coverage.dat"
 done
 
+# JTAG debug altsistemi (teslim yapilandirmasinda ACIK): normal C testleri TAP'i
+# surmez, bu yuzden rtl/debug/axi_dm_slave.sv (ekip RTL'i, kapsamda) burada
+# yalniz bosta-durum satirlariyla gorunur. Tam olcumu jtag_smoke_tb ile
+# 'make jtag-cov' verir (rtl/debug/sim/jtag_cov_summary.txt); o dosya varsa
+# ozetin sonuna eklenir. Iki model (soc_top C-test modeli / jtag_smoke_tb)
+# farkli hiyerarsi anahtarlari urettigi icin .dat dosyalari BIRLESTIRILMEZ
+# (6 Eylul 2026 olcumu: birlestirme ayni satirlari iki kez sayip ozeti
+# %64'e dusuruyordu). Vendor riscv-dbg dosyalari waiver ile kapsam disidir.
+
 rm -rf logs/coverage/annotate
 # --annotate-all: tam kapsanan dosyalar da yazilsin ("annotate'te yok" =
 # "enstrumante edilmedi" ile "tamami kapsandi" ayrimi gorunur olsun -
@@ -59,16 +68,28 @@ verilator_coverage --annotate logs/coverage/annotate --annotate-min 1 --annotate
 
 # --- Fonksiyonel kapsama (sayac tabanli, verif/sva/*_func_cov.sv) ---
 # Her test farkli bin alt kumesini uyarir; anlamli rakam BIRLESIM'dir.
+# UART icin birlesim bin bazinda hesaplanir (CPB 434/50/5208 + STP 00/01/10/11
+# sayaclari test loglarindan toplanir); 6 Eylul 2026 oncesi "en iyi tek test"
+# (max) aliniyordu ve 5/7 basiliyordu - gercek birlesim 6/7'dir (STP=11
+# hicbir testte programlanmaz). Diger bloklar tek testte %100'e ulastigi icin
+# max = birlesim.
 python3 - <<'PYEOF' | tee -a logs/coverage/summary.txt
 import glob, re, collections
 PAY = {"UART": 7, "QSPI": 7, "AI-CSR": 5, "IRQ": 3}
 best, ac_k, ac_f = collections.defaultdict(int), 0, 0
 irq_u = set()
+uart_u = set()
 for f in glob.glob("logs/coverage/**/*.log", recursive=True):
     t = open(f, errors="replace").read()
     for blok, hit in re.findall(r"\[FUNC-COV\] (\S+).*?bin kapsami\s*:\s*(\d+)/", t, re.S):
         if blok in PAY:
             best[blok] = max(best[blok], int(hit))
+    for c434, c50, c5208 in re.findall(r"CPB binleri\s*:\s*434=(\d+) 50=(\d+) 5208=(\d+)", t):
+        for ad, n in (("cpb434", c434), ("cpb50", c50), ("cpb5208", c5208)):
+            if int(n): uart_u.add(ad)
+    for s00, s01, s10, s11 in re.findall(r"STP binleri\s*:\s*00=(\d+) 01=(\d+) 10=(\d+) 11=(\d+)", t):
+        for ad, n in (("stp00", s00), ("stp01", s01), ("stp10", s10), ("stp11", s11)):
+            if int(n): uart_u.add(ad)
     # IRQ: hat bazinda gercek birlesim (max degil - her test farkli hatti uyariyor)
     for a, b_, c in re.findall(r"timer\(irq16\)=(\d+) ai\(irq17\)=(\d+) strm\(irq18\)=(\d+)", t):
         if int(a): irq_u.add("timer")
@@ -79,6 +100,7 @@ for f in glob.glob("logs/coverage/**/*.log", recursive=True):
 print("")
 print("--- Fonksiyonel kapsama (birlesim, verif/sva/*_func_cov.sv) ---")
 best["IRQ"] = max(best.get("IRQ", 0), len(irq_u))
+best["UART"] = max(best.get("UART", 0), len(uart_u))
 tot = sum(best.get(b, 0) for b in PAY)
 for b in ("UART", "QSPI", "AI-CSR", "IRQ"):
     h, n = best.get(b, 0), PAY[b]
@@ -98,7 +120,7 @@ echo "    (satir bazli sayim; ayni satirdaki branch-yarisi kayiplari icin annota
 # (i2c'nin 122 kapsanmamis satiri ozette hic gorunmedi). Ayrinti:
 # verif/coverage_siniflandirma.md
 for F in ai_accelerator.sv ai_sram_arbiter.sv soc_top.sv soc_axi_interconnect.sv \
-         periph_decoder.sv axi4_to_axilite_bridge.sv obi_to_axi.sv \
+         periph_decoder.sv axi4_to_axilite_bridge.sv obi_to_axi.sv axi_dm_slave.sv \
          uart_axil.sv uart_stream_axil.sv gpio_axil.sv timer_axil.sv qspi_master_axil.sv \
          i2c_master_axil.sv boot_rom.sv axi_sram_wrapper.sv uart_rx.v uart_tx.v; do
     A="logs/coverage/annotate/$F"
@@ -109,6 +131,12 @@ for F in ai_accelerator.sv ai_sram_arbiter.sv soc_top.sv soc_axi_interconnect.sv
             | tee -a logs/coverage/summary.txt
     fi
 done
+if [ -f rtl/debug/sim/jtag_cov_summary.txt ]; then
+    echo "" | tee -a logs/coverage/summary.txt
+    echo "--- JTAG altsistemi (make jtag-cov, jtag_smoke_tb 17 asama; rtl/debug/sim/jtag_cov_summary.txt) ---" | tee -a logs/coverage/summary.txt
+    grep -E 'axi_dm_slave|soc_axi_interconnect|rtl/soc_top|dmi_jtag|dm_csrs|dm_mem|dm_top' rtl/debug/sim/jtag_cov_summary.txt \
+        | sed 's/^/  /' | tee -a logs/coverage/summary.txt
+fi
 echo ""
 echo "Annotated kaynaklar: logs/coverage/annotate/  ('%' onekli satir = kapsanmamis)"
 
@@ -120,9 +148,10 @@ SUM="$PROJ/verif/coverage_summary.txt"
     echo "verilator : $(verilator --version 2>/dev/null | head -1)"
     echo "testler   : $TESTS"
     echo "olcum     : --coverage-line, SoC seviyesi (15 C testi, tek build, sabit payda)"
-    echo "kapsam    : tasarim RTL'i (14 dosya). Haric: CV32E40P/PULP vendor kodu,"
-    echo "            testbench'ler, davranissal modeller, SVA checker ve covergroup"
-    echo "            bind'leri - bunlar dogrulama altyapisidir, tasarim degil."
+    echo "kapsam    : tasarim RTL'i (15 dosya; JTAG koprusu axi_dm_slave.sv dahil). Haric:"
+    echo "            CV32E40P/PULP ve riscv-dbg vendor kodu, testbench'ler, davranissal"
+    echo "            modeller, SVA checker ve covergroup bind'leri - dogrulama altyapisidir."
+    echo "            JTAG altsistemi ayrica jtag_smoke_tb ile olculur: make jtag-cov (sonda)."
     echo "modul bazli TB kapsamasi: verif/coverage_tb_summary.txt (make coverage-tb)"
     echo "------------------------------------------------------------"
     cat "$PROJ/logs/coverage/summary.txt"

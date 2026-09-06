@@ -5,10 +5,18 @@ Clock Skew (Setup)
 ======================= nom_ff_n40C_1v95 Corner ===================================
 
 Clock clk
-4.284528 source latency i_soc.i_ai_sram.u_sram.gen_bank[12].gen_512.u_macro/clk1 v
--2.684108 target latency i_soc.i_ai_sram._80_/CLK ^
+3.433431 source latency i_soc.i_cpu.core_i.id_stage_i.register_file_i._8770_/CLK ^
+-2.408232 target latency i_soc.i_obi_axi_instr._261_/CLK ^
 0.500000 clock uncertainty
 0.000000 CRPR
 --------------
-2.100420 setup skew
+1.525199 setup skew
+
+Clock jtag_tck
+0.675256 source latency i_soc.i_dmi_jtag._628_/CLK ^
+-0.627061 target latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK ^
+0.500000 clock uncertainty
+0.000000 CRPR
+--------------
+0.548195 setup skew
 

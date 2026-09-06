@@ -18,6 +18,13 @@ if command -v librelane >/dev/null 2>&1; then
     exec "$@"
 fi
 
+# nix etkilesimsiz kabukta PATH'te olmayabilir (juri paneli ve 'make' -> bash -c
+# ~/.profile okumaz); standart kurulum dizinlerini ekle. 6 Eylul 2026: asic-elab
+# panelden ve betikten "LibreLane bulunamadi" ile FAIL vermisti, ortam yerindeydi.
+for _d in /nix/var/nix/profiles/default/bin "$HOME/.nix-profile/bin"; do
+  if [ -d "$_d" ]; then case ":$PATH:" in *":$_d:"*) ;; *) PATH="$_d:$PATH" ;; esac; fi
+done
+export PATH
 if ! command -v nix >/dev/null 2>&1; then
     echo "HATA: ne 'librelane' ne 'nix' PATH'te bulundu." >&2
     echo "Kurulum icin bkz. asic/README.md Bolum 9.3 ve environment/versions.txt" >&2

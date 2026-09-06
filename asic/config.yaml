@@ -7,6 +7,27 @@ DESIGN_NAME: asic_top
 
 # --- RTL kaynaklari (derleme sirasina gore; asic/filelist.f ile ayni liste) ---
 VERILOG_FILES:
+  # --- JTAG debug altsistemi (riscv-dbg DM/DTM + CDC hucreleri + axi_dm_slave koprusu) ---
+  # Paketler (cdc_reset_ctrlr_pkg, dm_pkg) soc_top.sv'den ONCE derlenmeli -> listenin basinda.
+  # Kaynak/surum: rtl/debug/VENDOR.md; Verilator listesi rtl/debug/jtag_files.f ile ayni sira.
+  - dir::../rtl/debug/vendor/common_cells_v1.38.0/cdc_reset_ctrlr_pkg.sv
+  - dir::../rtl/debug/vendor/common_cells_v1.38.0/cdc_4phase.sv
+  - dir::../rtl/debug/vendor/common_cells_v1.38.0/cdc_reset_ctrlr.sv
+  - dir::../rtl/debug/vendor/common_cells_v1.38.0/cdc_2phase_clearable.sv
+  - dir::../rtl/debug/vendor/tech_cells_generic/tc_clk.sv
+  - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/sync.sv
+  - dir::../rtl/debug/vendor/riscv-dbg/src/dm_pkg.sv
+  - dir::../rtl/debug/vendor/riscv-dbg/debug_rom/debug_rom.sv
+  - dir::../rtl/debug/vendor/riscv-dbg/debug_rom/debug_rom_one_scratch.sv
+  - dir::../rtl/debug/vendor/riscv-dbg/src/dm_csrs.sv
+  - dir::../rtl/debug/vendor/riscv-dbg/src/dm_mem.sv
+  - dir::../rtl/debug/vendor/riscv-dbg/src/dm_sba.sv
+  - dir::../rtl/debug/vendor/riscv-dbg/src/dm_top.sv
+  - dir::../rtl/debug/vendor/riscv-dbg/src/dmi_cdc.sv
+  - dir::../rtl/debug/vendor/riscv-dbg/src/dmi_jtag_tap.sv
+  - dir::../rtl/debug/vendor/riscv-dbg/src/dmi_jtag.sv
+  - dir::../rtl/debug/axi_dm_slave.sv
+  # --- Cekirdek, veriyolu, cevre birimleri, YZ hizlandirici, SoC ust seviye ---
   - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/cf_math_pkg.sv
   - dir::../rtl/bus/axi/src/axi_pkg.sv
   - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_fpnew/src/fpnew_pkg.sv
@@ -76,6 +97,9 @@ VERILOG_FILES:
   - dir::../rtl/asic/asic_top.sv
 
 VERILOG_INCLUDE_DIRS:
+  # v1.38.0 common_cells basliklari (assertions.svh/registers.svh) cv32e40p altindaki
+  # ESKI kopyadan ONCE aranmali (ASSUME makrosu 5 arguman; rtl/debug/jtag_files.f notu)
+  - dir::../rtl/debug/vendor/common_cells_v1.38.0/include
   - dir::../rtl/asic
   - dir::../rtl/core/cv32e40p/rtl/include
   - dir::../rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include
@@ -85,6 +109,9 @@ VERILOG_DEFINES:
   - SYNTHESIS
   - ASIC_SRAM_MACRO   # SRAM makrolarini secer (ifndef korumali RTL dallari)
   - BOOTROM_CONTENT   # boot ROM icerigini gomer
+  - JTAG_DEBUG        # JTAG TAP + riscv-dbg Debug Module (sartname "JTAG (Opsiyonel)"); 5 ek pin, jtag_tck saati
+  - FC1_FIX           # ai_accelerator FC-1 erratasinin duzeltmesi (README 9.9/8): co_re FC agirlik bekleme durumunda da surulur
+  - I2C_SDA_SYNC      # i2c_sda_i girisine 2FF senkronizator (README 9.9/3)
 
 USE_SLANG: true
 SLANG_ARGUMENTS:
@@ -94,6 +121,9 @@ SYNTH_HIERARCHY_MODE: deferred_flatten
 # --- Saat ve zamanlama kisitlari ---
 # 20 ns = 50 MHz hedef. PnR ve signoff AYNI SDC'yi kullanir (bolum 3.2/6.2);
 # design.sdc icinde olculmus SRAM derate (2,661x) ve IO butceleri tanimlidir.
+# design.sdc ayrica JTAG TAP saatini tanimlar (jtag_tck, 100 ns = OpenOCD adapter
+# tavani 10 MHz); clk <-> jtag_tck ASENKRON saat grubudur, gecisler riscv-dbg
+# dmi_cdc (2-faz el sikisma) ile korunur.
 CLOCK_PORT: clk_i
 CLOCK_PERIOD: 20
 PNR_SDC_FILE: dir::constraints/design.sdc
@@ -229,6 +259,19 @@ ROUTING_OBSTRUCTIONS:
   - [met1, 3219.30, 3953.46, 3902.40, 4370.00]
   - [met2, 3219.30, 3953.46, 3902.40, 4370.00]
   - [met5, 3219.30, 3953.46, 3902.40, 4370.00]
+
+# --- Saat agaci (CTS) ---
+# 3-4 Eylul 2026 olcumu (12 varyantlik tarama: rtl/debug/asic_jtag_sentez/full_v3/
+# varyant_taramasi.txt ve OZET.md). JTAG DM eklenince CTS'in gecikme-dengeleme
+# zinciri (8x clkbuf_16) CPU dalindan komut-SRAM dalina kaymis, TT setup marji
+# +2,210 -> +1,060 ns'ye dusmustu. Makro saat alt-agaci kumelemesi + engel-farkindali
+# CTS + saat teli tavani ile TT +1,684 ns; hold uc kosede JTAG'siz kosu seviyesine
+# dondu; IR-drop 1,54 -> 0,95 mV. Etkisiz olculen anahtarlar (CTS_DELAY_BUFFER_DERATE_PCT,
+# CTS_MAX_CAP) ve zararli olan (resizer setup marji 0.15) bilerek YOK.
+CTS_MACRO_CLUSTERING_MAX_DIAMETER: 600
+CTS_MACRO_CLUSTERING_SIZE: 2
+CTS_OBSTRUCTION_AWARE: true
+CTS_CLK_MAX_WIRE_LENGTH: 900
 
 # --- Zamanlama onarimi ---
 DESIGN_REPAIR_MAX_SLEW_PCT: 10

@@ -68,10 +68,14 @@ sw/ai_model/accuracy_report.txt
 !sw/ai_model/golden_vectors/*.hex
 !sw/bootloader/bootrom.hex
 !sw/bootloader/flash_helloworld.hex
+# Questa dalga-formu akisinin firmware paketleri (verif/questa/README.md)
+!verif/questa/fw/**/*.hex
 !teknotest/**/*.hex
 !teknotest/**/*.mem
 !bootrom.hex
 !rtl/fpga/firmware_flash.bin
+# JTAG debug altsistemi (teslim cipinin parcasi): OpenOCD demo kanit loglari (sim + kart; make jtag-openocd / jtag-board)
+!rtl/debug/openocd/demo_run_*.log
 
 # ============================================================
 # ASIC AKIS CIKTILARI (LibreLane)
@@ -115,5 +119,23 @@ asic/runs/
 # demo-gunu paneli ve kart taramasinin yeniden uretilebilir ciktilari (tarihli kopyalar ayrica commit edilir)
 juri_sonuclar_*.txt
 juri_anlik_*.txt
+juri_make_*.txt
+juri_panel_log_*.txt
 sw/ai_model/kart_sweep_raporu.txt
 build/vivado_m2.log
+
+# Questa / ModelSim kosu urunleri (verif/questa akisi kok dizinden de kosabilir)
+modelsim.ini
+transcript
+*.wlf
+vsim_stacktrace.vstf
+
+# Questa run products written to the launch directory (verif/questa flow, tests with workdir .)
+/transcript
+/modelsim.ini
+/vsim.wlf
+/vsim_stacktrace.vstf
+
+# flash_firmware.tcl ara urunleri (mcs/prm; kaynak firmware_flash.bin izlenir)
+rtl/fpga/firmware_flash.mcs
+rtl/fpga/firmware_flash.prm

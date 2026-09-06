@@ -1,16 +1,16 @@
-Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
--------------------------------------------------------------------------------------------------------------------------------------------------
-| Tool Version     : Vivado v.2023.2 (win64) Build 4029153 Fri Oct 13 20:14:34 MDT 2023
-| Date             : Fri Aug 14 12:26:17 2026
+Copyright 1986-2021 Xilinx, Inc. All Rights Reserved.
+----------------------------------------------------------------------------------------
+| Tool Version     : Vivado v.2021.2 (win64) Build 3367213 Tue Oct 19 02:48:09 MDT 2021
+| Date             : Sun Sep  6 17:42:48 2026
 | Host             : Berk66 running 64-bit major release  (build 9200)
-| Command          : report_power -file C:/Users/Lenovo/blogic_fpga/rtl/fpga/reports/power.rpt
+| Command          : report_power -file Y:/rtl/fpga/reports/power.rpt
 | Design           : fpga_top
 | Device           : xc7k325tffg900-2
 | Design State     : routed
 | Grade            : commercial
 | Process          : typical
 | Characterization : Production
--------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------
 
 Power Report
 
@@ -30,11 +30,11 @@ Table of Contents
 ----------
 
 +--------------------------+--------------+
-| Total On-Chip Power (W)  | 0.328        |
+| Total On-Chip Power (W)  | 0.330        |
 | Design Power Budget (W)  | Unspecified* |
 | Power Budget Margin (W)  | NA           |
 | Dynamic (W)              | 0.167        |
-| Device Static (W)        | 0.161        |
+| Device Static (W)        | 0.163        |
 | Effective TJA (C/W)      | 1.8          |
 | Max Ambient (C)          | 84.4         |
 | Junction Temperature (C) | 25.6         |
@@ -49,24 +49,25 @@ Table of Contents
 1.1 On-Chip Components
 ----------------------
 
-+----------------+-----------+----------+-----------+-----------------+
-| On-Chip        | Power (W) | Used     | Available | Utilization (%) |
-+----------------+-----------+----------+-----------+-----------------+
-| Clocks         |     0.013 |        5 |       --- |             --- |
-| Slice Logic    |     0.014 |    24820 |       --- |             --- |
-|   LUT as Logic |     0.013 |    12340 |    203800 |            6.05 |
-|   CARRY4       |    <0.001 |      484 |     50950 |            0.95 |
-|   Register     |    <0.001 |     8639 |    407600 |            2.12 |
-|   F7/F8 Muxes  |    <0.001 |     1328 |    203800 |            0.65 |
-|   Others       |     0.000 |       68 |       --- |             --- |
-| Signals        |     0.016 |    17711 |       --- |             --- |
-| Block RAM      |     0.006 |       14 |       445 |            3.15 |
-| MMCM           |     0.107 |        1 |        10 |           10.00 |
-| DSPs           |     0.003 |       10 |       840 |            1.19 |
-| I/O            |     0.009 |       43 |       500 |            8.60 |
-| Static Power   |     0.161 |          |           |                 |
-| Total          |     0.328 |          |           |                 |
-+----------------+-----------+----------+-----------+-----------------+
++-------------------------+-----------+----------+-----------+-----------------+
+| On-Chip                 | Power (W) | Used     | Available | Utilization (%) |
++-------------------------+-----------+----------+-----------+-----------------+
+| Clocks                  |     0.016 |        6 |       --- |             --- |
+| Slice Logic             |     0.012 |    27729 |       --- |             --- |
+|   LUT as Logic          |     0.011 |    13770 |    203800 |            6.76 |
+|   CARRY4                |    <0.001 |      495 |     50950 |            0.97 |
+|   Register              |    <0.001 |     9756 |    407600 |            2.39 |
+|   F7/F8 Muxes           |    <0.001 |     1390 |    203800 |            0.68 |
+|   LUT as Shift Register |    <0.001 |        2 |     64000 |           <0.01 |
+|   Others                |     0.000 |      128 |       --- |             --- |
+| Signals                 |     0.015 |    19962 |       --- |             --- |
+| Block RAM               |     0.006 |       14 |       445 |            3.15 |
+| MMCM                    |     0.107 |        1 |        10 |           10.00 |
+| DSPs                    |     0.003 |       10 |       840 |            1.19 |
+| I/O                     |     0.009 |       49 |       500 |            9.80 |
+| Static Power            |     0.163 |          |           |                 |
+| Total                   |     0.330 |          |           |                 |
++-------------------------+-----------+----------+-----------+-----------------+
 
 
 1.2 Power Supply Summary
@@ -75,11 +76,11 @@ Table of Contents
 +-----------+-------------+-----------+-------------+------------+-------------+-------------+------------+
 | Source    | Voltage (V) | Total (A) | Dynamic (A) | Static (A) | Powerup (A) | Budget (A)  | Margin (A) |
 +-----------+-------------+-----------+-------------+------------+-------------+-------------+------------+
-| Vccint    |       1.000 |     0.121 |       0.052 |      0.069 |       NA    | Unspecified | NA         |
+| Vccint    |       1.000 |     0.122 |       0.052 |      0.069 |       NA    | Unspecified | NA         |
 | Vccaux    |       1.800 |     0.089 |       0.061 |      0.028 |       NA    | Unspecified | NA         |
 | Vcco33    |       3.300 |     0.002 |       0.001 |      0.001 |       NA    | Unspecified | NA         |
 | Vcco25    |       2.500 |     0.000 |       0.000 |      0.000 |       NA    | Unspecified | NA         |
-| Vcco18    |       1.800 |     0.000 |       0.000 |      0.000 |       NA    | Unspecified | NA         |
+| Vcco18    |       1.800 |     0.001 |       0.000 |      0.001 |       NA    | Unspecified | NA         |
 | Vcco15    |       1.500 |     0.000 |       0.000 |      0.000 |       NA    | Unspecified | NA         |
 | Vcco135   |       1.350 |     0.000 |       0.000 |      0.000 |       NA    | Unspecified | NA         |
 | Vcco12    |       1.200 |     0.000 |       0.000 |      0.000 |       NA    | Unspecified | NA         |
@@ -129,13 +130,14 @@ Table of Contents
 2.2 Clock Constraints
 ---------------------
 
-+-------------+-------------+-----------------+
-| Clock       | Domain      | Constraint (ns) |
-+-------------+-------------+-----------------+
-| clk_50_mmcm | clk_50_mmcm |            20.0 |
-| clk_fb      | clk_fb      |             5.0 |
-| sysclk      | sysclk_p    |             5.0 |
-+-------------+-------------+-----------------+
++-------------+---------------------------------------+-----------------+
+| Clock       | Domain                                | Constraint (ns) |
++-------------+---------------------------------------+-----------------+
+| clk_50_mmcm | clk_50_mmcm                           |            20.0 |
+| clk_fb      | clk_fb                                |             5.0 |
+| jtag_tck    | i_soc/i_dmi_jtag/i_dmi_jtag_tap/tck_o |           100.0 |
+| sysclk      | sysclk_p                              |             5.0 |
++-------------+---------------------------------------+-----------------+
 
 
 3. Detailed Reports
@@ -149,15 +151,17 @@ Table of Contents
 +--------------------+-----------+
 | fpga_top           |     0.167 |
 |   i_soc            |     0.051 |
-|     i_ai_accel     |     0.013 |
+|     i_ai_accel     |     0.012 |
 |     i_ai_sram      |     0.004 |
-|     i_cpu          |     0.013 |
-|       core_i       |     0.013 |
+|     i_cpu          |     0.012 |
+|       core_i       |     0.012 |
 |     i_data_sram    |     0.001 |
+|     i_dm_top       |     0.003 |
+|       i_dm_csrs    |     0.002 |
+|     i_dmi_jtag     |     0.001 |
 |     i_instr_sram   |     0.001 |
-|     i_obi_axi_data |     0.003 |
-|     i_qspi         |     0.011 |
-|     i_uart_1       |     0.001 |
+|     i_obi_axi_data |     0.002 |
+|     i_qspi         |     0.012 |
 +--------------------+-----------+
 
 

@@ -28,12 +28,22 @@ WARNED=()
 # En son eslesen yolu dondurur (tekrarlanan adimlarda en yuksek sira no).
 last() { compgen -G "$1" | sort | tail -1 || true; }
 
+# Hedef daha onceki bir kosudan doluysa (results/ temizlenmez; yalniz run/
+# temizlenir) 'cp -r DIZIN HEDEF/AD' var olan HEDEF/AD'in ICINE kopyalar ve
+# eski dosya yerinde kalir (6 Eylul 2026, RUN_final: results/lib ve results/sdf
+# bir alt dizine gomulmustu). Bu yuzden hedef once silinir; 'cp -r' dosyalar
+# icin zaten uzerine yazar.
+copy_fresh() {   # copy_fresh KAYNAK HEDEF_YOLU
+    rm -rf "$2"
+    cp -r "$1" "$2"
+}
+
 # req_cp "GLOB" HEDEF [YENI_AD]  - zorunlu kopya
 req_cp() {
     local src; src=$(last "$1")
     if [[ -n "$src" ]]; then
         mkdir -p "$2"
-        cp -r "$src" "$2/${3:-$(basename "$src")}"
+        copy_fresh "$src" "$2/${3:-$(basename "$src")}"
     else
         MISSING+=("$1")
     fi
@@ -44,7 +54,7 @@ opt_cp() {
     local src; src=$(last "$1")
     if [[ -n "$src" ]]; then
         mkdir -p "$2"
-        cp -r "$src" "$2/${3:-$(basename "$src")}"
+        copy_fresh "$src" "$2/${3:-$(basename "$src")}"
     else
         WARNED+=("$1")
     fi

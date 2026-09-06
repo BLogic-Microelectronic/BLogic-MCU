@@ -147,9 +147,11 @@ if {[llength $_sram_cells] > 0} {
 
 # ------------------------------------------------------------
 # Notlar (STA sign-off / README 9.6 icin):
-# * Tasarim TEK saat alanlidir (clk_i); CDC yolu YOKTUR. FPGA'daki MMCM
-#   asic_top disindadir (fpga_top), ASIC'e girmez -> saat alani iliskisi
-#   ve asenkron saat grubu tanimi GEREKMEZ (Bolum 3.2 kosullu maddeler).
+# * Sistem mantigi TEK saat alanlidir (clk_i). Ikinci saat jtag_tck (JTAG TAP,
+#   asagida): clk <-> jtag_tck ASENKRON saat grubu; tek CDC yolu riscv-dbg
+#   dmi_cdc'nin 2-faz el sikismasidir (yapisal olarak guvenli, zamanlama
+#   iliskisi kurulmaz). FPGA'daki MMCM asic_top disindadir (fpga_top), ASIC'e
+#   girmez.
 # * QSPI SCLK cikisi clk'den register uzerinden uretilir (max clk/2 =
 #   25 MHz); ic saat degildir, veri yollari ayni alandadir -> generated
 #   clock tanimi GEREKMEZ.
@@ -158,3 +160,20 @@ if {[llength $_sram_cells] > 0} {
 # * Bellekler: axi_sram_wrapper sinirindan sky130_sram_* makrolariyla
 #   degistirilir; makro zamanlamalari EXTRA_LIBS Liberty'lerinden gelir.
 # ============================================================
+
+# ---- JTAG TAP saati (JTAG_DEBUG - riscv-dbg dmi_jtag; teslim yapilandirmasinda ACIK) ----
+# TAP saati: OpenOCD adapter <= 10 MHz -> 100 ns. TCK <-> clk gecisleri riscv-dbg
+# dmi_cdc (2-faz el sikisma) ile korunur; iki saat asenkron gruptur.
+# Pin butceleri: TMS/TDI TCK'nin yukselen kenarinda ornekle nir, TDO dusen kenarda
+# surulur (IEEE 1149.1) -> 100 ns periyotta 20 ns dis gecikme + 5 pF yuk bol marj.
+create_clock -name jtag_tck -period 100.000 [get_ports jtag_tck_i]
+set_clock_uncertainty -setup 0.500 [get_clocks jtag_tck]
+set_clock_uncertainty -hold  0.100 [get_clocks jtag_tck]
+set_clock_transition 0.150 [get_clocks jtag_tck]
+set_clock_groups -asynchronous -group [get_clocks clk] -group [get_clocks jtag_tck]
+set_false_path -from [get_ports jtag_trst_ni]
+set_input_delay  -clock jtag_tck -max 20.000 [get_ports {jtag_tms_i jtag_tdi_i}]
+set_input_delay  -clock jtag_tck -min  2.000 [get_ports {jtag_tms_i jtag_tdi_i}]
+set_output_delay -clock jtag_tck -max 20.000 [get_ports jtag_tdo_o]
+set_output_delay -clock jtag_tck -min  2.000 [get_ports jtag_tdo_o]
+set_load 5.0 [get_ports jtag_tdo_o]

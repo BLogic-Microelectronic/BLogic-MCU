@@ -81,7 +81,7 @@ def main():
     p = serial.Serial(a.port, 115200, timeout=0.2)
     p.reset_input_buffer()
     p.write(b"?")
-    if satir_oku(p, "h=HW cikarim", 3) is None:
+    if satir_oku(p, "h=HW inference", 3) is None:
         print("[HATA] demo menusu cevap vermedi - kart acik mi, demo yuklu mu,"
               " Tera Term kapali mi?")
         return 2
@@ -97,7 +97,7 @@ def main():
 
         p.reset_input_buffer()
         p.write(b"v")
-        if satir_oku(p, "BLG1 cercevesi bekleniyor", 4) is None:
+        if satir_oku(p, "waiting for BLG1 frame", 4) is None:
             sonuc.append((ad, etiket, ko, sw_am, None, "TIMEOUT-v"))
             continue
         ham = bytes((v & 0xFF) for v in vec)
@@ -118,11 +118,11 @@ def main():
         else:
             p.write(veri)
             p.flush()
-        hat = satir_oku(p, "sinif =", 6)
+        hat = satir_oku(p, "class =", 6)
         if hat is None:
             sonuc.append((ad, etiket, ko, sw_am, None, "TIMEOUT-sinif"))
             continue
-        m = re.search(r"sinif = (\w+)\s+HW cycle = (\d+)", hat)
+        m = re.search(r"class = (\w+)\s+HW cycle = (\d+)", hat)
         if not m or m.group(1) not in CLS:
             sonuc.append((ad, etiket, ko, sw_am, None, "PARSE:" + hat))
             continue

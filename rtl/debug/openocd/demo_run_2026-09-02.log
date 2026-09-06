@@ -1,0 +1,49 @@
+Open On-Chip Debugger 0.12.0
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : only one transport option; autoselect 'jtag'
+Warn : Transport "jtag" was already selected
+Info : Initializing remote_bitbang driver
+Info : Connecting to localhost:9999
+Info : remote_bitbang driver initialized
+Info : This adapter doesn't support configurable speed
+Info : JTAG tap: blogic.cpu tap/device found: 0x0b1061c1 (mfg: 0x0e0 (Truevision), part: 0xb106, ver: 0x0)
+Info : datacount=2 progbufsize=8
+Info : Examined RISC-V core; found 1 harts
+Info :  hart 0: XLEN=32, misa=0x40001104
+Info : starting gdb server for blogic.cpu on 3333
+Info : Listening on port 3333 for gdb connections
+== DEMO: halt ==
+== DEMO: registers ==
+pc (/32): 0x0001011a
+a0 (/32): 0x00000000
+-- a0 yaz 0x12345678 --
+a0 (/32): 0x12345678
+-- a0 geri oku --
+a0 (/32): 0x12345678
+== DEMO: memory (progbuf) ==
+0x00021000: cafef00d
+0x00021000: cafef00d 11223344
+== DEMO: resume/halt ==
+pc (/32): 0x0001011c
+== DEMO: breakpoint ==
+pc (/32): 0x0001011c
+-- bp 0x0001011c 4 hw --
+Info : [blogic.cpu] Found 1 triggers
+breakpoint set at 0x0001011c
+-- resume + wait_halt (tetikleyici bekleniyor) --
+-- breakpoint: pc (bp adresi 0x0001011c beklenir) --
+pc (/32): 0x0001011c
+-- rbp 0x0001011c --
+== DEMO: reset halt ==
+-- reset halt (ndmreset + haltreq) --
+Info : JTAG tap: blogic.cpu tap/device found: 0x0b1061c1 (mfg: 0x0e0 (Truevision), part: 0xb106, ver: 0x0)
+-- reset vektoru: pc (0x00010000 beklenir) --
+pc (/32): 0x00010000
+-- resume, 300 ms kos (firmware bastan), halt --
+-- firmware yeniden kosuyor: pc (0x0001xxxx beklenir) --
+pc (/32): 0x0001011a
+== DEMO: done ==
+shutdown command invoked
+Info : remote_bitbang interface quit

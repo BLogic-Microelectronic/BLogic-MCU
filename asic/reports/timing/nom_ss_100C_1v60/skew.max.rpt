@@ -5,10 +5,18 @@ Clock Skew (Setup)
 ======================= nom_ss_100C_1v60 Corner ===================================
 
 Clock clk
-5.939508 source latency i_soc.i_ai_accel._23285_/CLK ^
--9.021008 target latency i_soc.i_ai_sram.u_sram.gen_bank[14].gen_512.u_macro/clk1 ^
+8.719866 source latency i_soc.i_cpu.core_i.id_stage_i.register_file_i._8770_/CLK ^
+-6.058117 target latency i_soc.i_obi_axi_instr._261_/CLK ^
 0.500000 clock uncertainty
 0.000000 CRPR
 --------------
--2.581500 setup skew
+3.161749 setup skew
+
+Clock jtag_tck
+1.727976 source latency i_soc.i_dmi_jtag._628_/CLK ^
+-1.633499 target latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK ^
+0.500000 clock uncertainty
+0.000000 CRPR
+--------------
+0.594477 setup skew
 

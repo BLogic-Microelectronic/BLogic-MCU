@@ -47,6 +47,7 @@ VERILATOR_FLAGS = \
     -Wno-MODDUP \
     -Wno-CASEINCOMPLETE \
     -Wno-UNSIGNED \
+    -Wno-UNOPTFLAT \
     -DVERILATOR \
     --top-module $(TOP_MODULE) -public-flat-rw
 

@@ -25,6 +25,15 @@ module fpga_top #(
     output logic [7:0] led,
     output logic [7:0] jb,
 
+    // Kart ustu OLED (128x32, SSD1306, 4-hat SPI; Digilent Genesys-2-Master.xdc
+    // "OLED Display"). GPIO cikislarindan firmware bit-bang ile surulur.
+    output logic       oled_dc,
+    output logic       oled_res,
+    output logic       oled_sclk,
+    output logic       oled_sdin,
+    output logic       oled_vbat,
+    output logic       oled_vdd,
+
     // Pmod JA: UART1 (YZ stream) + I2C
     inout  wire  [7:0] ja,
 
@@ -105,6 +114,18 @@ module fpga_top #(
     assign led = {gpio_out[4:0], rst_sync_n, mmcm_locked, heartbeat_cnt[25]};
     assign jb  = gpio_out[15:8];
 
+    // OLED (sw/demo/demo_main.c bit-bang SPI): gpio_out[15:10]. Pmod JB ayni
+    // bitleri aynalamaya devam eder (GPIO cikis testi basligi). Kartta VDD ve
+    // VBAT anahtarlari aktif-DUSUKTUR (pin 0 = besleme acik); burada evrilir ki
+    // bitstream/reset sonrasi gpio_out = 0 iken iki besleme de KAPALI kalsin ve
+    // SSD1306 guc sirasini (VDD -> reset -> charge pump -> VBAT) firmware kursun.
+    assign oled_vdd  = ~gpio_out[10];   // firmware 1 = VDD acik
+    assign oled_vbat = ~gpio_out[11];   // firmware 1 = VBAT acik
+    assign oled_res  =  gpio_out[12];   // 0 = reset (varsayilan)
+    assign oled_dc   =  gpio_out[13];   // 0 = komut, 1 = veri
+    assign oled_sclk =  gpio_out[14];
+    assign oled_sdin =  gpio_out[15];
+
     // UART1 + I2C @ Pmod JA
     logic uart1_txd;
     logic i2c_scl, i2c_sda_oe;
@@ -176,6 +197,21 @@ module fpga_top #(
         .i2c_scl_o    (i2c_scl),
         .i2c_sda_oe_o (i2c_sda_oe),
         .i2c_sda_i    (i2c_sda_in)
+`ifdef JTAG_DEBUG
+        ,
+        // JTAG_DEBUG (teslim bitstream'inde ACIK): kartta harici JTAG pin basligi
+        // YOK; dmi_jtag'in TAP'i FPGA'nin kendi tarama zincirine BSCANE2
+        // (USER3/USER4) ile baglanir (build_genesys2.tcl soc_files.f'i okurken
+        // dmi_jtag_tap.sv yerine ayni modul adini tasiyan dmi_bscane_tap.sv'yi
+        // koyar). TAP bu pinleri hic okumaz -> sabit baglanir.
+        // trst_ni=1: DTM yazmaclari FPGA'da bitstream ile 0'dan baslar; TAP reset
+        // BSCANE2.RESET (dmi_clear) uzerinden gelir. Tanim yokken birebir eski.
+        .jtag_tck_i   (1'b0),
+        .jtag_tms_i   (1'b0),
+        .jtag_tdi_i   (1'b0),
+        .jtag_trst_ni (1'b1),
+        .jtag_tdo_o   ()
+`endif
     );
 
 endmodule

@@ -15,16 +15,24 @@
    im'den, agirlik cw'den okunur, sonuc conv_out'a yazilip WCONV'da
    T+1'de geri okunarak) uretilebilir; tek word'luk sapma bile FAIL'dir.
 
-   ARGMAX BILEREK KONTROL EDILMIYOR (FC ERRATASI): FC asamasi co_rdata'yi
-   okumadan >=3 cevrim sonra tuketir; teslim edilen OpenRAM modeli dout'u
-   her posedge'de X'e cektigi icin makro simde FC logitleri bozulur
-   (davranissal dalda veri tutuldugundan maskelenir). Ayrintilar ve
-   fiziksel-makro degerlendirmesi: asic/README.md "Known issue" bolumu.
-   Argmax dogrulugu davranissal takimda 4 senaryoyla kanitlidir
-   (soc-ai, ai_multi_class 4/4, kart 60/60).
+   ARGMAX KONTROLU (CHECK_ARGMAX; make asic-top-sim firmware'i
+   -DCHECK_ARGMAX ile derler): teslim RTL'inde FC1_FIX ACIK oldugundan
+   (ST_FC_FETCH_W_WAIT boyunca co_re ayni adresle surulur) FC de makro
+   modelinin dout-X sozlesmesine uyar; argmax==2 ("yes") ve sonuc word'u
+   DA kontrol edilir. PASS = conv bit-tam VE argmax==2 VE sonuc word'u
+   dogru; bu kosunun PASS'i FC-1 erratasinin duzeltildiginin kanitidir
+   (negatif kontrol 6 Eylul 2026: FC1_FIX'siz RTL'de "AI ARGMAX BAD").
+
+   Tarihce (FC-1 erratasi, 1 Eylul 2026, bu hedef buldu): FC asamasi
+   co_rdata'yi okumadan >=3 cevrim sonra tuketiyordu; teslim edilen OpenRAM
+   modeli dout'u her posedge'de X'e cektigi icin makro simde FC logitleri
+   bozuluyordu (davranissal dalda veri tutuldugundan maskelenir). 14 Agustos
+   imzali kosu bu duzeltme olmadan kosuldu; ayrintilar asic/README.md 9.5.
+   CHECK_ARGMAX tanimsiz derlemede bu dosya yalniz conv sagtoplamini
+   kontrol eder (o gunku davranis).
 
    Protokol boot_flow_test_tb ailesiyle ayni: 'R' gonder -> 'A' bekle ->
-   tam 12 karakter bas. Yalniz sagtoplam dogruysa "Hello World!" basilir;
+   tam 12 karakter bas. Yalniz tum kontroller gecerse "Hello World!" basilir;
    her hata farkli 12 karakter basar ve TB FAIL der (self-checking).
    Girdi: flash 0x10000'deki ai_sram_init.hex bolgesi (yes_real senaryosu)
    bootloader tarafindan AI SRAM'e kopyalanir.
@@ -45,6 +53,9 @@
 static const char MSG_OK[]      = "Hello World!";   /* 12 karakter */
 static const char MSG_TIMEOUT[] = "AI TIMEOUT!!";   /* 12 karakter */
 static const char MSG_WRONG[]   = "CONV CRC BAD";   /* 12 karakter */
+#ifdef CHECK_ARGMAX
+static const char MSG_ARGMAX[]  = "AI ARGMAX BAD";  /* 12+ -> TB FAIL */
+#endif
 
 static void puts12(const char *s) {
     for (int i = 0; (i < 12) && (s[i] != '\0'); i++)
@@ -74,7 +85,19 @@ int main(void) {
             crc ^= co[i];
             crc *= 16777619U;
         }
+#ifdef CHECK_ARGMAX
+        /* FC1_FIX kaniti: conv bit-tam VE argmax==2 VE sonuc word'u dogru */
+        uint32_t argmax = (st >> 4U) & 0xFU;
+        uint32_t sonuc  = *(volatile uint32_t *)(AI_SRAM_BASE + AI_RESULT_OFF);
+        if (crc != CONV_GOLDEN_FNV)
+            puts12(MSG_WRONG);
+        else if ((argmax == 2U) && ((sonuc & 0xFU) == 2U))
+            puts12(MSG_OK);         /* yes_real -> "yes" */
+        else
+            puts12(MSG_ARGMAX);
+#else
         puts12((crc == CONV_GOLDEN_FNV) ? MSG_OK : MSG_WRONG);
+#endif
     }
 
     while (1) { __asm__ volatile("nop"); }

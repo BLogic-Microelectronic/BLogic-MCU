@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim
+.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-gates jtag-sim jtag-openocd-build jtag-openocd jtag-gdb jtag-board lint-fpga jtag-equiv jtag-bridge-sim jtag-cov questa-pack test-full
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -222,16 +222,22 @@ asic-sram-sim:
 #      egzersiz edilir (asic-sram-sim'de boot YZ kosmuyordu),
 #   3) 27 makro orneginin TAMAMI islevsel olarak calismis olur.
 # Girdi flash 0x10000'deki yes_real vektoru; firmware conv_out bolgesini
-# (1000 word) altin vektorun FNV-1a sagtoplamiyla karsilastirir ve yalniz
-# bit-tam esitse "Hello World!" basar (self-checking).
-# FC ARGMAX'I BILEREK KONTROL EDILMEZ: FC, conv_out okumasini >=3 cevrim
-# gec tuketir; OpenRAM modeli dout'u her posedge X'ledigi icin makro simde
-# FC bozulur (davranissalda rdata tutuldugundan maskelenir). Bu hedef o
-# eksigi BULDU; ayrintili errata: asic/README.md "Known issue" bolumu.
+# (1000 word) altin vektorun FNV-1a sagtoplamiyla karsilastirir, EK OLARAK
+# (CHECK_ARGMAX) FC argmax'inin 2 ("yes") ve sonuc word'unun beklenen degerde
+# oldugunu dogrular; yalniz hepsi tutarsa "Hello World!" basar (self-checking).
+# Tarihce: bu hedef FC-1 erratasini BULDU (FC, conv_out okumasini >=3 cevrim
+# gec tuketiyordu; OpenRAM modeli dout'u her posedge X'ledigi icin makro simde
+# FC bozuluyordu). Duzeltme (ai_accelerator.sv ST_FC_FETCH_W_WAIT boyunca
+# co_re ayni adresle surulur, FC1_FIX) teslim yapilandirmasinda ACIKTIR
+# (soc_files.f / asic/config.yaml); argmax kontrolu bu duzeltmenin kanitidir.
+# Negatif kontrol (6 Eylul 2026): ayni TB +CHECK_ARGMAX ile FC1_FIX'siz RTL'de
+# "FAIL: alinan=AI ARGMAX BA" verir - kapi vakumda degildir.
+# EXTRA_CFLAGS komut satirindan flash-image -> Makefile.verilator zincirine
+# MAKEFLAGS ile gecer.
 asic-top-sim:
-	$(MAKE) flash-image FW_SRC=sw/tests/ai_boot_macro_test.c
+	$(MAKE) flash-image FW_SRC=sw/tests/ai_boot_macro_test.c EXTRA_CFLAGS=-DCHECK_ARGMAX
 	rm -rf $(BOOT_DIR)_asictop
-	verilator --binary +define+BOOTROM_CONTENT +define+ASIC_SRAM_MACRO --timing \
+	verilator --binary +define+BOOTROM_CONTENT +define+ASIC_SRAM_MACRO +define+CHECK_ARGMAX --timing \
 	    --top-module asic_top_boot_tb \
 	    -Mdir $(BOOT_DIR)_asictop -o asic_top_boot_sim \
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
@@ -247,16 +253,188 @@ asic-top-sim:
 	echo "00000000" > $(BOOT_DIR)_asictop/ai_sram_init.hex
 	cd $(BOOT_DIR)_asictop && ./asic_top_boot_sim 2>&1 | grep -vaE 'Reading|Writing' | tee asictop_run.log
 	@grep -aq "TEST SUCCESS" $(BOOT_DIR)_asictop/asictop_run.log \
-	    && echo "[ASIC-TOP-SIM] PASS - asic_top + 27 makro: flash boot + conv katmani bit-tam (FC erratasi: asic/README)" \
+	    && echo "[ASIC-TOP-SIM] PASS - asic_top + 27 makro (teslim RTL'i: JTAG_DEBUG+FC1_FIX+I2C_SDA_SYNC): flash boot + YZ cikarimi bit-tam, argmax==2 dahil" \
 	    || { echo "[ASIC-TOP-SIM] FAIL"; exit 1; }
 
-# ASIC lint kapisi. DIKKAT: sim waiver seti KOPYALANMAZ.
+# JTAG debug altsistemi (JTAG_DEBUG; TESLIM YAPILANDIRMASINDA ACIK - soc_files.f
+# ve asic/config.yaml tanimlar; gelistirme gunlugu rtl/debug/JTAG_DENEME_PLANI.md):
+# riscv-dbg TAP/DTM/DM + crossbar DM bolgesi (0x0004_0000) + axi_dm_slave
+# koprusu. Kaynaklar soc_files.f'tedir; bu TB saf-SV bit-bang ile
+# IDCODE/DTMCS/DMI/halt/resume kosar.
+# 17 asama: 1-9 temel akis, 10-17 hata/kose yollari (G-01..G-04, G-05, G-07,
+# G-10, G-11): DMI busy + dmireset/dmihardreset, cmderr 2/3/4, SBA tie-off,
+# DM kesif yazmaclari, TAP BYPASS/Pause/TLR, ISRAM yazma + ebreak, DM bolgesi.
+JTAG_DIR = obj_dir_jtag
+jtag-sim:
+	rm -rf build
+	$(MAKE) -f Makefile.verilator sw FW_SRC=sw/tests/uart_hello.c
+	rm -rf $(JTAG_DIR)
+	verilator --binary $(TBCOV) --timing --top-module jtag_smoke_tb \
+	    -Mdir $(JTAG_DIR) -o jtag_smoke_sim \
+	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
+	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
+	    -f soc_files.f \
+	    verif/tb/jtag_smoke_tb.sv verif/jtag_cov_waivers.vlt
+	cp build/instr_mem.hex $(JTAG_DIR)/firmware.hex
+	cp build/data_mem.hex $(JTAG_DIR)/data_mem.hex
+	cp sw/bootloader/bootrom.hex $(JTAG_DIR)/
+	echo "00000000" > $(JTAG_DIR)/ai_sram_init.hex
+	cd $(JTAG_DIR) && ./jtag_smoke_sim 2>&1 | tee jtag_run.log
+	@grep -aq "TEST SUCCESS" $(JTAG_DIR)/jtag_run.log \
+	    && echo "[JTAG-SIM] PASS - TAP/DTMCS/DMI/halt/abstract-cmd/progbuf/resume + step/trigger + ndmreset + DMI-busy/dmireset + cmderr 2/3/4 + SBA tie-off + DM kesif + TAP kose durumlari + ISRAM yazma/ebreak + DM bolgesi (17/17)" \
+	    || { echo "[JTAG-SIM] FAIL"; exit 1; }
+
+# OpenOCD koprusu (JTAG_DEBUG secenegi, Gun 2): ayni soc_top+riscv-dbg derlemesi, ama
+# JTAG pinlerini SimJTAG (vendor tb) + rtl/debug/tb/jtag_dpi.cpp (DPI-C,
+# OpenOCD remote_bitbang TCP :9999 sunucusu) surer. Bu hedef YALNIZ derler ve
+# hex'leri Mdir'e kopyalar (sim Mdir icinden kosulmali); kosum:
+#   cd $(JTAG_OCD_DIR) && ./jtag_openocd_sim        (terminal 1)
+#   openocd -f rtl/debug/openocd/blogic_sim.cfg      (terminal 2; cfg init+halt yapar)
+# Kaynaklar soc_files.f'ten, sonra SimJTAG, TB, DPI .cpp (g++ ile derlenir).
+JTAG_OCD_DIR = obj_dir_jtag_ocd
+jtag-openocd-build:
+	rm -rf build
+	$(MAKE) -f Makefile.verilator sw FW_SRC=sw/tests/uart_hello.c
+	rm -rf $(JTAG_OCD_DIR)
+	verilator --binary $(TBCOV) --timing --top-module jtag_openocd_tb \
+	    -Mdir $(JTAG_OCD_DIR) -o jtag_openocd_sim \
+	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
+	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
+	    -f soc_files.f \
+	    rtl/debug/vendor/riscv-dbg/tb/SimJTAG.sv verif/tb/jtag_openocd_tb.sv \
+	    rtl/debug/tb/jtag_dpi.cpp
+	cp build/instr_mem.hex $(JTAG_OCD_DIR)/firmware.hex
+	cp build/data_mem.hex $(JTAG_OCD_DIR)/data_mem.hex
+	cp sw/bootloader/bootrom.hex $(JTAG_OCD_DIR)/
+	echo "00000000" > $(JTAG_OCD_DIR)/ai_sram_init.hex
+	@echo "[JTAG-OPENOCD] derleme tamam: cd $(JTAG_OCD_DIR) && ./jtag_openocd_sim ; ayri terminalde: openocd -f rtl/debug/openocd/blogic_sim.cfg"
+
+# OpenOCD ucdan-uca demo (JTAG_DEBUG secenegi, Gun 2): scripts/run_jtag_openocd.sh simi
+# arka planda baslatir (binary yoksa once jtag-openocd-build), TCP 9999 dinlenince
+# openocd'yi blogic_sim.cfg + demo_halt_regs_mem.tcl ile kosar (halt, reg pc/a0
+# yaz-oku, progbuf ile 0x2_1000 mww/mdw, resume/halt), loglari logs/jtag/ altina
+# yazar, 'Q' ile simin bitmesini bekler ve VERDICT PASS/FAIL (cikis 0/1) verir.
+jtag-openocd:
+	bash scripts/run_jtag_openocd.sh
+
+# gdb demosu (JTAG_DEBUG secenegi, Gun 3): scripts/run_jtag_gdb.sh simi ve openocd'yi
+# (yalniz blogic_sim.cfg: init + halt, gdb sunucusu :3333) arka planda baslatir,
+# gdb-multiarch -batch -x rtl/debug/openocd/demo_gdb.gdb build/test.elf kosar
+# (reset halt, break main + continue, x/i, stepi, register/bellek yaz-oku,
+# monitor resume/halt, monitor shutdown -> sim 'Q' ile biter), loglar logs/jtag/
+# (gdb.log, openocd_gdb.log, sim_gdb.log), VERDICT PASS/FAIL (cikis 0/1).
+jtag-gdb:
+	bash scripts/run_jtag_gdb.sh
+
+# GERCEK KARTTA OpenOCD demosu (6 Eylul 2026 PASS). Onkosul: kartta fpga_top.bit
+# (BSCANE2 TAP) yuklu, FT2232H usbipd ile WSL'e verilmis (scripts/jtag_kart_wsl.ps1),
+# Vivado hw_server kapali. Kanit: rtl/debug/openocd/demo_run_board_<tarih>.log
+jtag-board:
+	bash scripts/run_jtag_board.sh
+
+# JTAG kapsama raporu (JTAG_DEBUG secenegi, bosluk G-14). README 10.10 tablosundaki
+# kapsama satirinin COMMIT'LI kaniti: jtag-sim'i --coverage-line ile kosar,
+# LCOV bilgisini ve modul bazli satir ozetini rtl/debug/sim/ altina yazar.
+# Kosu logunun tarihli kopyasi logs/jtag/ altina gider (izlenmez; *.log
+# .gitignore'da - rapor dosyalari izlenir, log izlenmez).
+JTAG_COV_DIR = rtl/debug/sim
+jtag-cov:
+	@mkdir -p $(JTAG_COV_DIR)
+	$(MAKE) jtag-sim TBCOV=--coverage-line   # waiver dosyasi jtag-sim komut satirinda zaten var
+	verilator_coverage --write-info $(JTAG_COV_DIR)/jtag_cov.info $(JTAG_DIR)/coverage.dat
+	@awk -F'[:,]' '/^SF:/ { f = $$2; next } \
+	    /^DA:/ { tot[f]++; if ($$3 > 0) hit[f]++ } \
+	    END { printf "%-58s %6s %6s %7s\n", "dosya", "vuran", "satir", "yuzde"; \
+	          for (k in tot) printf "%-58s %6d %6d %6.1f%%\n", k, hit[k], tot[k], 100.0*hit[k]/tot[k] }' \
+	    $(JTAG_COV_DIR)/jtag_cov.info | sort > $(JTAG_COV_DIR)/jtag_cov_summary.txt
+	@mkdir -p logs/jtag && cp $(JTAG_DIR)/jtag_run.log logs/jtag/jtag_cov_run_$$(date +%Y-%m-%d).log
+	@echo "--- modul bazli satir kapsamasi ($(JTAG_COV_DIR)/jtag_cov_summary.txt) ---"
+	@grep -E 'axi_dm_slave|soc_axi_interconnect|soc_top|dmi_jtag|dmi_cdc|dm_csrs|dm_mem|dm_sba|dm_top' \
+	    $(JTAG_COV_DIR)/jtag_cov_summary.txt || true
+	@echo "[JTAG-COV] RAPOR (kapi degil) - dosya: $(JTAG_COV_DIR)/jtag_cov_summary.txt (kosu logu izlenmez: logs/jtag/jtag_cov_run_*.log)"
+
+# axi_dm_slave YONLU birim testi (JTAG_DEBUG secenegi, bosluk G-08). Kopru bugune
+# kadar yalniz uctan uca dogrulandi; bugunku master (obi_to_axi) r_ready/
+# b_ready'yi hep yuksek tuttugu icin "yanit tuketilmeden bekleme" (resp_pending)
+# hic olusmadi -> ilgili SVA vakumda geciyordu. Bu TB r_ready/b_ready'yi ayri
+# kontrol eder, w_strb != 1111 yazar, ayni cevrimde veri+buyruk istegi surer ve
+# ucustaki istegi resetler. dm_top gercek ornekle baglidir (soc_top parametreleri).
+JTAG_BRIDGE_DIR = obj_dir_jtag_bridge
+jtag-bridge-sim:
+	rm -rf $(JTAG_BRIDGE_DIR)
+	verilator --binary $(TBCOV) --timing --top-module axi_dm_slave_tb \
+	    -Mdir $(JTAG_BRIDGE_DIR) -o axi_dm_slave_sim \
+	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
+	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
+	    -f rtl/debug/jtag_files.f \
+	    +incdir+rtl/bus/axi/include \
+	    +incdir+rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include \
+	    rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/cf_math_pkg.sv \
+	    rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/fifo_v3.sv \
+	    rtl/bus/axi/src/axi_pkg.sv rtl/bus/axi/src/axi_intf.sv \
+	    rtl/debug/axi_dm_slave.sv verif/tb/axi_dm_slave_tb.sv
+	cd $(JTAG_BRIDGE_DIR) && ./axi_dm_slave_sim 2>&1 | tee bridge_run.log
+	@grep -aq "TEST SUCCESS" $(JTAG_BRIDGE_DIR)/bridge_run.log \
+	    && echo "[JTAG-BRIDGE-SIM] PASS - tahkim (veri>buyruk), R/B kanal tutma (resp_pending), w_strb bayt-enable, ucustaki istekte reset (6/6)" \
+	    || { echo "[JTAG-BRIDGE-SIM] FAIL"; exit 1; }
+
+# FPGA ust modulunun lint kapisi. Kartta TAP dmi_bscane_tap.sv'dir (Xilinx
+# BSCANE2); build_genesys2.tcl onu dmi_jtag_tap.sv YERINE okur, bu yuzden
+# hicbir simulasyon hedefi onu gormez. verif/tb/xilinx_prim_stubs.sv yalniz
+# lint icin bos primitif kabuklari verir (BSCANE2/IBUFDS/BUFG/MMCME2_BASE/
+# STARTUPE2); sentez akisina GIRMEZ. Ayni modul adi (dmi_jtag_tap) iki kez
+# derlenmesin diye soc_files.f'ten dmi_jtag_tap.sv satiri cikarilarak gecici
+# liste uretilir (yollar depo kokune gore, -f ile CWD'den cozulur).
+LINT_DIR = build/lint
+LINT_W = -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
+         -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-UNOPTFLAT
+lint-fpga:
+	@command -v verilator >/dev/null 2>&1 || { echo "[LINT-FPGA] FAIL - verilator bulunamadi (PATH)"; exit 1; }
+	@mkdir -p $(LINT_DIR)
+	@grep -v 'dmi_jtag_tap\.sv' soc_files.f > $(LINT_DIR)/soc_files_fpga.f
+	-@verilator --lint-only $(LINT_W) -Wno-DECLFILENAME -Wno-VARHIDDEN \
+	    --top-module fpga_top -f $(LINT_DIR)/soc_files_fpga.f \
+	    rtl/debug/vendor/riscv-dbg/src/dmi_bscane_tap.sv \
+	    verif/tb/xilinx_prim_stubs.sv rtl/fpga_top.sv \
+	    > $(LINT_DIR)/lint_fpga.log 2>&1
+	@grep -oE '%(Error|Warning)[-A-Za-z]*' $(LINT_DIR)/lint_fpga.log | sort | uniq -c > $(LINT_DIR)/hist_fpga.txt || true
+	@echo "--- fpga_top (dmi_bscane_tap + BSCANE2 kabugu) uyari profili ---"; cat $(LINT_DIR)/hist_fpga.txt
+	@if grep -q "%Error" $(LINT_DIR)/lint_fpga.log; then \
+	    echo "[LINT-FPGA] FAIL - hata:"; grep -m5 "%Error" $(LINT_DIR)/lint_fpga.log; exit 1; \
+	 else echo "[LINT-FPGA] PASS - fpga_top: 0 %Error (MODDUP = soc_files.f'teki cv32e40p_register_file latch/FF ikizi, build_genesys2.tcl latch'i disler; tam cikti: $(LINT_DIR)/lint_fpga.log)"; fi
+
+# "JTAG_DEBUG tanimsizken main ile ozdes" iddiasinin betiklenmis kaniti
+# (JTAG_DEBUG secenegi, bosluk G-13): referans dosyalari 'git show 73d8dcd:<yol>'
+# ile alir (73d8dcd = imzali kosunun RTL'ini tasiyan son main commit'i; birlesme
+# sonrasi 'main' HEAD ile ayni oldugu icin sabit commit kullanilir, EQUIV_REF=...
+# ile degistirilebilir),
+# her iki surumu define VERMEDEN 'verilator -E -P' ile onisler, sabit katlama
+# normalizasyonundan sonra kalan diff'i, scripts/jtag_equiv_expected_diffs/
+# altindaki SAKLANAN beklenen diff ile BIREBIR karsilastirir. Bir satir bile
+# sapma FAIL'dir. Beklenen diff'i bilerek guncellemek icin: '--kaydet'.
+jtag-equiv:
+	bash scripts/jtag_define_off_equiv.sh
+
+# ASIC lint kapisi: teslim yapilandirmasi (asic/filelist.f = config.yaml ile
+# birebir; JTAG_DEBUG/FC1_FIX/I2C_SDA_SYNC tanimlari listenin icinde).
+# DIKKAT: sim waiver seti KOPYALANMAZ.
 # -Wno-MODDUP ve -Wno-PINMISSING kasitli olarak YOK: modul duplikasyonunu ve
-# baglanmamis pinleri yakalamasi gereken tam da bu iki uyaridir.
+# baglanmamis pinleri yakalamasi gereken tam da bu iki uyaridir (3 PINMISSING
+# = cv32e40p debug_halted_o/running_o/havereset_o, kullanilmayan cikislar).
+# 3 Eylul gozden gecirme: cikis kodu '| tail -25'ten geliyordu, yani bu hedef
+# HICBIR ZAMAN basarisiz olamiyordu (ustelik son 25 satir disindaki %Error
+# gorunmuyordu). Artik tam cikti loga yazilir, kapi %Error aramasidir.
+# verilator yoksa sahte PASS vermez.
 lint:
-	cd asic && verilator --lint-only -DSYNTHESIS -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND \
+	@command -v verilator >/dev/null 2>&1 || { echo "[LINT] FAIL - verilator bulunamadi (PATH)"; exit 1; }
+	@mkdir -p logs/lint
+	@cd asic && verilator --lint-only -DSYNTHESIS -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND \
 	    -Wno-WIDTHTRUNC -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-UNOPTFLAT \
-	    --top-module asic_top -f filelist.f 2>&1 | tail -25
+	    --top-module asic_top -f filelist.f > ../logs/lint/asic_lint.log 2>&1 || true
+	@tail -25 logs/lint/asic_lint.log
+	@if grep -q '%Error' logs/lint/asic_lint.log; then \
+	    echo "[LINT] FAIL - %Error var (tam cikti: logs/lint/asic_lint.log)"; exit 1; \
+	 else echo "[LINT] PASS - 0 %Error (tam cikti: logs/lint/asic_lint.log)"; fi
 
 # sv2v -> yosys elaborasyon kapisi: sentez oncesi erken uyari
 asic-elab:
@@ -431,6 +609,8 @@ test-all:
 	ss=PASS; $(MAKE) soc-strm  || { ss=FAIL; overall=1; }; \
 	c=PASS; $(MAKE) arch-test  || { c=FAIL; overall=1; }; \
 	u=PASS; $(MAKE) uvm        || { u=FAIL; overall=1; }; \
+	js=PASS; $(MAKE) jtag-sim  || { js=FAIL; overall=1; }; \
+	jb=PASS; $(MAKE) jtag-bridge-sim || { jb=FAIL; overall=1; }; \
 	echo ""; \
 	echo "====================================================="; \
 	echo " TEST-ALL OZETI"; \
@@ -451,6 +631,69 @@ test-all:
 	echo "  soc-strm   (UART_1 stream SoC yolu): $$ss"; \
 	echo "  arch-test  (riscv-arch-test $(ARCH_EXT))   : $$c"; \
 	echo "  uvm        (4 blok, 8 test: GPIO+Timer+UART_0+I2C): $$u"; \
+	echo "  jtag-sim   (riscv-dbg JTAG 17 asama)  : $$js"; \
+	echo "  jtag-bridge-sim (axi_dm_slave 6 senaryo): $$jb"; \
+	echo "  (OpenOCD/gdb demolari ve lint kapilari: make jtag-gates, make lint, make lint-fpga)"; \
+	echo "====================================================="; \
+	exit $$overall
+
+# TEK KOMUTLA YEREL HER SEY: test-all (18) + kapilar + fiziksel simler + KF5/M3
+# kanitlari. Kart (jtag-board) ve VM (asic_run) adimlari disarida kalir;
+# jtag-gates icindeki OpenOCD/gdb demolari arac yoksa SKIP der. Sure ~40 dk.
+# test-all'in 18 bilesenlik anlami degismez (README 9.2 / dogrulama plani 6).
+test-full:
+	@overall=0; \
+	ta=PASS; $(MAKE) test-all      || { ta=FAIL; overall=1; }; \
+	l=PASS;  $(MAKE) lint          || { l=FAIL;  overall=1; }; \
+	lf=PASS; $(MAKE) lint-fpga     || { lf=FAIL; overall=1; }; \
+	jg=PASS; $(MAKE) jtag-gates    || { jg=FAIL; overall=1; }; \
+	as=PASS; $(MAKE) asic-sram-sim || { as=FAIL; overall=1; }; \
+	at=PASS; $(MAKE) asic-top-sim  || { at=FAIL; overall=1; }; \
+	br=PASS; $(MAKE) boot-real     || { br=FAIL; overall=1; }; \
+	ic=PASS; $(MAKE) isa-compliance || { ic=FAIL; overall=1; }; \
+	au=PASS; $(MAKE) ai-uart-load  || { au=FAIL; overall=1; }; \
+	echo ""; \
+	echo "====================================================="; \
+	echo " TEST-FULL OZETI"; \
+	echo "-----------------------------------------------------"; \
+	echo "  test-all      (18 bilesen, ozeti yukarida) : $$ta"; \
+	echo "  lint          (asic_top, teslim listesi)   : $$l"; \
+	echo "  lint-fpga     (fpga_top + BSCANE2)         : $$lf"; \
+	echo "  jtag-gates    (equiv + OpenOCD/gdb demolari): $$jg"; \
+	echo "  asic-sram-sim (OpenRAM makro modelleri)    : $$as"; \
+	echo "  asic-top-sim  (asic_top + 27 makro, argmax): $$at"; \
+	echo "  boot-real     (gercek C firmware flash boot): $$br"; \
+	echo "  isa-compliance (ISA uyumluluk C testi)     : $$ic"; \
+	echo "  ai-uart-load  (KF5 UART demo yolu simi)    : $$au"; \
+	echo "  (kart: make jtag-board; VM: make -C asic asic_run)"; \
+	echo "====================================================="; \
+	exit $$overall
+
+# JTAG demo paketi: test-all'daki iki JTAG simulasyonu + lint-fpga + define-off
+# izolasyon kaniti (jtag-equiv) + arac varsa OpenOCD/gdb ucdan-uca demolari
+# (openocd / gdb-multiarch yoksa SKIP). Ilk hatada durmaz, sonda ozet basar.
+jtag-gates:
+	@overall=0; \
+	js=PASS; $(MAKE) jtag-sim  || { js=FAIL; overall=1; }; \
+	jb=PASS; $(MAKE) jtag-bridge-sim || { jb=FAIL; overall=1; }; \
+	jlf=PASS; $(MAKE) lint-fpga || { jlf=FAIL; overall=1; }; \
+	je=PASS; $(MAKE) jtag-equiv || { je=FAIL; overall=1; }; \
+	if command -v openocd >/dev/null 2>&1; then \
+	    jo=PASS; $(MAKE) jtag-openocd || { jo=FAIL; overall=1; }; \
+	else jo="SKIP (openocd yok)"; fi; \
+	if command -v openocd >/dev/null 2>&1 && command -v $${GDB:-gdb-multiarch} >/dev/null 2>&1; then \
+	    jg=PASS; $(MAKE) jtag-gdb || { jg=FAIL; overall=1; }; \
+	else jg="SKIP (openocd / $${GDB:-gdb-multiarch} yok)"; fi; \
+	echo ""; \
+	echo "====================================================="; \
+	echo " JTAG-GATES OZETI"; \
+	echo "-----------------------------------------------------"; \
+	echo "  jtag-sim   (riscv-dbg 17 asama, SV bit-bang): $$js"; \
+	echo "  jtag-bridge-sim (axi_dm_slave birim TB)     : $$jb"; \
+	echo "  lint-fpga  (fpga_top, BSCANE2 TAP)          : $$jlf"; \
+	echo "  jtag-equiv (define YOK == 73d8dcd RTL)      : $$je"; \
+	echo "  jtag-openocd (OpenOCD ucdan-uca demo)      : $$jo"; \
+	echo "  jtag-gdb   ($${GDB:-gdb-multiarch}, buyruk seviyesi): $$jg"; \
 	echo "====================================================="; \
 	exit $$overall
 
@@ -469,16 +712,32 @@ logs-clean:
 
 help:
 	@echo "=== Test hedefleri (ana Makefile) ==="
-	@echo "  make test-all    - TUM suit; sonda ozet tablo (tek komutluk kanit)"
+	@echo "  make test-all    - TUM suit, 18 bilesen (JTAG dahil); sonda ozet tablo (tek komutluk kanit)"
+	@echo "  make test-full   - test-all + lint/lint-fpga + jtag-gates + asic-sram-sim/asic-top-sim + boot-real + isa-compliance + ai-uart-load (~40 dk)"
 	@echo "  make regression  - fonksiyonel+protokol regresyonu (UARTx3 + lockstep minimal/deep + QSPI)"
 	@echo "  make uart-baud   - EK-2 cok-baud kaniti (115200 -> 1 Mbps -> 9600)"
 	@echo "  make uart-stp    - EK-2 stop-bit 1/1.5/2 dogrulamasi (uart_axil TB)"
 	@echo "  make uart-stream - UART_1 YZ stream DMA → AI SRAM (uart_stream_axil TB)"
 	@echo "  make boot        - QSPI boot akisi (flash_helloworld imaji)"
 	@echo "  make boot-real   - GERCEK C firmware ile flash boot (.rodata/.data DSRAM kaniti)"
+	@echo "                     negatif kontrol: make boot-real FLASH_DATA=/dev/null -> FAIL beklenir"
 	@echo "  make asic-sram-sim - boot akisi TESLIM EDILEN SRAM makro Verilog modelleriyle (DDK 1.3 kaniti)"
-	@echo "  make asic-top-sim  - tam-yigin: asic_top (GDS ust modulu) + 27 makro, boot + conv katmani bit-tam"
-	@echo "                     negatif kontrol: FLASH_DATA=/dev/null -> FAIL beklenir"
+	@echo "  make asic-top-sim  - tam-yigin: asic_top (GDS ust modulu) + 27 makro, boot + YZ cikarimi bit-tam, argmax==2 (teslim RTL'i)"
+	@echo "  make lint          - asic_top lint, teslim yapilandirmasi (asic/filelist.f; MODDUP/PINMISSING ACIK)"
+	@echo "  make lint-fpga     - fpga_top lint (dmi_bscane_tap + BSCANE2 kabugu)"
+	@echo "  make jtag-gates    - JTAG paketi: jtag-sim, jtag-bridge-sim, lint-fpga, jtag-equiv + openocd/gdb varsa demolar"
+	@echo "  make jtag-sim      - riscv-dbg JTAG 17 asama: IDCODE/DTMCS/DMI/halt/resume/step/trigger/"
+	@echo "                       ndmreset + DMI busy(dmireset/dmihardreset) + cmderr 2/3/4 + SBA + DM kesif +"
+	@echo "                       TAP kose durumlari + ISRAM yazma/ebreak + DM bolgesi (bilinen sinirlar)"
+	@echo "  make jtag-bridge-sim - axi_dm_slave birim TB: tahkim, R/B tutma, w_strb, reset"
+	@echo "  make jtag-equiv    - izolasyon kaniti: JTAG_DEBUG/FC1_FIX/I2C_SDA_SYNC tanimsizken RTL == 73d8dcd (14 Agu imzali kosunun RTL'i)"
+	@echo "  make jtag-cov      - JTAG satir kapsamasi: rapor rtl/debug/sim/ (izlenir), kosu logu logs/jtag/ (izlenmez)"
+	@echo "  make jtag-openocd-build - OpenOCD koprusu: SimJTAG + DPI remote_bitbang :9999 simi DERLE"
+	@echo "                     kosum: cd obj_dir_jtag_ocd && ./jtag_openocd_sim ; openocd -f rtl/debug/openocd/blogic_sim.cfg"
+	@echo "  make jtag-openocd  - OpenOCD ucdan-uca demo: sim + openocd (halt/reg/mem/resume), logs/jtag/, PASS/FAIL"
+	@echo "                     + donanim breakpoint (bp <pc> 4 hw -> tetikleyici, pc==bp) + reset halt (ndmreset, pc==0x00010000)"
+	@echo "  make jtag-gdb      - gdb-multiarch demo: OpenOCD :3333 uzerinden reset halt, break main, stepi, reg/mem yaz-oku, PASS/FAIL"
+	@echo "  make jtag-board    - GERCEK KARTTA OpenOCD demosu: fpga_top.bit + FT2232H (usbipd -> WSL), rtl/debug/openocd/demo_run_board_*.log"
 	@echo "  make qspi-modes  - QSPI x1/x2/x4 veri fazi + 4-bayt adres testi"
 	@echo "  make qspi-err    - QSPI FIFO/flush/status hata yollari"
 	@echo "  make i2c-sys     - I2C sistem testi (echo slave: TX/RX/latch/NACK)"
@@ -493,9 +752,21 @@ help:
 	@echo "  make spike       - etkilesimli spike; HTIF yok -> KENDI KENDINE CIKMAZ (Ctrl+C)"
 	@echo "  make coverage    - line coverage raporu (logs/coverage/)"
 	@echo "  make coverage-tb - modul kapsama kosusu (satir/dal)"
+	@echo "  make isa-compliance - ISA uyumluluk C testi (self-checking, DTR bolum 4)"
+	@echo "  make ai-uart-load - KF5: gorulmemis vektor UART0'dan surulur, sinif dogrulanir (sim); -field: saha zamanlamasi CPB=434 (~10 M cevrim)"
+	@echo "  make ai-acc      - EK-1 dogruluk penceresi: uretim + sim + rapor (40 ornek); ai-batch1000: 1000 ornek (~4 dk)"
+	@echo "  make asic-elab   - sv2v + yosys elaborasyon kapisi (sentez oncesi erken uyari; sv2v/yosys gerekir)"
+	@echo "  make questa-pack - Questa dalga-formu akisi icin firmware paketleri (verif/questa/README.md; verif/questa/wave.bat <test>)"
 	@echo "=== Imaj / kart hedefleri ==="
 	@echo "  make flash-image - tam imaj: fw@0x0 + veri@0x8000 + YZ@0x10000 (FW_SRC=..., FLASH_DATA=...)"
 	@echo "  make flash-bin   - kart icin imaj .bin (flash_firmware.tcl ile yazilir)"
 	@echo "  Demo firmware    : make flash-image FW_SRC=sw/demo/demo_main.c (acilis cikarim + h/v/r menu)"
 	@echo ""
 	$(MAKE) -f Makefile.verilator help
+
+# Questa / ModelSim dalga-formu akisi (verif/questa/README.md): her testin
+# firmware/hex paketini verif/questa/fw/<test>/ altina uretir (WSL/Linux,
+# RISC-V toolchain gerekir); paketler commit'lenir, Questa makinesinde
+# yalniz verif/questa/wave.bat <test> (ya da wave.sh) kosturulur.
+questa-pack:
+	bash scripts/questa_pack.sh

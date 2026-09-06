@@ -1,0 +1,40 @@
+# ============================================
+# Ostim BLogic Mikroelektronik
+# jtag_equiv_known_diffs.txt  -  izolasyon kaniti: tanimsiz RTL <-> referans 73d8dcd KOSULSUZ fark GEREKCESI
+# ============================================
+# Bu dosya YALNIZ BELGEDIR; scripts/jtag_define_off_equiv.sh esleme icin bunu
+# kullanmaz. Kapi, dosya basina saklanan birebir diff'tir:
+#   scripts/jtag_equiv_expected_diffs/<yol_alt_cizgili>.diff
+#
+# DURUM (6 Eylul 2026): KOSULSUZ FARK YOK. Bes dosyanin bes beklenen diff'i de
+# BOS; JTAG_DEBUG/FC1_FIX/I2C_SDA_SYNC tanimsiz onisleme ciktisi 73d8dcd (14
+# Agustos imzali kosunun RTL'i) ile satir satir aynidir.
+#
+# KAPININ ANLAMI (Secenek B, 6 Eylul 2026): JTAG debug altsistemi artik TESLIM
+# CIPININ PARCASI; uc tanim her resmi giris noktasinda ACIK (soc_files.f,
+# asic/config.yaml + filelist.f, rtl/fpga/build_genesys2.tcl). Bu kapi teslim
+# RTL'ini degil IZOLASYONU kanitlar: tum eklemeler ifdef arkasindadir, tanimlar
+# kapatilinca RTL 14 Agustos imzali kosunun RTL'ine doner. Yani JTAG, FC-1
+# duzeltmesi ve i2c senkronizatoru disinda hicbir kosulsuz RTL degisikligi
+# yapilmadigi betiklenmis olarak gosterilir.
+#
+# Tanim arkasindaki uc degisiklik (teslimde ACIK):
+#   JTAG_DEBUG    riscv-dbg TAP/DTM/DM + crossbar DM bolgesi + axi_dm_slave
+#   FC1_FIX       rtl/ai_accelerator/ai_accelerator.sv - ST_FC_FETCH_W_WAIT'te
+#                 co_re'nin bekleme boyunca yuksek tutulmasi (asic/README 9.5;
+#                 kanit: make asic-top-sim, argmax==2)
+#   I2C_SDA_SYNC  rtl/soc_top.sv - i2c_sda_i icin 2FF senkronizator
+#                 (asic/README 9.9/3)
+#
+# Beklenen diff'i bilerek guncellemek: bash scripts/jtag_define_off_equiv.sh --kaydet
+
+# ----------------------------------------------------------------------
+# GUNCELLEME (6 Eylul 2026, aksam): rtl/fpga_top.sv icin beklenen diff artik
+# 12 SATIR. ae9875e "fpga+demo: kart ustu OLED'de sinif/cevrim/baud" commit'i
+# FPGA sarmalayicisina alti OLED pini (oled_dc/res/sclk/sdin/vbat/vdd) ve
+# bunlarin gpio_out[10..15] atamalarini ifdef DISINDA ekledi. fpga_top CIP
+# RTL'inin parcasi DEGILDIR (asic_top'ta yoktur, sky130 akisina girmez);
+# degisiklik kart uzerindeki demo firmware v1 icindir. Kapi bunu dogru sekilde
+# yakaladi (SAPMA), beklenen diff --kaydet ile bilerek bu 12 satira alindi.
+# Dort cip dosyasinin (soc_top, crossbar, asic_top, ai_accelerator) beklenen
+# diff'i BOS kalmaya devam eder; kapinin anlami degismedi.

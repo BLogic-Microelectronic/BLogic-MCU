@@ -36,6 +36,18 @@ module soc_top #(
     output logic        i2c_scl_o,
     output logic        i2c_sda_oe_o,   // 1 = SDA'yı '0'a çek
     input  logic        i2c_sda_i
+`ifdef JTAG_DEBUG
+    ,
+    // JTAG TAP (riscv-dbg dmi_jtag) - JTAG_DEBUG teslim yapilandirmasinda ACIKTIR
+    // (soc_files.f / asic/config.yaml / build_genesys2.tcl); sartname "JTAG
+    // (Opsiyonel)" arayuzu. ifdef yalniz izolasyon kaniti icin duruyor: tanim
+    // yokken port listesi ve mantik 73d8dcd (14 Agu imzali kosu) ile birebir.
+    input  logic        jtag_tck_i,
+    input  logic        jtag_tms_i,
+    input  logic        jtag_tdi_i,
+    input  logic        jtag_trst_ni,
+    output logic        jtag_tdo_o
+`endif
 );
 
     // AXI bus arayuzleri (cpu_to_ai: crossbar->arbiter, ai_sram: arbiter->SRAM)
@@ -44,6 +56,44 @@ module soc_top #(
         .AXI_ID_WIDTH(4),    .AXI_USER_WIDTH(1)
     ) cpu_instr_bus(), cpu_data_bus(), boot_rom_bus(), instr_sram_bus(),
       data_sram_bus(), cpu_to_ai_sram_bus(), ai_sram_bus(), periph_bus();
+
+    // Debug Module baglantisi: JTAG_DEBUG yokken sabitler eski degerlerdir
+    // (debug_req=0, halt/exception adresi = ISRAM tabani) -> ayni mantik.
+    logic        dbg_req;
+    logic [31:0] dm_halt_addr, dm_exc_addr;
+`ifdef JTAG_DEBUG
+    // DM bolgesi 0x0004_0000 (crossbar: addr[31:28]==0 && addr[19:16]==4).
+    // riscv-dbg dm_pkg: HaltAddress = taban+0x800, ResumeAddress = +0x808,
+    // ExceptionAddress = +0x810 (Halt+16).
+    localparam logic [31:0] JTAG_DM_BASE = 32'h0004_0000;
+    localparam logic [31:0] JTAG_IDCODE  = 32'h0B10_61C1;   // LSB=1 (IEEE 1149.1)
+    AXI_BUS #(
+        .AXI_ADDR_WIDTH(32), .AXI_DATA_WIDTH(32),
+        .AXI_ID_WIDTH(4),    .AXI_USER_WIDTH(1)
+    ) dm_instr_bus(), dm_data_bus();
+    logic [0:0]  dm_debug_req;
+    logic        dm_ndmreset;
+    assign dbg_req      = dm_debug_req[0];
+    assign dm_halt_addr = JTAG_DM_BASE + 32'h0000_0800;
+    assign dm_exc_addr  = JTAG_DM_BASE + 32'h0000_0810;
+`else
+    assign dbg_req      = 1'b0;
+    assign dm_halt_addr = 32'h0001_0000;
+    assign dm_exc_addr  = 32'h0001_0000;
+`endif
+
+    // Sistem reseti (Gun 3): JTAG_DEBUG'da DM'in ndmreset'i (dmcontrol.ndmreset,
+    // OpenOCD "reset"/"reset halt") cekirdek + bus + cevre birimleri + bellek
+    // sarmalayicilarini resetler; dm_top ve dmi_jtag HARIC (onlar rst_ni'de
+    // kalir, yoksa reset istegi kendini silerdi). ndmreset flop cikisidir:
+    // AND ile birlesim glitch'siz, birakma senkron. Define yokken
+    // sys_rst_n = rst_ni -> mantik birebir eskisi.
+    logic sys_rst_n;
+`ifdef JTAG_DEBUG
+    assign sys_rst_n = rst_ni & ~dm_ndmreset;
+`else
+    assign sys_rst_n = rst_ni;
+`endif
 
     // Islemci OBI sinyalleri
     logic        instr_req, instr_gnt, instr_rvalid;
@@ -67,11 +117,11 @@ module soc_top #(
 
     // Islemci cekirdegi (CV32E40P)
     cv32e40p_top #(.COREV_PULP(0), .FPU(0)) i_cpu (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         .pulp_clock_en_i(1'b1), .scan_cg_en_i(1'b0),
         .boot_addr_i(BOOT_ADDR), .mtvec_addr_i(32'h0001_0000),
-        .dm_halt_addr_i(32'h0001_0000), .hart_id_i(32'd0),
-        .dm_exception_addr_i(32'h0001_0000),
+        .dm_halt_addr_i(dm_halt_addr), .hart_id_i(32'd0),
+        .dm_exception_addr_i(dm_exc_addr),
         .instr_req_o(instr_req), .instr_gnt_i(instr_gnt),
         .instr_rvalid_i(instr_rvalid), .instr_addr_o(instr_addr),
         .instr_rdata_i(instr_rdata),
@@ -80,12 +130,12 @@ module soc_top #(
         .data_be_o(data_be), .data_addr_o(data_addr),
         .data_wdata_o(data_wdata), .data_rdata_i(data_rdata),
         .irq_i(irq_vector), .irq_ack_o(), .irq_id_o(),
-        .debug_req_i(1'b0), .fetch_enable_i(1'b1), .core_sleep_o()
+        .debug_req_i(dbg_req), .fetch_enable_i(1'b1), .core_sleep_o()
     );
 
     // OBI -> AXI kopruleri
     obi_to_axi #(.AXI_ID(0)) i_obi_axi_instr (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         .obi_req_i(instr_req), .obi_gnt_o(instr_gnt),
         .obi_addr_i(instr_addr), .obi_we_i(1'b0),
         .obi_be_i(4'b1111), .obi_wdata_i(32'd0),
@@ -94,7 +144,7 @@ module soc_top #(
     );
 
     obi_to_axi #(.AXI_ID(1)) i_obi_axi_data (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         .obi_req_i(data_req), .obi_gnt_o(data_gnt),
         .obi_addr_i(data_addr), .obi_we_i(data_we),
         .obi_be_i(data_be), .obi_wdata_i(data_wdata),
@@ -104,12 +154,99 @@ module soc_top #(
 
     // AXI crossbar (ai_sram_mst arbiter'a girer)
     soc_axi_interconnect i_crossbar (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         .cpu_instr_slv(cpu_instr_bus), .cpu_data_slv(cpu_data_bus),
         .boot_rom_mst(boot_rom_bus), .instr_sram_mst(instr_sram_bus),
         .data_sram_mst(data_sram_bus), .ai_sram_mst(cpu_to_ai_sram_bus),
         .periph_mst(periph_bus)
+`ifdef JTAG_DEBUG
+        , .dm_instr_mst(dm_instr_bus), .dm_data_mst(dm_data_bus)
+`endif
     );
+
+`ifdef JTAG_DEBUG
+    // ------------------------------------------------------------------
+    // JTAG debug: dmi_jtag (TAP + DTM + CDC) -> dm_top (DM) -> cekirdek
+    // Progbuf-only: System Bus Access istekleri hata ile tamamlanir (asagida).
+    // OpenOCD tarafinda "riscv set_mem_access progbuf" kullanilir.
+    // ndmreset_o -> sys_rst_n (yukarida): OpenOCD "reset"/"reset halt"
+    // cekirdek+SoC'yi resetler, DM ve TAP ayakta kalir.
+    // ------------------------------------------------------------------
+    logic        dm_req, dm_we;
+    logic [31:0] dm_addr, dm_wdata, dm_rdata;
+    logic [ 3:0] dm_be;
+
+    axi_dm_slave #(.AXI_ID_WIDTH(4)) i_axi_dm_slave (
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
+        .instr_slv(dm_instr_bus), .data_slv(dm_data_bus),
+        .dm_req_o(dm_req), .dm_we_o(dm_we), .dm_addr_o(dm_addr),
+        .dm_be_o(dm_be), .dm_wdata_o(dm_wdata), .dm_rdata_i(dm_rdata)
+    );
+
+    dm::dmi_req_t  dmi_req;
+    dm::dmi_resp_t dmi_resp;
+    logic          dmi_req_valid, dmi_req_ready, dmi_resp_valid, dmi_resp_ready;
+    logic          dmi_rst_n;
+    logic          dm_active;
+
+    // SBA (System Bus Access) kullanilmiyor ama dm_sba her zaman derlenir ve
+    // sbcs "sbaccess32" ilan eder. gnt=0 ile baglansa OpenOCD'nin ilk SBA
+    // denemesinde FSM sonsuza dek "busy" kalirdi. Bunun yerine HATA ile
+    // tamamlayan tie-off: gnt=1, r_valid = req bir cevrim gec, r_err=1.
+    // OpenOCD cfg'de ayrica "riscv set_mem_access progbuf" kullanilir.
+    logic sba_req, sba_req_q;
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) sba_req_q <= 1'b0;
+        else         sba_req_q <= sba_req;
+    end
+
+    // Tek RV32 hart, bellek eslemeli data0/1 (dm_mem), 2 scratch
+    localparam dm::hartinfo_t DM_HARTINFO = '{
+        zero1:      '0,
+        nscratch:   2,
+        zero0:      '0,
+        dataaccess: 1'b1,
+        datasize:   dm::DataCount,
+        dataaddr:   dm::DataAddr
+    };
+
+    dm_top #(
+        .NrHarts(1), .BusWidth(32),
+        .DmBaseAddress(JTAG_DM_BASE), .SelectableHarts(1'b1)
+    ) i_dm_top (
+        .clk_i(clk_i), .rst_ni(rst_ni), .testmode_i(1'b0),
+        .next_dm_addr_i(32'd0),                 // zincirde baska DM yok
+        .ndmreset_o(dm_ndmreset),
+        .ndmreset_ack_i(dm_ndmreset),           // sistem reseti bagli degil: aninda ack
+        .dmactive_o(dm_active),
+        .debug_req_o(dm_debug_req), .unavailable_i(1'b0),
+        .hartinfo_i(DM_HARTINFO),
+        .slave_req_i(dm_req), .slave_we_i(dm_we), .slave_addr_i(dm_addr),
+        .slave_be_i(dm_be), .slave_wdata_i(dm_wdata), .slave_rdata_o(dm_rdata),
+        // SBA kullanilmiyor: her istek bir cevrim sonra HATA ile tamamlanir
+        .master_req_o(sba_req), .master_add_o(), .master_we_o(),
+        .master_wdata_o(), .master_be_o(),
+        .master_gnt_i(1'b1), .master_r_valid_i(sba_req_q),
+        .master_r_err_i(1'b1), .master_r_other_err_i(1'b0),
+        .master_r_rdata_i(32'd0),
+        .dmi_rst_ni(dmi_rst_n),
+        .dmi_req_valid_i(dmi_req_valid), .dmi_req_ready_o(dmi_req_ready),
+        .dmi_req_i(dmi_req),
+        .dmi_resp_valid_o(dmi_resp_valid), .dmi_resp_ready_i(dmi_resp_ready),
+        .dmi_resp_o(dmi_resp)
+    );
+
+    dmi_jtag #(.IdcodeValue(JTAG_IDCODE)) i_dmi_jtag (
+        .clk_i(clk_i), .rst_ni(rst_ni), .testmode_i(1'b0),
+        .dmi_rst_no(dmi_rst_n),
+        .dmi_req_o(dmi_req), .dmi_req_valid_o(dmi_req_valid),
+        .dmi_req_ready_i(dmi_req_ready),
+        .dmi_resp_i(dmi_resp), .dmi_resp_ready_o(dmi_resp_ready),
+        .dmi_resp_valid_i(dmi_resp_valid),
+        .tck_i(jtag_tck_i), .tms_i(jtag_tms_i), .trst_ni(jtag_trst_ni),
+        .td_i(jtag_tdi_i), .td_o(jtag_tdo_o), .tdo_oe_o()
+    );
+`endif
 
     // AXI4 -> AXI4-Lite koprusu
     logic [31:0] lite_awaddr,  lite_araddr,  lite_wdata,  lite_rdata;
@@ -121,7 +258,7 @@ module soc_top #(
     logic        lite_rvalid,  lite_rready;
 
     axi4_to_axilite_bridge i_axi_lite_bridge (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         .s_awid(periph_bus.aw_id), .s_awaddr(periph_bus.aw_addr),
         .s_awlen(periph_bus.aw_len), .s_awsize(periph_bus.aw_size),
         .s_awburst(periph_bus.aw_burst), .s_awlock(periph_bus.aw_lock),
@@ -209,7 +346,7 @@ module soc_top #(
     logic        ai_rvalid,  ai_rready;
 
     periph_decoder i_periph_decoder (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         .s_awaddr(lite_awaddr), .s_awvalid(lite_awvalid), .s_awready(lite_awready),
         .s_wdata(lite_wdata), .s_wstrb(lite_wstrb),
         .s_wvalid(lite_wvalid), .s_wready(lite_wready),
@@ -263,7 +400,7 @@ module soc_top #(
 
     // UART_0 (0x4000_0000)
     uart_axil i_uart_0 (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         .s_axi_awaddr(uart_awaddr), .s_axi_awvalid(uart_awvalid), .s_axi_awready(uart_awready),
         .s_axi_wdata(uart_wdata), .s_axi_wstrb(uart_wstrb),
         .s_axi_wvalid(uart_wvalid), .s_axi_wready(uart_wready),
@@ -279,7 +416,7 @@ module soc_top #(
     assign gpio_out_o = {16'd0, gpio_out16};
 
     gpio_axil i_gpio (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         .s_axi_awaddr(gpio_awaddr), .s_axi_awvalid(gpio_awvalid), .s_axi_awready(gpio_awready),
         .s_axi_wdata(gpio_wdata), .s_axi_wstrb(gpio_wstrb),
         .s_axi_wvalid(gpio_wvalid), .s_axi_wready(gpio_wready),
@@ -292,7 +429,7 @@ module soc_top #(
 
     // Timer (0x4000_0200)
     timer_axil i_timer (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         .s_axi_awaddr(timer_awaddr), .s_axi_awvalid(timer_awvalid), .s_axi_awready(timer_awready),
         .s_axi_wdata(timer_wdata), .s_axi_wstrb(timer_wstrb),
         .s_axi_wvalid(timer_wvalid), .s_axi_wready(timer_wready),
@@ -305,7 +442,7 @@ module soc_top #(
 
     // QSPI master (0x4000_0500)
     qspi_master_axil i_qspi (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         .s_axi_awaddr(qspi_awaddr), .s_axi_awvalid(qspi_awvalid), .s_axi_awready(qspi_awready),
         .s_axi_wdata(qspi_wdata), .s_axi_wstrb(qspi_wstrb),
         .s_axi_wvalid(qspi_wvalid), .s_axi_wready(qspi_wready),
@@ -317,12 +454,36 @@ module soc_top #(
         .io_o(qspi_io_o), .io_i(qspi_io_i), .io_oe(qspi_io_oe)
     );
 
+    // i2c_sda_i 2FF senkronizatoru (I2C_SDA_SYNC, teslim yapilandirmasinda ACIK;
+    // asic/README 9.9/3): asenkron pad girisi gpio_in_i ile ayni
+    // desene esitlenir. Reset degeri 1'b1 - SDA bosta pull-up'la yuksektir;
+    // 0'la baslamak SCL yuksekken sahte START kosulu gibi gorunurdu.
+    // 2 cevrimlik ek gecikme (40 ns @50 MHz) us-mertebesindeki I2C bit
+    // suresi yaninda ihmal edilebilir.
+    // Tarihce: 14 Agustos imzali kosu (73d8dcd) bu senkronizator OLMADAN kosuldu
+    // ve asic/README 9.9 bunu "RTL review note" olarak ilan etmisti; 6 Eylul
+    // 2026'dan itibaren tanim her resmi giris noktasinda (soc_files.f,
+    // asic/config.yaml, build_genesys2.tcl) aciktir. ifdef yalniz izolasyon
+    // kaniti icindir (make jtag-equiv: tanimsiz onisleme == 73d8dcd).
+`ifdef I2C_SDA_SYNC
+    logic i2c_sda_sync1, i2c_sda_sync2;
+    always_ff @(posedge clk_i or negedge sys_rst_n) begin
+        if (!sys_rst_n) begin
+            i2c_sda_sync1 <= 1'b1;
+            i2c_sda_sync2 <= 1'b1;
+        end else begin
+            i2c_sda_sync1 <= i2c_sda_i;
+            i2c_sda_sync2 <= i2c_sda_sync1;
+        end
+    end
+`endif
+
     // I2C master (0x4000_0400)
     i2c_master_axil #(
         .CLK_FREQ_HZ(CLK_FREQ_HZ),
         .SCL_FREQ_HZ(400_000)        // sartname: sabit 400 kHz
     ) i_i2c (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         .s_axi_awaddr(i2c_awaddr), .s_axi_awvalid(i2c_awvalid), .s_axi_awready(i2c_awready),
         .s_axi_wdata(i2c_wdata), .s_axi_wstrb(i2c_wstrb),
         .s_axi_wvalid(i2c_wvalid), .s_axi_wready(i2c_wready),
@@ -330,7 +491,11 @@ module soc_top #(
         .s_axi_araddr(i2c_araddr), .s_axi_arvalid(i2c_arvalid), .s_axi_arready(i2c_arready),
         .s_axi_rdata(i2c_rdata), .s_axi_rresp(i2c_rresp),
         .s_axi_rvalid(i2c_rvalid), .s_axi_rready(i2c_rready),
+`ifdef I2C_SDA_SYNC
+        .scl_o(i2c_scl_o), .sda_oe_o(i2c_sda_oe_o), .sda_i(i2c_sda_sync2)
+`else
         .scl_o(i2c_scl_o), .sda_oe_o(i2c_sda_oe_o), .sda_i(i2c_sda_i)
+`endif
     );
 
     // AI accelerator (CSR 0x4000_0600), master sinyalleri arbiter'a gider
@@ -358,7 +523,7 @@ module soc_top #(
     logic        ai_m_rlast, ai_m_rvalid, ai_m_rready;
 
     ai_accelerator i_ai_accel (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         // AXI4-Lite slave (CSR)
         .s_axi_awaddr(ai_awaddr), .s_axi_awvalid(ai_awvalid), .s_axi_awready(ai_awready),
         .s_axi_wdata(ai_wdata), .s_axi_wstrb(ai_wstrb),
@@ -411,7 +576,7 @@ module soc_top #(
     logic        strm_m_rlast, strm_m_rvalid;
 
     uart_stream_axil i_uart_1 (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         // AXI4-Lite slave (CSR)
         .s_axi_awaddr(uart1_awaddr), .s_axi_awvalid(uart1_awvalid), .s_axi_awready(uart1_awready),
         .s_axi_wdata(uart1_wdata), .s_axi_wstrb(uart1_wstrb),
@@ -441,7 +606,7 @@ module soc_top #(
 
     // AI SRAM arbiter: CPU yolu ile AI master'i muxlar (ai_busy=1 iken AI sahip)
     ai_sram_arbiter i_ai_arb (
-        .clk_i(clk_i), .rst_ni(rst_ni),
+        .clk_i(clk_i), .rst_ni(sys_rst_n),
         .ai_active(ai_busy),
         .strm_active(strm_busy),
         .cpu(cpu_to_ai_sram_bus),
@@ -475,10 +640,10 @@ module soc_top #(
     // Boot ROM: icerik sabit -> SRAM makrosu yerine mantiga sentezlenir.
     // Icerik rtl/asic/bootrom_content.svh (make bootrom ile uretilir).
     boot_rom #(.AXI_ID_WIDTH(5), .ROM_WORDS(256))
-        i_boot_rom  (.clk_i(clk_i), .rst_ni(rst_ni), .slv(boot_rom_bus));
+        i_boot_rom  (.clk_i(clk_i), .rst_ni(sys_rst_n), .slv(boot_rom_bus));
 
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(INSTR_SRAM_BYTES),  .INIT_FILE("firmware.hex"))
-        i_instr_sram(.clk_i(clk_i), .rst_ni(rst_ni), .slv(instr_sram_bus));
+        i_instr_sram(.clk_i(clk_i), .rst_ni(sys_rst_n), .slv(instr_sram_bus));
 
     // REG_RDATA=1 buraya da eklendi (6 Agustos 2026, OLCUM SONRASI).
     // AI SRAM'e yazmac konunca en kotu yol i_ai_sram'den BURAYA kaydi:
@@ -488,7 +653,7 @@ module soc_top #(
     // simulasyonda maliyeti olculdu, sonra acildi.
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(DATA_SRAM_BYTES),
                        .INIT_FILE("data_mem.hex"), .REG_RDATA(1'b1))
-        i_data_sram (.clk_i(clk_i), .rst_ni(rst_ni), .slv(data_sram_bus));
+        i_data_sram (.clk_i(clk_i), .rst_ni(sys_rst_n), .slv(data_sram_bus));
 
     // ai_sram arbiter cikisina bagli
     // REG_RDATA=1 SADECE burada: sky130 SRAM makrosunun dout'u dusen kenarda
@@ -498,7 +663,7 @@ module soc_top #(
     // SRAM'inde ACILMADI: orada +1 cevrim CPU'nun her getirmesini yavaslatirdi.
     axi_sram_wrapper #(.AXI_ID_WIDTH(5), .SRAM_BYTES(30720),
                        .INIT_FILE("ai_sram_init.hex"), .REG_RDATA(1'b1))
-        i_ai_sram   (.clk_i(clk_i), .rst_ni(rst_ni), .slv(ai_sram_bus));
+        i_ai_sram   (.clk_i(clk_i), .rst_ni(sys_rst_n), .slv(ai_sram_bus));
 
     // Protocol checker'lar (sentezde cikarilir, EK-3 zorunlu)
     // synthesis translate_off
@@ -508,7 +673,7 @@ module soc_top #(
 
     soc_protocol_bind i_protocol_checkers (
         .clk       (clk_i),
-        .rst_n     (rst_ni),
+        .rst_n     (sys_rst_n),
 
         // Periph bus (AXI-Lite kopru cikisi)
         .lite_awaddr  (lite_awaddr),   .lite_awvalid (lite_awvalid),  .lite_awready (lite_awready),

@@ -1,0 +1,9 @@
+[dinle] COM7 acik, 100 s
+[ 57.6s] 
+[ 57.6s] [DEMO] BLogic MCU - Micro Speech canli demo (QSPI boot)
+[ 57.6s] [DEMO] Acilis cikarimi (flash'tan yuklenen golden girdi):
+[ 57.6s] [DEMO] sinif = yes  HW cycle = 459062  hizlanma ~21.0x (SW taban 9.684.726)
+[ 57.6s] [DEMO] h=HW cikarim  v=BLG1 ile yeni girdi (send_vector.py)  r=rapor  ?=menu
+[dinle] bitti
+
+[exited with code 0]

@@ -1,88 +1,99 @@
-# Öznitelik Vektörü Formatı (K13)
+# Feature Vector Format (K13)
 
-Hızlandırıcının beklediği giriş verisinin kesin tanımı. **B11 host betiği bu
-dönüşümü yapmak zorundadır**; yapılmazsa çıkarım sessizce yanlış sınıf üretir.
+The exact definition of the input data the accelerator expects. **The B11
+host script is required to perform this conversion**; if it does not,
+inference silently produces the wrong class.
 
-## Özet
+## Summary
 
-| Alan | Değer |
+| Field | Value |
 |---|---|
-| Uzunluk | **1960 bayt** = 490 word (32-bit) |
-| Şekil | 49 zaman adımı × 40 frekans bölmesi, **satır-öncelikli** (zaman dış, frekans iç) |
-| Eleman tipi | **int8, işaretli** (-128 … 127) |
+| Length | **1960 bytes** = 490 words (32-bit) |
+| Shape | 49 time steps × 40 frequency bins, **row-major** (time outer, frequency inner) |
+| Element type | **int8, signed** (-128 … 127) |
 | Zero-point | **-128** (`ai_accelerator.sv:72` → `INPUT_ZP = -8'sd128`) |
-| Word paketleme | **little-endian**: bayt 0 = word'ün LSB'si |
-| Hedef adres | AI SRAM `0x0003_0000` (INPUT bölgesi, ofset 0) |
+| Word packing | **little-endian**: byte 0 = LSB of the word |
+| Target address | AI SRAM `0x0003_0000` (INPUT region, offset 0) |
 
-## Kritik dönüşüm: uint8 → int8
+## Critical conversion: uint8 → int8
 
-TFLite Micro'nun `audio_microfrontend` frontend'i **uint8 (0…255)** üretir.
-Model ise **int8** bekler. Aradaki kaydırma host tarafında yapılmalıdır:
+The `audio_microfrontend` frontend of TFLite Micro produces **uint8
+(0…255)**. The model, however, expects **int8**. The shift between the two
+must be applied on the host side:
 
 ```python
-int8_value = uint8_value - 128        # esdeger: byte ^ 0x80
+int8_value = uint8_value - 128        # equivalent: byte ^ 0x80
 ```
 
-İkiye tümleyende bu, en anlamlı bitin ters çevrilmesiyle aynı şeydir.
+In two's complement this is the same as inverting the most significant bit.
 
-**Doğrulama:** `golden_vectors/input_yes_real.hex` içeriği bu dönüşümden
-geçmiş haldedir — aralık -128…118, baytların %64,2'si negatif. Ham uint8
-gönderilirse örneğin 200 değeri +72 yerine -56 olarak yorumlanır ve conv
-katmanının tüm MAC birikimi kayar.
+**Verification:** the contents of `golden_vectors/input_yes_real.hex` have
+already been through this conversion — range -128…118, 64.2% of the bytes
+negative. If raw uint8 is sent, the value 200 for example is interpreted as
+-56 instead of +72, and the entire MAC accumulation of the conv layer
+shifts.
 
-## MCU tarafı dönüşüm yapmaz
+## The MCU side performs no conversion
 
-`sw/tests/ai_uart_load_test.c` protokolü **ham bayt** taşır ve gelen baytı
-olduğu gibi AI SRAM'e yazar (`dst[i] = (uint8_t)b`). Bu bilinçlidir: jüri
-hangi ölçeklemeyi verirse versin firmware değişmeden çalışır. Dönüşümün
-sorumluluğu host betiğindedir.
+The `sw/tests/ai_uart_load_test.c` protocol carries **raw bytes** and writes
+the incoming byte into AI SRAM as it is (`dst[i] = (uint8_t)b`). This is
+deliberate: whatever scaling the jury supplies, the firmware runs unchanged.
+Responsibility for the conversion lies with the host script.
 
-## Jüri ham uint8 verirse
+## If the jury supplies raw uint8
 
-İki seçenek:
-1. **Host betiğinde çevir** (tercih edilen) — tek satır, firmware'e dokunmaz.
-2. Firmware'de çevir — `dst[i] = (uint8_t)(b ^ 0x80u);` tek karakterlik
-   değişiklik, ama o zaman int8 veri gelirse bozar. Bayrakla korunmalı.
+Two options:
+1. **Convert in the host script** (preferred) — a single line, does not
+   touch the firmware.
+2. Convert in the firmware — `dst[i] = (uint8_t)(b ^ 0x80u);`, a
+   one-character change, but it then corrupts int8 data if that arrives.
+   It would have to be guarded by a flag.
 
-Jüriden gelen verinin hangi konvansiyonda olduğu sahada **ilk vektörle**
-anlaşılır: int8 ise negatif değerler ~%60 civarındadır, uint8 ise hiç negatif
-görünmez (tüm baytlar 0…255 aralığında ve ortalama ~128'dir).
+Which convention the data coming from the jury follows is determined in the
+field **from the first vector**: if it is int8, negative values are around
+~60%; if it is uint8, no negatives appear at all (all bytes lie in the
+0…255 range and the mean is ~128).
 
-## Bölge haritası (AI SRAM 0x0003_0000)
+## Region map (AI SRAM 0x0003_0000)
 
-| Bölge | Ofset | Boyut |
+| Region | Offset | Size |
 |---|---|---|
-| INPUT | 0x0000 | 1.960 B ← bu belge |
-| CONV_OUT (scratch) | 0x07A8 | 4.000 B |
+| INPUT | 0x0000 | 1,960 B ← this document |
+| CONV_OUT (scratch) | 0x07A8 | 4,000 B |
 | CONV_W | 0x17A8 | 640 B |
 | CONV_BIAS | 0x1BA8 | 32 B |
-| FC_W | 0x1BC8 | 16.000 B |
+| FC_W | 0x1BC8 | 16,000 B |
 | FC_BIAS | 0x5A48 | 16 B |
 | RESULT | 0x5A58 | 4 B |
 
-Kaynak: `rtl/ai_accelerator/ai_accelerator.sv:89-93`
+Source: `rtl/ai_accelerator/ai_accelerator.sv:89-93`
 
-## UART Aktarım Protokolü ve El Sıkışma (14 Ağustos, kart ölçümü)
+## UART Transfer Protocol and Handshake (August 14, board measurement)
 
-**Kritik:** UART alıcısında FIFO **yoktur** — tek bir `RDR` yazmacı vardır
-(`rtl/peripherals/uart_axil.sv`). CPU okuma döngüsünde değilken gelen baytlar
-üzerine yazılır ve kaybolur. Bu yüzden gönderen taraf, kartın okumaya hazır
-olduğunu bildiren satırı **beklemek zorundadır**.
+**Critical:** the UART receiver has **no** FIFO — there is a single `RDR`
+register (`rtl/peripherals/uart_axil.sv`). Bytes that arrive while the CPU
+is not inside its read loop are overwritten and lost. For this reason the
+sending side **must wait** for the line that announces the board is ready to
+read.
 
-### Demo firmware ile doğru akış (`sw/demo/demo_main.c`)
+### Correct flow with the demo firmware (`sw/demo/demo_main.c`)
 
-1. Host `v` karakterini gönderir.
-2. Kart `[DEMO] BLG1 cercevesi bekleniyor (send_vector.py)...` satırını basar.
-3. Host **bu satırı gördükten sonra** BLG1 çerçevesini gönderir:
-   `'B','L','G','1'` + uzunluk[4, little-endian] + veri + toplam-sağlama[4, LE].
-4. Kart sağlamayı doğrular; tutmazsa çıkarım yapmaz ve hata basar.
+1. The host sends the character `v`.
+2. The board prints the line
+   `[DEMO] BLG1 cercevesi bekleniyor (send_vector.py)...` (EN: waiting for
+   the BLG1 frame).
+3. **Only after seeing this line** does the host send the BLG1 frame:
+   `'B','L','G','1'` + length[4, little-endian] + data + checksum[4, LE].
+4. The board verifies the checksum; if it does not match, it does not run
+   inference and prints an error.
 
-Adım 2 atlanırsa (`v` ile veri ardışık gönderilirse) prompt basılırken gelen
-~50 bayt kaybolur ve çerçeve başlığı yakalanamaz — kartta ölçülmüştür.
+If step 2 is skipped (that is, the data is sent back-to-back with `v`), the
+~50 bytes that arrive while the prompt is being printed are lost and the
+frame header cannot be caught — measured on the board.
 
-### Hazır araçlar
+### Ready-made tools
 
-| Araç | Kullanım |
+| Tool | Usage |
 |---|---|
-| `sw/ai_model/send_vector.py` | `--input <hex> --komut v --port <COM>` — el sıkışmayı kendisi yapar |
-| `sw/ai_model/kart_sweep.py` | `--n <N>` — N vektörü sırayla gönderip donanım sonucunu yazılım referansıyla karşılaştırır |
+| `sw/ai_model/send_vector.py` | `--input <hex> --komut v --port <COM>` — performs the handshake itself |
+| `sw/ai_model/kart_sweep.py` | `--n <N>` — sends N vectors in sequence and compares the hardware result against the software reference |

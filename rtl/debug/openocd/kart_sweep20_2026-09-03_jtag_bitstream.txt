@@ -1,0 +1,29 @@
+======================================================================
+KART RASTGELE-SINIFLANDIRMA TARAMASI (juri UART provasi)
+Tarih: 2026-09-03 02:57 | N=20 | seed=31082026 | port=COM7 | sure=5.3 sn
+Yol: PC -> UART 115200 -> demo 'v' (BLG1 cerceve + saglama) -> AI SRAM -> HW cikarim -> irq17 -> UART sonuc
+Referans: run_accuracy_window.run_model (sim N=1000'de RTL ile birebir dogrulanmis bit-exact SW modeli)
+======================================================================
+i    ornek            etiket   SW fc_out              SW  KART durum
+0    yes_real         yes      [-50, -5, 121, -4]     2   2    OK 459062 cyc
+1    no_real          no       [-61, 37, -13, 68]     3   3    OK 459062 cyc
+2    syn_yes          -        [-128, 97, 112, 87]    2   2    OK 459062 cyc
+3    syn_no           -        [-128, 111, 70, 127]   3   3    OK 459062 cyc
+4    syn_unknown      -        [-128, 90, 86, 82]     1   1    OK 459062 cyc
+5    syn_silence      -        [14, 14, 14, 14]       0   0    OK 459062 cyc
+6    yes_noise4       -        [-49, -5, 122, -6]     2   2    OK 459062 cyc
+7    no_noise4        -        [-62, 38, -12, 68]     3   3    OK 459062 cyc
+8    yes_noise8       -        [-50, -3, 121, -4]     2   2    OK 459062 cyc
+9    no_noise8        -        [-61, 36, -10, 65]     3   3    OK 459062 cyc
+10   yes_noise16      -        [-51, -3, 121, -5]     2   2    OK 459062 cyc
+11   no_noise16       -        [-67, 38, -9, 69]      3   3    OK 459062 cyc
+12   yes_tshift+1     -        [-63, 5, 127, 3]       2   2    OK 459062 cyc
+13   no_tshift+1      -        [-75, 40, -9, 78]      3   3    OK 459062 cyc
+14   yes_fshift+1     -        [-128, 127, 127, 74]   1   1    OK 459062 cyc
+15   no_fshift+1      -        [-128, 127, 72, 127]   1   1    OK 459062 cyc
+16   yes_tshift-1     -        [-45, -10, 116, -6]    2   2    OK 459062 cyc
+17   no_tshift-1      -        [-50, 34, -21, 69]     3   3    OK 459062 cyc
+18   yes_fshift-1     -        [-128, 116, 127, 87]   2   2    OK 459062 cyc
+19   no_fshift-1      -        [-128, 127, 70, 127]   1   1    OK 459062 cyc
+----------------------------------------------------------------------
+ESLESEN: 20/20 | zaman asimi/parse: 0

@@ -1,0 +1,7 @@
+BLogic MCU - Genesys 2 (XC7K325T-2) bitstream build, 6 Eylul 2026 17:27-17:43 (teslim bitstream'i)
+Kaynak: rtl/fpga/build_genesys2.tcl (soc_files.f: JTAG_DEBUG + FC1_FIX + I2C_SDA_SYNC; BSCANE2 TAP; kart ustu OLED cikislari), Vivado 2021.2
+SONUC: WNS = 2.433 ns, WHS = 0.059 ns (24260 / 24257 uc; 0 basarisiz; jtag_tck 320 uc, WNS 94.976)
+Kaynak kullanimi (impl): 13772 LUT, 9756 FF, 14 BRAM tile, 10 DSP, 49 IOB (43 + 6 OLED), 3 BUFG, 1 MMCM, 2 BSCANE2; guc 0.330 W
+JTAG bedeli (impl_utilization_hier.rpt): axi_dm_slave 184 LUT/54 FF, dm_top 488/665, dmi_jtag 582/362
+Onceki build (6 Eylul 04:23-04:39, OLED cikislari yok; 3 Eylul JTAG build'i ile birebir, 6 Eylul kart kanitlari o imajla): WNS 2.538 / WHS 0.085, 13775 LUT / 9752 FF, sha256 ebc6905b546b22ef42f7963cf834f44e1af021d8d03f794f3735a39f5ccd5d25
+95f09560d655a634899cc08b98312df5c3bc38fff0efd98b259a51fc44605456 *fpga_top.bit

@@ -1,0 +1,162 @@
+===== nom_ss_100C_1v60 =====
+--- setup (max) en kotu yol ---
+Startpoint: i_soc.i_cpu.core_i.id_stage_i._3712_
+Endpoint: i_soc.i_dm_top.i_dm_mem._1178_
+Path Group: clk
+                                                         clk_i (net)
+                                                         clknet_0_clk_i (net)
+                                                         clknet_1_1_0_clk_i (net)
+                                                         clknet_1_1_1_clk_i (net)
+                                                         clknet_leaf_7_clk_i (net)
+                                                         i_soc.i_cpu.core_i.clk (net)
+                                                         clknet_0_i_soc.i_cpu.core_i.clk (net)
+                                                         clknet_1_1_0_i_soc.i_cpu.core_i.clk (net)
+                                                         clknet_3_4_0_i_soc.i_cpu.core_i.clk (net)
+                                                         clknet_5_16__leaf_i_soc.i_cpu.core_i.clk (net)
+                                                         clknet_leaf_208_i_soc.i_cpu.core_i.clk (net)
+                                                         i_soc.i_cpu.core_i.alu_operand_b_ex[1] (net)
+                                                         i_soc.i_cpu.core_i.cs_registers_i.csr_addr_i[1] (net)
+                                                         i_soc.i_cpu.core_i.cs_registers_i._0425_ (net)
+                                                         net2992 (net)
+                                                         net2995 (net)
+                                                         i_soc.i_cpu.core_i.cs_registers_i._0438_ (net)
+                                                         i_soc.i_cpu.core_i.cs_registers_i._0452_ (net)
+                                                         net2626 (net)
+                                                         i_soc.i_cpu.core_i.cs_registers_i._0512_ (net)
+                                                         i_soc.i_cpu.core_i.cs_registers_i._0513_ (net)
+                                                         i_soc.i_cpu.core_i.cs_registers_i._0514_ (net)
+                                                         i_soc.i_cpu.core_i.cs_registers_i._0515_ (net)
+                                                         i_soc.i_cpu.core_i.cs_registers_i.csr_rdata_o[3] (net
+                                                         i_soc.i_cpu.core_i.cs_registers_i._0901_ (net)
+                                                         i_soc.i_cpu.core_i.cs_registers_i.mie_bypass_o[3] (ne
+                                                         i_soc.i_cpu.core_i.id_stage_i.int_controller_i._031_ 
+                                                         i_soc.i_cpu.core_i.id_stage_i.int_controller_i._032_ 
+                                                         i_soc.i_cpu.core_i.id_stage_i.controller_i.irq_req_ct
+                                                         i_soc.i_cpu.core_i.id_stage_i.controller_i._075_ (net
+                                                         i_soc.i_cpu.core_i.id_stage_i.controller_i._076_ (net
+                                                         i_soc.i_cpu.core_i.id_stage_i.controller_i._132_ (net
+                                                         i_soc.i_cpu.core_i.id_stage_i.controller_i.pc_mux_o[2
+                                                         net8977 (net)
+                                                         i_soc.i_cpu.core_i.if_stage_i._075_ (net)
+                                                         net403 (net)
+--- hold (min) en kotu yol ---
+Startpoint: i_soc.i_ai_accel._23140_
+Endpoint: i_soc.i_ai_accel.u_conv_w_mem
+--- max.rpt endpoint dagilimi (ilk 2310 yol) ---
+   1236 i_soc.i_cpu.core_i
+    132 i_soc.i_dmi_jtag.i_dmi_cdc
+     73 i_soc.i_dm_top.i_dm_mem
+     67 i_soc.i_dm_top.i_dm_csrs
+     60 i_soc.i_dmi_jtag.i_dmi_jtag_tap
+      4 i_soc.i_instr_sram.u_sram
+--- min.rpt VIOLATED endpoint sayisi / dm-jtag payi ---
+13
+0
+===== nom_tt_025C_1v80 =====
+--- setup (max) en kotu yol ---
+Startpoint: i_soc.i_instr_sram.u_sram.gen_bank[3].gen_512.u_macro
+Endpoint: i_soc.i_cpu.core_i.if_stage_i._855_
+Path Group: clk
+                                                         clk_i (net)
+                                                         clknet_0_clk_i (net)
+                                                         clknet_1_1_0_clk_i (net)
+                                                         clknet_1_1_1_clk_i (net)
+                                                         delaynet_13_clk (net)
+                                                         delaynet_14_clk (net)
+                                                         delaynet_15_clk (net)
+                                                         delaynet_16_clk (net)
+                                                         delaynet_17_clk (net)
+                                                         delaynet_12_clk (net)
+                                                         clknet_leaf_6_clk_i (net)
+                                                         i_soc.i_instr_sram.u_sram.dout[17] (net)
+                                                         net5180 (net)
+                                                         i_soc.i_crossbar.instr_sram_mst.r_data[17] (net)
+                                                         i_soc.i_crossbar._0088_ (net)
+                                                         i_soc.cpu_instr_bus.r_data[17] (net)
+                                                         i_soc.i_cpu.core_i.if_stage_i.instr_rdata_i[17] (net)
+                                                         i_soc.i_cpu.core_i.if_stage_i.prefetch_buffer_i.fifo_
+                                                         i_soc.i_cpu.core_i.if_stage_i.aligner_i.fetch_rdata_i
+                                                         i_soc.i_cpu.core_i.if_stage_i.aligner_i._104_ (net)
+                                                         i_soc.i_cpu.core_i.if_stage_i.aligner_i._120_ (net)
+                                                         net798 (net)
+                                                         i_soc.i_cpu.core_i.if_stage_i.aligner_i.instr_aligned
+                                                         i_soc.i_cpu.core_i.if_stage_i.compressed_decoder_i._0
+                                                         i_soc.i_cpu.core_i.if_stage_i.compressed_decoder_i._0
+                                                         i_soc.i_cpu.core_i.if_stage_i.compressed_decoder_i._0
+                                                         i_soc.i_cpu.core_i.if_stage_i.compressed_decoder_i._0
+                                                         i_soc.i_cpu.core_i.if_stage_i.compressed_decoder_i.in
+                                                         i_soc.i_cpu.core_i.if_stage_i._008_ (net)
+                                             20.957228   data arrival time
+                                                         clk_i (net)
+                                                         clknet_0_clk_i (net)
+                                                         clknet_1_1_0_clk_i (net)
+                                                         clknet_1_1_1_clk_i (net)
+                                                         clknet_leaf_7_clk_i (net)
+                                                         i_soc.i_cpu.core_i.clk (net)
+--- hold (min) en kotu yol ---
+Startpoint: i_soc.i_ai_accel._23140_
+Endpoint: i_soc.i_ai_accel.u_conv_w_mem
+--- max.rpt endpoint dagilimi (ilk 2310 yol) ---
+   1107 i_soc.i_cpu.core_i
+    132 i_soc.i_dmi_jtag.i_dmi_cdc
+     76 i_soc.i_dm_top.i_dm_mem
+     67 i_soc.i_dm_top.i_dm_csrs
+     60 i_soc.i_dmi_jtag.i_dmi_jtag_tap
+      2 i_soc.i_instr_sram.u_sram
+--- min.rpt VIOLATED endpoint sayisi / dm-jtag payi ---
+136
+0
+===== nom_ff_n40C_1v95 =====
+--- setup (max) en kotu yol ---
+Startpoint: i_soc.i_instr_sram.u_sram.gen_bank[3].gen_512.u_macro
+Endpoint: i_soc.i_cpu.core_i.if_stage_i._848_
+Path Group: clk
+                                                         clk_i (net)
+                                                         clknet_0_clk_i (net)
+                                                         clknet_1_1_0_clk_i (net)
+                                                         clknet_1_1_1_clk_i (net)
+                                                         delaynet_13_clk (net)
+                                                         delaynet_14_clk (net)
+                                                         delaynet_15_clk (net)
+                                                         delaynet_16_clk (net)
+                                                         delaynet_17_clk (net)
+                                                         delaynet_12_clk (net)
+                                                         clknet_leaf_6_clk_i (net)
+                                                         i_soc.i_instr_sram.u_sram.dout[17] (net)
+                                                         net5180 (net)
+                                                         i_soc.i_crossbar.instr_sram_mst.r_data[17] (net)
+                                                         i_soc.i_crossbar._0088_ (net)
+                                                         i_soc.cpu_instr_bus.r_data[17] (net)
+                                                         i_soc.i_cpu.core_i.if_stage_i.instr_rdata_i[17] (net)
+                                                         i_soc.i_cpu.core_i.if_stage_i.prefetch_buffer_i.fifo_
+                                                         i_soc.i_cpu.core_i.if_stage_i.aligner_i.fetch_rdata_i
+                                                         i_soc.i_cpu.core_i.if_stage_i.aligner_i._104_ (net)
+                                                         i_soc.i_cpu.core_i.if_stage_i.aligner_i._120_ (net)
+                                                         net798 (net)
+                                                         i_soc.i_cpu.core_i.if_stage_i.aligner_i.instr_aligned
+                                                         i_soc.i_cpu.core_i.if_stage_i.compressed_decoder_i._1
+                                                         i_soc.i_cpu.core_i.if_stage_i.compressed_decoder_i._1
+                                                         i_soc.i_cpu.core_i.if_stage_i.compressed_decoder_i._1
+                                                         i_soc.i_cpu.core_i.if_stage_i.compressed_decoder_i._1
+                                                         i_soc.i_cpu.core_i.if_stage_i.compressed_decoder_i.in
+                                                         i_soc.i_cpu.core_i.if_stage_i._001_ (net)
+                                             17.790005   data arrival time
+                                                         clk_i (net)
+                                                         clknet_0_clk_i (net)
+                                                         clknet_1_1_0_clk_i (net)
+                                                         clknet_1_1_1_clk_i (net)
+                                                         clknet_leaf_7_clk_i (net)
+                                                         i_soc.i_cpu.core_i.clk (net)
+--- hold (min) en kotu yol ---
+Startpoint: i_soc.i_ai_accel._23140_
+Endpoint: i_soc.i_ai_accel.u_conv_w_mem
+--- max.rpt endpoint dagilimi (ilk 2310 yol) ---
+   1023 i_soc.i_cpu.core_i
+    132 i_soc.i_dmi_jtag.i_dmi_cdc
+     69 i_soc.i_dm_top.i_dm_mem
+     67 i_soc.i_dm_top.i_dm_csrs
+     60 i_soc.i_dmi_jtag.i_dmi_jtag_tap
+      2 i_soc.i_ai_accel._23326_
+--- min.rpt VIOLATED endpoint sayisi / dm-jtag payi ---
+207
+0

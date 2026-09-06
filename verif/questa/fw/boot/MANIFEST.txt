@@ -1,0 +1,4 @@
+BLogic MCU - firmware bundle for the Questa waveform flow (verif/questa)
+built  : 2026-09-06 commit aaf01b1
+recipe : python3 scripts/gen_flash_image.py --fw sw/bootloader/flash_helloworld.hex (used by boot and asic_sram_sim)
+files  : ai_sram_init.hex bootrom.hex data_mem.hex firmware.hex flash.hex 

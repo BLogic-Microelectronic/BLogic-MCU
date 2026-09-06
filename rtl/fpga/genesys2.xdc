@@ -60,6 +60,18 @@ set_property -dict {PACKAGE_PIN W24 IOSTANDARD LVCMOS33} [get_ports {led[6]}]
 set_property -dict {PACKAGE_PIN W23 IOSTANDARD LVCMOS33} [get_ports {led[7]}]
 
 # ------------------------------------------------------------
+# Kart ustu OLED (128x32 SSD1306, 4-hat SPI) - Digilent Genesys-2-Master.xdc
+# "OLED Display" satirlari birebir; VDD/VBAT guc anahtarlari kartta aktif-dusuk
+# (fpga_top.sv evirir). Firmware: sw/demo/demo_main.c
+# ------------------------------------------------------------
+set_property -dict {PACKAGE_PIN AC17 IOSTANDARD LVCMOS18} [get_ports oled_dc]
+set_property -dict {PACKAGE_PIN AB17 IOSTANDARD LVCMOS18} [get_ports oled_res]
+set_property -dict {PACKAGE_PIN AF17 IOSTANDARD LVCMOS18} [get_ports oled_sclk]
+set_property -dict {PACKAGE_PIN Y15  IOSTANDARD LVCMOS18} [get_ports oled_sdin]
+set_property -dict {PACKAGE_PIN AB22 IOSTANDARD LVCMOS33} [get_ports oled_vbat]
+set_property -dict {PACKAGE_PIN AG17 IOSTANDARD LVCMOS18} [get_ports oled_vdd]
+
+# ------------------------------------------------------------
 # Pmod JA: UART1 (YZ stream) + I2C
 # ------------------------------------------------------------
 set_property -dict {PACKAGE_PIN U27 IOSTANDARD LVCMOS33} [get_ports {ja[0]}]
@@ -108,7 +120,27 @@ set_property PULLUP true [get_ports {QSPI_D[3]}]
 # senkronizasyon RTL icinde (2FF reset sync, UART ornekleme vb.)
 # ------------------------------------------------------------
 set_false_path -from [get_ports {cpu_resetn uart_tx_in btnc btnd btnl btnr btnu sw[*] ja[*] QSPI_D[*]}]
-set_false_path -to   [get_ports {uart_rx_out led[*] jb[*] ja[*] QSPI_CSN QSPI_D[*]}]
+set_false_path -to   [get_ports {uart_rx_out led[*] jb[*] ja[*] QSPI_CSN QSPI_D[*] oled_dc oled_res oled_sclk oled_sdin oled_vbat oled_vdd}]
+
+# ------------------------------------------------------------
+# JTAG debug (riscv-dbg, JTAG_DEBUG - teslim yapilandirmasinda ACIK)
+# Pin eklemez: TAP, FPGA'nin kendi JTAG zincirine BSCANE2 (USER3/USER4)
+# ile baglidir; kart uzerindeki FT2232H USB-JTAG (kanal B) kullanilir.
+# BSCANE2.TCK = FTDI JTAG saati; OpenOCD adapter hizi <= 10 MHz -> 100 ns.
+# ------------------------------------------------------------
+create_clock -period 100.000 -name jtag_tck -waveform {0.000 50.000} \
+    [get_pins -hierarchical -filter {NAME =~ */i_tap_dtmcs/TCK}]
+set_input_jitter jtag_tck 1.000
+
+# TAP (tck) <-> sistem (clk_50) gecisleri riscv-dbg dmi_cdc (2-faz el sikisma)
+# ile korunur; iki saat asenkron gruptur.
+set_clock_groups -asynchronous -group [get_clocks jtag_tck] \
+    -group [get_clocks -include_generated_clocks sysclk]
+
+# BSCANE2 TDI/TDO yollari (CVA6 genesys-2 kisit emsali)
+set_max_delay -from [get_pins -hierarchical -filter {NAME =~ */i_tap_dtmcs/TDI}] 20.000
+set_max_delay -to   [get_pins -hierarchical -filter {NAME =~ */i_tap_dtmcs/TDO}] 20.000
+set_max_delay -to   [get_pins -hierarchical -filter {NAME =~ */i_tap_dmi/TDO}]   20.000
 
 # ------------------------------------------------------------
 # Konfigurasyon

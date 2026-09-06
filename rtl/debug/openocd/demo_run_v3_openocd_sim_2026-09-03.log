@@ -1,0 +1,111 @@
+[SRAM_INIT jtag_openocd_tb.dut.i_instr_sram] firmware.hex yuklendi, mem[0]=0800006f mem[1]=0b80006f
+[SRAM_INIT jtag_openocd_tb.dut.i_data_sram] data_mem.hex yuklendi, mem[0]=6c6c6548 mem[1]=6f57206f
+[SRAM_INIT jtag_openocd_tb.dut.i_ai_sram] ai_sram_init.hex yuklendi, mem[0]=00000000 mem[1]=00000000
+[0] === JTAG-OPENOCD: soc_top + riscv-dbg + SimJTAG (remote_bitbang :9999) ===
+[0] [JTAG-OPENOCD] baglanti: openocd -f rtl/debug/openocd/blogic_sim.cfg
+[200000] [JTAG-OPENOCD] reset birakildi, SimJTAG etkin
+JTAG remote bitbang server is ready
+Listening on port 9999
+[2514870000] [JTAG-OPENOCD] UART: 'Hello World from BLogic MCU!'
+remote_bitbang: istemci baglandi (fd=4)
+[467065710000] [JTAG-OPENOCD] UART: 'AHello World from BLogic MCU!'
+[486443090000] [JTAG-OPENOCD] UART: 'Hello World from BLogic MCU!'
+Remote end disconnected
+[511705390000] [JTAG-OPENOCD] SimJTAG exit=1
+- verif/tb/jtag_openocd_tb.sv:117: Verilog $finish
+=== [FUNC-COV] UART (jtag_openocd_tb.dut.i_uart_0.u_uart_func_cov.unnamedblk1) ===
+  TX start    : 88
+  CPB binleri : 434=88 50=0 5208=0 diger=0
+  STP binleri : 00=88 01=0 10=0 11=0
+  auto-clear  : 88 kontrol, 0 ihlal
+  bin kapsami : 2/7
+=== [FUNC-COV] QSPI (jtag_openocd_tb.dut.i_qspi.u_qspi_func_cov.unnamedblk1) ===
+  transaction : 0
+  instr binleri: READ=0 DOR=0 QOR=0 READ4B=0 diger=0
+  mod binleri  : x1=0 x2=0 x4=0 veri-yok=0
+  bin kapsami  : 0/7
+=== [FUNC-COV] AI-CSR (jtag_openocd_tb.dut.i_ai_accel.u_ai_func_cov.unnamedblk1) ===
+  start=0 busy_r=0 busy_f=0 done_r=0 done_f=0
+  bin kapsami : 0/5
+=== [PERIPH_BUS] AXI-Lite Protocol Check Raporu ===
+  Kontrol : 47332
+  PASS    : 47332
+  FAIL    : 0
+  >>> PROTOKOL UYUMLU <<<
+==========================================
+=== [UART_0] AXI-Lite Protocol Check Raporu ===
+  Kontrol : 47332
+  PASS    : 47332
+  FAIL    : 0
+  >>> PROTOKOL UYUMLU <<<
+==========================================
+=== [GPIO] AXI-Lite Protocol Check Raporu ===
+  Kontrol : 0
+  PASS    : 0
+  FAIL    : 0
+  >>> PROTOKOL UYUMLU <<<
+==========================================
+=== [TIMER] AXI-Lite Protocol Check Raporu ===
+  Kontrol : 0
+  PASS    : 0
+  FAIL    : 0
+  >>> PROTOKOL UYUMLU <<<
+==========================================
+=== [QSPI] AXI-Lite Protocol Check Raporu ===
+  Kontrol : 0
+  PASS    : 0
+  FAIL    : 0
+  >>> PROTOKOL UYUMLU <<<
+==========================================
+=== [I2C] AXI-Lite Protocol Check Raporu ===
+  Kontrol : 0
+  PASS    : 0
+  FAIL    : 0
+  >>> PROTOKOL UYUMLU <<<
+==========================================
+=== [UART_1_STREAM] AXI-Lite Protocol Check Raporu ===
+  Kontrol : 0
+  PASS    : 0
+  FAIL    : 0
+  >>> PROTOKOL UYUMLU <<<
+==========================================
+=== [AI_CSR] AXI-Lite Protocol Check Raporu ===
+  Kontrol : 0
+  PASS    : 0
+  FAIL    : 0
+  >>> PROTOKOL UYUMLU <<<
+==========================================
+
+=== [AI_AXI4_MST] AXI4 Protocol Check Raporu ===
+  Kontrol sayisi : 0
+  PASS           : 0
+  FAIL           : 0
+  WARN           : 0
+  -----------------------------------
+  AW handshakes  : 0
+  W  handshakes  : 0
+  B  handshakes  : 0
+  AR handshakes  : 0
+  R  handshakes  : 0
+  >>> AXI4 PROTOKOL UYUMLU <<<
+==========================================
+
+=== [STRM_AXI4_MST] AXI4 Protocol Check Raporu ===
+  Kontrol sayisi : 0
+  PASS           : 0
+  FAIL           : 0
+  WARN           : 0
+  -----------------------------------
+  AW handshakes  : 0
+  W  handshakes  : 0
+  B  handshakes  : 0
+  AR handshakes  : 0
+  R  handshakes  : 0
+  >>> AXI4 PROTOKOL UYUMLU <<<
+==========================================
+=== [FUNC-COV] IRQ (jtag_openocd_tb.dut.u_irq_func_cov.unnamedblk1) ===
+  yukselme sayisi: timer(irq16)=0 ai(irq17)=0 strm(irq18)=0
+  bin kapsami    : 0/3
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 512ms; walltime 52.889 s; speed 9.715 ms/s
+- Verilator: cpu 52.671 s on 1 threads; allocated 7 MB

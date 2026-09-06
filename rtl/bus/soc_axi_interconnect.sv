@@ -16,9 +16,22 @@ module soc_axi_interconnect (
     AXI_BUS.Master data_sram_mst,
     AXI_BUS.Master ai_sram_mst,
     AXI_BUS.Master periph_mst
+`ifdef JTAG_DEBUG
+    ,
+    // Debug Module (riscv-dbg) bolgesi: 0x0004_0000-0x0004_0FFF (4 KB pencere;
+    // addr[15:12]==0 sarti ile 0x0004_1000+ eskisi gibi varsayilan bacaklara
+    // duser, DM yansimaz). Hem buyruk (debug ROM getirme)
+    // hem veri (Halted/Going bayraklari, data0, progbuf) yolundan erisilir;
+    // iki yol axi_dm_slave icinde tek DM portuna tahkim edilir. JTAG_DEBUG
+    // tanimli degilken bu port ve asagidaki dm_* bayraklari yoktur / sabit
+    // 0'dir - mevcut yonlendirme birebir korunur. Kayitli wr/rd_to_dm_q
+    // bayraklari (wr_dest/rd_dest gibi) tek-outstanding master varsayar.
+    AXI_BUS.Master dm_instr_mst,
+    AXI_BUS.Master dm_data_mst
+`endif
 );
 
-    // Instr path: 2-yollu decode (Boot ROM + Instr SRAM)
+    // Instr path: 2-yollu decode (Boot ROM + Instr SRAM) (+ DM, JTAG_DEBUG)
     logic [31:0] cpu_iar_addr_local;
     logic [3:0]  iar_mid_nib;
 
@@ -29,6 +42,19 @@ module soc_axi_interconnect (
     logic iar_to_boot;
     assign iar_to_boot = (iar_mid_nib == 4'h0);
 
+    // DM dekod bayraklari: JTAG_DEBUG yokken sabit 0 -> mevcut ifadelerdeki
+    // "&& !x_to_dm" terimleri sabit katlanir, mantik degismez.
+    logic iar_to_dm, ird_from_dm_q;
+    logic aw_to_dm, ar_to_dm, wr_to_dm_q, rd_to_dm_q;
+`ifdef JTAG_DEBUG
+    // 4 KB pencere: 0x0004_0000-0x0004_0FFF (addr[15:12]==0); disi eskisi gibi
+    // varsayilan bacaklara duser (dm_mem yalniz addr[11:0] cozer).
+    assign iar_to_dm = (cpu_iar_addr_local[31:28] == 4'h0) && (iar_mid_nib == 4'h4)
+                    && (cpu_iar_addr_local[15:12] == 4'h0);
+`else
+    assign iar_to_dm = 1'b0;
+`endif
+
     // R kanalı için registered hedef bayrağı
     logic ird_from_boot_q;
     always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -37,6 +63,16 @@ module soc_axi_interconnect (
         else if (cpu_instr_slv.ar_valid && cpu_instr_slv.ar_ready)
             ird_from_boot_q <= iar_to_boot;
     end
+`ifdef JTAG_DEBUG
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni)
+            ird_from_dm_q <= 1'b0;
+        else if (cpu_instr_slv.ar_valid && cpu_instr_slv.ar_ready)
+            ird_from_dm_q <= iar_to_dm;
+    end
+`else
+    assign ird_from_dm_q = 1'b0;
+`endif
 
     // Instr port yazmaz, ready=0 ile reddet (CV32E40P fetch portu read-only)
     assign cpu_instr_slv.aw_ready = 1'b0;
@@ -72,8 +108,31 @@ module soc_axi_interconnect (
     assign instr_sram_mst.ar_qos    = cpu_instr_slv.ar_qos;
     assign instr_sram_mst.ar_region = cpu_instr_slv.ar_region;
     assign instr_sram_mst.ar_user   = cpu_instr_slv.ar_user;
-    assign instr_sram_mst.ar_valid  = cpu_instr_slv.ar_valid && !iar_to_boot;
+    assign instr_sram_mst.ar_valid  = cpu_instr_slv.ar_valid && !iar_to_boot && !iar_to_dm;
 
+`ifdef JTAG_DEBUG
+    // AR ready hedefe göre (DM oncelikli ek bacak)
+    assign cpu_instr_slv.ar_ready   = iar_to_dm   ? dm_instr_mst.ar_ready
+                                    : iar_to_boot ? boot_rom_mst.ar_ready
+                                                  : instr_sram_mst.ar_ready;
+
+    // R kanalı (registered mux, 3-yollu)
+    assign cpu_instr_slv.r_id    = ird_from_dm_q   ? dm_instr_mst.r_id
+                                 : ird_from_boot_q ? boot_rom_mst.r_id    : instr_sram_mst.r_id;
+    assign cpu_instr_slv.r_data  = ird_from_dm_q   ? dm_instr_mst.r_data
+                                 : ird_from_boot_q ? boot_rom_mst.r_data  : instr_sram_mst.r_data;
+    assign cpu_instr_slv.r_resp  = ird_from_dm_q   ? dm_instr_mst.r_resp
+                                 : ird_from_boot_q ? boot_rom_mst.r_resp  : instr_sram_mst.r_resp;
+    assign cpu_instr_slv.r_last  = ird_from_dm_q   ? dm_instr_mst.r_last
+                                 : ird_from_boot_q ? boot_rom_mst.r_last  : instr_sram_mst.r_last;
+    assign cpu_instr_slv.r_user  = ird_from_dm_q   ? dm_instr_mst.r_user
+                                 : ird_from_boot_q ? boot_rom_mst.r_user  : instr_sram_mst.r_user;
+    assign cpu_instr_slv.r_valid = ird_from_dm_q   ? dm_instr_mst.r_valid
+                                 : ird_from_boot_q ? boot_rom_mst.r_valid : instr_sram_mst.r_valid;
+    assign dm_instr_mst.r_ready   = cpu_instr_slv.r_ready &&  ird_from_dm_q;
+    assign boot_rom_mst.r_ready   = cpu_instr_slv.r_ready &&  ird_from_boot_q;
+    assign instr_sram_mst.r_ready = cpu_instr_slv.r_ready && !ird_from_boot_q && !ird_from_dm_q;
+`else
     // AR ready hedefe göre
     assign cpu_instr_slv.ar_ready   = iar_to_boot ? boot_rom_mst.ar_ready
                                                   : instr_sram_mst.ar_ready;
@@ -87,6 +146,7 @@ module soc_axi_interconnect (
     assign cpu_instr_slv.r_valid = ird_from_boot_q ? boot_rom_mst.r_valid : instr_sram_mst.r_valid;
     assign boot_rom_mst.r_ready   = cpu_instr_slv.r_ready &&  ird_from_boot_q;
     assign instr_sram_mst.r_ready = cpu_instr_slv.r_ready && !ird_from_boot_q;
+`endif
 
     // Boot ROM read-only: AW/W/B tied off
     assign boot_rom_mst.aw_id     = '0;
@@ -142,6 +202,30 @@ module soc_axi_interconnect (
     assign ar_to_ai_sram    = !ar_to_periph && (ar_addr_high_nib == 4'h0)
                                             && (ar_addr_mid_nib  == 4'h3);
     // data_sram = kalan default
+`ifdef JTAG_DEBUG
+    // DM veri bolgesi (0x0004_xxxx): wr_dest/rd_dest kodlamasina dokunmadan
+    // ayri kayitli bayrakla onceliklendirilir (wr_dest 2'b11 instr-SRAM'de dolu).
+    assign aw_to_dm = !aw_to_periph && (aw_addr_high_nib == 4'h0)
+                                    && (aw_addr_mid_nib  == 4'h4)
+                                    && (cpu_aw_addr_local[15:12] == 4'h0);
+    assign ar_to_dm = !ar_to_periph && (ar_addr_high_nib == 4'h0)
+                                    && (ar_addr_mid_nib  == 4'h4)
+                                    && (cpu_ar_addr_local[15:12] == 4'h0);
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+            wr_to_dm_q <= 1'b0;
+            rd_to_dm_q <= 1'b0;
+        end else begin
+            if (cpu_data_slv.aw_valid && cpu_data_slv.aw_ready) wr_to_dm_q <= aw_to_dm;
+            if (cpu_data_slv.ar_valid && cpu_data_slv.ar_ready) rd_to_dm_q <= ar_to_dm;
+        end
+    end
+`else
+    assign aw_to_dm   = 1'b0;
+    assign ar_to_dm   = 1'b0;
+    assign wr_to_dm_q = 1'b0;
+    assign rd_to_dm_q = 1'b0;
+`endif
 
     // Registered hedef: wr_dest (00=data,01=ai,10=periph,11=instr), rd_dest (00=data,01=ai,10=periph)
     logic [1:0] wr_dest, rd_dest;
@@ -217,15 +301,23 @@ module soc_axi_interconnect (
     assign instr_sram_mst.aw_user   = cpu_data_slv.aw_user;
 
     // Valid sadece hedef master'a
-    assign data_sram_mst.aw_valid  = cpu_data_slv.aw_valid && !aw_to_periph && !aw_to_ai_sram && !aw_to_instr_sram;
+    assign data_sram_mst.aw_valid  = cpu_data_slv.aw_valid && !aw_to_periph && !aw_to_ai_sram && !aw_to_instr_sram && !aw_to_dm;
     assign ai_sram_mst.aw_valid    = cpu_data_slv.aw_valid &&  aw_to_ai_sram;
     assign periph_mst.aw_valid     = cpu_data_slv.aw_valid &&  aw_to_periph;
     assign instr_sram_mst.aw_valid = cpu_data_slv.aw_valid &&  aw_to_instr_sram;
 
+`ifdef JTAG_DEBUG
+    assign cpu_data_slv.aw_ready   = aw_to_dm         ? dm_data_mst.aw_ready
+                                   : aw_to_periph     ? periph_mst.aw_ready
+                                   : aw_to_ai_sram    ? ai_sram_mst.aw_ready
+                                   : aw_to_instr_sram ? instr_sram_mst.aw_ready
+                                                      : data_sram_mst.aw_ready;
+`else
     assign cpu_data_slv.aw_ready   = aw_to_periph     ? periph_mst.aw_ready
                                    : aw_to_ai_sram    ? ai_sram_mst.aw_ready
                                    : aw_to_instr_sram ? instr_sram_mst.aw_ready
                                                       : data_sram_mst.aw_ready;
+`endif
 
     // W kanalı — combinational decode, 4-yollu
     assign data_sram_mst.w_data    = cpu_data_slv.w_data;
@@ -249,11 +341,41 @@ module soc_axi_interconnect (
     assign instr_sram_mst.w_last   = cpu_data_slv.w_last;
     assign instr_sram_mst.w_user   = cpu_data_slv.w_user;
 
-    assign data_sram_mst.w_valid   = cpu_data_slv.w_valid && !aw_to_periph && !aw_to_ai_sram && !aw_to_instr_sram;
+    assign data_sram_mst.w_valid   = cpu_data_slv.w_valid && !aw_to_periph && !aw_to_ai_sram && !aw_to_instr_sram && !aw_to_dm;
     assign ai_sram_mst.w_valid     = cpu_data_slv.w_valid &&  aw_to_ai_sram;
     assign periph_mst.w_valid      = cpu_data_slv.w_valid &&  aw_to_periph;
     assign instr_sram_mst.w_valid  = cpu_data_slv.w_valid &&  aw_to_instr_sram;
 
+`ifdef JTAG_DEBUG
+    assign cpu_data_slv.w_ready    = aw_to_dm         ? dm_data_mst.w_ready
+                                   : aw_to_periph     ? periph_mst.w_ready
+                                   : aw_to_ai_sram    ? ai_sram_mst.w_ready
+                                   : aw_to_instr_sram ? instr_sram_mst.w_ready
+                                                      : data_sram_mst.w_ready;
+
+    // B kanalı — registered decode (4-yollu mux + DM oncelikli)
+    assign cpu_data_slv.b_id       = wr_to_dm_q          ? dm_data_mst.b_id
+                                   : (wr_dest == 2'b10) ? periph_mst.b_id
+                                   : (wr_dest == 2'b01) ? ai_sram_mst.b_id
+                                   : (wr_dest == 2'b11) ? instr_sram_mst.b_id
+                                                        : data_sram_mst.b_id;
+    assign cpu_data_slv.b_resp     = wr_to_dm_q          ? dm_data_mst.b_resp
+                                   : (wr_dest == 2'b10) ? periph_mst.b_resp
+                                   : (wr_dest == 2'b01) ? ai_sram_mst.b_resp
+                                   : (wr_dest == 2'b11) ? instr_sram_mst.b_resp
+                                                        : data_sram_mst.b_resp;
+    assign cpu_data_slv.b_user     = wr_to_dm_q          ? dm_data_mst.b_user
+                                   : (wr_dest == 2'b10) ? periph_mst.b_user
+                                   : (wr_dest == 2'b01) ? ai_sram_mst.b_user
+                                   : (wr_dest == 2'b11) ? instr_sram_mst.b_user
+                                                        : data_sram_mst.b_user;
+    assign cpu_data_slv.b_valid    = wr_to_dm_q          ? dm_data_mst.b_valid
+                                   : (wr_dest == 2'b10) ? periph_mst.b_valid
+                                   : (wr_dest == 2'b01) ? ai_sram_mst.b_valid
+                                   : (wr_dest == 2'b11) ? instr_sram_mst.b_valid
+                                                        : data_sram_mst.b_valid;
+    assign dm_data_mst.b_ready     = cpu_data_slv.b_ready && wr_to_dm_q;
+`else
     assign cpu_data_slv.w_ready    = aw_to_periph     ? periph_mst.w_ready
                                    : aw_to_ai_sram    ? ai_sram_mst.w_ready
                                    : aw_to_instr_sram ? instr_sram_mst.w_ready
@@ -276,7 +398,8 @@ module soc_axi_interconnect (
                                    : (wr_dest == 2'b01) ? ai_sram_mst.b_valid
                                    : (wr_dest == 2'b11) ? instr_sram_mst.b_valid
                                                         : data_sram_mst.b_valid;
-    assign data_sram_mst.b_ready   = cpu_data_slv.b_ready && (wr_dest == 2'b00);
+`endif
+    assign data_sram_mst.b_ready   = cpu_data_slv.b_ready && (wr_dest == 2'b00) && !wr_to_dm_q;
     assign ai_sram_mst.b_ready     = cpu_data_slv.b_ready && (wr_dest == 2'b01);
     assign periph_mst.b_ready      = cpu_data_slv.b_ready && (wr_dest == 2'b10);
     assign instr_sram_mst.b_ready  = cpu_data_slv.b_ready && (wr_dest == 2'b11);
@@ -318,10 +441,43 @@ module soc_axi_interconnect (
     assign periph_mst.ar_region    = cpu_data_slv.ar_region;
     assign periph_mst.ar_user      = cpu_data_slv.ar_user;
 
-    assign data_sram_mst.ar_valid  = cpu_data_slv.ar_valid && !ar_to_periph && !ar_to_ai_sram;
+    assign data_sram_mst.ar_valid  = cpu_data_slv.ar_valid && !ar_to_periph && !ar_to_ai_sram && !ar_to_dm;
     assign ai_sram_mst.ar_valid    = cpu_data_slv.ar_valid &&  ar_to_ai_sram;
     assign periph_mst.ar_valid     = cpu_data_slv.ar_valid &&  ar_to_periph;
 
+`ifdef JTAG_DEBUG
+    assign cpu_data_slv.ar_ready   = ar_to_dm      ? dm_data_mst.ar_ready
+                                   : ar_to_periph  ? periph_mst.ar_ready
+                                   : ar_to_ai_sram ? ai_sram_mst.ar_ready
+                                                   : data_sram_mst.ar_ready;
+
+    // R kanalı — registered decode (3-yollu mux + DM oncelikli)
+    assign cpu_data_slv.r_id       = rd_to_dm_q          ? dm_data_mst.r_id
+                                   : (rd_dest == 2'b10) ? periph_mst.r_id
+                                   : (rd_dest == 2'b01) ? ai_sram_mst.r_id
+                                                        : data_sram_mst.r_id;
+    assign cpu_data_slv.r_data     = rd_to_dm_q          ? dm_data_mst.r_data
+                                   : (rd_dest == 2'b10) ? periph_mst.r_data
+                                   : (rd_dest == 2'b01) ? ai_sram_mst.r_data
+                                                        : data_sram_mst.r_data;
+    assign cpu_data_slv.r_resp     = rd_to_dm_q          ? dm_data_mst.r_resp
+                                   : (rd_dest == 2'b10) ? periph_mst.r_resp
+                                   : (rd_dest == 2'b01) ? ai_sram_mst.r_resp
+                                                        : data_sram_mst.r_resp;
+    assign cpu_data_slv.r_last     = rd_to_dm_q          ? dm_data_mst.r_last
+                                   : (rd_dest == 2'b10) ? periph_mst.r_last
+                                   : (rd_dest == 2'b01) ? ai_sram_mst.r_last
+                                                        : data_sram_mst.r_last;
+    assign cpu_data_slv.r_user     = rd_to_dm_q          ? dm_data_mst.r_user
+                                   : (rd_dest == 2'b10) ? periph_mst.r_user
+                                   : (rd_dest == 2'b01) ? ai_sram_mst.r_user
+                                                        : data_sram_mst.r_user;
+    assign cpu_data_slv.r_valid    = rd_to_dm_q          ? dm_data_mst.r_valid
+                                   : (rd_dest == 2'b10) ? periph_mst.r_valid
+                                   : (rd_dest == 2'b01) ? ai_sram_mst.r_valid
+                                                        : data_sram_mst.r_valid;
+    assign dm_data_mst.r_ready     = cpu_data_slv.r_ready && rd_to_dm_q;
+`else
     assign cpu_data_slv.ar_ready   = ar_to_periph  ? periph_mst.ar_ready
                                    : ar_to_ai_sram ? ai_sram_mst.ar_ready
                                                    : data_sram_mst.ar_ready;
@@ -345,8 +501,77 @@ module soc_axi_interconnect (
     assign cpu_data_slv.r_valid    = (rd_dest == 2'b10) ? periph_mst.r_valid
                                    : (rd_dest == 2'b01) ? ai_sram_mst.r_valid
                                                         : data_sram_mst.r_valid;
-    assign data_sram_mst.r_ready   = cpu_data_slv.r_ready && (rd_dest == 2'b00);
+`endif
+    assign data_sram_mst.r_ready   = cpu_data_slv.r_ready && (rd_dest == 2'b00) && !rd_to_dm_q;
     assign ai_sram_mst.r_ready     = cpu_data_slv.r_ready && (rd_dest == 2'b01);
     assign periph_mst.r_ready      = cpu_data_slv.r_ready && (rd_dest == 2'b10);
+
+`ifdef JTAG_DEBUG
+    // ---- DM master portlari: adres/veri gecisleri ----
+    // Buyruk yolu -> dm_instr_mst (salt okunur; AW/W boot_rom gibi baglanmaz)
+    assign dm_instr_mst.ar_id     = cpu_instr_slv.ar_id;
+    assign dm_instr_mst.ar_addr   = cpu_instr_slv.ar_addr;
+    assign dm_instr_mst.ar_len    = cpu_instr_slv.ar_len;
+    assign dm_instr_mst.ar_size   = cpu_instr_slv.ar_size;
+    assign dm_instr_mst.ar_burst  = cpu_instr_slv.ar_burst;
+    assign dm_instr_mst.ar_lock   = cpu_instr_slv.ar_lock;
+    assign dm_instr_mst.ar_cache  = cpu_instr_slv.ar_cache;
+    assign dm_instr_mst.ar_prot   = cpu_instr_slv.ar_prot;
+    assign dm_instr_mst.ar_qos    = cpu_instr_slv.ar_qos;
+    assign dm_instr_mst.ar_region = cpu_instr_slv.ar_region;
+    assign dm_instr_mst.ar_user   = cpu_instr_slv.ar_user;
+    assign dm_instr_mst.ar_valid  = cpu_instr_slv.ar_valid && iar_to_dm;
+    assign dm_instr_mst.aw_id     = '0;
+    assign dm_instr_mst.aw_addr   = '0;
+    assign dm_instr_mst.aw_len    = '0;
+    assign dm_instr_mst.aw_size   = '0;
+    assign dm_instr_mst.aw_burst  = '0;
+    assign dm_instr_mst.aw_lock   = '0;
+    assign dm_instr_mst.aw_cache  = '0;
+    assign dm_instr_mst.aw_prot   = '0;
+    assign dm_instr_mst.aw_qos    = '0;
+    assign dm_instr_mst.aw_region = '0;
+    assign dm_instr_mst.aw_atop   = '0;
+    assign dm_instr_mst.aw_user   = '0;
+    assign dm_instr_mst.aw_valid  = 1'b0;
+    assign dm_instr_mst.w_data    = '0;
+    assign dm_instr_mst.w_strb    = '0;
+    assign dm_instr_mst.w_last    = '0;
+    assign dm_instr_mst.w_user    = '0;
+    assign dm_instr_mst.w_valid   = 1'b0;
+    assign dm_instr_mst.b_ready   = 1'b1;
+
+    // Veri yolu -> dm_data_mst (okuma + yazma)
+    assign dm_data_mst.aw_id     = cpu_data_slv.aw_id;
+    assign dm_data_mst.aw_addr   = cpu_data_slv.aw_addr;
+    assign dm_data_mst.aw_len    = cpu_data_slv.aw_len;
+    assign dm_data_mst.aw_size   = cpu_data_slv.aw_size;
+    assign dm_data_mst.aw_burst  = cpu_data_slv.aw_burst;
+    assign dm_data_mst.aw_lock   = cpu_data_slv.aw_lock;
+    assign dm_data_mst.aw_cache  = cpu_data_slv.aw_cache;
+    assign dm_data_mst.aw_prot   = cpu_data_slv.aw_prot;
+    assign dm_data_mst.aw_qos    = cpu_data_slv.aw_qos;
+    assign dm_data_mst.aw_region = cpu_data_slv.aw_region;
+    assign dm_data_mst.aw_atop   = cpu_data_slv.aw_atop;
+    assign dm_data_mst.aw_user   = cpu_data_slv.aw_user;
+    assign dm_data_mst.aw_valid  = cpu_data_slv.aw_valid && aw_to_dm;
+    assign dm_data_mst.w_data    = cpu_data_slv.w_data;
+    assign dm_data_mst.w_strb    = cpu_data_slv.w_strb;
+    assign dm_data_mst.w_last    = cpu_data_slv.w_last;
+    assign dm_data_mst.w_user    = cpu_data_slv.w_user;
+    assign dm_data_mst.w_valid   = cpu_data_slv.w_valid && aw_to_dm;
+    assign dm_data_mst.ar_id     = cpu_data_slv.ar_id;
+    assign dm_data_mst.ar_addr   = cpu_data_slv.ar_addr;
+    assign dm_data_mst.ar_len    = cpu_data_slv.ar_len;
+    assign dm_data_mst.ar_size   = cpu_data_slv.ar_size;
+    assign dm_data_mst.ar_burst  = cpu_data_slv.ar_burst;
+    assign dm_data_mst.ar_lock   = cpu_data_slv.ar_lock;
+    assign dm_data_mst.ar_cache  = cpu_data_slv.ar_cache;
+    assign dm_data_mst.ar_prot   = cpu_data_slv.ar_prot;
+    assign dm_data_mst.ar_qos    = cpu_data_slv.ar_qos;
+    assign dm_data_mst.ar_region = cpu_data_slv.ar_region;
+    assign dm_data_mst.ar_user   = cpu_data_slv.ar_user;
+    assign dm_data_mst.ar_valid  = cpu_data_slv.ar_valid && ar_to_dm;
+`endif
 
 endmodule

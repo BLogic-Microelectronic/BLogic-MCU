@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Setup-slack histograms from the delivered three-corner STA reports.
 
-Parses the 1000 reported setup paths in reports/timing/nom_<corner>/max.rpt
+Parses every reported setup path (2,310 per corner in RUN_final_2026-09-06) in reports/timing/nom_<corner>/max.rpt
 (lines ending 'slack (MET|VIOLATED)') and renders one histogram per corner.
 Output: results/images/setup_slack_histogram.png
 Reproduce: python3 scripts/timing_histogram.py   (run from asic/)
@@ -38,8 +38,8 @@ for ax, (dizin, ad, renk) in zip(axes, KOSELER):
         ax.spines[k].set_visible(False)
     print("%-18s: %4d yol, en kotu %+0.3f ns" % (dizin, len(slacks), en_kotu))
 axes[0].set_ylabel("path count", fontsize=9)
-fig.suptitle("Setup slack distribution - 1000 worst reported paths per corner "
-             "(reports/timing/nom_*/max.rpt, RUN_teslim_2026-08-14)",
+fig.suptitle("Setup slack distribution - all reported setup paths per corner "
+             "(reports/timing/nom_*/max.rpt, RUN_final_2026-09-06)",
              fontsize=10.5)
 fig.tight_layout(rect=[0, 0, 1, 0.92])
 out = os.path.join(ASIC, "results", "images", "setup_slack_histogram.png")

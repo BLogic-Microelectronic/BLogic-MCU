@@ -71,3 +71,27 @@ coverage_off -file "verif/sva/qspi_func_cov.sv"
 coverage_off -file "verif/sva/irq_func_cov.sv"
 coverage_off -file "verif/sva/ai_func_cov.sv"
 coverage_off -file "rtl/bus/axi/src/axi_pkg.sv"
+
+// --- JTAG debug altsistemi vendor kodu (pulp riscv-dbg, common_cells v1.38.0,
+// tech_cells_generic; teslim yapilandirmasinda ACIK): CV32E40P ile ayni
+// gerekce - upstream'de dogrulanmis vendor IP, tasarim RTL'i degil. Ekip
+// RTL'i olan rtl/debug/axi_dm_slave.sv ve soc_top JTAG blogu KAPSAMDA kalir
+// ve make coverage'a eklenen jtag-sim kosusuyla olculur. Vendor dosyalarinin
+// kendi satir kapsamasi ayrica 'make jtag-cov' ile raporlanir
+// (rtl/debug/sim/jtag_cov_summary.txt).
+coverage_off -file "rtl/debug/vendor/common_cells_v1.38.0/cdc_reset_ctrlr_pkg.sv"
+coverage_off -file "rtl/debug/vendor/common_cells_v1.38.0/cdc_4phase.sv"
+coverage_off -file "rtl/debug/vendor/common_cells_v1.38.0/cdc_reset_ctrlr.sv"
+coverage_off -file "rtl/debug/vendor/common_cells_v1.38.0/cdc_2phase_clearable.sv"
+coverage_off -file "rtl/debug/vendor/tech_cells_generic/tc_clk.sv"
+coverage_off -file "rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/sync.sv"
+coverage_off -file "rtl/debug/vendor/riscv-dbg/src/dm_pkg.sv"
+coverage_off -file "rtl/debug/vendor/riscv-dbg/debug_rom/debug_rom.sv"
+coverage_off -file "rtl/debug/vendor/riscv-dbg/debug_rom/debug_rom_one_scratch.sv"
+coverage_off -file "rtl/debug/vendor/riscv-dbg/src/dm_csrs.sv"
+coverage_off -file "rtl/debug/vendor/riscv-dbg/src/dm_mem.sv"
+coverage_off -file "rtl/debug/vendor/riscv-dbg/src/dm_sba.sv"
+coverage_off -file "rtl/debug/vendor/riscv-dbg/src/dm_top.sv"
+coverage_off -file "rtl/debug/vendor/riscv-dbg/src/dmi_cdc.sv"
+coverage_off -file "rtl/debug/vendor/riscv-dbg/src/dmi_jtag_tap.sv"
+coverage_off -file "rtl/debug/vendor/riscv-dbg/src/dmi_jtag.sv"

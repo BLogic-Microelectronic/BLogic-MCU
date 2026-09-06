@@ -7,9 +7,15 @@
 // ASIC_SRAM_MACRO + teslim edilen OpenRAM modelleri altinda kosturulur;
 // boylece asic_top port baglantilari da yurutulerek dogrulanmis olur
 // (LVS baglantiyi kanitlar ama davranisi kanitlamaz).
-// Firmware conv_out bolgesini altin vektorle sagtoplam-karsilastirir;
-// FC argmax'i makro modelin dout-X sozlesmesi geregi burada kontrol
-// EDILMEZ (FC erratasi: asic/README.md "Known issue").
+// Firmware conv_out bolgesini altin vektorle sagtoplam-karsilastirir VE
+// (CHECK_ARGMAX; make asic-top-sim bunu her zaman tanimlar) FC argmax==2 ile
+// sonuc word'unu dogrular: teslim RTL'inde FC1_FIX acik oldugundan FC de
+// makro modelinin dout-X sozlesmesine uyar; bu PASS, FC-1 erratasinin
+// duzeltildiginin kanitidir (negatif kontrol 6 Eylul 2026: FC1_FIX'siz
+// RTL'de "AI ARGMAX BA" ile FAIL). CHECK_ARGMAX tanimsiz derlemede yalniz
+// conv sagtoplami kontrol edilir (1 Eylul'deki tarihsel davranis; errata
+// kaydi asic/README.md 9.5). JTAG_DEBUG'da TAP pinleri sabit baglanir
+// (trst_n=0: DM pasif).
 // Protokol ayni: 'R' -> 'A' -> tam 12 karakter ("Hello World!").
 `timescale 1ns / 1ps
 
@@ -32,6 +38,11 @@ module asic_top_boot_tb;
         .qspi_io_o(qspi_io_o), .qspi_io_oe(qspi_io_oe),
         .qspi_io_i(qspi_io_i),
         .i2c_scl_o(), .i2c_sda_oe_o(), .i2c_sda_i(1'b1)
+`ifdef JTAG_DEBUG
+        // JTAG TAP bagli degil: trst_n=0 TAP'i resette tutar (DM pasif, debug_req=0)
+        , .jtag_tck_i(1'b0), .jtag_tms_i(1'b0), .jtag_tdi_i(1'b0),
+          .jtag_trst_ni(1'b0), .jtag_tdo_o()
+`endif
     );
 
     // flash model: 4-lane arayuz
@@ -81,7 +92,11 @@ module asic_top_boot_tb;
         join
 
         if (received == "Hello World!")
+`ifdef CHECK_ARGMAX
+            $display("[%0t] *** TEST SUCCESS *** asic_top + makro modeli: boot + YZ cikarimi bit-tam, argmax dahil ('%s')", $time, received);
+`else
             $display("[%0t] *** TEST SUCCESS *** asic_top + makro modeli: boot + conv katmani bit-tam ('%s')", $time, received);
+`endif
         else
             $error("FAIL: alinan='%s'", received);
         $finish;

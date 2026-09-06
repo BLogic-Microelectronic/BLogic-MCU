@@ -10,6 +10,13 @@
 #   rtl/fpga/reports/*.rpt       - sentez/timing/kaynak/guc/DRC raporlari
 #   build/fpga_genesys2/         - ara dosyalar + routed checkpoint (.dcp)
 #
+# Kaynaklar ve derleme tanimlari soc_files.f'ten okunur (JTAG_DEBUG, FC1_FIX,
+# I2C_SDA_SYNC dahil; teslim yapilandirmasi). JTAG TAP kartta BSCANE2'dir:
+# dmi_jtag_tap.sv (tam TAP, ASIC) ATLANIR, ayni modul adini tasiyan
+# dmi_bscane_tap.sv (Xilinx BSCANE2 USER3/USER4) okunur -> kart USB-JTAG
+# (FT2232H kanal B) -> riscv-dbg DTM. genesys2.xdc BSCANE2 TCK saatini ve
+# sistem saatiyle asenkron grubu tanimlar.
+#
 # BOOT_ADDR_HEX:
 #   00000000 = M3 flash-boot (bootrom QSPI'dan firmware yukler)  [varsayilan]
 #   00010000 = M2 SRAM-direct boot (firmware.hex ile)
@@ -102,11 +109,16 @@ cd $build_dir
 # ------------------------------------------------------------
 # Kaynak listesi: soc_files.f ayristirilir
 #  - '#' yorum ve bos satirlar atlanir
-#  - '+incdir+' satirlari include dizini olur
+#  - '+incdir+' satirlari include dizini olur (sira korunur: v1.38.0
+#    common_cells basliklari eski cv32e40p kopyasindan ONCE aranir)
+#  - '+define+' satirlari sentez tanimi olur (JTAG_DEBUG, FC1_FIX, I2C_SDA_SYNC)
 #  - 'verif/' girdileri atlanir (protokol checker'lar
 #    soc_top.sv icinde translate_off ile sentez disidir)
+#  - dmi_jtag_tap.sv (tam TAP; ASIC/Verilator) ATLANIR, yerine ayni modul
+#    adini tasiyan dmi_bscane_tap.sv (BSCANE2) okunur
 # ------------------------------------------------------------
 set incdirs {}
+set defines {BOOTROM_CONTENT}
 set sv_srcs {}
 set v_srcs  {}
 
@@ -118,12 +130,21 @@ while {[gets $fl line] >= 0} {
         lappend incdirs [file normalize [file join $repo_root [string range $line 8 end]]]
         continue
     }
+    if {[string match "+define+*" $line]} {
+        lappend defines [string range $line 8 end]
+        continue
+    }
     if {[string match "verif/*" $line]} { continue }
     # CV32E40P register file: FPGA akisinda FF varyanti kullanilir.
     # latch varyanti ayni modul adini (cv32e40p_register_file) tanimlar ve
     # Vivado'da son tanim kazandigi icin FF'i ezer -> dislanir.
     # (Orijinal 14.06.2026 kart-dogrulamali build de yalnizca FF derlemistir.)
     if {[string match "*cv32e40p_register_file_latch.sv" $line]} { continue }
+    # ASIC TAP yerine BSCANE2 TAP (ayni modul adi: dmi_jtag_tap)
+    if {[string match "*dmi_jtag_tap.sv" $line]} {
+        lappend sv_srcs [file normalize [file join $repo_root rtl debug vendor riscv-dbg src dmi_bscane_tap.sv]]
+        continue
+    }
     set p [file normalize [file join $repo_root $line]]
     if {![file exists $p]} { puts "HATA: kaynak dosya yok: $p"; exit 1 }
     if {[file extension $p] eq ".sv"} { lappend sv_srcs $p } else { lappend v_srcs $p }
@@ -138,6 +159,7 @@ if {[llength $v_srcs] > 0} { read_verilog $v_srcs }
 read_xdc [file join $script_dir genesys2.xdc]
 
 puts "BILGI: [llength $sv_srcs] .sv + [llength $v_srcs] .v dosyasi okundu."
+puts "BILGI: sentez tanimlari: $defines"
 puts "BILGI: BOOT_ADDR = 32'h$BOOT_ADDR_HEX"
 
 # ------------------------------------------------------------
@@ -154,7 +176,7 @@ puts "BILGI: BOOT_ADDR = 32'h$BOOT_ADDR_HEX"
 # UART/LED calisiyor + bootrom'suz bitstream'de CS# hic dusmuyor.
 synth_design -top fpga_top -part $PART \
     -include_dirs $incdirs \
-    -verilog_define BOOTROM_CONTENT \
+    -verilog_define $defines \
     -generic BOOT_ADDR=32'h$BOOT_ADDR_HEX
 
 write_checkpoint -force [file join $build_dir post_synth.dcp]
@@ -177,6 +199,8 @@ write_checkpoint -force [file join $build_dir post_route.dcp]
 report_route_status   -file [file join $rpt_dir route_status.rpt]
 report_timing_summary -file [file join $rpt_dir impl_timing_summary.rpt]
 report_utilization    -file [file join $rpt_dir impl_utilization.rpt]
+# JTAG maliyeti dogrudan okunsun: hiyerarsik kaynak raporu (i_dm_top / i_dmi_jtag)
+report_utilization -hierarchical -hierarchical_depth 3 -file [file join $rpt_dir impl_utilization_hier.rpt]
 report_power          -file [file join $rpt_dir power.rpt]
 report_drc            -file [file join $rpt_dir drc.rpt]
 report_clock_utilization -file [file join $rpt_dir clock_utilization.rpt]

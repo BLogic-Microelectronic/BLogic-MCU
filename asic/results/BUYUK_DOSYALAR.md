@@ -1,13 +1,13 @@
-# Large file packaging (GitHub 100 MB limit)
+# Large-file packaging (GitHub 100 MB limit)
 
-The files below exceeded 95 MB, so they were compressed with gzip -9;
-those that required it were split into 90 MB parts. The original SHA-256
-values are in the .sha256 files next to them. To restore:
+The files below were larger than 95 MB, so they were compressed
+with gzip -9; where necessary they were split into 90 MB parts. The
+original SHA-256 values are in the .sha256 files next to them. To restore:
 
-    cat <ad>.gz.part* | gunzip > <ad>     # parcalanmissa
-    gunzip -k <ad>.gz                     # tek parcaysa
+    cat <name>.gz.part* | gunzip > <name>     # if split
+    gunzip -k <name>.gz                       # if a single part
 
-Verification: sha256sum -c <ad>.sha256
+Verification: sha256sum -c <name>.sha256
 
 - `reports/power/net-VGND.csv` -> `reports/power/net-VGND.csv.gz`; original SHA-256: `reports/power/net-VGND.csv.sha256`
 - `reports/power/net-VPWR.csv` -> `reports/power/net-VPWR.csv.gz`; original SHA-256: `reports/power/net-VPWR.csv.sha256`
@@ -23,5 +23,3 @@ Verification: sha256sum -c <ad>.sha256
 - `results/spef/min/asic_top.min.spef` -> `results/spef/min/asic_top.min.spef.gz`; original SHA-256: `results/spef/min/asic_top.min.spef.sha256`
 - `results/spef/nom/asic_top.nom.spef` -> `results/spef/nom/asic_top.nom.spef.gz`; original SHA-256: `results/spef/nom/asic_top.nom.spef.sha256`
 - `results/spice/asic_top.spice` -> `results/spice/asic_top.spice.gz`; original SHA-256: `results/spice/asic_top.spice.sha256`
-
-<!-- English translation of BUYUK_DOSYALAR.md, 2026-09-01; numeric values converted from Turkish to English number format. -->
