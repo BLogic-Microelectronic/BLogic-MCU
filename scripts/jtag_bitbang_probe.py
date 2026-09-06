@@ -3,7 +3,7 @@
 # Ostim BLogic Mikroelektronik
 # jtag_bitbang_probe.py  -  remote_bitbang koprusu ham protokol sondasi
 # ============================================
-# deneme/jtag dali. OpenOCD olmadan, jtag_openocd_sim'in dinledigi TCP
+# JTAG debug altsistemi (teslim cipinin parcasi). OpenOCD olmadan, jtag_openocd_sim'in dinledigi TCP
 # portuna baglanip OpenOCD remote_bitbang protokolunu dogrudan konusur:
 #   '0'-'7' : {tck,tms,tdi} pin yaz  (bit2=tck, bit1=tms, bit0=tdi)
 #   'R'     : TDO oku -> '0' / '1'

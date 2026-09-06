@@ -1,3 +1,18 @@
+> **DURUM (6 Eylul 2026): Secenek B - JTAG TESLIM CIPININ PARCASI.** riscv-dbg
+> tabanli JTAG debug altsistemi (TAP + DTM/CDC + DM + `axi_dm_slave` koprusu)
+> teslim yapilandirmasina alindi: `JTAG_DEBUG`, `FC1_FIX` ve `I2C_SDA_SYNC`
+> tanimlari `soc_files.f`, `asic/config.yaml` + `asic/filelist.f` ve
+> `rtl/fpga/build_genesys2.tcl`'de ACIK; `design.sdc`'de `jtag_tck` (100 ns) +
+> asenkron saat grubu + TAP pin butceleri; 3-4 Eylul taramasinin dort CTS ayari
+> `config.yaml`'da; `asic_top` 21 portlu. Resmi ASIC kosusu `RUN_final_2026-09-06`
+> (VM1, commit 248069b); 14 Agustos imzali kosu (JTAG'siz RTL, 73d8dcd) tarihsel
+> referans. Onceki "Secenek A" cercevesi (tanim arkasinda, teslimde kapali, yaninda
+> istege bagli varyant) TERK EDILDI; `ifdef`'ler yalniz izolasyon kaniti
+> (`make jtag-equiv`) icin duruyor. Bilinen acik bulgu: DM bolgesi debug modu
+> disinda korumasiz (belgelenen sinir, asic/README 9.9/9). Asagisi tarihsel
+> calisma gunlugudur; "merge edilmez" / "asic/ dokunulmaz" / "teslim edilen cipte
+> JTAG yoktur" ifadeleri o donemin kurallaridir.
+
 # deneme/jtag — Calisma Plani ve Koruma Raylari
 
 Amac: riscv-dbg tabanli JTAG debug entegrasyonunun PROTOTIP dalda

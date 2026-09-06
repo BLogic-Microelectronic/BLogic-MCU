@@ -5,7 +5,17 @@ JTAG debug transport module (DTM), vendored verbatim from the pinned upstream
 revisions listed below. **Do not edit files under `rtl/debug/vendor/`**; to
 change something, bump the pin and re-copy.
 
-File list for Verilator: `rtl/debug/jtag_files.f` (see the notes at the end
+**Status (6 September 2026):** these components are part of the delivered
+chip. The same source list and the `JTAG_DEBUG` / `FC1_FIX` / `I2C_SDA_SYNC`
+defines sit at the head of `soc_files.f` (simulation, lint, and the FPGA build
+through `rtl/fpga/build_genesys2.tcl`) and in `asic/config.yaml` +
+`asic/filelist.f` (sky130 flow). Licence copies for the delivery package:
+`asic/licenses/` (`riscv-dbg_SHL-0.51.txt`, `common_cells_v1.38.0_SHL-0.51.txt`,
+`tech_cells_generic_SHL-0.51.txt`); inventory in `asic/THIRD_PARTY.md`.
+
+Stand-alone file list for Verilator: `rtl/debug/jtag_files.f` (used by
+`make jtag-bridge-sim` and the stand-alone lint below; not to be combined with
+`soc_files.f`, which already carries the same files — see the notes at the end
 of this document for include-order requirements).
 
 ## 1. pulp-platform/riscv-dbg
@@ -40,8 +50,11 @@ Files copied (upstream path -> local path, relative to the destination):
 | `tb/LICENSE.Berkeley` | `tb/LICENSE.Berkeley` | BSD-3-Clause (full text) |
 | `tb/LICENSE.SiFive` | `tb/LICENSE.SiFive` | Apache License 2.0 (full text) |
 
-`tb/SimJTAG.sv` and `tb/remote_bitbang/` are **not** in `jtag_files.f`; they
-are kept for a later OpenOCD remote-bitbang bridge (DPI-C, simulation only).
+`tb/SimJTAG.sv` and `tb/remote_bitbang/` are **not** in `jtag_files.f`;
+`SimJTAG.sv` is compiled only by `make jtag-openocd-build` together with the
+DPI-C bridge `rtl/debug/tb/jtag_dpi.cpp` (OpenOCD `remote_bitbang` server,
+simulation only), and `tb/remote_bitbang/` is kept as the upstream reference of
+that protocol.
 
 Not copied (not needed): `src/dm_obi_top.sv`, ,
 `src/dmi_intf.sv`, `src/dmi_test.sv`, the rest of `tb/`, `debug_rom/*.S|.h|.py`.
@@ -127,10 +140,11 @@ Files copied:
   `+incdir` given on the command line or in an earlier `-f` file beats one
   in a later `-f` file. `jtag_files.f` carries
   `+incdir+rtl/debug/vendor/common_cells_v1.38.0/include`; it must come
-  **before** `+incdir+rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include`
-  (which `soc_files.f` adds). Practically: pass `-f rtl/debug/jtag_files.f`
-  before `-f soc_files.f`, or put the v1.38.0 `+incdir` first on the command
-  line.
+  **before** `+incdir+rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include`.
+  `soc_files.f` and `asic/filelist.f` already list the v1.38.0 include
+  directory first, so the delivered build needs nothing extra; for a
+  stand-alone compile of `jtag_files.f` put the v1.38.0 `+incdir` first on
+  the command line.
 * `jtag_files.f` deliberately omits `fifo_v3.sv` and `spill_register.sv`
   (both already in `soc_files.f`). For a stand-alone lint pass `fifo_v3.sv`
   on the command line.
@@ -162,6 +176,8 @@ d1f03a609532a57fce61a514cb85ee6dd5ce758cd7697d83bed1e09c65ebbb2f.
 It declares `module dmi_jtag_tap` (drop-in for the full TAP) built on two
 Xilinx `BSCANE2` primitives (USER3 = dtmcs, USER4 = dmi), so the Genesys 2
 on-board USB-JTAG reaches the debug module without a pin header.
-It is deliberately NOT listed in `jtag_files.f` (same module name as
-`dmi_jtag_tap.sv` -> Verilator MODDUP); only `rtl/fpga/build_genesys2_jtag.tcl`
-reads it, in place of `dmi_jtag_tap.sv`. ASIC/Verilator flows are unaffected.
+It is deliberately NOT listed in `jtag_files.f` or `soc_files.f` (same module
+name as `dmi_jtag_tap.sv` -> Verilator MODDUP); `rtl/fpga/build_genesys2.tcl`
+substitutes it for `dmi_jtag_tap.sv` while parsing `soc_files.f`, and
+`make lint-fpga` does the same for lint. The ASIC flow and every simulation
+target use the full TAP `dmi_jtag_tap.sv`.

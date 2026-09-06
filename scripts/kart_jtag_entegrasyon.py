@@ -3,7 +3,7 @@
 # Ostim BLogic Mikroelektronik
 # kart_jtag_entegrasyon.py - GERCEK KARTTA JTAG + YZ cikarimi entegrasyon testi
 # ============================================
-# deneme/jtag dali. Iki alt sistemi BIRLIKTE calistirir: UART0 uzerinden demo
+# JTAG debug altsistemi (teslim cipinin parcasi; 6 Eylul 2026 kartta PASS). Iki alt sistemi BIRLIKTE calistirir: UART0 uzerinden demo
 # firmware'ine BLG1 vektoru gonderilirken OpenOCD (kart USB-JTAG, BSCANE2)
 # ile cekirdek durdurulur/incelenir/devam ettirilir. Sorular:
 #   - Debugger oturumu (halt, bellek/CSR okuma, scratch yazma, resume) calisan
@@ -11,7 +11,7 @@
 #   - Donanim breakpoint'i, UART'tan gelen vektor dogrulandiktan sonra ve
 #     cikarim baslamadan ONCE (run_hw girisi) yakaliyor mu? -> pc == bp, AI
 #     SRAM'de bizim gonderdigimiz baytlar, resume sonrasi dogru sinif
-# Onkosullar: kartta fpga_top_jtag.bit yuklu, flash'ta demo firmware (M3),
+# Onkosullar: kartta fpga_top.bit yuklu, flash'ta demo firmware (M3),
 #   WSL'de 'openocd -f rtl/debug/openocd/genesys2_bscan.cfg -c "bindto 0.0.0.0"'
 #   kosuyor (telnet 4444 Windows'tan erisilebilir), COM7 Windows'ta serbest.
 # Kullanim (Windows, ana depo dizininden ya da mutlak yollarla):

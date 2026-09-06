@@ -38,8 +38,10 @@ module soc_top #(
     input  logic        i2c_sda_i
 `ifdef JTAG_DEBUG
     ,
-    // JTAG TAP (riscv-dbg dmi_jtag) - YALNIZ JTAG_DEBUG derlemelerinde
-    // (deneme/jtag dali). Tanim yokken port listesi ve mantik birebir eskisi.
+    // JTAG TAP (riscv-dbg dmi_jtag) - JTAG_DEBUG teslim yapilandirmasinda ACIKTIR
+    // (soc_files.f / asic/config.yaml / build_genesys2.tcl); sartname "JTAG
+    // (Opsiyonel)" arayuzu. ifdef yalniz izolasyon kaniti icin duruyor: tanim
+    // yokken port listesi ve mantik 73d8dcd (14 Agu imzali kosu) ile birebir.
     input  logic        jtag_tck_i,
     input  logic        jtag_tms_i,
     input  logic        jtag_tdi_i,
@@ -452,17 +454,17 @@ module soc_top #(
         .io_o(qspi_io_o), .io_i(qspi_io_i), .io_oe(qspi_io_oe)
     );
 
-    // i2c_sda_i 2FF senkronizatoru (yalniz deneme/jtag dali; asic/README
-    // 9.9/3 gozden gecirme notu): asenkron pad girisi gpio_in_i ile ayni
+    // i2c_sda_i 2FF senkronizatoru (I2C_SDA_SYNC, teslim yapilandirmasinda ACIK;
+    // asic/README 9.9/3): asenkron pad girisi gpio_in_i ile ayni
     // desene esitlenir. Reset degeri 1'b1 - SDA bosta pull-up'la yuksektir;
     // 0'la baslamak SCL yuksekken sahte START kosulu gibi gorunurdu.
     // 2 cevrimlik ek gecikme (40 ns @50 MHz) us-mertebesindeki I2C bit
     // suresi yaninda ihmal edilebilir.
-    // I2C_SDA_SYNC tanimi ARKASINDA (6 Eylul 2026): teslim kosusu
-    // (RUN_teslim_2026-08-14) bu senkronizator OLMADAN imzalandi ve asic/README
-    // 9.9 bunu "RTL review note" olarak ilan etti. Tanimsiz derleme teslimle
-    // birebir kalir (scripts/jtag_define_off_equiv.sh kapisi); JTAG derlemeleri
-    // (make jtag-*, build_genesys2_jtag.tcl, jtag_asic_config.py) tanimi acar.
+    // Tarihce: 14 Agustos imzali kosu (73d8dcd) bu senkronizator OLMADAN kosuldu
+    // ve asic/README 9.9 bunu "RTL review note" olarak ilan etmisti; 6 Eylul
+    // 2026'dan itibaren tanim her resmi giris noktasinda (soc_files.f,
+    // asic/config.yaml, build_genesys2.tcl) aciktir. ifdef yalniz izolasyon
+    // kaniti icindir (make jtag-equiv: tanimsiz onisleme == 73d8dcd).
 `ifdef I2C_SDA_SYNC
     logic i2c_sda_sync1, i2c_sda_sync2;
     always_ff @(posedge clk_i or negedge sys_rst_n) begin

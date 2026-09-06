@@ -2,7 +2,8 @@
 // Ostim BLogic Mikroelektronik
 // jtag_openocd_tb.sv  -  soc_top + riscv-dbg, JTAG pinleri OpenOCD'den surulur
 // ============================================
-// deneme/jtag dali, `+define+JTAG_DEBUG` ile derlenir (make jtag-openocd-build).
+// JTAG debug altsistemi, teslim cipinin parcasi; JTAG_DEBUG tanimi soc_files.f'ten
+// gelir (teslim yapilandirmasi). make jtag-openocd-build ile derlenir.
 // jtag_smoke_tb'den farki: JTAG pinlerini SV bit-bang degil, SimJTAG
 // (rtl/debug/vendor/riscv-dbg/tb/SimJTAG.sv) surer; SimJTAG her cevrimde
 // `jtag_tick` DPI fonksiyonunu (rtl/debug/tb/jtag_dpi.cpp) cagirir, o da

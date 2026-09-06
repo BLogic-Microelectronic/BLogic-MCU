@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================
 # Ostim BLogic Mikroelektronik
-# run_jtag_openocd.sh  -  OpenOCD ucdan-uca demo kosucusu (deneme/jtag, Gun 2-3)
+# run_jtag_openocd.sh  -  OpenOCD ucdan-uca demo kosucusu (JTAG teslim cipinin parcasi; Gun 2-3)
 # ============================================
 # Akis:
 #   1. depo kokune gec; obj_dir_jtag_ocd/jtag_openocd_sim yoksa make jtag-openocd-build

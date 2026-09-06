@@ -1,24 +1,29 @@
 # ============================================
 # Ostim BLogic Mikroelektronik
-# jtag_equiv_known_diffs.txt  -  deneme/jtag <-> main KOSULSUZ fark GEREKCESI
+# jtag_equiv_known_diffs.txt  -  izolasyon kaniti: tanimsiz RTL <-> referans 73d8dcd KOSULSUZ fark GEREKCESI
 # ============================================
 # Bu dosya YALNIZ BELGEDIR; scripts/jtag_define_off_equiv.sh esleme icin bunu
 # kullanmaz. Kapi, dosya basina saklanan birebir diff'tir:
 #   scripts/jtag_equiv_expected_diffs/<yol_alt_cizgili>.diff
 #
-# DURUM (6 Eylul 2026, birlestirme hazirligi): KOSULSUZ FARK YOK.
-# Bes dosyanin bes beklenen diff'i de BOS; JTAG_DEBUG tanimsiz onisleme ciktisi
-# main ile satir satir aynidir. Bu, teslim kosusunun (RUN_teslim_2026-08-14)
-# main'in varsayilan RTL'ini temsil etmeye devam etmesi icin gerekliydi.
+# DURUM (6 Eylul 2026): KOSULSUZ FARK YOK. Bes dosyanin bes beklenen diff'i de
+# BOS; JTAG_DEBUG/FC1_FIX/I2C_SDA_SYNC tanimsiz onisleme ciktisi 73d8dcd (14
+# Agustos imzali kosunun RTL'i) ile satir satir aynidir.
 #
-# Daha once kosulsuz olan iki degisiklik artik TANIM ARKASINDADIR:
+# KAPININ ANLAMI (Secenek B, 6 Eylul 2026): JTAG debug altsistemi artik TESLIM
+# CIPININ PARCASI; uc tanim her resmi giris noktasinda ACIK (soc_files.f,
+# asic/config.yaml + filelist.f, rtl/fpga/build_genesys2.tcl). Bu kapi teslim
+# RTL'ini degil IZOLASYONU kanitlar: tum eklemeler ifdef arkasindadir, tanimlar
+# kapatilinca RTL 14 Agustos imzali kosunun RTL'ine doner. Yani JTAG, FC-1
+# duzeltmesi ve i2c senkronizatoru disinda hicbir kosulsuz RTL degisikligi
+# yapilmadigi betiklenmis olarak gosterilir.
+#
+# Tanim arkasindaki uc degisiklik (teslimde ACIK):
+#   JTAG_DEBUG    riscv-dbg TAP/DTM/DM + crossbar DM bolgesi + axi_dm_slave
 #   FC1_FIX       rtl/ai_accelerator/ai_accelerator.sv - ST_FC_FETCH_W_WAIT'te
-#                 co_re'nin bekleme boyunca yuksek tutulmasi (asic/README 9.5,
-#                 "declared, NOT patched" beyani teslim icin dogru kalir)
+#                 co_re'nin bekleme boyunca yuksek tutulmasi (asic/README 9.5;
+#                 kanit: make asic-top-sim, argmax==2)
 #   I2C_SDA_SYNC  rtl/soc_top.sv - i2c_sda_i icin 2FF senkronizator
-#                 (asic/README 9.9 "RTL review note" teslim icin dogru kalir)
-# JTAG derlemeleri (make jtag-*, regression-jtag, build_genesys2_jtag.tcl,
-# jtag_elab_check.sh, jtag_asic_config.py) uc tanimi birlikte acar; boylece
-# olculen JTAG varyanti (v1/v2/v3 kosulari, kart bitstream'i) degismez.
+#                 (asic/README 9.9/3)
 #
 # Beklenen diff'i bilerek guncellemek: bash scripts/jtag_define_off_equiv.sh --kaydet

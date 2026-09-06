@@ -3,7 +3,8 @@
 # demo_halt_regs_mem.tcl  -  OpenOCD demo: halt / register / bellek / resume /
 #                            donanim breakpoint / reset halt
 # ============================================
-# deneme/jtag dali (JTAG_DENEME_PLANI.md, Gun 2-3). blogic_sim.cfg'den SONRA
+# JTAG debug altsistemi, teslim cipinin parcasi (gelistirme gunlugu
+# rtl/debug/JTAG_DENEME_PLANI.md, Gun 2-3). blogic_sim.cfg'den SONRA
 # calistirilir; o dosya init + halt yapmis olur:
 #   openocd -f rtl/debug/openocd/blogic_sim.cfg -f rtl/debug/openocd/demo_halt_regs_mem.tcl
 # (kosucu: make jtag-openocd -> scripts/run_jtag_openocd.sh, log logs/jtag/)

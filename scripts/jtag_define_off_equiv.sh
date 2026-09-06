@@ -1,17 +1,23 @@
 #!/usr/bin/env bash
 # ============================================
 # Ostim BLogic Mikroelektronik
-# jtag_define_off_equiv.sh  -  "JTAG_DEBUG tanimsizken main ile ozdes" iddiasinin
-#                              BETIKLENMIS kaniti (deneme/jtag dali)
+# jtag_define_off_equiv.sh  -  IZOLASYON KANITI: JTAG_DEBUG/FC1_FIX/I2C_SDA_SYNC
+#                              tanimsizken RTL == 73d8dcd (14 Agu imzali kosunun RTL'i).
+#                              JTAG teslim cipinin parcasi; ifdef'ler bu kanit icindir.
 # ============================================
 # Ne yapar:
-#   1. main dalindaki dosyalari 'git show main:<yol>' ile build/jtag_equiv/main/
-#      altina cikarir (Windows worktree'de WSL git calismaz -> .git dosyasindaki
-#      gitdir yolu /mnt/<surucu>/... bicimine cevrilir; olmazsa JTAG_MAIN_DIR
-#      cevre degiskeniyle main checkout'u gosterilebilir).
+#   1. Referans dosyalari 'git show $EQUIV_REF:<yol>' ile build/jtag_equiv/main/
+#      altina cikarir. EQUIV_REF varsayilani 73d8dcd = imzali ASIC kosunun
+#      (RUN_teslim_2026-08-14) RTL'ini tasiyan, JTAG birlesmesi ONCESI son main
+#      commit'i. 'main' dal adi BILEREK kullanilmaz: birlesme sonrasi main ==
+#      HEAD oldugundan 'git show main:' kapiyi kendi kendisiyle karsilastirir,
+#      yani kapi anlamsizlasir. (Windows worktree'de WSL git calismaz -> .git
+#      dosyasindaki gitdir yolu /mnt/<surucu>/... bicimine cevrilir.)
+#      JTAG_MAIN_DIR verilmisse git olsa bile o dizin referans olarak kullanilir
+#      (73d8dcd checkout'u ya da main deposunun calisma agaci).
 #   2. Her iki surumu de TANIM VERMEDEN (JTAG_DEBUG YOK) 'verilator -E -P' ile
 #      onisler.
-#   3. deneme/jtag ciktisina scripts/jtag_equiv_expected.sed normalizasyonunu
+#   3. calisma agaci ciktisina scripts/jtag_equiv_expected.sed normalizasyonunu
 #      uygular: sabit-0 dm telleri, sys_rst_n takma adi, "&& !x_to_dm" terimleri,
 #      dm_halt_addr/dm_exc_addr/dbg_req sabitleri (hepsi sentezde sabit katlama).
 #   4. Kalan diff ciktisini, dosya basina SAKLANAN BEKLENEN DIFF ile BIREBIR
@@ -33,11 +39,15 @@
 #   ASLA otomatik degildir; kapinin anlami budur.
 #
 # Kullanim:  make jtag-equiv      (esdegeri: bash scripts/jtag_define_off_equiv.sh)
+#            EQUIV_REF=<commit> make jtag-equiv   (baska bir referans commit)
+#            JTAG_MAIN_DIR=/yol/referans_agaci make jtag-equiv
 # Not: WSL'de kosar (verilator orada); git Windows tarafinda, bkz. adim 1.
 
 set -u
 
 cd "$(dirname "$0")/.." || exit 1
+# Referans commit: imzali kosunun RTL'ini tasiyan son main commit'i (bkz. baslik).
+EQUIV_REF=${EQUIV_REF:-73d8dcd}
 OUT=build/jtag_equiv
 MAIN="$OUT/main"
 SEDRULES=scripts/jtag_equiv_expected.sed
@@ -47,7 +57,7 @@ RATIONALE=scripts/jtag_equiv_known_diffs.txt
 SAVE=0
 [ "${1:-}" = "--kaydet" ] && SAVE=1
 
-# main'de de var olan, JTAG_DEBUG ile dokunulmus RTL dosyalari
+# referans commit'te de var olan, JTAG_DEBUG ile dokunulmus RTL dosyalari
 FILES="rtl/soc_top.sv rtl/bus/soc_axi_interconnect.sv rtl/asic/asic_top.sv \
 rtl/fpga_top.sv rtl/ai_accelerator/ai_accelerator.sv"
 
@@ -63,27 +73,27 @@ mkdir -p "$EXPDIR"
 
 rm -rf "$OUT"; mkdir -p "$MAIN"
 
-# ---- 1) main kaynaklarini al ----
+# ---- 1) referans kaynaklarini al ----
+# Oncelik: JTAG_MAIN_DIR (verilmisse git olsa bile o kullanilir) > git show $EQUIV_REF:
 GITARGS=""
 SRC_DESC=""
-if git rev-parse --git-dir >/dev/null 2>&1; then
-    SRC_DESC="git show main:"
+if [ -n "${JTAG_MAIN_DIR:-}" ] && [ -d "${JTAG_MAIN_DIR:-}" ]; then
+    SRC_DESC="JTAG_MAIN_DIR=$JTAG_MAIN_DIR"
+elif git rev-parse --git-dir >/dev/null 2>&1; then
+    SRC_DESC="git show $EQUIV_REF:"
 elif [ -f .git ]; then
     raw=$(sed -n 's/^gitdir: //p' .git | tr -d '\r')
     conv=$(printf '%s' "$raw" | sed -e 's|\\|/|g' -e 's|^\([A-Za-z]\):|/mnt/\l\1|')
     if [ -d "$conv" ]; then
         GITARGS="--git-dir=$conv"
-        SRC_DESC="git --git-dir=<worktree> show main:"
+        SRC_DESC="git --git-dir=<worktree> show $EQUIV_REF:"
     fi
 fi
-if [ -z "$SRC_DESC" ] && [ -n "${JTAG_MAIN_DIR:-}" ] && [ -d "${JTAG_MAIN_DIR:-}" ]; then
-    SRC_DESC="JTAG_MAIN_DIR=$JTAG_MAIN_DIR"
-fi
 [ -n "$SRC_DESC" ] || {
-    log "HATA: main dali kaynaklari alinamadi (git yok ve JTAG_MAIN_DIR tanimsiz)"
+    log "HATA: referans kaynaklari alinamadi (git yok ve JTAG_MAIN_DIR tanimsiz)"
     exit 1
 }
-log "main kaynagi: $SRC_DESC"
+log "referans kaynagi: $SRC_DESC"
 
 for f in $FILES; do
     mkdir -p "$MAIN/$(dirname "$f")"
@@ -91,8 +101,8 @@ for f in $FILES; do
         cp "$JTAG_MAIN_DIR/$f" "$MAIN/$f" || { log "HATA: $f alinamadi"; exit 1; }
     else
         # shellcheck disable=SC2086
-        git $GITARGS show "main:$f" > "$MAIN/$f" 2>/dev/null || {
-            log "HATA: 'git show main:$f' basarisiz"; exit 1; }
+        git $GITARGS show "$EQUIV_REF:$f" > "$MAIN/$f" 2>/dev/null || {
+            log "HATA: 'git show $EQUIV_REF:$f' basarisiz"; exit 1; }
     fi
 done
 
@@ -107,10 +117,10 @@ for f in $FILES; do
     exp="$EXPDIR/$b.diff"
     # shellcheck disable=SC2086
     verilator -E -P $INCDIRS "$f"        > "$OUT/cur_$b"  2> "$OUT/err_cur_$b"  || {
-        log "HATA: onisleme basarisiz (deneme/jtag): $f"; cat "$OUT/err_cur_$b"; exit 1; }
+        log "HATA: onisleme basarisiz (calisma agaci): $f"; cat "$OUT/err_cur_$b"; exit 1; }
     # shellcheck disable=SC2086
     verilator -E -P $INCDIRS "$MAIN/$f"  > "$OUT/main_$b" 2> "$OUT/err_main_$b" || {
-        log "HATA: onisleme basarisiz (main): $f"; cat "$OUT/err_main_$b"; exit 1; }
+        log "HATA: onisleme basarisiz (referans): $f"; cat "$OUT/err_main_$b"; exit 1; }
 
     raw=$(diff "$OUT/main_$b" "$OUT/cur_$b" | grep -c '^[<>]')
     sed -f "$SEDRULES" "$OUT/cur_$b" > "$OUT/norm_$b"
@@ -153,7 +163,7 @@ if [ "$SAVE" = "1" ]; then
     exit 0
 fi
 if [ "$overall" = "0" ]; then
-    log "VERDICT: PASS - JTAG_DEBUG TANIMSIZ derleme, sabit katlama + $total_exp satirlik BILEREK fark disinda main ile birebir AYNI"
+    log "VERDICT: PASS - JTAG_DEBUG TANIMSIZ derleme, sabit katlama + $total_exp satirlik BILEREK fark disinda referans ($SRC_DESC = imzali kosunun RTL'i) ile birebir AYNI"
     exit 0
 fi
 log "VERDICT: FAIL - beklenen diff ile sapma var (yukarida)"

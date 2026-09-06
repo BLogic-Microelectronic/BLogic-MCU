@@ -2,7 +2,8 @@
 // Ostim BLogic Mikroelektronik
 // jtag_smoke_tb.sv  -  riscv-dbg JTAG entegrasyonu: TAP -> DMI -> DM -> hart
 // ============================================
-// deneme/jtag dali, `+define+JTAG_DEBUG` ile derlenir (make jtag-sim).
+// JTAG debug altsistemi, teslim cipinin parcasi; JTAG_DEBUG tanimi soc_files.f'ten
+// gelir (teslim yapilandirmasi). make jtag-sim = test-all'in 17. bileseni.
 // Firmware (uart_hello) ISRAM'e $readmemh ile onyuklenir, BOOT_ADDR=0x10000.
 // Asamalar (hepsi gecerse TEST SUCCESS):
 //   1) UART: altin dize "Hello World from BLogic MCU!" -> cekirdek kosuyor

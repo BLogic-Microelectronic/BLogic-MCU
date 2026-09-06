@@ -2,7 +2,7 @@
 # Ostim BLogic Mikroelektronik
 # jtag_kart_wsl.ps1 - Genesys 2 USB-JTAG (FT2232H) cihazini usbipd ile WSL2'ye verir
 # ============================================
-# deneme/jtag dali. Kartta fpga_top_jtag.bit (BSCANE2 TAP) yukluyken OpenOCD'yi
+# JTAG debug altsistemi (teslim bitstream'inde ACIK). Kartta fpga_top.bit (BSCANE2 TAP) yukluyken OpenOCD'yi
 # WSL icinde kosturmak icin (Windows FTDI surucusu bozulmaz, Vivado etkilenmez):
 #   1) Bu betik (Windows, PowerShell):   .\scripts\jtag_kart_wsl.ps1          # attach
 #                                        .\scripts\jtag_kart_wsl.ps1 -Detach  # geri ver

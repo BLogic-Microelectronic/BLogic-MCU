@@ -1,0 +1,7 @@
+BLogic MCU - Genesys 2 (XC7K325T-2) bitstream build, 6 Eylul 2026 04:23-04:39
+Kaynak: rtl/fpga/build_genesys2.tcl (soc_files.f: JTAG_DEBUG + FC1_FIX + I2C_SDA_SYNC; BSCANE2 TAP), Vivado 2021.2
+SONUC: WNS = 2.538 ns, WHS = 0.085 ns (24248 / 24245 uc; 0 basarisiz)
+Kaynak kullanimi (impl): 13775 LUT, 9752 FF, 14 BRAM tile, 10 DSP, 43 IOB, 3 BUFG, 1 MMCM; guc 0.328 W
+JTAG bedeli (impl_utilization_hier.rpt): axi_dm_slave 183 LUT/54 FF, dm_top 488/665, dmi_jtag 583/362
+3 Eylul 2026 JTAG'li build ile (o zamanki adiyla fpga_top_jtag.bit; 6 Eylul kart kanitlari onunla alindi) LUT/FF/WNS/WHS birebir ayni: Vivado ayni girdilerle deterministik.
+ebc6905b546b22ef42f7963cf834f44e1af021d8d03f794f3735a39f5ccd5d25 *fpga_top.bit

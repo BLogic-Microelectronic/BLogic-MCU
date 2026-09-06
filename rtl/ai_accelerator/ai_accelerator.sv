@@ -805,17 +805,19 @@ module ai_accelerator #(
                     state        <= ST_FC_FETCH_W_WAIT;
                 end
                 ST_FC_FETCH_W_WAIT: begin
-                    // FC-1 duzeltmesi (yalniz deneme/jtag dali): bekleme boyunca
+                    // FC-1 duzeltmesi (FC1_FIX, teslim yapilandirmasinda ACIK): bekleme boyunca
                     // co_re ayni adresle surulur. OpenRAM modeli dout'u okumayi
                     // izleyen posedge'de X'ler; MAC'in tuketimi mem_done'a bagli
                     // (>=3 cevrim) oldugundan tek okuma yetmiyordu. Her cevrim
                     // yeniden okuyunca ST_FC_MAC daima T+1 verisi tuketir;
                     // davranissal dalda ayni adresin tekrar okunmasi sonucu
                     // degistirmez. Errata kaydi: asic/README.md 9.5 (FC-1).
-                    // FC1_FIX tanimi ARKASINDA (6 Eylul 2026): teslim kosusu bu
-                    // satir OLMADAN imzalandi ve 9.5 "declared, NOT patched" der.
-                    // Tanimsiz derleme teslimle birebir kalir; JTAG derlemeleri
-                    // ve sonraki re-spin tanimi acar.
+                    // Tarihce: 14 Agustos imzali kosu (73d8dcd) bu satir OLMADAN
+                    // kosuldu ve errata olarak ilan edildi; 6 Eylul 2026'dan itibaren
+                    // FC1_FIX her resmi giris noktasinda aciktir (soc_files.f,
+                    // asic/config.yaml, build_genesys2.tcl). Kanit: make asic-top-sim
+                    // (+CHECK_ARGMAX, argmax==2; FC1_FIX'siz RTL'de FAIL). ifdef
+                    // yalniz izolasyon kaniti icindir (make jtag-equiv).
 `ifdef FC1_FIX
                     co_re <= 1'b1;
 `endif

@@ -13,6 +13,9 @@ have been preserved unmodified.
 | pulp axi | https://github.com/pulp-platform/axi | `e286bb1a4aba6fc145f3cb41bd78665c5868e2a9` (master, after v0.39.9; VERSION=0.39.9 in the tree) | Solderpad HL 0.51 | `rtl/bus/axi/LICENSE` | No modifications |
 | pulp fpnew | https://github.com/pulp-platform/fpnew | vendored inside the cv32e40p `6033d2b1be32` tree (no separate pin) | Solderpad HL 0.51 / Apache-2.0 | `.../pulp_platform_fpnew/LICENSE.solderpad`, `LICENSE.apache` | Only `fpnew_pkg.sv`; FPU disabled (`FPU=0`) |
 | verilog-uart | https://github.com/alexforencich/verilog-uart | `1b867e53af738e4a8bc7c839ca2f1c07f40382dc` (master; 3 RTL files verified byte-identical against upstream) | MIT (c) 2014-2017 Alex Forencich | `rtl/peripherals/verilog-uart/COPYING` | `uart.v`, `uart_rx.v`, `uart_tx.v` unchanged; the AXI-Lite wrapper (`uart_axil.sv`) is ours |
+| pulp riscv-dbg | https://github.com/pulp-platform/riscv-dbg | `21a5fbe31ac91146022ad771d127b15c185e37fa` (master, 2026-08-11) | Solderpad HL 0.51 | `rtl/debug/vendor/riscv-dbg/LICENSE`; copy `asic/licenses/riscv-dbg_SHL-0.51.txt` | JTAG debug subsystem of the delivered chip (TAP, DTM, CDC, DM, debug ROM): files vendored verbatim, no local patches (file list: `rtl/debug/VENDOR.md`); `dmi_bscane_tap.sv` (same commit) is used only by the FPGA build in place of `dmi_jtag_tap.sv`; the AXI bridge `rtl/debug/axi_dm_slave.sv` is ours |
+| pulp common_cells v1.38.0 (CDC subset) | https://github.com/pulp-platform/common_cells | tag `v1.38.0` (`9afda9abb565971649c2aa0985639c096f351171`) | Solderpad HL 0.51 | `rtl/debug/vendor/common_cells_v1.38.0/LICENSE`; copy `asic/licenses/common_cells_v1.38.0_SHL-0.51.txt` | `cdc_2phase_clearable`, `cdc_reset_ctrlr(_pkg)`, `cdc_4phase` and the `assertions.svh`/`registers.svh` headers used by riscv-dbg `dmi_cdc`; content unchanged. The 1.20.0 copy under cv32e40p serves the rest of the SoC; the v1.38.0 include directory is listed first (its macros are a strict superset of the 1.20.0 ones) |
+| pulp tech_cells_generic | https://github.com/pulp-platform/tech_cells_generic | tag `v0.2.3` (`63da15065d2270788634562bb2240514a70f76cc`) | Solderpad HL 0.51 | `rtl/debug/vendor/tech_cells_generic/LICENSE`; copy `asic/licenses/tech_cells_generic_SHL-0.51.txt` | `tc_clk.sv` only (`tc_clk_inverter` and `tc_clk_mux2`, instantiated by riscv-dbg `dmi_jtag_tap`); content unchanged |
 
 ## Physical macros and PDK
 
@@ -29,11 +32,20 @@ have been preserved unmodified.
 |---|---|---|---|---|---|
 | UVM (Verilator adaptation) | https://github.com/verilator/uvm | `795b5f2` | Apache-2.0 | `verif/uvm-lib/LICENSE.txt`, `NOTICE.txt` | The `src/` subset was vendored in place (the URL-less gitlink remained empty in a clean clone); provenance: `verif/uvm-lib/KAYNAK.md` |
 | riscv-arch-test | https://github.com/riscv-non-isa/riscv-arch-test | commit id not recorded; the vendored version is identified from the `env/arch_test.h` header (copyright 2020-2023, the version that adds the instret counter to the signature and skips the `LA` macro at rd=x0) | BSD-3 / Apache-2.0 / CC | `verif/arch_tests/suite/COPYING.{BSD,APACHE,CC}` | Suite was vendored; the run script (`run_arch_test.sh`) is ours |
+| riscv-dbg `tb/SimJTAG.sv`, `tb/remote_bitbang/` | https://github.com/pulp-platform/riscv-dbg (same commit as above) | `21a5fbe31ac91146022ad771d127b15c185e37fa` | Apache-2.0 (SiFive) / BSD-3-Clause (UC Berkeley) | `rtl/debug/vendor/riscv-dbg/LICENSE.SiFive`, `tb/LICENSE.SiFive`, `tb/LICENSE.Berkeley` | OpenOCD `remote_bitbang` bridge for `make jtag-openocd-build` (simulation only, not in `asic/filelist.f`); the DPI-C server `rtl/debug/tb/jtag_dpi.cpp` is ours |
 
 ## Notes
 
-- For `common_cells`, the top-level license file is not present in the
-  vendored subset. The requirement of section 10, "mevcut lisans ve telif
+- The JTAG debug subsystem (riscv-dbg, the common_cells v1.38.0 CDC subset
+  and tech_cells_generic) entered the delivered configuration on
+  September 6, 2026 (`asic/config.yaml`, `asic/filelist.f`); the three
+  licence copies were added to `asic/licenses/` on the same date. The pins
+  can be re-verified with the clone commands in `rtl/debug/VENDOR.md`; the
+  vendored copies are byte-identical to upstream.
+- For the 1.20.0 `common_cells` copy under cv32e40p, the top-level license
+  file is not present in the vendored subset (the v1.38.0 CDC subset under
+  `rtl/debug/vendor/` does carry `LICENSE`, copied to
+  `asic/licenses/common_cells_v1.38.0_SHL-0.51.txt`). The requirement of section 10, "mevcut lisans ve telif
   bildirimlerinin korunmasi" (EN: preservation of existing license and
   copyright notices), is satisfied: every `.sv` file carries the full
   SHL-0.51 header. If the top-level license text is desired under

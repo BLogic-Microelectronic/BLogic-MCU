@@ -72,7 +72,7 @@ sw/ai_model/accuracy_report.txt
 !teknotest/**/*.mem
 !bootrom.hex
 !rtl/fpga/firmware_flash.bin
-# deneme/jtag: OpenOCD demo kanit logu (make jtag-openocd ciktisinin kopyasi)
+# JTAG debug altsistemi (teslim cipinin parcasi): OpenOCD demo kanit loglari (sim + kart; make jtag-openocd / jtag-board)
 !rtl/debug/openocd/demo_run_*.log
 
 # ============================================================

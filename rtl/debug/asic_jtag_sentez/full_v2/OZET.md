@@ -62,18 +62,23 @@ Gecerli olan iki bulgu (ve siradaki isin hedefi):
    periyotta zaten kapanamayan SS kosesine caba harciyor.
 
 Yani marj RTL'den degil CTS/resizer ayarlarindan geri kazanilabilir gorunuyor;
-varyant taramasi bunu kanitlamanin yolu. Teslim tasarimi bundan etkilenmez
-(ayri kosu, ayri dal).
+varyant taramasi bunu kanitladi (`../full_v3/`).
+
+NOT (6 Eylul 2026, Secenek B): JTAG debug altsistemi teslim cipinin parcasi
+oldu; v3'un dort CTS ayari ve JTAG SDC blogu `asic/config.yaml` +
+`asic/constraints/design.sdc`'ye alindi, resmi kosu `RUN_final_2026-09-06`.
+Bu dosyadaki "teslim" sutunu 14 Agustos imzali kosudur (JTAG'siz RTL, 73d8dcd)
+ve artik TARIHSEL REFERANSTIR; v1/v2 kesif kosularidir, teslim sayilari degildir.
 
 ## Alan / guc
 
 | | teslim | v1 | v2 |
 |---|---|---|---|
-| std-cell adet | 296.005 | 309.985 | 310.754 |
+| std-cell adet | 296.010 | 309.985 | 310.754 |
 | std-cell alan | 1,249 mm2 | 1,337 mm2 | 1,347 mm2 |
 | FF hucre | 8.920 | 10.094 | 10.133 |
 | Doluluk (makro dahil) | %49,87 | %50,36 | %50,42 |
-| Guc (TT) | 118,3 mW | 123,2 mW | 123,9 mW |
+| Guc (metrics.json power__total, FF kosesi) | 118,3 mW | 123,2 mW | 123,9 mW |
 | IR-drop en kotu | 1,54 mV | 2,35 mV | 2,92 mV (1,8 V'un %0,16'si) |
 
 Yazmac katmani v1'e gore yalnizca +769 std-cell (+39 FF) getirdi; JTAG revizyonunun

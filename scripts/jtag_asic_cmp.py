@@ -1,3 +1,17 @@
+# ============================================
+# Ostim BLogic Mikroelektronik
+# jtag_asic_cmp.py  -  iki LibreLane metrics.json dosyasini metrik metrik karsilastirir
+# ============================================
+# Kullanim (kesif kosularinin karsilastirilmasi, 3-4 Eylul 2026; JTAG artik
+# teslim cipinin parcasi - kok README 10.10):
+#   python3 scripts/jtag_asic_cmp.py <referans_metrics.json> <kosu_metrics.json>
+#   orn: python3 scripts/jtag_asic_cmp.py asic/results/metrics/metrics.json \
+#            rtl/debug/asic_jtag_sentez/full_v3/metrics.json
+#   (asic/results/metrics = resmi kosunun metrikleri; 14 Agustos JTAG'siz kosu
+#    tarihsel referans olarak rtl/debug/asic_jtag_sentez/*/OZET.md tablolarindadir)
+# Cikti: metrik | teslim | jtag | fark tablosu (stdout; sutun adlari tarihsel,
+# birinci/ikinci dosya anlaminda). Yalniz okur; hicbir dosyaya yazmaz.
+# Not: power__total metrics.json'da FF kosesidir (asic/README 9.10).
 import json, sys
 t = json.load(open(sys.argv[1])); j = json.load(open(sys.argv[2]))
 keys = ["timing__setup__ws__corner:nom_tt_025C_1v80","timing__hold__ws__corner:nom_tt_025C_1v80",

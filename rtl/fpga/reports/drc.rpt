@@ -1,14 +1,14 @@
-Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
----------------------------------------------------------------------------------------------------------------------------------------------
-| Tool Version : Vivado v.2023.2 (win64) Build 4029153 Fri Oct 13 20:14:34 MDT 2023
-| Date         : Fri Aug 14 12:26:21 2026
+Copyright 1986-2021 Xilinx, Inc. All Rights Reserved.
+------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2021.2 (win64) Build 3367213 Tue Oct 19 02:48:09 MDT 2021
+| Date         : Sun Sep  6 04:38:46 2026
 | Host         : Berk66 running 64-bit major release  (build 9200)
-| Command      : report_drc -file C:/Users/Lenovo/blogic_fpga/rtl/fpga/reports/drc.rpt
+| Command      : report_drc -file Y:/rtl/fpga/reports/drc.rpt
 | Design       : fpga_top
 | Device       : xc7k325tffg900-2
 | Speed File   : -2
 | Design State : Fully Routed
----------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------
 
 Report DRC
 
@@ -326,7 +326,7 @@ Related violations: <none>
 
 REQP-1840#1 Warning
 RAMB18 async control check  
-The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/f_idx_reg[0]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
+The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/kh_idx_reg[2]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
 Related violations: <none>
 
 REQP-1840#2 Warning
@@ -341,12 +341,12 @@ Related violations: <none>
 
 REQP-1840#4 Warning
 RAMB18 async control check  
-The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/state_reg[3]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
+The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/kw_idx_reg[2]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
 Related violations: <none>
 
 REQP-1840#5 Warning
 RAMB18 async control check  
-The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/state_reg[4]_rep) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
+The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[11] (net: i_soc/i_ai_accel/cw_raddr[6]) which is driven by a register (i_soc/i_ai_accel/state_reg[1]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
 Related violations: <none>
 
 REQP-1840#6 Warning
@@ -421,7 +421,7 @@ Related violations: <none>
 
 REQP-1840#20 Warning
 RAMB18 async control check  
-The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[12] (net: i_soc/i_ai_accel/cw_raddr[7]) which is driven by a register (i_soc/i_ai_accel/state_reg[4]_rep) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
+The RAMB18E1 i_soc/i_ai_accel/conv_w_mem_reg has an input control pin i_soc/i_ai_accel/conv_w_mem_reg/ADDRARDADDR[12] (net: i_soc/i_ai_accel/cw_raddr[7]) which is driven by a register (i_soc/i_ai_accel/state_reg[4]_rep__0) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
 Related violations: <none>
 
 RPBF-3#1 Warning

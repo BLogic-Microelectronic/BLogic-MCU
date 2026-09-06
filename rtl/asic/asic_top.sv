@@ -33,8 +33,10 @@ module asic_top (
     input  logic        i2c_sda_i
 `ifdef JTAG_DEBUG
     ,
-    // JTAG TAP pinleri - YALNIZ JTAG_DEBUG (deneme/jtag). Tanim yokken port
-    // listesi ve mantik teslimle birebir (soc_top ile ayni koruma).
+    // JTAG TAP pinleri (16 -> 21 port) - JTAG_DEBUG teslim yapilandirmasinda
+    // ACIK (asic/config.yaml, filelist.f; design.sdc: jtag_tck 100 ns, clk ile
+    // asenkron grup, jtag_trst_ni false path). ifdef yalniz izolasyon kaniti:
+    // tanim yokken port listesi ve mantik 73d8dcd ile birebir (soc_top gibi).
     input  logic        jtag_tck_i,
     input  logic        jtag_tms_i,
     input  logic        jtag_tdi_i,

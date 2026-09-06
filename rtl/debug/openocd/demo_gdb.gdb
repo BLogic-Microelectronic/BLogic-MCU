@@ -3,7 +3,8 @@
 # demo_gdb.gdb  -  gdb demo: OpenOCD gdb sunucusu (:3333) uzerinden reset halt /
 #                  breakpoint / tek adim / register / bellek / resume-halt
 # ============================================
-# deneme/jtag dali (JTAG_DENEME_PLANI.md, Gun 3). blogic_sim.cfg init + halt
+# JTAG debug altsistemi, teslim cipinin parcasi (gelistirme gunlugu
+# rtl/debug/JTAG_DENEME_PLANI.md, Gun 3). blogic_sim.cfg init + halt
 # yapip :3333'te gdb sunucusunu acmis olmali (kosucu: make jtag-gdb ->
 # scripts/run_jtag_gdb.sh). Elle:
 #   gdb-multiarch -batch -x rtl/debug/openocd/demo_gdb.gdb build/test.elf

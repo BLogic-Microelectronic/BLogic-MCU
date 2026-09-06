@@ -3,7 +3,9 @@
 // axi_dm_slave.sv  -  iki AXI4 slave portunu riscv-dbg dm_top'un tek
 //                     senkron bellek portuna tahkim eden kopru
 // ============================================
-// deneme/jtag dali. Debug Module (dm_top) tek portlu, SRAM benzeri bir
+// JTAG debug altsistemi, teslim cipinin parcasi (JTAG_DEBUG teslim
+// yapilandirmasinda ACIK: soc_files.f, asic/config.yaml, build_genesys2.tcl).
+// Debug Module (dm_top) tek portlu, SRAM benzeri bir
 // bellek arayuzu sunar: req/we/addr/be/wdata T'de, rdata T+1'de (dm_mem
 // icinde kayitli; bir sonraki OKUMAYA kadar tutulur). Cekirdek debug
 // ROM'unda kosarken ayni cevrimde hem buyruk getirebilir (instr_slv) hem

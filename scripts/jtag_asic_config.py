@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """
 jtag_asic_config.py - asic/config.yaml'dan SENTEZ karsilastirma config'leri turetir.
-deneme/jtag dali. asic/ klasorune DOKUNMAZ (yalniz okur); ciktilar build/asic_jtag/.
+TARIHSEL KESIF ARACI (3-4 Eylul 2026): JTAG teslim yapilandirmasina alinmadan once
+kullanildi; kanitlar rtl/debug/asic_jtag_sentez/ (v1/v2/v3). 6 Eylul 2026'dan
+itibaren asic/config.yaml JTAG kaynaklarini, uc tanimi (JTAG_DEBUG/FC1_FIX/
+I2C_SDA_SYNC), v1.38.0 include dizinini ve design.sdc jtag_tck blogunu ZATEN
+icerdiginden bu betigin 'jtag'/'full' turevleri kaynaklari ve SDC satirlarini
+IKI KEZ listeler; 'base' turevi de artik JTAG'siz degildir. Yeniden kullanilacaksa
+once bu ikilenme giderilmelidir. asic/ klasorune DOKUNMAZ (yalniz okur); ciktilar build/asic_jtag/.
 
 Iki config uretir (ikisi de ust modul soc_top, yalniz fark JTAG_DEBUG):
   build/asic_jtag/base/config.yaml  - JTAG yok  (teslim RTL'i, asic_top sargisi haric)
@@ -46,7 +52,8 @@ def jtag_lists():
     return files, incs
 
 JTAG_SDC = """
-# ---- JTAG_DEBUG (deneme/jtag) - jtag_asic_config.py tarafindan eklendi ----
+# ---- JTAG_DEBUG - jtag_asic_config.py tarafindan eklendi (kesif araci; ayni blok
+# 6 Eylul 2026'dan beri asic/constraints/design.sdc sonunda) ----
 # TAP saati: OpenOCD adapter <= 10 MHz -> 100 ns. TCK <-> clk gecisleri riscv-dbg
 # dmi_cdc (2-faz el sikisma) ile korunur; iki saat asenkron gruptur.
 create_clock -name jtag_tck -period 100.000 [get_ports jtag_tck_i]
@@ -86,9 +93,9 @@ def derive(with_jtag, full=False):
             # v1.38.0 common_cells basliklari eski incdir'den ONCE aranmali
             out += ["  - dir::../../../%s   # JTAG (jtag_files.f include sirasi notu)" % d for d in jincs]
         if with_jtag and re.match(r"^VERILOG_DEFINES:", line):
-            out.append("  - JTAG_DEBUG        # riscv-dbg DM + DTM + axi_dm_slave (deneme/jtag)")
-            out.append("  - FC1_FIX           # ai_accelerator FC-1 duzeltmesi (teslimde kapali, JTAG varyantinda acik)")
-            out.append("  - I2C_SDA_SYNC      # i2c_sda_i 2FF senkronizator (teslimde kapali, JTAG varyantinda acik)")
+            out.append("  - JTAG_DEBUG        # riscv-dbg DM + DTM + axi_dm_slave (teslim yapilandirmasinda acik)")
+            out.append("  - FC1_FIX           # ai_accelerator FC-1 duzeltmesi (teslim yapilandirmasinda acik)")
+            out.append("  - I2C_SDA_SYNC      # i2c_sda_i 2FF senkronizator (teslim yapilandirmasinda acik)")
     return "\n".join(out) + "\n"
 
 for name, flag, full in (("base", False, False), ("jtag", True, False), ("full", True, True)):

@@ -3,9 +3,14 @@
 # Ostim BLogic Mikroelektronik
 # jtag_elab_check.sh - JTAG_DEBUG derlemesinin SENTEZ ELABORASYON kontrolu
 # ============================================
-# deneme/jtag dali. asic_elab.sh'in JTAG varyanti: ayni yosys-slang akisi,
-# ayni tanimlar (SYNTHESIS + ASIC_SRAM_MACRO) ARTI JTAG_DEBUG; ust modul
-# soc_top (asic_top'ta JTAG pini yok). asic/ klasoruna DOKUNMAZ: filelist.f
+# TARIHSEL KESIF ARACI (3 Eylul 2026, VM'de PASS - kok README 10.10): JTAG teslim
+# yapilandirmasina alinmadan once asic_elab.sh'in JTAG'li karsiligiydi (ayni
+# yosys-slang akisi, SYNTHESIS + ASIC_SRAM_MACRO ARTI JTAG_DEBUG/FC1_FIX/
+# I2C_SDA_SYNC; ust modul soc_top). 6 Eylul 2026'dan itibaren asic/filelist.f
+# JTAG kaynaklarini ve uc tanimi ZATEN tasidigindan bu betik (jtag_files.f'i
+# ayrica ekler) kaynaklari iki kez listeler; teslim yapilandirmasinin
+# elaborasyon/lint kapilari 'make asic-elab' (asic/filelist.f) ve 'make lint'tir.
+# asic/ klasoruna DOKUNMAZ: filelist.f
 # yalniz okunur, cikti build/jtag_elab/ altina yazilir. PnR YOK - amac
 # riscv-dbg + cdc + tc_clk hucrelerinin ve axi_dm_slave'in sky130 akisinda
 # elaborate edildigini gostermek ("sonraki revizyona hazir" kaniti).

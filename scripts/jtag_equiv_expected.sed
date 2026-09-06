@@ -2,9 +2,10 @@
 # Ostim BLogic Mikroelektronik
 # jtag_equiv_expected.sed  -  "JTAG_DEBUG tanimsiz" normalizasyon kurallari
 # ============================================
-# deneme/jtag dali. scripts/jtag_define_off_equiv.sh bu kurallari, TANIMSIZ
-# (define YOK) onislemci ciktisina uygular ve sonucu main dalinin ayni
-# ciktisiyla karsilastirir. Her kural, sentezde SABIT KATLAMA ile yok olan
+# Izolasyon kaniti (JTAG teslim cipinin parcasi; ifdef'ler bu kanit icin duruyor).
+# scripts/jtag_define_off_equiv.sh bu kurallari, TANIMSIZ
+# (define YOK) onislemci ciktisina uygular ve sonucu referans commit'in
+# (73d8dcd, imzali kosunun RTL'i) ayni ciktisiyla karsilastirir. Her kural, sentezde SABIT KATLAMA ile yok olan
 # bir yapiya karsilik gelir; yeni bir kural eklemek "esdeger" iddiasini
 # genisletir, bu yuzden her satirin gerekcesi asagida yazilidir.
 #

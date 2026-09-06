@@ -2,7 +2,8 @@
 // Ostim BLogic Mikroelektronik
 // axi_dm_slave_tb.sv  -  axi_dm_slave koprusunun YONLU birim testi
 // ============================================
-// deneme/jtag dali, test boslugu G-08.
+// JTAG debug altsistemi (teslim cipinin parcasi), test boslugu G-08;
+// make jtag-bridge-sim = test-all'in 18. bileseni.
 // Kopru bugune kadar yalniz uctan uca (jtag_smoke_tb / jtag_openocd_tb)
 // dolayli dogrulandi. Bugunku master (obi_to_axi) r_ready/b_ready'yi HER ZAMAN
 // yuksek tuttugu icin su durumlar hic olusmadi:

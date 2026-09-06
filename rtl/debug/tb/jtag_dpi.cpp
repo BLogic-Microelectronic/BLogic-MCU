@@ -2,7 +2,8 @@
 // Ostim BLogic Mikroelektronik
 // jtag_dpi.cpp  -  SimJTAG icin DPI-C koprusu: OpenOCD remote_bitbang sunucusu
 // ============================================
-// deneme/jtag dali (JTAG_DENEME_PLANI.md, Gun 2). SimJTAG.sv
+// JTAG debug altsistemi, teslim cipinin parcasi (gelistirme gunlugu
+// rtl/debug/JTAG_DENEME_PLANI.md, Gun 2). SimJTAG.sv
 // (rtl/debug/vendor/riscv-dbg/tb) her TICK_DELAY cevrimde `jtag_tick` DPI
 // fonksiyonunu cagirir; bu dosya o fonksiyonu C baglantisiyla (extern "C")
 // saglar ve TCP 'PORT' uzerinde OpenOCD remote_bitbang protokolunu konusur.

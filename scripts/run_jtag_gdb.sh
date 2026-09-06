@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================
 # Ostim BLogic Mikroelektronik
-# run_jtag_gdb.sh  -  gdb (OpenOCD :3333) ucdan-uca demo kosucusu (deneme/jtag, Gun 3)
+# run_jtag_gdb.sh  -  gdb (OpenOCD :3333) ucdan-uca demo kosucusu (JTAG teslim cipinin parcasi; Gun 3)
 # ============================================
 # Akis:
 #   1. depo kokune gec; obj_dir_jtag_ocd/jtag_openocd_sim ya da build/test.elf yoksa

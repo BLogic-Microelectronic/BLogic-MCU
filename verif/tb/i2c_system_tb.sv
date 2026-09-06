@@ -23,6 +23,11 @@ module i2c_system_tb;
         .qspi_io_i(4'hF),
         .i2c_scl_o(scl), .i2c_sda_oe_o(dut_sda_oe), .i2c_sda_i(sda),
         .gpio_in_i('0)
+`ifdef JTAG_DEBUG
+        // JTAG TAP bagli degil: trst_n=0 TAP'i resette tutar (DM pasif, debug_req=0)
+        , .jtag_tck_i(1'b0), .jtag_tms_i(1'b0), .jtag_tdi_i(1'b0),
+          .jtag_trst_ni(1'b0), .jtag_tdo_o()
+`endif
     );
 
     i2c_slave_model #(.ADDR(7'h42)) slave (

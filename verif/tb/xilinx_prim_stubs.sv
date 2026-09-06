@@ -2,15 +2,16 @@
 // Ostim BLogic Mikroelektronik
 // xilinx_prim_stubs.sv  -  Xilinx primitif kabuklari (YALNIZ LINT)
 // ============================================
-// deneme/jtag dali, test boslugu G-13.
-// `make jtag-lint-fpga` fpga_top'u JTAG_DEBUG ile Verilator lint'inden gecirir.
+// JTAG debug altsistemi (teslim bitstream'inde ACIK), test boslugu G-13.
+// `make lint-fpga` fpga_top'u teslim tanimlariyla (soc_files.f) Verilator
+// lint'inden gecirir.
 // fpga_top Vivado primitiflerini dogrudan ornekler (IBUFDS, MMCME2_BASE, BUFG,
 // STARTUPE2) ve FPGA TAP'i (dmi_bscane_tap.sv) BSCANE2 kullanir. Verilator bu
 // kutuphaneyi tanimadigi icin burada BOS kabuklar verilir: yalnizca port/
 // parametre imzalari dogrudur, davranis YOKTUR.
 //
 // DIKKAT: Bu dosya hicbir sentez akisina (Vivado, LibreLane, yosys) girmez ve
-// hicbir simulasyon hedefinde derlenmez; yalnizca jtag-lint-fpga komut satirinda
+// hicbir simulasyon hedefinde derlenmez; yalnizca lint-fpga komut satirinda
 // gecer. Gercek primitifler Vivado kutuphanesinden gelir.
 `timescale 1ns / 1ps
 

@@ -3,6 +3,39 @@
 # soc_files.f  -  Verilator/sentez dosya listesi
 # ============================================
 
+# ------------------------------------------------------------
+# JTAG debug altsistemi (riscv-dbg) - TESLIM YAPILANDIRMASINDA ACIK
+# Sartname "JTAG (Opsiyonel)": JTAG TAP -> riscv-dbg DTM/DM -> CV32E40P debug
+# portu. Tanimlar asic/config.yaml VERILOG_DEFINES ile birebir (FC1_FIX: FC-1
+# erratasinin duzeltmesi; I2C_SDA_SYNC: i2c_sda_i 2FF senkronizator). Kaynak
+# sirasi asic/config.yaml JTAG blogu ve rtl/debug/jtag_files.f ile aynidir.
+# v1.38.0 common_cells include dizini ESKI cv32e40p kopyasindan ONCE aranmali
+# (ASSUME makrosu 5 arguman; ayrinti rtl/debug/jtag_files.f). Surumler:
+# rtl/debug/VENDOR.md. FPGA akisi (build_genesys2.tcl) bu listeyi okur ve
+# dmi_jtag_tap.sv yerine BSCANE2'li dmi_bscane_tap.sv'yi koyar.
+# ------------------------------------------------------------
++define+JTAG_DEBUG
++define+FC1_FIX
++define+I2C_SDA_SYNC
++incdir+rtl/debug/vendor/common_cells_v1.38.0/include
+rtl/debug/vendor/common_cells_v1.38.0/cdc_reset_ctrlr_pkg.sv
+rtl/debug/vendor/common_cells_v1.38.0/cdc_4phase.sv
+rtl/debug/vendor/common_cells_v1.38.0/cdc_reset_ctrlr.sv
+rtl/debug/vendor/common_cells_v1.38.0/cdc_2phase_clearable.sv
+rtl/debug/vendor/tech_cells_generic/tc_clk.sv
+rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/sync.sv
+rtl/debug/vendor/riscv-dbg/src/dm_pkg.sv
+rtl/debug/vendor/riscv-dbg/debug_rom/debug_rom.sv
+rtl/debug/vendor/riscv-dbg/debug_rom/debug_rom_one_scratch.sv
+rtl/debug/vendor/riscv-dbg/src/dm_csrs.sv
+rtl/debug/vendor/riscv-dbg/src/dm_mem.sv
+rtl/debug/vendor/riscv-dbg/src/dm_sba.sv
+rtl/debug/vendor/riscv-dbg/src/dm_top.sv
+rtl/debug/vendor/riscv-dbg/src/dmi_cdc.sv
+rtl/debug/vendor/riscv-dbg/src/dmi_jtag_tap.sv
+rtl/debug/vendor/riscv-dbg/src/dmi_jtag.sv
+rtl/debug/axi_dm_slave.sv
+
 # include adresleri
 +incdir+rtl/core/cv32e40p/rtl/include
 +incdir+rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include

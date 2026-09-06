@@ -3,8 +3,8 @@
 # Ostim BLogic Mikroelektronik
 # run_jtag_board.sh - GERCEK KARTTA (Genesys 2) OpenOCD ile JTAG demosu
 # ============================================
-# deneme/jtag dali. Onkosullar:
-#   1) Kartta rtl/fpga/fpga_top_jtag.bit yuklu (BSCANE2 TAP; Vivado ile yuklenir)
+# JTAG debug altsistemi (teslim bitstream'inde ACIK; 6 Eylul 2026 kartta PASS). Onkosullar:
+#   1) Kartta rtl/fpga/fpga_top.bit yuklu (BSCANE2 TAP; Vivado ile yuklenir)
 #   2) Kartin FT2232H'si WSL'e verilmis:  .\scripts\jtag_kart_wsl.ps1  (Windows)
 #      -> Vivado hw_server ve Tera Term KAPALI olmali (ayni kanal)
 #   3) WSL'de openocd (ftdi surucusu) ve /dev/bus/usb erisimi (udev 99-ftdi.rules)

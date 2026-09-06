@@ -4,7 +4,11 @@
 # ============================================
 #
 # Verilator -f dosyasi. Yollar repo koku'ne goredir (soc_files.f gibi).
-# soc_files.f ile BIRLIKTE kullanilmak uzere tasarlanmistir:
+# NOT (6 Eylul 2026): ayni kaynak listesi ve uc teslim tanimi (JTAG_DEBUG,
+# FC1_FIX, I2C_SDA_SYNC) artik soc_files.f'in BASINDA da vardir - teslim
+# yapilandirmasi. Bu dosya yalniz soc_top'suz derlemeler icindir (make
+# jtag-bridge-sim, VENDOR.md tek basina lint); soc_files.f ile birlikte
+# verilirse ayni dosyalar iki kez okunur (MODDUP). Kurallar (soc_files.f ile ayni):
 #   - fifo_v3.sv (dm_csrs kullanir) burada LISTELENMEZ: soc_files.f'de zaten
 #     var; ayni dosya iki kez verilirse Verilator MODDUP hatasi uretir.
 #   - spill_register.sv de LISTELENMEZ (soc_files.f'de var). cdc_4phase_dst
@@ -58,7 +62,8 @@ rtl/debug/vendor/riscv-dbg/src/dm_sba.sv
 rtl/debug/vendor/riscv-dbg/src/dm_top.sv
 # DMI / JTAG TAP
 # (dmi_bscane_tap.sv BILEREK listelenmez: ayni 'dmi_jtag_tap' modul adini tasir,
-#  yalnizca rtl/fpga/build_genesys2_jtag.tcl onu dmi_jtag_tap.sv YERINE okur.)
+#  yalnizca rtl/fpga/build_genesys2.tcl onu dmi_jtag_tap.sv YERINE okur; lint
+#  icin make lint-fpga ayni degisimi yapar.)
 rtl/debug/vendor/riscv-dbg/src/dmi_cdc.sv
 rtl/debug/vendor/riscv-dbg/src/dmi_jtag_tap.sv
 rtl/debug/vendor/riscv-dbg/src/dmi_jtag.sv

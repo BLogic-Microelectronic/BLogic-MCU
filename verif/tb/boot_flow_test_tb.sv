@@ -22,6 +22,11 @@ module boot_flow_test_tb;
         .qspi_io_o(qspi_io_o), .qspi_io_oe(qspi_io_oe),
         .qspi_io_i(qspi_io_i),
         .gpio_in_i('0)
+`ifdef JTAG_DEBUG
+        // JTAG TAP bagli degil: trst_n=0 TAP'i resette tutar (DM pasif, debug_req=0)
+        , .jtag_tck_i(1'b0), .jtag_tms_i(1'b0), .jtag_tdi_i(1'b0),
+          .jtag_trst_ni(1'b0), .jtag_tdo_o()
+`endif
     );
 
     // flash model: 4-lane arayuz

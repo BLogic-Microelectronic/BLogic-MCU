@@ -3,9 +3,15 @@
 # Ostim BLogic Mikroelektronik
 # vm_jtag_asic.sh - JTAG revizyonunun ASIC (sky130) sentez maliyeti - VM kosusu
 # ============================================
-# deneme/jtag dali. VM'de (LibreLane ortami: asic/environment flake) kosulur;
-# yerel sonuc kanonik sayilmaz. asic/ klasorune DOKUNMAZ; teslim kosusu
-# (asic/run/RUN_teslim_*) ile ilgisi yok - her sey build/asic_jtag/ altindadir.
+# TARIHSEL KESIF ARACI (3-4 Eylul 2026; kanitlar rtl/debug/asic_jtag_sentez/):
+# JTAG teslim yapilandirmasina alinmadan once sentez maliyetini ve tam akisi
+# (v1/v2/v3) olcmek icin kullanildi; v3'un dort CTS ayari ve JTAG SDC blogu
+# 6 Eylul 2026'da asic/config.yaml + asic/constraints/design.sdc'ye alindi,
+# resmi kosu 'make asic_run TAG=RUN_final_2026-09-06'dir. jtag_asic_config.py'nin
+# urettigi configler artik JTAG kaynaklarini/SDC satirlarini ikiler (o dosyanin notu).
+# VM'de (LibreLane ortami: asic/environment flake) kosulur;
+# yerel sonuc kanonik sayilmaz. asic/ klasorune DOKUNMAZ; resmi kosu
+# (asic/run/RUN_*) ile ilgisi yok - her sey build/asic_jtag/ altindadir.
 #
 # Adimlar:
 #   1) scripts/jtag_elab_check.sh      - yosys-slang elaborasyon (kanonik)
