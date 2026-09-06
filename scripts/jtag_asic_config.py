@@ -87,6 +87,8 @@ def derive(with_jtag, full=False):
             out += ["  - dir::../../../%s   # JTAG (jtag_files.f include sirasi notu)" % d for d in jincs]
         if with_jtag and re.match(r"^VERILOG_DEFINES:", line):
             out.append("  - JTAG_DEBUG        # riscv-dbg DM + DTM + axi_dm_slave (deneme/jtag)")
+            out.append("  - FC1_FIX           # ai_accelerator FC-1 duzeltmesi (teslimde kapali, JTAG varyantinda acik)")
+            out.append("  - I2C_SDA_SYNC      # i2c_sda_i 2FF senkronizator (teslimde kapali, JTAG varyantinda acik)")
     return "\n".join(out) + "\n"
 
 for name, flag, full in (("base", False, False), ("jtag", True, False), ("full", True, True)):

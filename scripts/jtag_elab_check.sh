@@ -26,7 +26,7 @@ mkdir -p build/jtag_elab
 
 # NOT: JTAG incdir'i (common_cells v1.38.0 basliklari) eski incdir'den ONCE
 # verilir (rtl/debug/jtag_files.f'teki include-sirasi notu).
-YS_CMD="yosys -m slang -p \"read_slang --keep-hierarchy -DSYNTHESIS -DASIC_SRAM_MACRO -DJTAG_DEBUG \
+YS_CMD="yosys -m slang -p \"read_slang --keep-hierarchy -DSYNTHESIS -DASIC_SRAM_MACRO -DJTAG_DEBUG -DFC1_FIX -DI2C_SDA_SYNC \
    $JINC \
    -Irtl/core/cv32e40p/rtl/include \
    -Irtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include \

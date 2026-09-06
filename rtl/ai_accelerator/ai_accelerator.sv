@@ -812,7 +812,13 @@ module ai_accelerator #(
                     // yeniden okuyunca ST_FC_MAC daima T+1 verisi tuketir;
                     // davranissal dalda ayni adresin tekrar okunmasi sonucu
                     // degistirmez. Errata kaydi: asic/README.md 9.5 (FC-1).
+                    // FC1_FIX tanimi ARKASINDA (6 Eylul 2026): teslim kosusu bu
+                    // satir OLMADAN imzalandi ve 9.5 "declared, NOT patched" der.
+                    // Tanimsiz derleme teslimle birebir kalir; JTAG derlemeleri
+                    // ve sonraki re-spin tanimi acar.
+`ifdef FC1_FIX
                     co_re <= 1'b1;
+`endif
                     if (mem_done) state <= ST_FC_MAC;
                 end
 

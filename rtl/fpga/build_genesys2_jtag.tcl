@@ -196,7 +196,7 @@ puts "BILGI: BOOT_ADDR = 32'h$BOOT_ADDR_HEX"
 # UART/LED calisiyor + bootrom'suz bitstream'de CS# hic dusmuyor.
 synth_design -top fpga_top -part $PART \
     -include_dirs $incdirs \
-    -verilog_define [list BOOTROM_CONTENT JTAG_DEBUG] \
+    -verilog_define [list BOOTROM_CONTENT JTAG_DEBUG FC1_FIX I2C_SDA_SYNC] \
     -generic BOOT_ADDR=32'h$BOOT_ADDR_HEX
 
 write_checkpoint -force [file join $build_dir post_synth.dcp]

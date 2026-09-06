@@ -1,32 +1,24 @@
 # ============================================
 # Ostim BLogic Mikroelektronik
-# jtag_equiv_known_diffs.txt  -  BILEREK yapilmis, KOSULSUZ (JTAG_DEBUG
-#                                tanimsizken de var olan) deneme/jtag <-> main
-#                                farklarinin GEREKCESI
+# jtag_equiv_known_diffs.txt  -  deneme/jtag <-> main KOSULSUZ fark GEREKCESI
 # ============================================
-# ONEMLI: Bu dosya YALNIZ BELGEDIR; scripts/jtag_define_off_equiv.sh esleme
-# icin bunu KULLANMAZ. Kapi, dosya basina saklanan birebir diff'tir:
+# Bu dosya YALNIZ BELGEDIR; scripts/jtag_define_off_equiv.sh esleme icin bunu
+# kullanmaz. Kapi, dosya basina saklanan birebir diff'tir:
 #   scripts/jtag_equiv_expected_diffs/<yol_alt_cizgili>.diff
-# (3 Eylul 2026 gozden gecirmesi: eski ERE listesi "^ *end$" gibi cok genel
-#  oruntuler icerdigi icin gercek bir degisikligi de "beklenen" sayabilirdi.)
 #
-# Beklenen 13 fark satiri, iki bilincli degisiklikten gelir:
+# DURUM (6 Eylul 2026, birlestirme hazirligi): KOSULSUZ FARK YOK.
+# Bes dosyanin bes beklenen diff'i de BOS; JTAG_DEBUG tanimsiz onisleme ciktisi
+# main ile satir satir aynidir. Bu, teslim kosusunun (RUN_teslim_2026-08-14)
+# main'in varsayilan RTL'ini temsil etmeye devam etmesi icin gerekliydi.
 #
-# --- (1) rtl/soc_top.sv: I2C SDA girisi icin 2FF senkronizator (12 satir) ---
-# JTAG'den bagimsizdir; deneme/jtag dalinda eklendi, main'de yok.
-# CDC hijyeni: harici acik-drenaj SDA hatti dogrudan mantiga giriyordu;
-# iki kademeli senkronizator metastabilite koruma zinciri ekler.
-#   + logic i2c_sda_sync1, i2c_sda_sync2;
-#   + always_ff bloku (reset'te 1'b1, sonra i2c_sda_i -> sync1 -> sync2)
-#   - i2c ornegi .sda_i(i2c_sda_i)      (main)
-#   + i2c ornegi .sda_i(i2c_sda_sync2)  (deneme/jtag)
+# Daha once kosulsuz olan iki degisiklik artik TANIM ARKASINDADIR:
+#   FC1_FIX       rtl/ai_accelerator/ai_accelerator.sv - ST_FC_FETCH_W_WAIT'te
+#                 co_re'nin bekleme boyunca yuksek tutulmasi (asic/README 9.5,
+#                 "declared, NOT patched" beyani teslim icin dogru kalir)
+#   I2C_SDA_SYNC  rtl/soc_top.sv - i2c_sda_i icin 2FF senkronizator
+#                 (asic/README 9.9 "RTL review note" teslim icin dogru kalir)
+# JTAG derlemeleri (make jtag-*, regression-jtag, build_genesys2_jtag.tcl,
+# jtag_elab_check.sh, jtag_asic_config.py) uc tanimi birlikte acar; boylece
+# olculen JTAG varyanti (v1/v2/v3 kosulari, kart bitstream'i) degismez.
 #
-# --- (2) rtl/ai_accelerator/ai_accelerator.sv: FC-1 errata duzeltmesi (1) ---
-# ST_FC_FETCH_W_WAIT icinde co_re'nin bekleme boyunca yuksek tutulmasi
-# (makro-dal okuma tutma sozlesmesi). asic/README.md 9.5 (FC-1);
-# yalniz deneme/jtag dalinda, main'de bilerek birakildi.
-#   + co_re <= 1'b1;
-#
-# Bu iki degisiklik disinda, JTAG_DEBUG tanimsiz onisleme ciktisi main ile
-# birebir aynidir (sabit katlamaya giden isim/sabit normalizasyonlari
-# scripts/jtag_equiv_expected.sed icinde gerekceleriyle listelidir).
+# Beklenen diff'i bilerek guncellemek: bash scripts/jtag_define_off_equiv.sh --kaydet

@@ -263,7 +263,7 @@ jtag-sim:
 	rm -rf build
 	$(MAKE) -f Makefile.verilator sw FW_SRC=sw/tests/uart_hello.c
 	rm -rf $(JTAG_DIR)
-	verilator --binary $(TBCOV) +define+JTAG_DEBUG --timing --top-module jtag_smoke_tb \
+	verilator --binary $(TBCOV) +define+JTAG_DEBUG +define+FC1_FIX +define+I2C_SDA_SYNC --timing --top-module jtag_smoke_tb \
 	    -Mdir $(JTAG_DIR) -o jtag_smoke_sim \
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
@@ -291,7 +291,7 @@ jtag-openocd-build:
 	rm -rf build
 	$(MAKE) -f Makefile.verilator sw FW_SRC=sw/tests/uart_hello.c
 	rm -rf $(JTAG_OCD_DIR)
-	verilator --binary $(TBCOV) +define+JTAG_DEBUG --timing --top-module jtag_openocd_tb \
+	verilator --binary $(TBCOV) +define+JTAG_DEBUG +define+FC1_FIX +define+I2C_SDA_SYNC --timing --top-module jtag_openocd_tb \
 	    -Mdir $(JTAG_OCD_DIR) -o jtag_openocd_sim \
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
@@ -344,7 +344,7 @@ REG_JTAG_TESTS = sw/tests/uart_hello.c sw/tests/ai_micro_speech_test.c \
 # VLT_EXTRA ile gecirilir; VLT_EXTRA komut satirinda '-f soc_files.f'ten ONCE
 # geldigi icin gerekli +incdir onceligi (common_cells v1.38.0) korunur.
 REG_JTAG_VLT   = OBJ_DIR=$(REG_JTAG_DIR) \
-                 VLT_EXTRA="+define+JTAG_DEBUG -f rtl/debug/jtag_files.f rtl/debug/axi_dm_slave.sv -Wno-PINMISSING -Wno-UNOPTFLAT"
+                 VLT_EXTRA="+define+JTAG_DEBUG +define+FC1_FIX +define+I2C_SDA_SYNC -f rtl/debug/jtag_files.f rtl/debug/axi_dm_slave.sv -Wno-PINMISSING -Wno-UNOPTFLAT"
 regression-jtag:
 	rm -rf $(REG_JTAG_DIR) build
 	$(MAKE) -f Makefile.verilator verilate $(REG_JTAG_VLT)
@@ -426,7 +426,7 @@ jtag-lint:
 	@sed -e 's|\.\./rtl/|rtl/|g' asic/filelist.f > $(JTAG_LINT_DIR)/filelist_root.f
 	-@verilator --lint-only -DSYNTHESIS $(JTAG_LINT_W) --top-module asic_top \
 	    -f $(JTAG_LINT_DIR)/filelist_root.f > $(JTAG_LINT_DIR)/lint_off.log 2>&1
-	-@verilator --lint-only -DSYNTHESIS -DJTAG_DEBUG $(JTAG_LINT_W) --top-module asic_top \
+	-@verilator --lint-only -DSYNTHESIS -DJTAG_DEBUG -DFC1_FIX -DI2C_SDA_SYNC $(JTAG_LINT_W) --top-module asic_top \
 	    -f rtl/debug/jtag_files.f -f $(JTAG_LINT_DIR)/filelist_root.f \
 	    rtl/debug/axi_dm_slave.sv > $(JTAG_LINT_DIR)/lint_on.log 2>&1
 	@grep -oE '%(Error|Warning)[-A-Za-z]*' $(JTAG_LINT_DIR)/lint_off.log | sort | uniq -c > $(JTAG_LINT_DIR)/hist_off.txt || true
@@ -454,7 +454,7 @@ jtag-lint-fpga:
 	-@verilator --lint-only $(JTAG_LINT_W) -Wno-DECLFILENAME -Wno-VARHIDDEN \
 	    --top-module fpga_top -f soc_files.f verif/tb/xilinx_prim_stubs.sv rtl/fpga_top.sv \
 	    > $(JTAG_LINT_DIR)/lint_fpga_off.log 2>&1
-	-@verilator --lint-only -DJTAG_DEBUG $(JTAG_LINT_W) -Wno-DECLFILENAME -Wno-VARHIDDEN \
+	-@verilator --lint-only -DJTAG_DEBUG -DFC1_FIX -DI2C_SDA_SYNC $(JTAG_LINT_W) -Wno-DECLFILENAME -Wno-VARHIDDEN \
 	    --top-module fpga_top -f rtl/debug/jtag_files_fpga.f -f soc_files.f \
 	    rtl/debug/axi_dm_slave.sv verif/tb/xilinx_prim_stubs.sv rtl/fpga_top.sv \
 	    > $(JTAG_LINT_DIR)/lint_fpga_on.log 2>&1

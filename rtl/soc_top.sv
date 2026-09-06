@@ -458,6 +458,12 @@ module soc_top #(
     // 0'la baslamak SCL yuksekken sahte START kosulu gibi gorunurdu.
     // 2 cevrimlik ek gecikme (40 ns @50 MHz) us-mertebesindeki I2C bit
     // suresi yaninda ihmal edilebilir.
+    // I2C_SDA_SYNC tanimi ARKASINDA (6 Eylul 2026): teslim kosusu
+    // (RUN_teslim_2026-08-14) bu senkronizator OLMADAN imzalandi ve asic/README
+    // 9.9 bunu "RTL review note" olarak ilan etti. Tanimsiz derleme teslimle
+    // birebir kalir (scripts/jtag_define_off_equiv.sh kapisi); JTAG derlemeleri
+    // (make jtag-*, build_genesys2_jtag.tcl, jtag_asic_config.py) tanimi acar.
+`ifdef I2C_SDA_SYNC
     logic i2c_sda_sync1, i2c_sda_sync2;
     always_ff @(posedge clk_i or negedge sys_rst_n) begin
         if (!sys_rst_n) begin
@@ -468,6 +474,7 @@ module soc_top #(
             i2c_sda_sync2 <= i2c_sda_sync1;
         end
     end
+`endif
 
     // I2C master (0x4000_0400)
     i2c_master_axil #(
@@ -482,7 +489,11 @@ module soc_top #(
         .s_axi_araddr(i2c_araddr), .s_axi_arvalid(i2c_arvalid), .s_axi_arready(i2c_arready),
         .s_axi_rdata(i2c_rdata), .s_axi_rresp(i2c_rresp),
         .s_axi_rvalid(i2c_rvalid), .s_axi_rready(i2c_rready),
+`ifdef I2C_SDA_SYNC
         .scl_o(i2c_scl_o), .sda_oe_o(i2c_sda_oe_o), .sda_i(i2c_sda_sync2)
+`else
+        .scl_o(i2c_scl_o), .sda_oe_o(i2c_sda_oe_o), .sda_i(i2c_sda_i)
+`endif
     );
 
     // AI accelerator (CSR 0x4000_0600), master sinyalleri arbiter'a gider
