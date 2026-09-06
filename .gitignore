@@ -127,3 +127,9 @@ modelsim.ini
 transcript
 *.wlf
 vsim_stacktrace.vstf
+
+# Questa run products written to the launch directory (verif/questa flow, tests with workdir .)
+/transcript
+/modelsim.ini
+/vsim.wlf
+/vsim_stacktrace.vstf

@@ -16,6 +16,8 @@ set QROOT [file normalize [file join $QDIR .. ..]]
 set QLIB  [file join $QDIR work]
 
 proc q_msg {s} { echo "\[QUESTA\] $s" }
+# simulation time as text; "now" is a vsim command (the $now variable exists only in the GUI)
+proc q_now {} { if {[catch {set t [now]}]} { return "?" }; return $t }
 
 # Questa's -f reader does not accept the '#' comment lines of a Verilator file
 # list; copy the list without them (and without blank lines) into work/.
@@ -27,6 +29,10 @@ proc q_clean_flist {src} {
     while {[gets $in line] >= 0} {
         set t [string trim $line]
         if {$t eq "" || [string index $t 0] eq "#"} { continue }
+        # latch register file defines the same module as the FF one; Verilator
+        # keeps the first (FF) definition, Questa the last - skip it here so
+        # both simulators (and the FPGA build) use cv32e40p_register_file_ff
+        if {[string match "*cv32e40p_register_file_latch.sv" $t]} { continue }
         puts $o $t
     }
     close $in
@@ -44,11 +50,14 @@ proc q_compile {t} {
     vmap work $QLIB
     # -timescale covers the vendor files that carry no `timescale directive
     # (Verilator needs -Wno-TIMESCALEMOD for the same reason).
-    set cmd [list vlog -sv -work work -timescale 1ns/1ps -suppress 2583]
+    set cmd [list vlog -sv -work work -timescale 1ns/1ps -suppress 2583,7061 -mfcu -cuname questa_cu]
     foreach d [dict get $t defines] { lappend cmd +define+$d }
-    foreach i [dict get $t incdirs] { lappend cmd +incdir+$i }
+    # file lists first: rtl/debug/jtag_files.f carries the common_cells v1.38.0
+    # include directory, which must be searched BEFORE the old cv32e40p copy
+    # (5-argument ASSUME macro) - same order as the Makefile
     if {[dict get $t soc]} { lappend cmd -f [q_clean_flist soc_files.f] }
     foreach f [dict get $t flists] { lappend cmd -f [q_clean_flist $f] }
+    foreach i [dict get $t incdirs] { lappend cmd +incdir+$i }
     foreach f [dict get $t files]  { lappend cmd $f }
     q_msg "compile: $cmd"
     eval $cmd
@@ -65,18 +74,24 @@ proc q_sim {name t} {
     }
     cd $wd
     vmap work $QLIB
-    set cmd [list vsim -voptargs=+acc -onfinish stop -suppress 3009]
+    # transcript copy per test (the launch-directory 'transcript' is overwritten by every run)
+    file mkdir [file join $QDIR logs]
+    set cmd [list vsim {-voptargs=+acc -suppress 7061} -onfinish stop -suppress 3009,8386 -l [file join $QDIR logs $name.transcript]]
+    # -gVERBOSE=0 silences the OpenRAM models per-access prints (asic_* tests)
+    foreach a [dict get $t vsimargs] { lappend cmd $a }
     foreach p [dict get $t plusargs] { lappend cmd $p }
-    lappend cmd work.[dict get $t top]
+    lappend cmd work.[dict get $t top] work.questa_cu
     q_msg "simulate (cwd $wd): $cmd"
     eval $cmd
     set DUT [dict get $t dut]
     set wave [file join $QDIR wave [dict get $t wave].do]
-    if {[file exists $wave]} { do $wave } else { q_msg "no wave file $wave" }
+    if {[batch_mode]} {
+        q_msg "batch mode: wave window skipped"
+    } elseif {[file exists $wave]} { do $wave } else { q_msg "no wave file $wave" }
     q_msg "running $name ..."
     run -all
     catch {wave zoom full}
-    q_msg "$name finished at $now - look for TEST SUCCESS / TEST FAILED (or result=PASS/FAIL) in the transcript"
+    q_msg "$name finished at [q_now] - the verdict is the SUCCESS/FAILED (or result=) line printed above"
 }
 
 proc q_list {} {

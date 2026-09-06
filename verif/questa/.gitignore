@@ -9,3 +9,4 @@ fw/*/*.wlf
 fw/*/modelsim.ini
 fw/*/work/
 fw/*/vsim_stacktrace.vstf
+logs/

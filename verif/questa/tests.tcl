@@ -14,6 +14,7 @@
 #   incdirs   extra +incdir+
 #   files     extra source files, relative to the repository root
 #   plusargs  runtime +plusargs
+#   vsimargs  extra vsim options (e.g. -gVERBOSE=0 for the OpenRAM models)
 #   wave      wave/<name>.do to load
 #   dut       soc_top instance path for wave/soc.do
 
@@ -22,7 +23,7 @@ set QTEST_ORDER {}
 
 proc q_def {name args} {
     global QTESTS QTEST_ORDER
-    set defaults {top "" workdir . defines {} soc 1 flists {} incdirs {} files {} plusargs {} wave soc dut ""}
+    set defaults {top "" workdir . defines {} soc 1 flists {} incdirs {} files {} plusargs {} vsimargs {} wave soc dut ""}
     dict set QTESTS $name [dict merge $defaults $args]
     lappend QTEST_ORDER $name
 }
@@ -42,13 +43,13 @@ q_def boot            top boot_flow_test_tb  workdir verif/questa/fw/boot \
 
 # make asic-sram-sim: the same boot on the delivered OpenRAM macro models
 q_def asic_sram_sim   top boot_flow_test_tb  workdir verif/questa/fw/boot \
-    defines {BOOTROM_CONTENT ASIC_SRAM_MACRO} \
+    defines {BOOTROM_CONTENT ASIC_SRAM_MACRO} vsimargs {-gVERBOSE=0} \
     files [concat rtl/asic/sram_macro_bank.sv $MACROS {verif/models/spi_flash_model.sv verif/tb/boot_flow_test_tb.sv}] \
     dut /boot_flow_test_tb/dut
 
 # make asic-top-sim: asic_top + 27 macros, flash boot + AI inference, argmax check
 q_def asic_top_sim    top asic_top_boot_tb   workdir verif/questa/fw/asic_top_sim \
-    defines {BOOTROM_CONTENT ASIC_SRAM_MACRO CHECK_ARGMAX} \
+    defines {BOOTROM_CONTENT ASIC_SRAM_MACRO CHECK_ARGMAX} vsimargs {-gVERBOSE=0} \
     files [concat rtl/asic/asic_top.sv rtl/asic/sram_macro_bank.sv $MACROS {verif/models/spi_flash_model.sv verif/tb/asic_top_boot_tb.sv}] \
     dut /asic_top_boot_tb/dut/i_soc
 

@@ -6,10 +6,11 @@ Runs the delivered configuration (`soc_files.f`: `JTAG_DEBUG`, `FC1_FIX`,
 the reference for the verdicts (`make test-all`, root README section 10); this
 flow exists for waveform inspection and for a second simulator's opinion.
 
-**Status:** written against Questa 10.7c documentation, first validated on a
-real Questa installation by the team member who has the licence. The wrapper
-testbench `questa_soc_tb.sv` was validated with Verilator before commit (see
-the run record at the end).
+**Status:** validated on Questa Sim-64 10.7c (Windows, licensed
+installation) on 6 September 2026 - **21/21 tests pass** headless, see the run
+record at the end. The wrapper testbench `questa_soc_tb.sv` was first checked
+under Verilator; the first Questa run needed six flow fixes (listed under
+"What happens"), no RTL or testbench change.
 
 ## Quick start
 
@@ -26,6 +27,20 @@ Linux:
 verif/questa/wave.sh jtag_sim
 ```
 
+Headless, all tests or a subset (verdict per test + `logs/SUMMARY.txt`, exit
+code = number of failing tests; the whole set takes about 25 minutes on a
+laptop, `ai_sw_reference` alone 8-9 minutes):
+
+```
+powershell -ExecutionPolicy Bypass -File verif\questa\batch.ps1            (Windows)
+powershell -ExecutionPolicy Bypass -File verif\questa\batch.ps1 jtag_sim boot
+verif/questa/batch.sh [test ...]                                            (Linux)
+```
+
+or by hand: `vsim -c -do "onerror {quit -code 1}; do verif/questa/run_test.do <test>; quit -f"`
+from the repository root (the `onerror` makes a compile or elaboration error
+exit instead of leaving `vsim -c` at its prompt).
+
 Inside a running Questa GUI (any working directory):
 
 ```
@@ -41,10 +56,44 @@ Nothing else is needed on the Questa machine: no toolchain, no Verilator.
 What happens: the design is recompiled from `soc_files.f` into
 `verif/questa/work/` with the test's defines, the testbench is loaded from the
 directory that holds its hex files, a wave window with the groups below is
-opened, and the simulation runs to its verdict (`run -all`). `$finish` stops
-the simulation but keeps the GUI open (`-onfinish stop`), so the waveform can
-be inspected afterwards; the verdict is in the transcript (`*** TEST SUCCESS
-***` / `*** TEST FAILED ***`, and `result=PASS|FAIL` for the firmware tests).
+opened (GUI only; skipped in `-c` mode), and the simulation runs to its
+verdict (`run -all`). `$finish` stops the simulation but keeps the GUI open
+(`-onfinish stop`), so the waveform can be inspected afterwards. Every run
+also writes its own transcript to `verif/questa/logs/<test>.transcript`
+(`-l`), because Questa overwrites the launch directory's `transcript` on each
+run.
+
+Verdict strings: the nine SystemVerilog testbenches print `*** TEST SUCCESS
+***` (the standalone accelerator test `ai` prints `[ADIM E] PASS`), the eleven
+firmware tests print `*** TEST SUCCESS ***` plus `result=PASS`. A failing
+SystemVerilog testbench stops with `$error("TIMEOUT")` / `$fatal` (there is no
+"TEST FAILED" string in those); `questa_soc_tb` prints `*** TEST FAILED ***`
+and `result=FAIL`. `batch.ps1` / `batch.sh` grep exactly these.
+
+Flow details that matter for Questa (all measured on 10.7c, 6 September 2026):
+
+- `vlog -mfcu -cuname questa_cu` and `vsim ... work.<top> work.questa_cu`: the
+  four functional-coverage modules and the protocol checkers are attached with
+  `bind` statements at compilation-unit scope; without a named compilation
+  unit Questa silently drops them (vlog-2650). With it every run ends with the
+  `[FUNC-COV]` and `PROTOKOL UYUMLU` reports, as in Verilator.
+- `-suppress 7061` (vlog and vopt): `axi_sram_wrapper.sv` and `ai_accel_tb.sv`
+  fill a memory from an `initial` block (`$readmemh`) and write it from
+  `always_ff`; Questa reports this as a suppressible error, Verilator does not
+  check it. `-suppress 8386` (vsim): the vendor `cdc_reset_ctrlr_pkg` assigns a
+  2-bit value to an enum in a reset macro.
+- `cv32e40p_register_file_latch.sv` is skipped when the file list is copied:
+  it defines the same module as the flip-flop register file, Verilator keeps
+  the first definition (FF), Questa would keep the last (latch). The FF file
+  is what the FPGA build and the sky130 flow use.
+- No `-DVERILATOR` is passed, so the vendor assertions that Verilator compiles
+  out (`fifo_v3`, `rr_arb_tree`, `addr_decode`, `axi_intf` stability checks)
+  are active in Questa - a second, stricter opinion; all 21 tests pass with
+  them enabled.
+- `run_test.do` locates its own directory by checking for `questa_lib.tcl`
+  next to it: Questa's `do` does not update `info script`.
+- `-gVERBOSE=0` for the two OpenRAM-model tests silences the models'
+  per-access prints (the Makefile filters them with `grep -v`).
 
 ## Tests
 
@@ -109,9 +158,10 @@ have their own small files in `wave/`.
 | `tests.tcl` | the test table above, one line per test |
 | `questa_soc_tb.sv` | SystemVerilog replacement for `sim_main.cpp` |
 | `wave/*.do` | wave windows |
-| `wave.bat`, `wave.sh` | launchers |
+| `wave.bat`, `wave.sh` | GUI launchers |
+| `batch.ps1`, `batch.sh` | headless runners: all tests or a list, `logs/SUMMARY.txt`, exit code = failures |
 | `fw/<test>/` | hex bundles + `MANIFEST.txt` (recipe, date, commit), produced by `scripts/questa_pack.sh` |
-| `work/`, `transcript`, `*.wlf` | run products, git-ignored |
+| `work/`, `logs/`, `transcript`, `*.wlf` | run products, git-ignored (the root `.gitignore` also covers `transcript`, `modelsim.ini` and `vsim.wlf` left in the repository root by the four tests that run from `.`) |
 
 ## Troubleshooting
 
@@ -122,14 +172,52 @@ have their own small files in `wave/`.
 - `vlog` errors: the design is compiled with `-sv -timescale 1ns/1ps`. Send
   the `transcript` file; the Verilator flow is more permissive than Questa in
   a few places and a construct may need a small change.
-- The OpenRAM macro models print `Reading` / `Writing` for every access in
-  `asic_sram_sim` and `asic_top_sim`; this is expected noise.
+- The OpenRAM macro models would print `Reading` / `Writing` for every access
+  in `asic_sram_sim` and `asic_top_sim` (a 150 MB transcript); `tests.tcl`
+  passes `-gVERBOSE=0` for these two tests.
 - X on the JTAG side: the DTM's TCK-domain registers are held in reset in
   `questa_soc_tb` (`jtag_trst_ni = 0`, TCK static). If a testbench that ties
   `jtag_trst_ni` high shows X on `dmi_*` signals, tie it low there too.
+- A test that "finishes" in a few seconds with no verdict line usually failed
+  in `vlog`; open `logs/<test>.stdout` (batch) or the transcript for the
+  `** Error` line.
 
 ## Run record
 
-- 2026-09-06: flow written; `questa_soc_tb.sv` compiled and run under
+- 2026-09-06 (a.m.): flow written; `questa_soc_tb.sv` compiled and run under
   Verilator 5.049 on the bundles in `fw/` (uart_hello, qspi_flash,
-  uart_baud_sweep, qspi_fifo_err, timer_irq) before commit. Questa 10.7c run: pending.
+  uart_baud_sweep, qspi_fifo_err, timer_irq) before commit.
+- 2026-09-06 (evening), Questa Sim-64 10.7c (2018.08) on Windows, `vsim -c`,
+  bundles of commit `aaf01b1`, delivered configuration (`JTAG_DEBUG`,
+  `FC1_FIX`, `I2C_SDA_SYNC`): **21/21 PASS**. The first attempt failed on the
+  six points fixed above (`info script`, dropped `bind`s, vlog/vopt-7061,
+  vsim-8386, the `+incdir+` order of `jtag_bridge_sim`, `$now`); after the
+  fixes every test reached its verdict with all protocol checkers reporting
+  `PROTOKOL UYUMLU` and the `[FUNC-COV]` counters printed.
+
+| Test | Verdict | Wall time |
+|---|---|---|
+| `uart_stp` | `*** TEST SUCCESS ***` | 3 s |
+| `uart_stream` | `*** TEST SUCCESS ***` | 2 s |
+| `jtag_bridge_sim` | `*** TEST SUCCESS ***` (6/6) | 3 s |
+| `ai` | `[ADIM E] PASS` (6/6 scenarios) | 17 s |
+| `uart_hello` | `result=PASS` (125,750 cycles) | 8 s |
+| `uart_hello_1m` | `result=PASS` | 4 s |
+| `uart_hello_9600` | `result=PASS` | 57 s |
+| `qspi_flash` | `result=PASS` | 8 s |
+| `uart_baud_sweep` | `result=PASS` (3 `BAUD-OK` phases) | 21 s |
+| `qspi_fifo_err` | `result=PASS` (25 checks) | 49 s |
+| `timer_irq` | `result=PASS` | 41 s |
+| `ai_irq` | `result=PASS` | 80 s |
+| `uart1_strm` | `result=PASS` | 31 s |
+| `ai_micro_speech` | `result=PASS` | 135 s |
+| `i2c_sys` | `*** TEST SUCCESS ***` | 6 s |
+| `qspi_modes` | `*** TEST SUCCESS ***` | 23 s |
+| `jtag_sim` | `*** TEST SUCCESS ***` (17/17) | 21 s |
+| `boot` | `*** TEST SUCCESS ***` | 120 s |
+| `asic_sram_sim` | `*** TEST SUCCESS ***` | 149 s |
+| `asic_top_sim` | `*** TEST SUCCESS ***` (argmax checked) | 236 s |
+| `ai_sw_reference` | `result=PASS` (12,253,130 cycles, speedup 21.0x) | 509 s |
+
+The Verilator flow (`make test-all`) remains the reference for the delivered
+verdicts; this table is the second simulator's agreement.
