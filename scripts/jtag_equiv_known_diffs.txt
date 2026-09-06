@@ -27,3 +27,14 @@
 #                 (asic/README 9.9/3)
 #
 # Beklenen diff'i bilerek guncellemek: bash scripts/jtag_define_off_equiv.sh --kaydet
+
+# ----------------------------------------------------------------------
+# GUNCELLEME (6 Eylul 2026, aksam): rtl/fpga_top.sv icin beklenen diff artik
+# 12 SATIR. ae9875e "fpga+demo: kart ustu OLED'de sinif/cevrim/baud" commit'i
+# FPGA sarmalayicisina alti OLED pini (oled_dc/res/sclk/sdin/vbat/vdd) ve
+# bunlarin gpio_out[10..15] atamalarini ifdef DISINDA ekledi. fpga_top CIP
+# RTL'inin parcasi DEGILDIR (asic_top'ta yoktur, sky130 akisina girmez);
+# degisiklik kart uzerindeki demo firmware v1 icindir. Kapi bunu dogru sekilde
+# yakaladi (SAPMA), beklenen diff --kaydet ile bilerek bu 12 satira alindi.
+# Dort cip dosyasinin (soc_top, crossbar, asic_top, ai_accelerator) beklenen
+# diff'i BOS kalmaya devam eder; kapinin anlami degismedi.

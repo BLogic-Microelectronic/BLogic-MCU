@@ -4,7 +4,8 @@
 # run_jtag_gdb.sh  -  gdb (OpenOCD :3333) ucdan-uca demo kosucusu (JTAG teslim cipinin parcasi; Gun 3)
 # ============================================
 # Akis:
-#   1. depo kokune gec; obj_dir_jtag_ocd/jtag_openocd_sim ya da build/test.elf yoksa
+#   1. depo kokune gec; obj_dir_jtag_ocd/jtag_openocd_sim ya da build/test.elf yoksa,
+#      kaynaklardan biri ikiliden yeniyse (scripts/jtag_sim_stale.sh)
 #      (veya ELF'in instr_mem.hex'i simdeki firmware.hex ile uyusmuyorsa) make jtag-openocd-build
 #   2. simi Mdir icinden arka planda baslat -> logs/jtag/sim_gdb.log ; TCP 9999 bekle (<=60 s)
 #   3. openocd -f blogic_sim.cfg arka planda -> logs/jtag/openocd_gdb.log ; TCP 3333 bekle (<=60 s)
@@ -73,6 +74,13 @@ need_build=0
 if [ "$need_build" = 0 ] && [ -f build/instr_mem.hex ] && [ -f "$SIM_DIR/firmware.hex" ]; then
     h1=$(md5sum < build/instr_mem.hex); h2=$(md5sum < "$SIM_DIR/firmware.hex")
     [ "$h1" = "$h2" ] || { log "build/instr_mem.hex != $SIM_DIR/firmware.hex (ELF/sim uyusmuyor)"; need_build=1; }
+fi
+# 6 Eylul: kaynaklardan (RTL, TB, firmware) biri ikiliden yeniyse de derle
+# (scripts/jtag_sim_stale.sh; bayat ikili OpenOCD demosunda run=0 FAIL vermisti).
+. scripts/jtag_sim_stale.sh
+if [ "$need_build" = 0 ] && jtag_sim_stale "$SIM_DIR/$SIM_BIN"; then
+    log "sim ikilisi bayat: $JTAG_SIM_STALE_WHY"
+    need_build=1
 fi
 if [ "$need_build" = 1 ]; then
     log "derleniyor: make jtag-openocd-build"

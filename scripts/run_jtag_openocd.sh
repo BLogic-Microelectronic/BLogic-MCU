@@ -4,7 +4,9 @@
 # run_jtag_openocd.sh  -  OpenOCD ucdan-uca demo kosucusu (JTAG teslim cipinin parcasi; Gun 2-3)
 # ============================================
 # Akis:
-#   1. depo kokune gec; obj_dir_jtag_ocd/jtag_openocd_sim yoksa make jtag-openocd-build
+#   1. depo kokune gec; obj_dir_jtag_ocd/jtag_openocd_sim yoksa YA DA kaynaklardan
+#      (RTL, TB, firmware) biri ondan yeniyse make jtag-openocd-build
+#      (scripts/jtag_sim_stale.sh; 6 Eylul: bayat ikili run=0 FAIL vermisti)
 #   2. simi Mdir icinden arka planda baslat (hex'ler oradan okunur) -> logs/jtag/sim.log
 #   3. TCP 9999 dinlenene kadar bekle (ss -ltn, en fazla 60 s)
 #   4. timeout 900 openocd -f blogic_sim.cfg -f demo_halt_regs_mem.tcl -> logs/jtag/openocd.log
@@ -52,9 +54,13 @@ for t in openocd ss timeout awk; do
     command -v "$t" >/dev/null 2>&1 || { log "HATA: '$t' bulunamadi"; exit 1; }
 done
 
-if [ ! -x "$SIM_DIR/$SIM_BIN" ]; then
-    log "$SIM_DIR/$SIM_BIN yok, derleniyor: make jtag-openocd-build"
+# Ikili yoksa ya da kaynaklardan biri ondan yeniyse derle (scripts/jtag_sim_stale.sh).
+. scripts/jtag_sim_stale.sh
+if jtag_sim_stale "$SIM_DIR/$SIM_BIN"; then
+    log "derleniyor: make jtag-openocd-build ($JTAG_SIM_STALE_WHY)"
     make jtag-openocd-build || { log "HATA: derleme basarisiz"; exit 1; }
+else
+    log "$SIM_DIR/$SIM_BIN guncel (kaynaklardan yeni), yeniden derlenmedi"
 fi
 
 mkdir -p "$LOG_DIR"

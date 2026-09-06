@@ -123,7 +123,9 @@ The delivered chip has NO JTAG and this branch DOES NOT CHANGE that statement.
   sim is run from inside the Mdir, the hex files come from there). Raw protocol
   probe `scripts/jtag_bitbang_probe.py` (IDCODE 0x0B1061C1 OK).
 - Runner: `make jtag-openocd` -> `scripts/run_jtag_openocd.sh`: starts the sim
-  in the background (builds it first if the binary is missing), waits for port
+  in the background (builds it first if the binary is missing or older than any
+  RTL / TB / firmware source - `scripts/jtag_sim_stale.sh`, added 6 September
+  after a stale 2 September binary produced a `run=0` FAIL), waits for port
   9999 (<=60 s), runs
   `timeout 900 openocd -f blogic_sim.cfg -f demo_halt_regs_mem.tcl`, waits for the sim to finish by itself on 'Q'
   (<=30 s, otherwise kills it), logs to `logs/jtag/sim.log` +
@@ -371,8 +373,9 @@ The delivered chip has NO JTAG and this branch DOES NOT CHANGE that statement.
     OpenOCD closes on 'Q'.
 - Reproduction (WSL, repository root): `export PATH=/opt/riscv/bin:$PATH` ;
   `make jtag-gdb` (requires gdb-multiarch 15.1, OpenOCD 0.12, iproute2 `ss`,
-  coreutils `timeout`; if the sim binary/ELF is missing, or if
-  build/instr_mem.hex does not match obj_dir_jtag_ocd/firmware.hex,
+  coreutils `timeout`; if the sim binary/ELF is missing, if
+  build/instr_mem.hex does not match obj_dir_jtag_ocd/firmware.hex, or if the
+  binary is older than a source file (`scripts/jtag_sim_stale.sh`),
   jtag-openocd-build runs first).
   Three terminals manually: `cd obj_dir_jtag_ocd && ./jtag_openocd_sim` ;
   `openocd -f rtl/debug/openocd/blogic_sim.cfg` ;

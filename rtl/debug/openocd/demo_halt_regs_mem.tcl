@@ -139,7 +139,12 @@ echo [string trimright [reg pc]]
 # DURMADAN kosar, firmware bastan baslar (sim.log'da UCUNCU selamlama).
 echo "== DEMO: reset run =="
 reset run
-sleep 500
+# 2000 ms duvar saati (once 500). Ucuncu selamlama resetten ~2,5 ms sim sonra
+# gelir; 6 Eylul'deki run=0 FAIL'in asil nedeni bayat sim ikilisiydi (kosucu
+# artik kaynak tarihlerine bakip yeniden derliyor, scripts/jtag_sim_stale.sh);
+# bekleme yine de yavas makine icin marj olarak 2000 ms'ye cikarildi
+# (>= 8 ms sim @ 4 ms/s).
+sleep 2000
 halt
 wait_halt 5000
 echo "-- reset run sonrasi pc (0x0001xxxx beklenir) --"

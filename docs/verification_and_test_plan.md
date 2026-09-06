@@ -78,11 +78,13 @@ hardware breakpoints, and together with the AI demo - Section 12) and through
 the sky130 flow (root README Section 10.10). Its `ifdef` guards (`JTAG_DEBUG`,
 `FC1_FIX`, `I2C_SDA_SYNC`) remain only as an isolation proof: `make jtag-equiv`
 preprocesses the RTL with all three off and compares it with commit 73d8dcd
-(the RTL of the 14 August signed run) - `asic_top`, `fpga_top` and
-`ai_accelerator` byte-identical; `soc_top` and the crossbar identical after
-constant folding of the tied-off DM signals and the `sys_rst_n` alias (rules
-in `scripts/jtag_equiv_expected.sed`, residual diff 0 lines). Everything added
-since that run lives inside the three `ifdef`s.
+(the RTL of the 14 August signed run) - `asic_top` and `ai_accelerator`
+byte-identical; `soc_top` and the crossbar identical after constant folding of
+the tied-off DM signals and the `sys_rst_n` alias (rules in
+`scripts/jtag_equiv_expected.sed`, residual diff 0 lines for the chip RTL);
+`fpga_top`, the FPGA wrapper outside the chip, carries only the 12 lines of the
+OLED demo pins added on 6 September, stored as its expected diff. Everything
+added to the chip RTL since that run lives inside the three `ifdef`s.
 
 **Out of scope:** analog blocks (different category), ASIC physical verification
 details (covered by `asic/README.md`).

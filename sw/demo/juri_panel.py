@@ -173,13 +173,16 @@ MAKE_ACIKLAMA = {
         "shells. PASS = 0 %Error.",
     "jtag-equiv": "Preprocesses the RTL with JTAG_DEBUG / FC1_FIX / I2C_SDA_SYNC all off and diffs it "
         "against commit 73d8dcd (the RTL of the 14 August signed run) after the documented "
-        "constant-folding rules. PASS = 0 residual lines in all five files.",
-    "jtag-openocd": "Builds the SimJTAG / DPI simulation, connects OpenOCD 0.12 over remote_bitbang and "
+        "constant-folding rules. PASS = the residual diff equals the stored expected diff in every "
+        "file: 0 lines for the four chip files, and for fpga_top only the 12 FPGA-only OLED pin lines.",
+    "jtag-openocd": "Builds the SimJTAG / DPI simulation (rebuilt automatically when the binary is older "
+        "than any RTL / TB / firmware source), connects OpenOCD 0.12 over remote_bitbang and "
         "runs the demo script: halt, register write / read, program-buffer memory access, step, CSR "
         "read, block read, MMIO write, hardware breakpoint, the negative watchpoint case, reset halt "
         "and reset run. PASS = script verdict + OpenOCD and simulation exit 0. SKIP without openocd.",
     "jtag-gdb": "gdb (riscv32 or gdb-multiarch) over OpenOCD: reset halt, break main, stepi, register "
-        "and memory write-back. PASS = gdb, OpenOCD and simulation exit codes all 0. SKIP without gdb.",
+        "and memory write-back; uses the same simulation binary as jtag-openocd (same rebuild rule). "
+        "PASS = gdb, OpenOCD and simulation exit codes all 0. SKIP without gdb.",
     "jtag-gates": "jtag-sim + jtag-bridge-sim + lint-fpga + jtag-equiv, plus jtag-openocd and jtag-gdb "
         "when the tools are installed, with a summary table. PASS = every gate PASS (SKIP allowed for "
         "the two demos).",
@@ -207,10 +210,12 @@ MAKE_ACIKLAMA = {
         "PASS = correct class + SRAM match.",
     "ai-uart-load-field": "Same as ai-uart-load at the field baud timing (CPB=434): about 10 M cycles, "
         "slow. PASS = correct class + SRAM match.",
-    "ai-acc": "EK-1 accuracy window: generates the 40-sample batch, runs the accelerator testbench and "
-        "writes the accuracy report. PASS = |acc_SW - acc_RTL| = 0.",
-    "ai-batch1000": "The 1000-sample version of the accuracy window (about 4 minutes). "
-        "PASS = |acc_SW - acc_RTL| = 0 over 1000 samples.",
+    "ai-acc": "EK-1 accuracy window: generates the 40-sample batch with the TFLite reference, runs the "
+        "accelerator testbench and writes the accuracy report. NEEDS the Python venv with "
+        "tensorflow / tflite_runtime (sw/ai_model); without it the target stops with "
+        "'[HATA] tensorflow/tflite_runtime yok' and FAILs. PASS = |acc_SW - acc_RTL| = 0.",
+    "ai-batch1000": "The 1000-sample version of the accuracy window (about 4 minutes); same TFLite venv "
+        "requirement as ai-acc. PASS = |acc_SW - acc_RTL| = 0 over 1000 samples.",
     "coverage-tb": "Block-testbench coverage (line / branch) per module, written to "
         "verif/coverage_tb_summary.txt. Report target: PASS = the run completes.",
     "jtag-cov": "jtag-sim rebuilt with --coverage-line; per-module line coverage of the JTAG subsystem "

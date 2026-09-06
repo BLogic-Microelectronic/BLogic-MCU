@@ -1,0 +1,14 @@
+13a14,19
+>     output logic       oled_dc,
+>     output logic       oled_res,
+>     output logic       oled_sclk,
+>     output logic       oled_sdin,
+>     output logic       oled_vbat,
+>     output logic       oled_vdd,
+75a82,87
+>     assign oled_vdd  = ~gpio_out[10];    
+>     assign oled_vbat = ~gpio_out[11];    
+>     assign oled_res  =  gpio_out[12];    
+>     assign oled_dc   =  gpio_out[13];    
+>     assign oled_sclk =  gpio_out[14];
+>     assign oled_sdin =  gpio_out[15];
