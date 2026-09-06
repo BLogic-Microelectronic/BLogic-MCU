@@ -55,6 +55,110 @@ SINIF_RENK = {"yes": "#1f7a3f", "no": "#b02a2a",
               "unknown": "#b45309", "silence": "#5a6472"}
 
 
+# ---------------- dogrulama paketi: Makefile hedefleri panelden -------------
+# Panel Windows'ta kosar, make hedefleri WSL'deki depoda kosturulur (wsl.exe).
+# Katalog = make test-all'in 18 bileseni + kapilar/fiziksel; aciklamalar kok
+# README 9.2 ile ayni. Her hedef kendi PASS/FAIL satirini basar ve cikis
+# koduyla (0/1) sonucu bildirir; panel ikisini de kullanir.
+MAKE_KATALOG = [
+    ("SoC simulation (make test-all, 18 components)", [
+        ("regression",      "UART x3 + Spike lockstep x2 + QSPI: 6 firmware tests, protocol checkers"),
+        ("uart-baud",       "runtime baud switch 115200 / 1 Mbps / 9600 in one run"),
+        ("uart-stp",        "stop bits 1 / 1.5 / 2 on the UART block"),
+        ("uart-stream",     "UART_1 stream DMA block, scenarios A-E"),
+        ("boot",            "QSPI boot flow through the boot ROM (flash_helloworld)"),
+        ("qspi-modes",      "x1 / x2 / x4 + 4-byte addressing against the flash model"),
+        ("qspi-err",        "QSPI FIFO / flush / status error paths, 25 checks"),
+        ("i2c-sys",         "CPU -> I2C master -> echo slave (NBY/ADR, TX/RX, NACK)"),
+        ("ai",              "accelerator standalone: 6 scenarios + 40-sample batch, bit-exact"),
+        ("soc-ai",          "SoC-level inference C test (irq17, 459,062 cycles)"),
+        ("soc-perf",        "HW vs SW reference inference, speed-up 21.0x"),
+        ("soc-ai-irq",      "accelerator interrupt / ISR path"),
+        ("soc-timer",       "timer peripheral: count / reload / prescale + irq16"),
+        ("soc-strm",        "UART_1 stream DMA at SoC level + irq18"),
+        ("arch-test",       "riscv-arch-test I + M, 46 signatures"),
+        ("uvm",             "UVM: GPIO, Timer, UART_0, I2C - 8 tests"),
+        ("jtag-sim",        "riscv-dbg JTAG subsystem, 17 stages"),
+        ("jtag-bridge-sim", "axi_dm_slave unit testbench, 6 scenarios"),
+        ("test-all",        "all 18 components above in one run + summary table"),
+    ]),
+    ("Gates and physical", [
+        ("lint",            "asic_top lint on the delivery file list (0 errors)"),
+        ("lint-fpga",       "fpga_top lint with the BSCANE2 TAP"),
+        ("jtag-equiv",      "isolation proof: defines off == 14 August RTL (73d8dcd)"),
+        ("jtag-openocd",    "OpenOCD end-to-end demo on the simulation (needs openocd)"),
+        ("jtag-gdb",        "gdb demo over OpenOCD (needs gdb-multiarch)"),
+        ("jtag-gates",      "jtag-sim + bridge + lint-fpga + equiv + OpenOCD + gdb"),
+        ("asic-sram-sim",   "boot on the delivered OpenRAM macro models"),
+        ("asic-top-sim",    "asic_top + 27 macros: flash boot + inference, argmax check"),
+        ("coverage",        "SoC line coverage, 15 C tests (report in verif/)"),
+    ]),
+    ("Other checks and evidence (make test-full runs everything local)", [
+        ("test-full",       "test-all + lint, lint-fpga, jtag-gates, asic-sram-sim, asic-top-sim, boot-real, isa-compliance, ai-uart-load"),
+        ("boot-real",       "real C firmware boots from flash with .rodata/.data (M3 proof)"),
+        ("isa-compliance",  "self-checking ISA compliance C test (DTR section 4)"),
+        ("ai-uart-load",    "KF5: unseen vector streamed over UART0, class checked (simulation)"),
+        ("ai-uart-load-field", "same at field timing, CPB=434 (~10 M cycles, slow)"),
+        ("ai-acc",          "EK-1 accuracy window: generate + simulate + report (40 samples)"),
+        ("ai-batch1000",    "1000-sample accuracy window (~4 min)"),
+        ("coverage-tb",     "per-module testbench coverage (line / branch)"),
+        ("jtag-cov",        "JTAG line coverage report (rtl/debug/sim/)"),
+        ("asic-elab",       "sv2v + yosys elaboration gate (needs sv2v / yosys installed)"),
+        ("jtag-board",      "OpenOCD on the real Genesys 2 (board attached to WSL via usbipd)"),
+    ]),
+]
+# spike / verilator dizinleri: etkilesimsiz kabuk ~/.bashrc'yi okumaz
+MAKE_PATH_ONEK = "/opt/riscv/bin:/usr/local/bin"
+# Ilk cikti satiri PANEL_PGID=<grup>: Stop, grubun tamamini (make + sh +
+# verilator simleri) oldurur. Ayni kabuk make'i kosturur, cikis kodu wsl.exe
+# uzerinden panele gelir.
+MAKE_BETIK = ('echo PANEL_PGID=$(ps -o pgid= -p $$ | tr -d " "); '
+              'export PATH=%s:$PATH; cd "$1" && make "$2" 2>&1' % MAKE_PATH_ONEK)
+MAKE_GURULTU = ("ccache ", "g++ ", "make[", "python3 /usr/local/share/verilator",
+                "%Warning-", "      |", "rm V")
+
+
+def wsl_hedef(depo=None):
+    """(distro, linux_yol): panelin konumundan WSL'deki depo yolunu turetir.
+    //wsl.localhost/<distro>/... ve //wsl$/<distro>/... -> (distro, /home/...);
+    C:/... -> ("", /mnt/c/...); Linux yolu oldugu gibi. GUI-de duzenlenebilir."""
+    depo = REPO if depo is None else depo
+    r = depo.replace("/", "\\")
+    m = re.match(r"^\\\\(?:wsl\$|wsl\.localhost)\\([^\\]+)\\(.*)$", r)
+    if m:
+        return m.group(1), "/" + m.group(2).replace("\\", "/")
+    m = re.match(r"^([A-Za-z]):\\(.*)$", r)
+    if m:
+        return "", "/mnt/%s/%s" % (m.group(1).lower(), m.group(2).replace("\\", "/"))
+    return "", depo.replace("\\", "/")
+
+
+def make_komut(hedef, distro, yol):
+    """make <hedef> komut listesi: Windows'ta wsl.exe uzerinden, Linux'ta dogrudan."""
+    ic = ["setsid", "bash", "-c", MAKE_BETIK, "_", yol, hedef]
+    if os.name == "nt":
+        return ["wsl.exe"] + (["-d", distro] if distro else []) + ["--"] + ic
+    return ic
+
+
+def make_oldur(pgid, distro):
+    """Surec grubunu TERM ile oldurur (kill -- -<pgid>)."""
+    ic = ["kill", "-TERM", "--", "-%s" % pgid]
+    if os.name == "nt":
+        return ["wsl.exe"] + (["-d", distro] if distro else []) + ["--"] + ic
+    return ic
+
+
+def make_satir_goster(satir):
+    """Ayrintili mod kapaliyken derleyici komutlari ve Verilator uyari
+    bloklari gizlenir; test ciktilari ([SIM] PASS, TEST n: ..., ozet) kalir."""
+    if satir.startswith(MAKE_GURULTU):
+        return False
+    if satir.startswith("     ") and satir.lstrip().startswith(("... ", "|")):
+        return False
+    return True
+
+
 # ---------------- cerceve + protokol (send_vector.py ile ayni) -------------
 def cerceve_yap(veri: bytes) -> bytes:
     saglama = sum(veri) & 0xFFFFFFFF
@@ -543,7 +647,7 @@ def gui_calistir():
     KOYU, MIST, INK = "#17324a", "#f2f5f8", "#20262f"
     kok = tk.Tk()
     kok.title("BLogic MCU — Jury Data Panel")
-    kok.geometry("980x720")     # +80 px: 'Random sweep & stress tests' bolumu
+    kok.geometry("1060x820")    # +80 px sweep/stress bolumu, +100 px dogrulama paketi
     kok.configure(bg=MIST)
     # Pencere / gorev cubugu / iletisim kutusu simgesi: takim logosu
     # (sw/demo/panel_icon.png, 256x256; kaynak: balporsugu logosu).
@@ -960,12 +1064,189 @@ def gui_calistir():
              "stress tests between tests.", bg=MIST, fg="#5a6472",
              font=("Segoe UI", 9)).pack(side="left", padx=10)
 
+    # ---- dogrulama paketi: Makefile hedefleri tablodan secilir, WSL'de kosar,
+    # ciktisi asagidaki loga akar, her satir PASS/FAIL ile boyanir
+    dogrulama = tk.LabelFrame(
+        kok, text="Verification suite — make targets (run in WSL, output in the log)",
+        bg=MIST, fg=INK, font=("Segoe UI", 9, "bold"))
+    dogrulama.pack(fill="x", padx=12, pady=(0, 8))
+    agac = ttk.Treeview(dogrulama, columns=("aciklama", "durum", "sure"),
+                        show="tree headings", height=6, selectmode="extended")
+    agac.heading("#0", text="target")
+    agac.column("#0", width=200, anchor="w", stretch=False)
+    agac.heading("aciklama", text="what it checks")
+    agac.column("aciklama", width=380, anchor="w")
+    agac.heading("durum", text="status")
+    agac.column("durum", width=80, anchor="center", stretch=False)
+    agac.heading("sure", text="time")
+    agac.column("sure", width=64, anchor="center", stretch=False)
+    for etiket, renk in (("pass", "#1f7a3f"), ("fail", "#b02a2a"),
+                         ("run", "#1d5fa8"), ("idle", INK)):
+        agac.tag_configure(etiket, foreground=renk)
+    agac.tag_configure("grup", font=("Segoe UI", 9, "bold"))
+    hedef_satir = {}
+    ilk_grup = None
+    for grup, hedefler in MAKE_KATALOG:
+        p = agac.insert("", "end", text=grup, open=True, tags=("grup",))
+        ilk_grup = ilk_grup or p
+        for hedef, aciklama in hedefler:
+            hedef_satir[hedef] = agac.insert(
+                p, "end", text="make " + hedef, values=(aciklama, "", ""),
+                tags=("idle",))
+    kaydirma = ttk.Scrollbar(dogrulama, orient="vertical", command=agac.yview)
+    agac.configure(yscrollcommand=kaydirma.set)
+    # Tk, acik gruplarla dolan agaci son eklenen satira kaydiriyor; basa al
+    kok.after(300, lambda: (agac.see(ilk_grup), agac.yview_moveto(0)))
+    agac.grid(row=0, column=0, sticky="nsew", padx=(6, 0), pady=4)
+    kaydirma.grid(row=0, column=1, sticky="ns", pady=4)
+    dogrulama.columnconfigure(0, weight=1)
+
+    yan = tk.Frame(dogrulama, bg=MIST)
+    yan.grid(row=0, column=2, sticky="n", padx=8, pady=4)
+    distro_ilk, yol_ilk = wsl_hedef()
+    distro_var = tk.StringVar(value=distro_ilk)
+    depo_var = tk.StringVar(value=yol_ilk)
+    ayrinti_var = tk.BooleanVar(value=False)
+    make_durum = {"kosuyor": False, "dur": False, "proc": None, "pgid": None}
+    make_etiket = tk.Label(yan, text="idle", bg=MIST, fg="#5a6472",
+                           font=("Segoe UI", 9))
+
+    def satir_guncelle(hedef, durum_s, sure_s=None, etiket=None):
+        iid = hedef_satir.get(hedef)
+        if not iid:
+            return
+        eski = agac.item(iid, "values")
+        sure_s = eski[2] if sure_s is None else sure_s
+        agac.item(iid, values=(eski[0], durum_s, sure_s), tags=(etiket or "idle",))
+
+    def secili_hedefler():
+        """Secili satirlar; grup basligi secildiyse grubun tum hedefleri.
+        Katalog sirasinda, tekrarsiz."""
+        secim = set()
+        for iid in agac.selection():
+            if agac.parent(iid) == "":
+                secim.update(h for h, i in hedef_satir.items() if agac.parent(i) == iid)
+            else:
+                secim.update(h for h, i in hedef_satir.items() if i == iid)
+        return [h for _, hs in MAKE_KATALOG for h, _ in hs if h in secim]
+
+    def make_isci(hedefler):
+        distro, yol = distro_var.get().strip(), depo_var.get().strip()
+        sonuclar = []
+        t_hepsi = time.time()
+        for hedef in hedefler:
+            if make_durum["dur"]:
+                break
+            kuyruk.put(("make_durum", hedef, "running…", "", "run"))
+            kuyruk.put(("make_baslik", "make %s   (WSL%s: %s)"
+                        % (hedef, " " + distro if distro else "", yol)))
+            t0, kod = time.time(), -1
+            try:
+                ek = {"creationflags": subprocess.CREATE_NO_WINDOW} \
+                    if os.name == "nt" else {}
+                p = subprocess.Popen(make_komut(hedef, distro, yol),
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.STDOUT, text=True,
+                                     encoding="utf-8", errors="replace", **ek)
+                make_durum["proc"] = p
+                for satir in p.stdout:
+                    satir = satir.rstrip("\r\n")
+                    if satir.startswith("PANEL_PGID="):
+                        make_durum["pgid"] = satir.split("=", 1)[1].strip()
+                        continue
+                    if hedef in ("test-all", "test-full"):   # ozet tablolari -> satirlar
+                        m = re.match(r"^\s+([a-z0-9-]+)\s+\(.*\)\s*:\s*(PASS|FAIL)\s*$",
+                                     satir)
+                        if m:
+                            kuyruk.put(("make_durum", m.group(1), m.group(2), "",
+                                        "pass" if m.group(2) == "PASS" else "fail"))
+                    if ayrinti_var.get() or make_satir_goster(satir):
+                        kuyruk.put(("make_satir", satir[:220]))
+                p.wait()
+                kod = p.returncode
+            except Exception as e:
+                kuyruk.put(("make_satir", "ERROR: %s" % e))
+            make_durum["proc"], make_durum["pgid"] = None, None
+            sure = time.time() - t0
+            sure_s = "%d:%02d" % (int(sure) // 60, int(sure) % 60)
+            if make_durum["dur"]:
+                durum_s, etiket = "stopped", "fail"
+            else:
+                durum_s, etiket = ("PASS", "pass") if kod == 0 else ("FAIL", "fail")
+            sonuclar.append((hedef, durum_s, sure_s, kod))
+            kuyruk.put(("make_durum", hedef, durum_s, sure_s, etiket))
+        kuyruk.put(("make_bitti", sonuclar, time.time() - t_hepsi))
+        make_durum["kosuyor"] = False
+
+    def make_baslat(hedefler):
+        if make_durum["kosuyor"]:
+            messagebox.showwarning("Busy", "A make run is in progress; press Stop first.")
+            return
+        if not hedefler:
+            messagebox.showinfo("Verification suite",
+                                "Select one or more targets (Ctrl / Shift-click) "
+                                "or a group heading, then Run selected.")
+            return
+        if os.name == "nt" and shutil.which("wsl.exe") is None:
+            messagebox.showerror("WSL", "wsl.exe was not found; the make targets "
+                                 "run inside WSL.")
+            return
+        make_durum["kosuyor"], make_durum["dur"] = True, False
+        for h in hedefler:
+            satir_guncelle(h, "queued", "", "idle")
+        make_etiket.config(text="running: %d target(s)" % len(hedefler), fg="#1d5fa8")
+        threading.Thread(target=make_isci, args=(list(hedefler),), daemon=True).start()
+
+    def make_durdur():
+        if not make_durum["kosuyor"]:
+            return
+        make_durum["dur"] = True
+        pgid, distro = make_durum["pgid"], distro_var.get().strip()
+        kuyruk.put(("make_satir", "STOP requested — killing the make process group"))
+        try:
+            ek = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
+            if pgid:
+                subprocess.run(make_oldur(pgid, distro), timeout=10, **ek)
+            if make_durum["proc"]:
+                make_durum["proc"].kill()
+        except Exception as e:
+            kuyruk.put(("make_satir", "stop: %s" % e))
+
+    def pencere_kapat():
+        """Panel kapanirken kosan make grubu da kapanir (arkada kalmasin)."""
+        if make_durum["kosuyor"]:
+            make_durdur()
+        kok.destroy()
+    kok.protocol("WM_DELETE_WINDOW", pencere_kapat)
+
+    ttk.Button(yan, text="Run selected",
+               command=lambda: make_baslat(secili_hedefler())).pack(fill="x", pady=2)
+    ttk.Button(yan, text="Run test-all",
+               command=lambda: make_baslat(["test-all"])).pack(fill="x", pady=2)
+    ttk.Button(yan, text="Select all",
+               command=lambda: agac.selection_set(list(hedef_satir.values()))
+               ).pack(fill="x", pady=2)
+    ttk.Button(yan, text="Stop", command=make_durdur).pack(fill="x", pady=2)
+    make_etiket.pack(anchor="w", pady=(4, 0))
+    # WSL ayarlari tablonun altinda tek satir (sag sutunu uzatmasin)
+    ayar_satir = tk.Frame(dogrulama, bg=MIST)
+    ayar_satir.grid(row=1, column=0, columnspan=3, sticky="w", padx=6, pady=(0, 4))
+    tk.Label(ayar_satir, text="WSL distro (empty = default):", bg=MIST,
+             fg="#5a6472", font=("Segoe UI", 9)).pack(side="left")
+    ttk.Entry(ayar_satir, textvariable=distro_var, width=16).pack(side="left", padx=(4, 12))
+    tk.Label(ayar_satir, text="repo path inside WSL:", bg=MIST, fg="#5a6472",
+             font=("Segoe UI", 9)).pack(side="left")
+    ttk.Entry(ayar_satir, textvariable=depo_var, width=44).pack(side="left", padx=(4, 12))
+    tk.Checkbutton(ayar_satir, text="verbose log (compiler lines)", variable=ayrinti_var,
+                   bg=MIST).pack(side="left")
+
     # ---- log
     import tkinter.scrolledtext as st
     log_kutu = st.ScrolledText(kok, height=9, font=("Consolas", 9),
                                bg="#101820", fg="#c8d4e0")
     log_kutu.pack(fill="both", expand=True, padx=12, pady=(0, 10))
     log_kutu.tag_config("kart", foreground="#7fd4a8")  # kart satirlari yesilimsi
+    log_kutu.tag_config("make", foreground="#9fc5e8")  # make ciktisi mavimsi
 
     def log(mesaj):
         log_kutu.insert("end", "[%s] %s\n" % (time.strftime("%H:%M:%S"), mesaj))
@@ -1046,6 +1327,35 @@ def gui_calistir():
                     log_kutu.see("end")
                 elif oge[0] == "prog_bitti":
                     prog_dugme.config(state="normal", text="Load bitstream…")
+                elif oge[0] == "make_satir":
+                    log_kutu.insert("end", "MAKE ▸ %s\n" % oge[1], "make")
+                    log_kutu.see("end")
+                elif oge[0] == "make_baslik":
+                    log("── " + oge[1])
+                elif oge[0] == "make_durum":
+                    _, hedef, durum_s, sure_s, etiket = oge
+                    satir_guncelle(hedef, durum_s, sure_s, etiket)
+                elif oge[0] == "make_bitti":
+                    _, sonuclar, sure = oge
+                    gecen = sum(1 for _, d, _, _ in sonuclar if d == "PASS")
+                    ozet = "MAKE FINISHED: %d/%d PASS, %d:%02d" % (
+                        gecen, len(sonuclar), int(sure) // 60, int(sure) % 60)
+                    make_etiket.config(
+                        text="last run: %d/%d PASS" % (gecen, len(sonuclar)),
+                        fg="#1f7a3f" if gecen == len(sonuclar) else "#b02a2a")
+                    log(ozet)
+                    yol = os.path.join(os.getcwd(), "juri_make_%s.txt"
+                                       % time.strftime("%Y%m%d_%H%M%S"))
+                    try:
+                        with open(yol, "w", encoding="utf-8") as f:
+                            f.write("# BLogic MCU verification suite from the jury "
+                                    "panel — %s\n# %s\n# target\tstatus\ttime\texit\n"
+                                    % (time.strftime("%Y-%m-%d %H:%M:%S"), ozet))
+                            for h, d, sr, k in sonuclar:
+                                f.write("%s\t%s\t%s\t%d\n" % (h, d, sr, k))
+                        log("make report written: " + yol)
+                    except Exception as e:
+                        log("report write failed: %s" % e)
                 elif oge[0] == "log":
                     log(oge[1])
                 elif oge[0] == "bitti":
@@ -1293,6 +1603,22 @@ def selftest():
                         "juri_sonuclar_sweep_"), oz["metin"])
     else:
         print("(iv) random sweep: SKIP (run_accuracy_window not available)")
+    # (v) dogrulama paketi: katalog + WSL yol eslemesi + komut uretici
+    #     (make kosturulmaz; GUI'siz)
+    hedefler = [h for _, hs in MAKE_KATALOG for h, _ in hs]
+    kontrol("(v) make catalog", len(hedefler) == len(set(hedefler))
+            and "test-all" in hedefler and "test-full" in hedefler
+            and "jtag-sim" in hedefler,
+            "%d targets" % len(hedefler))
+    d1, y1 = wsl_hedef(r"\\wsl.localhost\Ubuntu-24.04\home\potato\blogic-mcu")
+    d2, y2 = wsl_hedef(r"C:\Users\x\repo")
+    kontrol("(v) WSL path mapping",
+            (d1, y1) == ("Ubuntu-24.04", "/home/potato/blogic-mcu")
+            and (d2, y2) == ("", "/mnt/c/Users/x/repo"), "%s:%s | %s" % (d1, y1, y2))
+    k = make_komut("lint", "Ubuntu-24.04", "/home/potato/blogic-mcu")
+    kontrol("(v) make command", k[-1] == "lint" and k[-2] == "/home/potato/blogic-mcu"
+            and "setsid" in k and "bash" in k and not make_satir_goster("ccache g++ x")
+            and make_satir_goster("[SIM] PASS"), " ".join(k[:3]))
     kart.kapat()
     gecti = all(sonuclar)
     print("SELFTEST: %s" % ("PASS" if gecti else "FAIL"))
