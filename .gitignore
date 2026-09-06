@@ -133,3 +133,7 @@ vsim_stacktrace.vstf
 /modelsim.ini
 /vsim.wlf
 /vsim_stacktrace.vstf
+
+# flash_firmware.tcl ara urunleri (mcs/prm; kaynak firmware_flash.bin izlenir)
+rtl/fpga/firmware_flash.mcs
+rtl/fpga/firmware_flash.prm
