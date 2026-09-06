@@ -1,24 +1,32 @@
-# SoC Satir Kapsamasi - Kapsanmamis Satir Siniflandirmasi
+# SoC Line Coverage - Uncovered-Line Classification
 
-Tarih: 1 Eylul 2026 · Olcum: `make coverage` (Verilator 5.049 devel,
-`--coverage-line`, 11 sistem C testi, tek build, sabit payda)
-Girdi: `logs/coverage/annotate/` ('%' onekli satir = kapsanmamis)
-Sonuc ozeti: line %72,2 (275/381 nokta), branch %84,2 (717/852)
+Date: September 1, 2026 · Measurement: `make coverage` (Verilator 5.049 devel,
+`--coverage-line`, 11 system C tests, single build, fixed denominator)
+Input: `logs/coverage/annotate/` (a line prefixed with '%' is uncovered)
+Result summary: line 72.2% (275/381 points), branch 84.2% (717/852)
 
-> **Amac:** "Kapsanmayani bilmek, kapsamak kadar degerlidir." Bu dokuman
-> SoC olcumundeki HER kapsanmamis satiri uc siniftan birine atar:
+> **Update (September 6, 2026):** the measurement was repeated on the **delivered
+> configuration** (`soc_files.f` with `JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC`; the
+> JTAG bridge `rtl/debug/axi_dm_slave.sv` joins the measured set): line **90.7 %**
+> (359/396), branch **88.6 %** (819/924), functional coverage 21/22. What changed
+> against the September 1 run, and why, is in section 10; sections 0-9 are the
+> September 1 record and are unchanged.
+
+> **Purpose:** "Knowing what is uncovered is worth as much as covering it." This
+> document assigns EVERY uncovered line in the SoC measurement to one of three
+> classes:
 >
-> - **A - yapisal/erisilemez:** normal calismada tetiklenemez (savunmaci
->   default'lar, es-zamanlilik geregi olu kollar). Kapatilmasi beklenmez;
->   waiver adayi.
-> - **B - hata yolu:** yalnizca hata enjeksiyonuyla (NACK, tasma vb.)
->   calisir; SoC'ta negatif test ister.
-> - **C - test eksik:** mesru bir senaryoyla tetiklenebilir ama SoC
->   kosusunda boyle bir test yok; somut test onerisiyle birlikte verilir.
+> - **A - structural / unreachable:** cannot be triggered in normal operation
+>   (defensive defaults, arms that are dead by construction because of
+>   concurrency). Closing them is not expected; waiver candidate.
+> - **B - fault path:** exercised only by fault injection (NACK, overflow and
+>   the like); needs a negative test at SoC level.
+> - **C - test missing:** reachable through a legitimate scenario, but no such
+>   test exists in the SoC run; listed together with a concrete test proposal.
 
-## 0. Genel tablo
+## 0. Overall table
 
-| Dosya | Kapsanmamis satir | A | B | C |
+| File | Uncovered lines | A | B | C |
 |---|---|---|---|---|
 | i2c_master_axil.sv | 122 | 1 | 4 | 117 |
 | qspi_master_axil.sv | 55 | 4 | 0 | 51 |
@@ -29,174 +37,252 @@ Sonuc ozeti: line %72,2 (275/381 nokta), branch %84,2 (717/852)
 | gpio_axil.sv | 2 | 0 | 0 | 2 |
 | uart_axil.sv | 1 | 0 | 0 | 1 |
 | timer_axil.sv | 1 | 0 | 0 | 1 |
-| **Toplam** | **221** | **40** | **4** | **177** |
+| **Total** | **221** | **40** | **4** | **177** |
 
-**Okunusu:** kapsanmamis satirlarin %80'i (177/221) tek nedene iner:
-ilgili senaryo SoC regresyonuna eklenmemis. Bunun da %66'si (117 satir)
-tek karardan geliyor: `i2c_system_test` kapsama listesinde yok. Yapisal
-40 satir ise kanitlariyla asagida belgelidir ve kapatilmasi beklenmez.
+**How to read it:** 80% of the uncovered lines (177/221) come down to a single
+cause: the relevant scenario was never added to the SoC regression. And 66% of
+those (117 lines) come from a single decision: `i2c_system_test` is not in the
+coverage list. The 40 structural lines are documented below with their evidence
+and are not expected to be closed.
 
-## 1. i2c_master_axil.sv - 122 satir (A=1, B=4, C=117)
+## 1. i2c_master_axil.sv - 122 lines (A=1, B=4, C=117)
 
-**Kok neden:** 11 testin HICBIRI I2C'ye dokunmuyor (`i2c_system_test`
-kapsama listesinde degil). Blok seviyesinde ayni modul `i2c-sys` TB'siyle
-%97,8 (180/184) kapsali (`coverage_tb_summary.txt`); UVM
-`i2c_directed_test` NACK yollarini blok seviyesinde ayrica kapsiyor.
+**Root cause:** NONE of the 11 tests touches I2C (`i2c_system_test` is not in
+the coverage list). At block level the same module is 97.8% covered (180/184)
+by the `i2c-sys` TB (`coverage_tb_summary.txt`); the UVM `i2c_directed_test`
+separately covers the NACK paths at block level.
 
-| Satir | Kod | Sinif | Not |
+| Lines | Code | Class | Note |
 |---|---|---|---|
-| 92-95, 124-128, 143, 148-155, 159 | AXI yazma/okuma handshake + register mux | C | Herhangi bir I2C register erisimi tetikler (blok-TB'de kapsali) |
-| 103-116 | NBY kiskaci, ADR/TDR/CFG yazimi | C | NBY=0/5/2 + CFG temizleme dizisi (blok-TB + UVM'de kapsali) |
-| 119, 156 | yazma/okuma case default | C | RO-RDR'ye yazma + haritasiz 0x14 okuma negatif testi |
-| 196-201 | tdr_byte (LSB-once bayt secimi) | C | NBY=4 TX transferi tum idx'leri kapsar |
-| 237-259, 264-280, 284-302, 304-308, 311-323, 328-332, 335-338, 344-345 | I2C motoru: START/BITS/ACK/STOP fazlari, coklu bayt, RDR yazimi | C | Echo-slave'li i2c_system_test + NBY=4 TX/RX; blok-TB'de kapsali |
-| 303, 309-310, 334 | NACK ornekleme, NACK->STOP, nack_err set | B | Slave'siz adres gerekir; UVM i2c_directed_test blok seviyesinde kapsiyor |
-| 342 | motor FSM case default | A | 3-bit enum'un 4 durumu da listeli; adsiz kodlamaya gecis yok (SEU korumasi) |
+| 92-95, 124-128, 143, 148-155, 159 | AXI write/read handshake + register mux | C | Any I2C register access triggers them (covered in the block TB) |
+| 103-116 | NBY clamp, ADR/TDR/CFG writes | C | NBY=0/5/2 + CFG clear sequence (covered in the block TB + UVM) |
+| 119, 156 | write/read case default | C | Negative test: write to the RO RDR + read of the unmapped 0x14 |
+| 196-201 | tdr_byte (LSB-first byte selection) | C | An NBY=4 TX transfer covers every idx |
+| 237-259, 264-280, 284-302, 304-308, 311-323, 328-332, 335-338, 344-345 | I2C engine: START/BITS/ACK/STOP phases, multi-byte, RDR write | C | i2c_system_test with an echo slave + NBY=4 TX/RX; covered in the block TB |
+| 303, 309-310, 334 | NACK sampling, NACK->STOP, nack_err set | B | Requires an address with no slave; the UVM i2c_directed_test covers it at block level |
+| 342 | engine FSM case default | A | All 4 states of the 3-bit enum are listed; no transition into an unnamed encoding (SEU protection) |
 
-**Kapatma yolu:** `i2c_system_test`'in kapsama kosusuna eklenmesi tek
-basina 117 C satirini kapatir. Dikkat: test `i2c_system_tb.sv` (echo
-slave'li ayri top) ile kosar; "tek build, sabit payda" metodolojisine
-eklemeden once .dat birlestirme davranisi (farkli top hiyerarsisi)
-dogrulanmalidir - bkz. bolum 8, madde 1.
+**Closure path:** adding `i2c_system_test` to the coverage run closes all 117 C
+lines on its own. Caution: the test runs with `i2c_system_tb.sv` (a separate top
+with an echo slave); before adding it to the "single build, fixed denominator"
+methodology, the .dat merge behaviour (a different top hierarchy) must be
+verified - see Section 8, item 1.
 
-## 2. qspi_master_axil.sv - 55 satir (A=4, B=0, C=51)
+## 2. qspi_master_axil.sv - 55 lines (A=4, B=0, C=51)
 
-**Kok neden:** SoC testleri yalniz x1 READ (boot yolu) + FIFO hata
-yollarini kosuyor; x2/x4 veri modlari, dummy cevrimleri, 4B adres,
-adressiz komutlar (RDSR/RDID) ve cok baytli okuma paketlemesi SoC'ta hic
-kullanilmadi (`qspi_modes_tb` blok TB'si cogunu kapsiyor).
+**Root cause:** the SoC tests exercise only x1 READ (the boot path) plus the
+FIFO error paths; the x2/x4 data modes, dummy cycles, 4-byte addressing,
+address-less commands (RDSR/RDID) and multi-byte read packing were never used at
+SoC level (the `qspi_modes_tb` block TB covers most of them).
 
-| Satir | Kod | Sinif | Not |
+| Lines | Code | Class | Note |
 |---|---|---|---|
-| 127-129, 158-161 | x2 (dual) TX/RX io yonetimi | C | DOR (0x3B) / dual-PP testi |
-| 166, 375-376 | x4 RX turnaround + x2/x4 bit ornekleme | C | QOR (0x6B) quad okuma testi |
-| 292-295, 303-307 | adressiz komutlar (RES, RDSR/RDID) | C | **RDSR yolu sayfa-yazma akisinin on kosulu** |
-| 318-323 | adresli/verisiz (SE) + FAST_READ dummy | C | Silme + dummy'li okuma testleri |
-| 341 | 4B adresin 4. bayti | C | FCR[2]=1 + READ4 (0x13) testi |
-| 350-365 | SPI_DUMMY durumunun tamami | C | Herhangi bir dummy'li komut acar |
-| 384-389, 400-401, 409-412 | cok baytli okuma paketlemesi (tam/eksik word push) | C | len>=7 okuma + len%4==2/3 kuyruk testleri |
-| 537, 584 | AXI yazma/okuma case default | C | Rezerve ofset (0x14) negatif erisim |
-| 231 | RX underflow bayragi | A | DR-okuma yolu pop'u yalniz !rx_empty'de uretir; bayrak yazilimca erisilemez (savunmaci kod) |
-| 342, 404, 457 | addr_byte / eksik-word / FSM default'lari | A | Dis guard'lar bu kollari dislar (RTL yorumlariyla uyumlu) |
+| 127-129, 158-161 | x2 (dual) TX/RX io steering | C | DOR (0x3B) / dual-PP test |
+| 166, 375-376 | x4 RX turnaround + x2/x4 bit sampling | C | QOR (0x6B) quad-read test |
+| 292-295, 303-307 | address-less commands (RES, RDSR/RDID) | C | **The RDSR path is a precondition of the page-write flow** |
+| 318-323 | addressed/data-less (SE) + FAST_READ dummy | C | Erase + read-with-dummy tests |
+| 341 | 4th byte of the 4-byte address | C | FCR[2]=1 + READ4 (0x13) test |
+| 350-365 | the whole SPI_DUMMY state | C | Any command with dummy cycles opens it |
+| 384-389, 400-401, 409-412 | multi-byte read packing (full/partial word push) | C | len>=7 read + len%4==2/3 tail tests |
+| 537, 584 | AXI write/read case default | C | Negative access to the reserved offset (0x14) |
+| 231 | RX underflow flag | A | The DR-read path only issues a pop when !rx_empty; the flag is unreachable from software (defensive code) |
+| 342, 404, 457 | addr_byte / partial-word / FSM defaults | A | Outer guards exclude these arms (consistent with the RTL comments) |
 
-**Kapatma yolu (en degerli test):** `WREN(0x06) -> PP(0x02, cok bayt) ->
-RDSR(0x05) WIP-poll -> READ geri-okuma` dizisini kosan bir SoC
-sayfa-yazma testi; proje defterindeki "sayfa yazma hic dogrulanmadi"
-bulgusunu kapatirken 292-295, 303-307, 384-412 satirlarini tek testte
-acar.
+**Closure path (the most valuable test):** a SoC page-write test running the
+sequence `WREN(0x06) -> PP(0x02, multi-byte) -> RDSR(0x05) WIP poll -> READ
+read-back`; it closes the "page write never verified" finding in the project
+notebook while opening lines 292-295, 303-307 and 384-412 in a single test.
 
-## 3. obi_to_axi.sv - 23 satir (A=23)
+## 3. obi_to_axi.sv - 23 lines (A=23)
 
-**Tamami yapisal olarak erisilemez.** Kopru AW-yalniz / W-yalniz kabul
-kollari ve WAIT_AW / WAIT_W durumlari icin kod tasir; ancak SoC'taki TUM
-yazma hedefleri `aw_ready` ve `w_ready`'yi AYNI ifadeyle birlikte uretir
-(`axi_sram_wrapper.sv:80-81`, arbiter, tum AXI-Lite cevre birimleri
-`awready<=1; wready<=1` ayni dalda). Olculen kanit: 411k+ yazmada 49.740
-stall yasandi, hicbirinde ready'ler ayrismadi. Bu kollar ancak
-split-ready ureten bir slave eklenirse canlanir -> **waiver adayi**
-(satirlar: 146-153, 179-186, 191-194, 199-202, 225).
+**All of them are structurally unreachable.** The bridge carries code for the
+AW-only / W-only accept arms and for the WAIT_AW / WAIT_W states; but EVERY
+write target in the SoC drives `aw_ready` and `w_ready` together from the SAME
+expression (`axi_sram_wrapper.sv:80-81`, the arbiter, and all AXI-Lite
+peripherals with `awready<=1; wready<=1` in the same branch). Measured evidence:
+over 411k+ writes there were 49,740 stalls, and in none of them did the readies
+diverge. These arms can only come alive if a slave producing split readies is
+added -> **waiver candidate** (lines: 146-153, 179-186, 191-194, 199-202, 225).
 
-## 4. ai_accelerator.sv - 11 satir (A=7, C=4)
+## 4. ai_accelerator.sv - 11 lines (A=7, C=4)
 
-| Satir | Kod | Sinif | Not |
+| Lines | Code | Class | Note |
 |---|---|---|---|
-| 315-316 | requant ust/alt doyum (`>127`, `<act_min`) | C | Test: bias alanina +/-2^30 uc deger yazip START -> doyum kollari |
-| 929, 963 | CSR yazma/okuma case default | C | AI_BASE+0x10 (eslenmemis ofset) yaz/oku negatif testi |
-| 317, 512-515 | requant normal yol, get_byte case kollari | A | **Annotasyon artefakti:** fonksiyonlar 8k / 1,27M kez cagrildi; Verilator fonksiyon-ici return'lu kollara kredi vermiyor |
-| 501, 885 | AXI master + ana FSM default'lari | A | Tum enum durumlari listeli; adsiz kodlamaya gecis yok |
+| 315-316 | requant upper/lower saturation (`>127`, `<act_min`) | C | Test: write extreme values of +/-2^30 into the bias field and START -> the saturation arms |
+| 929, 963 | CSR write/read case default | C | Negative write/read test at AI_BASE+0x10 (unmapped offset) |
+| 317, 512-515 | requant normal path, get_byte case arms | A | **Annotation artefact:** the functions were called 8k / 1.27M times; Verilator gives no credit to arms that return from inside a function |
+| 501, 885 | AXI master + main FSM defaults | A | All enum states are listed; no transition into an unnamed encoding |
 
-Blok-TB kapsamasi %96,7 (404/418) ayrica mevcut.
+Block-TB coverage of 96.7% (404/418) additionally exists.
 
-## 5. boot_rom.sv - 4 satir (A=4)
+## 5. boot_rom.sv - 4 lines (A=4)
 
-Yazma-kabul yolu (49-53): interconnect boot ROM'un yazma kanalini kalici
-olarak kapatir (`soc_axi_interconnect.sv:104/109`: `aw_valid=0,
-w_valid=0`) -> hicbir master ROM'a yazma iletemez; kollar SoC'ta
-erisilemez. Not: bu kosuda boot testi listede olmadigi icin ROM icerik
-yollari da olcum disidir (icerik `make boot` / `boot-real` testlerinde
-dogrulanir).
+Write-accept path (49-53): the interconnect permanently ties off the boot ROM's
+write channel (`soc_axi_interconnect.sv:104/109`: `aw_valid=0, w_valid=0`) -> no
+master can deliver a write to the ROM; the arms are unreachable in the SoC.
+Note: because the boot test is not in the list for this run, the ROM content
+paths are outside the measurement as well (the content is verified by the
+`make boot` / `boot-real` tests).
 
-## 6. Kucuk dosyalar (uart_stream 2, gpio 2, uart 1, timer 1)
+## 6. Small files (uart_stream 2, gpio 2, uart 1, timer 1)
 
-Hepsi ayni desen: **decode case default'lari** (haritasiz/RO ofsete
-erisim -> 0 okunur / yazma yutulur). Tek satirlik CSR erisimleriyle
-kapatilir (C): GPIO 0x00'a yazma + 0x08 okuma, UART0 0x14 okuma, UART1
-0x1C/0x24 okuma, Timer'da hizasiz `lb` (adres+1) okumasi. Tek istisna
-`uart_stream_axil.sv:366` AXI-master FSM default'u - yapisal (A).
+All the same pattern: **decode case defaults** (access to an unmapped/RO offset
+-> reads 0 / the write is swallowed). Closed by single-line CSR accesses (C):
+write to GPIO 0x00 + read of 0x08, read of UART0 0x14, read of UART1 0x1C/0x24,
+and an unaligned `lb` (address+1) read on the Timer. The one exception is the
+AXI-master FSM default at `uart_stream_axil.sv:366` - structural (A).
 
-## 7. "Annotate'te olmayan dosyalar" - kok neden analizi
+## 7. "Files absent from the annotation" - root-cause analysis
 
-Ozet listesinde gorunmeyen dosyalar icin yapilan arastirmanin sonucu
-(soru: "yok" = kapsandi mi, olculmedi mi?):
+The outcome of the investigation into the files that do not appear in the
+summary list (the question being: does "absent" mean covered, or not measured?):
 
-| Dosya | Neden annotate'te yok |
+| File | Why it is absent from the annotation |
 |---|---|
-| `soc_top.sv` | Salt yapisal (0 always, 0 ternary) -> `--coverage-line` hic nokta uretmiyor |
-| `axi4_to_axilite_bridge.sv` | Salt `assign` gecisi -> nokta yok |
-| `uart.v` | Yapisal + **hic instantiate edilmiyor** (uart_axil dogrudan uart_tx/rx kullanir) |
-| `axi_slave_tieoff.sv` | Bilincli waiver (`verif/coverage_waivers.vlt:52`) |
-| `ai_sram_arbiter.sv` | 88 branch noktasi enstrumante edilmis ve 11 testin birlesiminde **%100 kapsanmis** (zero=0 olan TEK dosya); `--annotate-all` verilmedigi icin yazilmamisti |
+| `soc_top.sv` | Purely structural (0 always, 0 ternary) -> `--coverage-line` produces no points at all |
+| `axi4_to_axilite_bridge.sv` | Pure `assign` pass-through -> no points |
+| `uart.v` | Structural + **never instantiated** (uart_axil uses uart_tx/rx directly) |
+| `axi_slave_tieoff.sv` | Deliberate waiver (`verif/coverage_waivers.vlt:52`) |
+| `ai_sram_arbiter.sv` | 88 branch points are instrumented and **100% covered** by the union of the 11 tests (the ONLY file with zero=0); it was not written out because `--annotate-all` had not been passed |
 
-Ek bulgu: satir-bazli sayim ('%'), kapsanmis satir uzerindeki
-branch-yarisi kayiplarini gostermez - birlesik .dat'a gore
-`periph_decoder.sv` 12, `axi_sram_wrapper.sv` 18,
-`soc_axi_interconnect.sv` 5, `uart_tx.v` 1 kapsanmamis NOKTA tasiyor.
-Bu nedenle 1 Eylul itibariyla `run_coverage.sh` guncellendi:
-`--annotate-all` eklendi, ozet listesi tamamlandi (i2c/boot_rom/
-axi_sram_wrapper/uart_rx/uart_tx), sessiz atlama acik mesaja cevrildi.
+Additional finding: the line-based count ('%') does not show branch-half losses
+on a line that is itself covered - according to the merged .dat,
+`periph_decoder.sv` carries 12, `axi_sram_wrapper.sv` 18,
+`soc_axi_interconnect.sv` 5 and `uart_tx.v` 1 uncovered POINT.
+For that reason `run_coverage.sh` was updated as of September 1:
+`--annotate-all` was added, the summary list was completed (i2c/boot_rom/
+axi_sram_wrapper/uart_rx/uart_tx), and the silent skip was turned into an
+explicit message.
 
-## 8. Eylem plani (oncelik sirasiyla)
+## 8. Action plan (in priority order)
 
-1. **I2C'yi SoC kapsamina al** (+117 C satiri): `i2c_system_test`
-   kapsama kosusuna eklenmeli. On kosul: test echo-slave'li
-   `i2c_system_tb.sv` topunu kullanir; farkli top hiyerarsisinin .dat
-   birlesimindeki davranisi (nokta anahtarlari) once kucuk bir denemeyle
-   dogrulanmali. Alternatif: ozet dosyasina ayri satir olarak "I2C SoC
-   kapsamasi (i2c-sys kosusu)" eklemek.
-2. **QSPI sayfa-yazma SoC testi** (WREN->PP->RDSR->READ): ~20+ C satiri
-   + defterdeki "sayfa yazma dogrulanmadi" bulgusunu kapatir.
-3. **Negatif CSR erisim mini-testi**: tum bloklarin haritasiz/RO
-   ofsetlerine yaz/oku (~10 C satiri; gpio/uart/uart1/timer/i2c/qspi/ai
-   default'lari tek C testinde toplanabilir).
-4. **AI doyum testi**: bias alanina uc degerler yazip START (+2 satir).
-5. **A sinifi 40 satir**: bu dokuman waiver gerekcesi olarak kullanilsin;
-   istenirse `coverage_waivers.vlt`'ye satir bazli exclude eklenebilir
-   (eklenmese de bu dokuman juri sorusuna yeterli cevaptir).
+1. **Bring I2C into the SoC coverage** (+117 C lines): `i2c_system_test` must be
+   added to the coverage run. Precondition: the test uses the echo-slave
+   `i2c_system_tb.sv` top; the behaviour of a different top hierarchy in the .dat
+   merge (point keys) must first be verified with a small experiment.
+   Alternative: add "I2C SoC coverage (i2c-sys run)" as a separate line in the
+   summary file.
+2. **QSPI page-write SoC test** (WREN->PP->RDSR->READ): closes ~20+ C lines
+   plus the "page write not verified" finding in the notebook.
+3. **Negative CSR access mini-test**: write/read to the unmapped/RO offsets of
+   every block (~10 C lines; the gpio/uart/uart1/timer/i2c/qspi/ai defaults can
+   be collected into a single C test).
+4. **AI saturation test**: write extreme values into the bias field and START
+   (+2 lines).
+5. **The 40 class-A lines**: let this document serve as the waiver rationale;
+   if desired, line-based excludes can be added to `coverage_waivers.vlt`
+   (even without them, this document is a sufficient answer to a jury question).
 
-Tahmini etki: 1-4 uygulanirsa kapsanmamis 221 satirin ~177'si kapanir;
-kalan 40 A + 4 B satiri gerekceli beyan olarak kalir. Nokta bazinda satir
-kapsamasinin %72,2'den %90+ araligina tasinmasi beklenir.
+Estimated impact: if items 1-4 are implemented, ~177 of the 221 uncovered lines
+close; the remaining 40 A + 4 B lines stay as a justified declaration.
+Point-based line coverage is expected to move from 72.2% into the 90%+ range.
 
-## 9. SONUC - 15 testlik kosum (1 Eylul 2026, ayni gun uygulandi)
+## 9. RESULT - the 15-test run (September 1, 2026, implemented the same day)
 
-Eylem planinin 2-4 maddeleri dort yeni C testi olarak uygulandi ve
-kapsama kosusuna eklendi (madde 1'in i2c_system_tb yolu yerine, jenerik
-harness'in sda=0 "hep-ACK" determinizmi kullanildi - i2c_soc_test):
+Items 2-4 of the action plan were implemented as four new C tests and added to
+the coverage run (in place of item 1's i2c_system_tb route, the generic
+harness's sda=0 "always-ACK" determinism was used - i2c_soc_test):
 
-| Yeni test | Kapattigi | Not |
+| New test | What it closed | Note |
 |---|---|---|
-| `i2c_soc_test` | I2C 122 -> **3** | motor tam yolu (TX/RX coklu bayt), sda=0 sozlesmesi test basinda belgeli |
-| `qspi_rdpath_test` | QSPI 55 -> **9** | cok baytli okuma paketleme, dummy, adressiz (RDSR/RES), 4B adres, SE, x2/x4 |
-| `csr_negatif_test` | kucuk dosyalar 6 -> **1** + AI CSR default'lari | haritasiz/RO ofsetler tum bloklarda |
-| `ai_sat_test` | requant doyumu FONKSIYONEL kanitlandi | conv_out 2x1000 word birebir 0x7F / 0x80 |
+| `i2c_soc_test` | I2C 122 -> **3** | full engine path (TX/RX multi-byte), the sda=0 contract is documented at the head of the test |
+| `qspi_rdpath_test` | QSPI 55 -> **9** | multi-byte read packing, dummy, address-less (RDSR/RES), 4-byte address, SE, x2/x4 |
+| `csr_negatif_test` | small files 6 -> **1** + AI CSR defaults | unmapped/RO offsets in every block |
+| `ai_sat_test` | requant saturation proven FUNCTIONALLY | conv_out 2x1000 words bit-exact at 0x7F / 0x80 |
 
-**Yeni olcum:** line **%91,1** (347/381), branch **%91,3** (778/852),
-annotation %92,0 (onceki: %72,2 / %84,2 / %82,0). Kalan isaretli satirlar
-(ekip RTL'i 49):
+**New measurement:** line **91.1%** (347/381), branch **91.3%** (778/852),
+annotation 92.0% (previously: 72.2% / 84.2% / 82.0%). Remaining marked lines
+(49 in team RTL):
 
-| Dosya | Kalan | Sinifi |
+| File | Remaining | Class |
 |---|---|---|
-| obi_to_axi.sv | 23 | A (bolum 3 kaniti) |
-| ai_accelerator.sv | 9 | A - tamami artefakt/default: 315-317 rq_round_sat `return`leri (doyum ai_sat_test'le FONKSIYONEL kanitli; Verilator fonksiyon-ici return'e kredi vermiyor - 512-515 ile ayni sinif), 501/885 FSM default |
-| qspi_master_axil.sv | 9 | A=4 (232 underflow, 343/405/458 default) + C-kalan=5 (355-359: dummy+TX kombinasyonu - mesru ama cok nadir, bilerek acik birakildi) |
-| boot_rom.sv | 4 | A (bolum 5) |
-| i2c_master_axil.sv | 3 | B=2 (309-310 NACK dali - UVM blok testinde kapsali) + A=1 (342 default) |
+| obi_to_axi.sv | 23 | A (evidence in Section 3) |
+| ai_accelerator.sv | 9 | A - all of them artefact/default: the rq_round_sat `return`s at 315-317 (saturation FUNCTIONALLY proven by ai_sat_test; Verilator gives no credit to a return from inside a function - same class as 512-515), 501/885 FSM default |
+| qspi_master_axil.sv | 9 | A=4 (232 underflow, 343/405/458 default) + C-remaining=5 (355-359: the dummy+TX combination - legal but very rare, deliberately left open) |
+| boot_rom.sv | 4 | A (Section 5) |
+| i2c_master_axil.sv | 3 | B=2 (309-310, the NACK branch - covered by the UVM block test) + A=1 (342 default) |
 | uart_stream_axil.sv | 1 | A (366 FSM default) |
-| uart_rx.v | 5 | vendor (kapsam beyani disi; uart_tx.v 0'a indi) |
+| uart_rx.v | 5 | vendor (outside the coverage declaration; uart_tx.v dropped to 0) |
 
-Duzeltilen siniflandirma: bolum 4'te C sayilan 315-316 aslinda
-A-artefakt cikti (test doyumu kanitliyor ama annotate kredisi
-dusmuyor); bolum 6'daki kucuk-dosya default'larinin biri haric hepsi
-kapandi. Ozet: kalan her satir ya kanitli-yapisal (A), ya blok
-seviyesinde kapsanan hata yolu (B), ya da gerekceli tek istisna
-(QSPI dummy+TX). "Kapsanmayani biliyoruz" hedefi kapanmistir.
+Corrected classification: 315-316, counted as C in Section 4, turned out to be
+an A artefact (the test proves the saturation, but no annotation credit is
+awarded); all but one of the small-file defaults in Section 6 are now closed.
+In summary: every remaining line is either proven-structural (A), a fault path
+covered at block level (B), or the single rationalized exception
+(QSPI dummy+TX). The "we know what is uncovered" objective is closed.
+
+## 10. Re-measurement on the delivered configuration (September 6, 2026)
+
+`make coverage` was re-run after the JTAG debug subsystem was taken into the
+delivery configuration (`verif/coverage_summary.txt`, dated 2026-09-06; same 15
+C tests, same Verilator, single build, fixed denominator). Nothing in sections
+0-9 was re-derived; this section records only the delta.
+
+| Metric | September 1 (14 files) | September 6 (15 files, delivered configuration) |
+|---|---|---|
+| Line | 91.1 % (347/381) | **90.7 % (359/396)** |
+| Branch | 91.3 % (778/852) | **88.6 % (819/924)** |
+| Lines with all attached points covered | 92.0 % (1636/1764) | 90.0 % (1685/1856) |
+| Functional bins (union) | 20/22 (UART 5/7) | **21/22 (UART 6/7)** |
+
+**Why the denominators grew.** The measured set now contains
+`rtl/debug/axi_dm_slave.sv` (team RTL, the AXI-to-debug-module bridge) and the
+JTAG glue in `soc_top.sv` (`sys_rst_n = rst_ni & ~ndmreset`, the `I2C_SDA_SYNC`
+synchroniser, the wiring of the TAP/DM instances). `soc_top.sv` therefore produces
+coverage points for the first time (it was "absent from the annotation" in
+section 7) and reports **0** uncovered point-lines. The riscv-dbg, common_cells
+v1.38.0 and tech_cells_generic vendor files are excluded by the same rule as
+CV32E40P (`verif/coverage_waivers.vlt`: upstream-verified vendor IP, not design
+RTL); their own line coverage is reported separately by `make jtag-cov`
+(`rtl/debug/sim/jtag_cov_summary.txt`: `dm_mem` 96.3 %, `dmi_jtag_tap` 99.1 %,
+`dmi_jtag` 90.3 %, `dm_csrs` 81.3 %).
+
+**Per-file uncovered point-lines (script count, as in `coverage_summary.txt`):**
+
+| File | September 1 | September 6 | Class |
+|---|---|---|---|
+| ai_accelerator.sv | 9 | 9 | unchanged (section 4) |
+| obi_to_axi.sv | 23 | 23 | unchanged, A (section 3) |
+| qspi_master_axil.sv | 9 | 9 | unchanged (section 9) |
+| i2c_master_axil.sv | 3 | 3 | unchanged (section 9) |
+| boot_rom.sv | 4 | 4 | unchanged, A (section 5) |
+| uart_rx.v | 5 | 5 | unchanged (section 9) |
+| uart_stream_axil.sv | 1 | 1 | unchanged (section 9) |
+| soc_top.sv | (no points) | 0 | new points, all covered |
+| **axi_dm_slave.sv** | (not in set) | **22** | **covered by a dedicated testbench, see below** |
+| all other files | 0 | 0 | - |
+
+**`axi_dm_slave.sv` - 22 point-lines, not a class A/B/C gap.** The 15 C tests
+never drive the JTAG TAP, so in the SoC run the bridge only ever sits in its idle
+state: every request, arbitration, response-hold and byte-enable line is
+unreached *by construction of this measurement*, not because a scenario is
+missing. The same lines are exercised **49/49 = 100 %** by the JTAG testbench
+(`make jtag-cov`, `jtag_smoke_tb`, 17 stages) and the response-hold /
+back-pressure paths additionally by the unit testbench `make jtag-bridge-sim`
+(6 scenarios, request/response timing-contract SVA). The two measurements are
+deliberately **not merged**: `jtag_smoke_tb` and the C-test model are different
+Verilator models with different hierarchy keys, and merging their `.dat` files
+double-counted the shared lines and dragged the summary down to 64 % (measured on
+September 6; note at the head of `scripts/run_coverage.sh`). They are therefore
+reported side by side, and the JTAG block is appended at the end of
+`coverage_summary.txt`.
+
+**Branch coverage (91.3 % -> 88.6 %).** 72 branch points were added (852 -> 924)
+and 31 more are untaken (74 -> 105). The additions are the newly measured code
+(the bridge's arbitration and channel logic, the JTAG glue in `soc_top.sv`), and
+the per-file line counts of every previously measured file are unchanged, which
+is consistent with the untaken branches lying in the bridge's debug-session
+paths discussed above. A per-file branch split was not extracted for this run;
+the branch figure is reported as measured.
+
+**Functional coverage 20/22 -> 21/22.** Not new hardware behaviour: until
+September 6 the UART figure was the best single test (5/7); the union is now
+computed per bin across all tests (CPB 434/50/5208 and STP 00/01/10/11 counters
+from the test logs) and is 6/7. The remaining bin is STP=11, which no test
+programs (documented in `scripts/run_coverage.sh`).
+
+Verdict: the delivered configuration keeps every classification of sections
+0-9; the only new uncovered lines belong to the debug bridge and are covered in
+full by its own testbenches.
+
+<!-- English translation of coverage_siniflandirma.md, 2026-09-01; numeric values converted from Turkish to English number format. -->

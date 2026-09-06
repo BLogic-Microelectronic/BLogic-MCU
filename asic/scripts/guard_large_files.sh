@@ -1,40 +1,40 @@
 #!/usr/bin/env bash
-# guard_large_files.sh — GitHub 100 MB tek-dosya limiti korumasi.
-# collect_outputs.sh SONRASI, commit ONCESI kosulur. Idempotent.
-# 95 MB uzeri her results/ ve reports/ dosyasi icin: orijinal SHA-256 kaydet -> gzip -9;
-# hala 95 MB uzeriyse 90 MB parcalara bol (<ad>.gz.partNN) ve gz'yi sil.
-# Geri birlestirme talimati results/BUYUK_DOSYALAR.md'ye yazilir.
-# git-lfs BILEREK kullanilmiyor (temiz-klon juri sarti, README 9.12).
+# guard_large_files.sh - protection against GitHub's 100 MB single-file limit.
+# Run AFTER collect_outputs.sh and BEFORE committing. Idempotent.
+# For every results/ and reports/ file above 95 MB: record the original SHA-256 -> gzip -9;
+# if still above 95 MB, split into 90 MB parts (<name>.gz.partNN) and delete the .gz.
+# The reassembly instructions are written to results/BUYUK_DOSYALAR.md.
+# git-lfs is DELIBERATELY not used (clean-clone jury requirement, README 9.12).
 set -euo pipefail
 LIMIT_MB=95
 ASIC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ASIC_DIR"
 DOC=results/BUYUK_DOSYALAR.md
 
-# reports/ de taranir: DDK 5.7'nin zorunlu kildigi dugum-bazli gerilim
-# dosyalari (reports/power/net-<net>.csv) bu tasarimda 137 MB'tir ve
-# yalniz results/ taranirsa limite takilip push'u reddettirir (olculdu,
-# RUN_teslim_2026-08-14).
+# reports/ is scanned as well: the node-level voltage files required by
+# DDK 5.7 (reports/power/net-<net>.csv) are 137 MB in this design, and
+# scanning only results/ would hit the limit and get the push rejected
+# (measured, RUN_teslim_2026-08-14).
 mapfile -t BIG < <(find results reports -type f ! -name '.gitkeep' ! -name '*.gz' \
     ! -name '*.gz.part*' ! -name '*.sha256' ! -name 'BUYUK_DOSYALAR.md' \
     -size +"${LIMIT_MB}"M | sort)
 
 if [[ ${#BIG[@]} -eq 0 ]]; then
-    echo "[guard] ${LIMIT_MB} MB uzeri dosya yok — islem gerekmedi."
+    echo "[guard] no file above ${LIMIT_MB} MB - nothing to do."
     exit 0
 fi
 
 {
-    echo "# Buyuk dosya paketlemesi (GitHub 100 MB limiti)"
+    echo "# Large-file packaging (GitHub 100 MB limit)"
     echo ""
-    echo "Asagidaki dosyalar ${LIMIT_MB} MB uzerinde oldugu icin gzip -9 ile"
-    echo "sikistirildi; gerekenler 90 MB parcalara bolundu. Orijinal SHA-256"
-    echo "degerleri yanlarindaki .sha256 dosyalarindadir. Geri elde etmek icin:"
+    echo "The files below were larger than ${LIMIT_MB} MB, so they were compressed"
+    echo "with gzip -9; where necessary they were split into 90 MB parts. The"
+    echo "original SHA-256 values are in the .sha256 files next to them. To restore:"
     echo ""
-    echo '    cat <ad>.gz.part* | gunzip > <ad>     # parcalanmissa'
-    echo '    gunzip -k <ad>.gz                     # tek parcaysa'
+    echo '    cat <name>.gz.part* | gunzip > <name>     # if split'
+    echo '    gunzip -k <name>.gz                       # if a single part'
     echo ""
-    echo "Dogrulama: sha256sum -c <ad>.sha256"
+    echo "Verification: sha256sum -c <name>.sha256"
     echo ""
 } > "$DOC"
 
@@ -46,14 +46,14 @@ for f in "${BIG[@]}"; do
         split -b 90m -d "$f.gz" "$f.gz.part"
         rm "$f.gz"
         n=$(ls "$f".gz.part* | wc -l)
-        echo "- \`$f\` -> gzip + split (${n} parca); orijinal SHA-256: \`$f.sha256\`" >> "$DOC"
+        echo "- \`$f\` -> gzip + split (${n} parts); original SHA-256: \`$f.sha256\`" >> "$DOC"
     else
-        echo "- \`$f\` -> \`$f.gz\`; orijinal SHA-256: \`$f.sha256\`" >> "$DOC"
+        echo "- \`$f\` -> \`$f.gz\`; original SHA-256: \`$f.sha256\`" >> "$DOC"
     fi
 done
 
-# results/ degisti -> checksum manifesti yeniden uretilir (collect ile ayni kural)
+# results/ changed -> regenerate the checksum manifest (same rule as collect)
 mkdir -p checksums
 ( find results -type f ! -name '.gitkeep' -print0 | sort -z | xargs -0 sha256sum ) \
     > checksums/SHA256SUMS
-echo "[guard] TAMAM — $DOC yazildi, checksums/SHA256SUMS yeniden uretildi."
+echo "[guard] DONE - $DOC written, checksums/SHA256SUMS regenerated."
