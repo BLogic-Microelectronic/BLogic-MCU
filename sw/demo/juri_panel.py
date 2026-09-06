@@ -17,13 +17,20 @@
 #   .hex  : satir basina 8 haneli word (golden_vectors bicimi), 1 ya da N vektor (1960 bayt katlari)
 #   klasor: icindeki dosyalar tek tek (yukaridaki bicimlerle)
 #
+# "Random sweep & stress tests" bolumu kart_sweep.py juri provasini panele
+# tasir: AYNI ornek ureteci + AYNI bit-exact SW referansi (run_accuracy_window,
+# sweep basinda lazy import) ve BLG1 protokolunun dayaniklilik testleri (a-g).
+#
 # Kullanim:  python sw/demo/juri_panel.py
 # Kuru test: python sw/demo/juri_panel.py --selftest
+#            (kartsiz: FakeSerial firmware taklidi ile Kart, stres testleri,
+#             N=45 rastgele tarama; tkinter/pyserial gerekmez)
 # ============================================
 import argparse
 import glob
 import os
 import queue
+import random
 import re
 import shutil
 import struct
@@ -148,15 +155,28 @@ def girdi_yukle(yol, uint8=False):
 
 
 # ---------------- kart iletisimi -------------------------------------------
+def cevap_ayristir(hat):
+    """'[DEMO] class = <ad>  HW cycle = <n> ...' satiri -> (ad, cevrim)."""
+    m = re.search(r"class = (\w+)\s+HW cycle = (\d+)", hat)
+    if not m:
+        raise ValueError("could not parse response: " + hat)
+    return m.group(1), int(m.group(2))
+
+
 class Kart:
     """Portu TEK okuyucu iplik dinler: gelen her satir hem `dinleyici`
     geri cagrisina (panel logu - canli terminal) hem ic kuyruga gider;
     komut cevaplari ic kuyruktan desenle suzulur. Boylece R19/banner gibi
-    kendiliginden gelen ciktilar da panelde gorunur - Tera Term gerekmez."""
+    kendiliginden gelen ciktilar da panelde gorunur - Tera Term gerekmez.
+    `ser` verilirse (selftest'teki FakeSerial) port acilmaz, o nesne kullanilir."""
 
-    def __init__(self, port, baud=115200, zaman_asimi=6.0, dinleyici=None):
-        import serial
-        self.ser = serial.Serial(port, baud, timeout=0.25)
+    def __init__(self, port, baud=115200, zaman_asimi=6.0, dinleyici=None,
+                 ser=None):
+        if ser is None:
+            import serial
+            ser = serial.Serial(port, baud, timeout=0.25)
+        self.ser = ser
+        self.port, self.baud = port, baud
         self.zaman_asimi = zaman_asimi
         self.dinleyici = dinleyici
         self.hat = queue.Queue()
@@ -185,14 +205,20 @@ class Kart:
         except Exception:
             pass
 
-    def _temizle(self):
+    def temizle(self):
+        """Ic satir kuyrugunu bosaltir (yeni komut oncesi eski cevap kalmasin)."""
         try:
             while True:
                 self.hat.get_nowait()
         except queue.Empty:
             pass
+    _temizle = temizle
 
-    def _satir_bekle(self, kalip, sure):
+    def satir_bekle(self, kalip, sure):
+        """`kalip` (str/bytes) gecen ilk satiri `sure` sn icinde dondurur,
+        yoksa None; eslesmeyen satirlar atlanir."""
+        if isinstance(kalip, str):
+            kalip = kalip.encode("ascii")
         bitis = time.time() + sure
         while time.time() < bitis:
             try:
@@ -202,6 +228,7 @@ class Kart:
             if kalip in satir:
                 return satir.decode("ascii", "replace").strip()
         return None
+    _satir_bekle = satir_bekle
 
     def canli_mi(self):
         """Menu istegi gonderir; iki denemede herhangi bir [DEMO] satiri
@@ -219,23 +246,293 @@ class Kart:
                     return True
         return False
 
-    def vektor_gonder(self, veri):
-        """'v' + el sikisma + cerceve; (sinif_adi, cevrim) ya da exception."""
-        self._temizle()
+    def ham_gonder(self, bayt, parca=0, ara_ms=0.0):
+        """Ham baytlari yazar. parca>0: `parca` baytlik parcalar halinde,
+        parcalar arasinda `ara_ms` ms bekleyerek (yavas/parcali aktarim
+        provasi - kart_sweep.py --parca/--ara-ms ile ayni)."""
+        if parca <= 0 or parca >= len(bayt):
+            self.ser.write(bayt)
+            self.ser.flush()
+            return
+        for k in range(0, len(bayt), parca):
+            self.ser.write(bayt[k:k + parca])
+            self.ser.flush()
+            if ara_ms > 0 and k + parca < len(bayt):
+                time.sleep(ara_ms / 1000.0)
+
+    def v_baslat(self, sure=3.0):
+        """'v' gonderir, 'waiting for BLG1 frame' el sikismasini bekler."""
+        self.temizle()
         self.ser.write(b"v")
         self.ser.flush()
-        if self._satir_bekle(b"waiting", 3.0) is None and \
-           self._satir_bekle(b"BLG1", 0.5) is None:
+        if self.satir_bekle(b"waiting", sure) is None and \
+           self.satir_bekle(b"BLG1", 0.5) is None:
             raise TimeoutError("no handshake ('v' unanswered)")
-        self.ser.write(cerceve_yap(veri))
-        self.ser.flush()
-        hat = self._satir_bekle(b"class =", self.zaman_asimi)
+
+    def vektor_gonder(self, veri, parca=0, ara_ms=0.0):
+        """'v' + el sikisma + cerceve; (sinif_adi, cevrim) ya da exception.
+        parca/ara_ms: cerceveyi parcali gonder (0 = tek seferde)."""
+        self.v_baslat()
+        self.ham_gonder(cerceve_yap(veri), parca, ara_ms)
+        hat = self.satir_bekle(b"class =", self.zaman_asimi)
         if hat is None:
             raise TimeoutError("no class response from board")
-        m = re.search(r"class = (\w+)\s+HW cycle = (\d+)", hat)
-        if not m:
-            raise ValueError("could not parse response: " + hat)
-        return m.group(1), int(m.group(2))
+        return cevap_ayristir(hat)
+
+
+# ---------------- rastgele tarama + stres testleri (GUI'den bagimsiz) -------
+# Bu isler Tkinter'e dokunmaz: `bildir(oge)` ile mesaj birakir (GUI'de
+# kuyruk_isle isler, selftest ekrana basar), `dur_mu()` True olunca durur.
+# Ornek uretimi ve SW referansi sw/ai_model/kart_sweep.py ile BIREBIR aynidir.
+def referans_yukle():
+    """kart_sweep.py ile AYNI ornek ureteci ve bit-exact SW referansi:
+    run_accuracy_window LAZY import edilir (saf Python; numpy/tflite gerekmez),
+    agirlik/bias/quant parametreleri ve gercek 'yes'/'no' girdileri
+    golden_vectors'tan okunur. Hata -> exception/SystemExit (cagiran yakalar)."""
+    ai_dizin = os.path.join(REPO, "sw", "ai_model")
+    if ai_dizin not in sys.path:
+        sys.path.insert(0, ai_dizin)
+    import run_accuracy_window as raw
+    if not os.path.isabs(raw.G):        # modul REPO kokunden kosulmayi varsayar
+        raw.G = os.path.join(REPO, raw.G)
+    G = raw.G
+    cw = raw.hexbytes(os.path.join(G, "weights_conv.hex"))[:640]
+    cb = raw.hexwords(os.path.join(G, "bias_conv.hex"))
+    fw = raw.hexbytes(os.path.join(G, "weights_fc.hex"))[:16000]
+    fb = raw.hexwords(os.path.join(G, "bias_fc.hex"))
+    qp = raw.load_quant_params()
+    yr = raw.hexbytes(os.path.join(G, "input_yes_real.hex"))[:VEKTOR_BOY]
+    nr = raw.hexbytes(os.path.join(G, "input_no_real.hex"))[:VEKTOR_BOY]
+    syn = {n: raw.hexbytes(os.path.join(G, "input_%s.hex" % n))[:VEKTOR_BOY]
+           for n in ("yes", "no", "unknown", "silence")}
+    return {"raw": raw, "model": (cw, cb, fw, fb, qp),
+            "yr": yr, "nr": nr, "syn": syn}
+
+
+def ornekleri_uret(ref, n, seed):
+    """kart_sweep.py --n N --seed S ile birebir ayni N ornek [(ad, etiket, vec)]."""
+    raw = ref["raw"]
+    raw.N = max(40, n)                  # 40 cekirdek + uzatma ailesi
+    rng = random.Random(seed)
+    return raw.make_samples(rng, ref["yr"], ref["nr"], ref["syn"])[:n]
+
+
+def sw_sinif(ref, vec):
+    """Bit-exact SW referansi: (fc_out[4], sinif_adi)."""
+    raw = ref["raw"]
+    ko = raw.run_model(vec, *ref["model"])
+    return ko, raw.CLS[raw.argmax4(ko)]
+
+
+def yes_real_vektor():
+    """Gercek 'yes' girdisi (golden_vectors), 1960 bayt int8."""
+    return _hex_oku(os.path.join(REPO, "sw", "ai_model", "golden_vectors",
+                                 "input_yes_real.hex"))[:VEKTOR_BOY]
+
+
+def rastgele_tarama(kart, n, seed, parca, ara_ms, bildir, dur_mu,
+                    rapor_dizin, ref=None):
+    """RANDOM SWEEP: N seed'li ornek -> kart sinifi vs bit-exact SW sinifi.
+    Mesajlar: ("log", m) | ("tarama", i, n, ornek, sw, kart, durum, cyc, kalan)
+    | ("tarama_bitti", ozet). Ozet sozlugunu dondurur; raporu
+    <rapor_dizin>/juri_sonuclar_sweep_<tarih>.txt dosyasina yazar."""
+    if ref is None:
+        ref = referans_yukle()
+    ornekler = ornekleri_uret(ref, n, seed)
+    toplam = len(ornekler)
+    bildir(("log", "RANDOM SWEEP: N=%d seed=%d chunk=%d gap=%g ms (same "
+            "generator and SW reference as sw/ai_model/kart_sweep.py)"
+            % (toplam, seed, parca, ara_ms)))
+    sonuc, cevrimler = [], []
+    eslesen = zaman = uyusmaz = 0
+    durduruldu = False
+    t0 = time.time()
+    for i, (ad, etiket, vec) in enumerate(ornekler):
+        if dur_mu():
+            bildir(("log", "sweep stopped by user at %d/%d" % (i, toplam)))
+            durduruldu = True
+            break
+        ko, sw_ad = sw_sinif(ref, vec)
+        veri = bytes(v & 0xFF for v in vec)
+        kart_ad, cyc, hata = None, 0, None
+        for deneme in (1, 2):           # tek zaman asimi taramayi bozmasin
+            try:
+                kart_ad, cyc = kart.vektor_gonder(veri, parca, ara_ms)
+                break
+            except Exception as e:
+                hata = e
+                if deneme == 1:
+                    bildir(("log", "sample %d (%s): %s - retrying"
+                            % (i, ad, e)))
+                    time.sleep(0.3)
+        if kart_ad is None:
+            zaman += 1
+            durum_s = "TIMEOUT"
+            sonuc.append((ad, etiket, ko, sw_ad, None, "TIMEOUT (%s)" % hata))
+        else:
+            cevrimler.append(cyc)
+            if kart_ad == sw_ad:
+                eslesen += 1
+                durum_s = "OK"
+            else:
+                uyusmaz += 1
+                durum_s = "MISMATCH"
+            sonuc.append((ad, etiket, ko, sw_ad, kart_ad, "%s %d cyc%s"
+                          % (durum_s, cyc, " (retry)" if hata else "")))
+        gecen = time.time() - t0
+        kalan = gecen / (i + 1) * (toplam - i - 1)
+        bildir(("tarama", i + 1, toplam, ad, sw_ad, kart_ad or "-",
+                durum_s, cyc, kalan))
+    sure = time.time() - t0
+    ort = sum(cevrimler) / len(cevrimler) if cevrimler else 0.0
+    metin = ("MATCHED %d/%d, timeouts %d, mismatches %d, avg cycles %.0f, "
+             "total %.1f s" % (eslesen, len(sonuc), zaman, uyusmaz, ort, sure))
+    if durduruldu:
+        metin += " (stopped: %d of %d planned)" % (len(sonuc), toplam)
+    yol = os.path.join(rapor_dizin, "juri_sonuclar_sweep_%s.txt"
+                       % time.strftime("%Y%m%d_%H%M%S"))
+    r = ["=" * 70,
+         "BOARD RANDOM-CLASSIFICATION SWEEP (jury panel)",
+         "Date: %s | N=%d | seed=%d | port=%s @ %d baud | chunk=%d B | "
+         "gap=%g ms | duration=%.1f s"
+         % (time.strftime("%Y-%m-%d %H:%M:%S"), toplam, seed, kart.port,
+            kart.baud, parca, ara_ms, sure),
+         "Path: PC -> UART -> demo 'v' (BLG1 frame + checksum) -> AI SRAM "
+         "-> HW inference -> irq17 -> UART result",
+         "Reference: run_accuracy_window.run_model - bit-exact SW model "
+         "(verified against RTL in the N=1000 simulation sweep);",
+         "           sample generator and seed identical to "
+         "sw/ai_model/kart_sweep.py",
+         "=" * 70,
+         "%-4s %-16s %-8s %-22s %-8s %-8s %s"
+         % ("i", "sample", "label", "SW fc_out", "SW", "BOARD", "status")]
+    for i, (ad, et, ko, sw_ad, k_ad, durum_s) in enumerate(sonuc):
+        r.append("%-4d %-16s %-8s %-22s %-8s %-8s %s"
+                 % (i, ad, et or "-", str(ko), sw_ad, k_ad or "-", durum_s))
+    r += ["-" * 70, metin]
+    with open(yol, "w", encoding="utf-8") as f:
+        f.write("\n".join(r) + "\n")
+    ozet = {"toplam": toplam, "n": len(sonuc), "eslesen": eslesen,
+            "zaman": zaman, "uyusmaz": uyusmaz, "ort_cyc": ort, "sure": sure,
+            "yol": yol, "metin": metin}
+    bildir(("tarama_bitti", ozet))
+    return ozet
+
+
+def stres_testleri(kart, bildir, dur_mu, rx_bekle=20.0, yes_vec=None,
+                   seed=31082026):
+    """STRESS TESTS a-g (sirayla; her biri PASS/FAIL). [(ad, gecti, detay)] doner.
+    Mesajlar: ("log", m) | ("stres", ad, gecti, detay)
+    | ("stres_bitti", gecen, kosulan, planlanan).
+    rx_bekle: 'RX timeout' satirini bekleme suresi (firmware ~12 s sonra
+    yazar; selftest'te FakeSerial 1 s)."""
+    if yes_vec is None:
+        yes_vec = yes_real_vektor()
+    cerceve = cerceve_yap(yes_vec)
+    baslik = ONEK + MAGIC + struct.pack("<I", len(yes_vec))
+    saglama = sum(yes_vec) & 0xFFFFFFFF
+
+    def a_parcali():
+        t = time.time()
+        ad, cyc = kart.vektor_gonder(yes_vec, 64, 5.0)
+        return ad == "yes" and cyc > 0, \
+            "class=%s cycles=%d, %d chunks of 64 B / 5 ms gaps, %.1f s" \
+            % (ad, cyc, -(-len(cerceve) // 64), time.time() - t)
+
+    def b_tek_bayt():
+        t = time.time()
+        ad, cyc = kart.vektor_gonder(yes_vec, 1, 1.0)
+        return ad == "yes", "class=%s cycles=%d, %d 1-byte chunks / 1 ms " \
+            "gaps, %.1f s" % (ad, cyc, len(cerceve), time.time() - t)
+
+    def c_cop():
+        rng = random.Random(seed)
+        while True:
+            cop = bytearray(rng.randrange(0, 255) for _ in range(64))  # 0xFF yok
+            cop[10:12] = b"BL"                    # kismi sihir tuzaklari
+            cop[40] = ord("B")
+            cop[50:53] = b"BLG"
+            if b"BLG1" not in cop:
+                break
+        kart.v_baslat()
+        kart.ham_gonder(bytes(cop) + cerceve)
+        hat = kart.satir_bekle(b"class =", kart.zaman_asimi)
+        if hat is None:
+            return False, "no class line after 64 junk bytes + frame"
+        ad, cyc = cevap_ayristir(hat)
+        return ad == "yes", "class=%s cycles=%d after 64 junk bytes " \
+            "(partial 'B'/'BL'/'BLG' decoys included)" % (ad, cyc)
+
+    def d_saglama():
+        kart.v_baslat()
+        kart.ham_gonder(baslik + yes_vec
+                        + struct.pack("<I", (saglama + 1) & 0xFFFFFFFF))
+        hat = kart.satir_bekle(b"CHECKSUM ERROR", kart.zaman_asimi)
+        if hat is None:
+            return False, "no CHECKSUM ERROR line for checksum+1"
+        sinif = kart.satir_bekle(b"class =", 3.0)
+        if sinif is not None:
+            return False, "board classified despite bad checksum: " + sinif
+        return True, "CHECKSUM ERROR reported, no class line within 3 s " \
+            "(inference skipped)"
+
+    def e_uzunluk():
+        kart.v_baslat()
+        kart.ham_gonder(ONEK + MAGIC + struct.pack("<I", VEKTOR_BOY + 1))
+        hat = kart.satir_bekle(b"invalid length", kart.zaman_asimi)
+        if hat is None:
+            return False, "no 'invalid length' line for length %d" \
+                % (VEKTOR_BOY + 1)
+        return True, "length %d rejected: %s" % (VEKTOR_BOY + 1, hat)
+
+    def f_kesik():
+        kart.v_baslat()
+        kart.ham_gonder(baslik + yes_vec[:1000])
+        t = time.time()
+        hat = kart.satir_bekle(b"RX timeout", rx_bekle)
+        if hat is None:
+            return False, "no RX timeout line within %.0f s after 1000 of " \
+                "%d bytes" % (rx_bekle, len(yes_vec))
+        gecen = time.time() - t
+        ad, cyc = kart.vektor_gonder(yes_vec)
+        return ad == "yes", "%s after %.1f s; recovery vector class=%s " \
+            "cycles=%d" % (hat.replace("[DEMO] ", ""), gecen, ad, cyc)
+
+    def g_ardisik():
+        t = time.time()
+        siniflar = []
+        for _ in range(20):
+            ad, cyc = kart.vektor_gonder(yes_vec)
+            siniflar.append(ad)
+        sure = time.time() - t
+        ok = all(s == "yes" for s in siniflar)
+        return ok, "20 back-to-back vectors, avg %.0f ms/vector (%.1f " \
+            "vectors/s), classes: %s" % (sure / 20 * 1000.0, 20 / sure,
+                                         "all yes" if ok else ",".join(siniflar))
+
+    testler = [("a chunked transfer (64 B / 5 ms)", a_parcali),
+               ("b 1-byte chunks (1 ms gaps)", b_tek_bayt),
+               ("c junk before magic (64 B)", c_cop),
+               ("d corrupted checksum", d_saglama),
+               ("e invalid length (%d)" % (VEKTOR_BOY + 1), e_uzunluk),
+               ("f truncated frame (1000 B) + recovery", f_kesik),
+               ("g back-to-back throughput (20)", g_ardisik)]
+    bildir(("log", "STRESS TESTS: %d tests on the yes_real vector, frame %d "
+            "bytes" % (len(testler), len(cerceve))))
+    sonuc = []
+    for ad, fn in testler:
+        if dur_mu():
+            bildir(("log", "stress tests stopped by user"))
+            break
+        try:
+            gecti, detay = fn()
+        except Exception as e:
+            gecti, detay = False, "%s: %s" % (type(e).__name__, e)
+        sonuc.append((ad, gecti, detay))
+        bildir(("stres", ad, gecti, detay))
+    gecen = sum(1 for _, g, _ in sonuc if g)
+    bildir(("stres_bitti", gecen, len(sonuc), len(testler)))
+    return sonuc
 
 
 # ---------------- GUI ------------------------------------------------------
@@ -246,7 +543,7 @@ def gui_calistir():
     KOYU, MIST, INK = "#17324a", "#f2f5f8", "#20262f"
     kok = tk.Tk()
     kok.title("BLogic MCU — Jury Data Panel")
-    kok.geometry("980x640")
+    kok.geometry("980x720")     # +80 px: 'Random sweep & stress tests' bolumu
     kok.configure(bg=MIST)
 
     durum = {"kart": None, "vektorler": [], "kosuyor": False, "dur": False,
@@ -506,7 +803,7 @@ def gui_calistir():
         durum["dur"] = True
 
     def tekli():
-        if durum["kart"] and durum["vektorler"]:
+        if kart_hazir() and durum["vektorler"]:   # mesgulken (sweep/stress) tek gonderim yok
             durum["kosuyor"] = True
             sayaclari_sifirla()
 
@@ -562,6 +859,98 @@ def gui_calistir():
     ttk.Button(alt, text="Stop", command=durdur).pack(side="left", padx=3)
     ttk.Button(alt, text="Save Results", command=kaydet).pack(side="left", padx=3)
 
+    # ---- rastgele tarama + stres testleri (kart_sweep.py provasi panelde)
+    tarama = tk.LabelFrame(kok, text="Random sweep & stress tests", bg=MIST,
+                           fg=INK, font=("Segoe UI", 9, "bold"))
+    tarama.pack(fill="x", padx=12, pady=(0, 8))
+    n_var = tk.StringVar(value="1000")
+    seed_var = tk.StringVar(value="31082026")
+    parca_var = tk.StringVar(value="0")
+    ara_var = tk.StringVar(value="0")
+    for col, (etiket, var, gen) in enumerate(
+            [("N:", n_var, 6), ("seed:", seed_var, 10),
+             ("chunk size (bytes, 0 = whole frame):", parca_var, 6),
+             ("gap between chunks (ms):", ara_var, 6)]):
+        tk.Label(tarama, text=etiket, bg=MIST).grid(
+            row=0, column=2 * col, sticky="w", padx=(8, 2), pady=4)
+        ttk.Entry(tarama, textvariable=var, width=gen).grid(
+            row=0, column=2 * col + 1, padx=(0, 6))
+
+    def kart_hazir():
+        if durum["kosuyor"]:
+            messagebox.showwarning("Busy", "Finish or stop the run first.")
+            return False
+        if not durum["kart"]:
+            messagebox.showwarning("Board", "Connect / Test first.")
+            return False
+        return True
+
+    def tarama_ayarlari():
+        try:
+            n, seed = int(n_var.get()), int(seed_var.get())
+            parca, ara = int(parca_var.get()), float(ara_var.get())
+            if n < 1 or parca < 0 or ara < 0:
+                raise ValueError
+        except ValueError:
+            messagebox.showwarning("Sweep", "N must be >= 1, seed an integer, "
+                                   "chunk size >= 0 bytes, gap >= 0 ms.")
+            return None
+        return n, seed, parca, ara
+
+    def is_baslat(hedef):
+        """Uzun isi ayri iplikte kosar; UI kuyruk mesajlariyla guncellenir."""
+        durum["kosuyor"], durum["dur"] = True, False
+
+        def isci():
+            try:
+                hedef()
+            except (Exception, SystemExit) as e:
+                kuyruk.put(("log", "ERROR: %s" % e))
+            finally:
+                durum["kosuyor"] = False
+        threading.Thread(target=isci, daemon=True).start()
+
+    def tarama_baslat():
+        if not kart_hazir():
+            return
+        ayar = tarama_ayarlari()
+        if ayar is None:
+            return
+        n, seed, parca, ara = ayar
+        try:                    # LAZY: run_accuracy_window ancak simdi yuklenir
+            ref = referans_yukle()
+        except (Exception, SystemExit) as e:
+            log("REFERENCE ERROR: %s" % e)
+            messagebox.showerror("Reference model",
+                                 "run_accuracy_window / golden_vectors could "
+                                 "not be loaded:\n%s" % e)
+            return
+        sayaclari_sifirla()
+        ilerleme["maximum"] = n
+        ilerleme_etiket.config(text="0/%d" % n)
+        is_baslat(lambda: rastgele_tarama(durum["kart"], n, seed, parca, ara,
+                                          kuyruk.put, lambda: durum["dur"],
+                                          os.getcwd(), ref))
+
+    def stres_baslat():
+        if not kart_hazir():
+            return
+        is_baslat(lambda: stres_testleri(durum["kart"], kuyruk.put,
+                                         lambda: durum["dur"]))
+
+    # dugmeler ikinci satirda: alanlar + dugmeler tek satirda 980 px'e sigmaz
+    dugmeler = tk.Frame(tarama, bg=MIST)
+    dugmeler.grid(row=1, column=0, columnspan=8, sticky="w",
+                  padx=6, pady=(0, 4))
+    ttk.Button(dugmeler, text="RANDOM SWEEP",
+               command=tarama_baslat).pack(side="left", padx=3)
+    ttk.Button(dugmeler, text="STRESS TESTS",
+               command=stres_baslat).pack(side="left", padx=3)
+    ttk.Button(dugmeler, text="Stop", command=durdur).pack(side="left", padx=3)
+    tk.Label(dugmeler, text="Stop halts a sweep between samples and the "
+             "stress tests between tests.", bg=MIST, fg="#5a6472",
+             font=("Segoe UI", 9)).pack(side="left", padx=10)
+
     # ---- log
     import tkinter.scrolledtext as st
     log_kutu = st.ScrolledText(kok, height=9, font=("Consolas", 9),
@@ -587,6 +976,16 @@ def gui_calistir():
             sayac_etiketleri[ad].config(text="%s: 0" % ad)
         ilerleme["value"] = 0
 
+    def ilerleme_guncelle(i, n, kalan):
+        ilerleme["maximum"] = n
+        ilerleme["value"] = i
+        if kalan > 1.0:
+            ilerleme_etiket.config(
+                text="%d/%d · ~%d:%02d" %
+                     (i, n, int(kalan) // 60, int(kalan) % 60))
+        else:
+            ilerleme_etiket.config(text="%d/%d" % (i, n))
+
     def kuyruk_isle():
         try:
             while True:
@@ -602,15 +1001,37 @@ def gui_calistir():
                         sayac[ad] += 1
                         sayac_etiketleri[ad].config(
                             text="%s: %d" % (ad, sayac[ad]))
-                    ilerleme["maximum"] = n
-                    ilerleme["value"] = i
-                    if kalan > 1.0:
-                        ilerleme_etiket.config(
-                            text="%d/%d · ~%d:%02d" %
-                                 (i, n, int(kalan) // 60, int(kalan) % 60))
-                    else:
-                        ilerleme_etiket.config(text="%d/%d" % (i, n))
+                    ilerleme_guncelle(i, n, kalan)
                     log("%4d/%d  class=%-8s  %d cyc" % (i, n, ad, cyc))
+                elif oge[0] == "tarama":
+                    _, i, n, ornek, sw_ad, kart_ad, durum_s, cyc, kalan = oge
+                    sinif_etiket.config(
+                        text=kart_ad.upper() if kart_ad in SINIF_RENK else "?",
+                        fg=SINIF_RENK.get(kart_ad, "#9aa1ab"))
+                    detay_etiket.config(
+                        text="sweep %d/%d   ·   %s   ·   sw=%s board=%s %s   ·"
+                             "   %d cycles = %.2f ms @ 50 MHz"
+                             % (i, n, ornek, sw_ad, kart_ad, durum_s, cyc,
+                                cyc / 50000.0))
+                    if kart_ad in sayac:
+                        sayac[kart_ad] += 1
+                        sayac_etiketleri[kart_ad].config(
+                            text="%s: %d" % (kart_ad, sayac[kart_ad]))
+                    ilerleme_guncelle(i, n, kalan)
+                    log("%4d/%d %-14s sw=%-8s board=%-8s %s %d cyc"
+                        % (i, n, ornek, sw_ad, kart_ad, durum_s, cyc))
+                elif oge[0] == "tarama_bitti":
+                    log("SWEEP SUMMARY: " + oge[1]["metin"])
+                    log("sweep report written: " + oge[1]["yol"])
+                elif oge[0] == "stres":
+                    _, ad, gecti, detay = oge
+                    log("STRESS %s  %s: %s"
+                        % ("PASS" if gecti else "FAIL", ad, detay))
+                elif oge[0] == "stres_bitti":
+                    _, gecen, kosulan, planlanan = oge
+                    log("STRESS TESTS FINISHED: %d/%d passed%s"
+                        % (gecen, kosulan, "" if kosulan == planlanan else
+                           " (%d of %d run)" % (kosulan, planlanan)))
                 elif oge[0] == "kart":
                     log_kutu.insert("end", "BOARD ▸ %s\n" % oge[1], "kart")
                     log_kutu.see("end")
@@ -631,44 +1052,251 @@ def gui_calistir():
 
 
 # ---------------- selftest (kartsiz) ---------------------------------------
+class FakeSerial:
+    """Demo firmware'in UART davranisini taklit eden durum makinesi; Kart'in
+    kullandigi pyserial altkumesini (write/read/readline/flush/
+    reset_input_buffer/close) sunar. Kartsiz selftest icindir.
+    rx_tmo: eksik bayt zaman asimi (firmware ~12 s; burada kisa).
+    sinif_fn(veri)->ad verilirse cikarim sonucu ondan alinir, yoksa 'yes'."""
+    MENU = ("[DEMO] h=HW inference  v=new input via BLG1 (send_vector.py)  "
+            "r=report  ?=menu",
+            "[DEMO] baud: sw0=9600 sw1=115200 (both down=115200); "
+            "OLED: class/cycles/baud")
+    CEVRIM = 459062
+
+    def __init__(self, rx_tmo=1.0, sinif_fn=None, timeout=0.25):
+        self.rx_tmo, self.sinif_fn, self.timeout = rx_tmo, sinif_fn, timeout
+        self.cikti = queue.Queue()          # kartin yazdigi satirlar
+        self.kalan = b""                    # read() icin yarim satir
+        self.kilit = threading.Lock()
+        self.durum, self.got, self.tampon = "idle", 0, bytearray()
+        self.uzunluk, self.veri = 0, b""
+        self.son_rx, self.acik = time.time(), True
+        self.yazilan = 0                    # PC'den gelen toplam bayt
+        self.baudrate = 115200
+
+    def _satir(self, s):
+        self.cikti.put(("[DEMO] " + s + "\n").encode("ascii"))
+
+    def _cikarim(self, veri):
+        ad = "yes"
+        if self.sinif_fn and veri is not None:
+            ad = self.sinif_fn(veri)
+        self._satir("class = %s  HW cycle = %d  speedup ~21.0x "
+                    "(SW baseline 9,684,726)" % (ad, self.CEVRIM))
+
+    def _bayt(self, x):
+        self.son_rx = time.time()
+        d = self.durum
+        if d == "idle":                     # demo_main.c ana dongusu
+            if x == ord("?"):
+                for m in self.MENU:
+                    self.cikti.put((m + "\n").encode("ascii"))
+            elif x == ord("v"):
+                self._satir("waiting for BLG1 frame (send_vector.py)...")
+                self.durum, self.got = "magic", 0
+            elif x == ord("h"):
+                self._cikarim(None)
+            elif x == ord("r"):
+                self._satir("SW baseline 9,684,726 cycles (xPack 13.2.0 -O2, "
+                            "soc-perf); live HW measurement above. Details: "
+                            "README.")
+        elif d == "magic":                  # firmware ile ayni yeniden-senkron
+            if x == MAGIC[self.got]:
+                self.got += 1
+            elif x == MAGIC[0]:
+                self.got = 1
+            else:
+                self.got = 0
+            if self.got == 4:
+                self.durum, self.tampon = "length", bytearray()
+        elif d == "length":
+            self.tampon.append(x)
+            if len(self.tampon) == 4:
+                self.uzunluk = struct.unpack("<I", bytes(self.tampon))[0]
+                if self.uzunluk == 0 or self.uzunluk > VEKTOR_BOY:
+                    self._satir("invalid length")
+                    self.durum = "idle"
+                else:
+                    self.durum, self.tampon = "data", bytearray()
+        elif d == "data":
+            self.tampon.append(x)
+            if len(self.tampon) == self.uzunluk:
+                self.veri = bytes(self.tampon)
+                self.durum, self.tampon = "checksum", bytearray()
+        elif d == "checksum":
+            self.tampon.append(x)
+            if len(self.tampon) == 4:
+                self.durum = "idle"
+                chk = struct.unpack("<I", bytes(self.tampon))[0]
+                if chk != (sum(self.veri) & 0xFFFFFFFF):
+                    self._satir("CHECKSUM ERROR - inference skipped")
+                else:
+                    self._satir("input verified (%d bytes), inference:"
+                                % len(self.veri))
+                    self._cikarim(self.veri)
+
+    def write(self, b):
+        b = bytes(b)
+        with self.kilit:
+            for x in b:
+                self._bayt(x)
+            self.yazilan += len(b)
+        return len(b)
+
+    def _zaman_asimi_kontrol(self):
+        with self.kilit:
+            if self.durum != "idle" and time.time() - self.son_rx > self.rx_tmo:
+                self._satir("RX timeout (%s)" % self.durum)
+                self.durum = "idle"
+
+    def readline(self):
+        bitis = time.time() + self.timeout
+        while True:
+            if not self.acik:
+                raise OSError("port closed")
+            try:
+                return self.cikti.get(timeout=0.02)
+            except queue.Empty:
+                pass
+            self._zaman_asimi_kontrol()
+            if time.time() >= bitis:
+                return b""
+
+    def read(self, n=1):
+        if not self.kalan:
+            self.kalan = self.readline()
+        out, self.kalan = self.kalan[:n], self.kalan[n:]
+        return out
+
+    def reset_input_buffer(self):
+        self.kalan = b""
+        try:
+            while True:
+                self.cikti.get_nowait()
+        except queue.Empty:
+            pass
+
+    def flush(self):
+        pass
+
+    def close(self):
+        self.acik = False
+
+
 def selftest():
-    import tempfile
-    ok = True
+    """Kartsiz kuru test: cerceve + yukleyiciler, sonra FakeSerial uzerinden
+    Kart: (i) normal vektor, (ii) parcali gonderim, (iii) stres testleri a-g,
+    (iv) N=45 rastgele tarama (run_accuracy_window varsa). 0 = PASS."""
+    sonuclar = []
+
+    def kontrol(ad, kosul, detay=""):
+        sonuclar.append(bool(kosul))
+        print("%-46s %s%s" % (ad, "OK" if kosul else "FAIL",
+                              ("  " + detay) if detay else ""))
+
     v = bytes(((i * 37) ^ 0x5A) & 0xFF for i in range(VEKTOR_BOY))
     c = cerceve_yap(v)
-    assert c[:8] == ONEK and c[8:12] == MAGIC
-    assert struct.unpack("<I", c[12:16])[0] == VEKTOR_BOY
-    assert struct.unpack("<I", c[-4:])[0] == sum(v) & 0xFFFFFFFF
-    print("frame: OK (%d bytes)" % len(c))
+    kontrol("frame", c[:8] == ONEK and c[8:12] == MAGIC
+            and struct.unpack("<I", c[12:16])[0] == VEKTOR_BOY
+            and struct.unpack("<I", c[-4:])[0] == sum(v) & 0xFFFFFFFF,
+            "%d bytes" % len(c))
     with tempfile.TemporaryDirectory() as td:
         b = os.path.join(td, "t.bin")
         open(b, "wb").write(v * 3)
         vs, a = girdi_yukle(b)
-        assert len(vs) == 3 and vs[0] == v
-        print("bin loader: OK (%s)" % a)
+        kontrol("bin loader", len(vs) == 3 and vs[0] == v, a)
         t = os.path.join(td, "t.csv")
         open(t, "w").write(",".join(str(b_ - 128) for b_ in v) + "\n")
         vs, a = girdi_yukle(t)
-        assert len(vs) == 1 and len(vs[0]) == VEKTOR_BOY
-        print("csv loader: OK (%s)" % a)
+        kontrol("csv loader", len(vs) == 1 and len(vs[0]) == VEKTOR_BOY, a)
         try:
             import numpy as np
             n = os.path.join(td, "t.npy")
             np.save(n, np.frombuffer(v * 2, dtype=np.int8).reshape(2, -1))
             vs, a = girdi_yukle(n)
-            assert len(vs) == 2 and vs[1] == v
-            print("npy loader: OK (%s)" % a)
+            kontrol("npy loader", len(vs) == 2 and vs[1] == v, a)
         except ImportError:
             print("npy loader: skipped (no numpy)")
-    print("SELFTEST: %s" % ("PASS" if ok else "FAIL"))
+
+    # --- referans (opsiyonel): run_accuracy_window + golden_vectors
+    ref = None
+    try:
+        ref = referans_yukle()
+        print("reference model: loaded (run_accuracy_window, pure Python)")
+    except (Exception, SystemExit) as e:
+        print("reference model: SKIP (%s)" % e)
+    sinif_fn = None
+    if ref:
+        def sinif_fn(veri):         # sahte kart = bit-exact SW referansi
+            return sw_sinif(ref, [x - 256 if x >= 128 else x for x in veri])[1]
+
+    def bildir(o):
+        if o[0] == "log":
+            print("   " + o[1])
+        elif o[0] == "stres":
+            print("   %s %s: %s" % ("PASS" if o[2] else "FAIL", o[1], o[3]))
+        elif o[0] == "tarama":
+            print("   %4d/%d %-14s sw=%-8s board=%-8s %s %d cyc" % o[1:8])
+        elif o[0] == "tarama_bitti":
+            print("   " + o[1]["metin"])
+            print("   report: " + o[1]["yol"])
+        elif o[0] == "stres_bitti":
+            print("   %d/%d passed" % (o[1], o[2]))
+
+    sahte = FakeSerial(rx_tmo=1.0, sinif_fn=sinif_fn)
+    kart = Kart("FAKE", ser=sahte)
+    kontrol("fake board: menu handshake", kart.canli_mi())
+    yes = yes_real_vektor()
+    kontrol("yes_real vector", len(yes) == VEKTOR_BOY)
+    # (i) normal vektor
+    ad, cyc = kart.vektor_gonder(yes)
+    kontrol("(i) normal vector", ad == "yes" and cyc == FakeSerial.CEVRIM,
+            "class=%s cycles=%d" % (ad, cyc))
+    # (ii) parcali gonderim
+    once, t0 = sahte.yazilan, time.time()
+    ad, cyc = kart.vektor_gonder(yes, 128, 1.0)
+    beklenen = 1 + len(cerceve_yap(yes))
+    kontrol("(ii) chunked send (128 B / 1 ms)",
+            ad == "yes" and sahte.yazilan - once == beklenen,
+            "class=%s, %d bytes, %.2f s" % (ad, sahte.yazilan - once,
+                                            time.time() - t0))
+    # (iii) stres testleri a-g (FakeSerial RX zaman asimi 1 s)
+    print("(iii) stress tests a-g:")
+    st = stres_testleri(kart, bildir, lambda: False, rx_bekle=3.0, yes_vec=yes)
+    kontrol("(iii) stress tests a-g", len(st) == 7 and all(g for _, g, _ in st),
+            "%d/7 passed" % sum(1 for _, g, _ in st if g))
+    # (iv) N=45 rastgele tarama: kart_sweep sirasi + run_model + rapor
+    if ref:
+        adlar = [s[0] for s in ornekleri_uret(ref, 45, 31082026)]
+        kontrol("(iv) sample order = kart_sweep.py", len(adlar) == 45
+                and adlar[0] == "yes_real" and adlar[40] == "x0000_nz01",
+                "%s ... %s" % (adlar[0], adlar[-1]))
+        print("(iv) random sweep N=45 (fake board answers with SW reference):")
+        with tempfile.TemporaryDirectory() as td:
+            oz = rastgele_tarama(kart, 45, 31082026, 0, 0.0, bildir,
+                                 lambda: False, td, ref)
+            rapor = open(oz["yol"], encoding="utf-8").read()
+            kontrol("(iv) random sweep N=45", oz["n"] == 45
+                    and oz["eslesen"] == 45 and oz["zaman"] == 0
+                    and "MATCHED 45/45" in rapor
+                    and os.path.basename(oz["yol"]).startswith(
+                        "juri_sonuclar_sweep_"), oz["metin"])
+    else:
+        print("(iv) random sweep: SKIP (run_accuracy_window not available)")
+    kart.kapat()
+    gecti = all(sonuclar)
+    print("SELFTEST: %s" % ("PASS" if gecti else "FAIL"))
+    return 0 if gecti else 1
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--selftest", action="store_true",
-                    help="dry test without board (frame + loaders)")
+                    help="dry test without board (frame, loaders, FakeSerial "
+                         "board: stress tests + N=45 sweep)")
     a = ap.parse_args()
     if a.selftest:
-        selftest()
+        sys.exit(selftest())
     else:
         gui_calistir()

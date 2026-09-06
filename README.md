@@ -1525,6 +1525,32 @@ python sw/demo/juri_panel.py
    frame + checksum. A timeout retries once; each result is written to disk
    as it arrives; the final file carries a one-line summary (class
    distribution, mean cycles/ms).
+4. **Random sweep & stress tests** — the `kart_sweep.py` jury rehearsal inside
+   the panel. **RANDOM SWEEP** generates *N* (default 1000) seeded samples with
+   exactly the same generator as `sw/ai_model/kart_sweep.py`
+   (`run_accuracy_window.make_samples`: 40 core cases — real/synthetic keywords,
+   noise, time/frequency shifts, mixes, scaling, Gaussian/uniform noise,
+   constants, patterns — plus the extension families) and compares the board's
+   class with the same bit-exact SW reference (`run_accuracy_window.run_model`,
+   RTL-verified in the N=1000 simulation sweep), so `seed 31082026` reproduces
+   the very vectors of `kart_sweep.py --n 1000 --seed 31082026`. The reference
+   is imported lazily when the sweep starts (pure Python, no numpy/tflite);
+   *chunk size* / *gap* split every frame into chunks with a pause between them
+   (slow or fragmented senders). The log shows
+   `i/N sample sw=… board=… OK|MISMATCH cycles`, the big label and counters
+   follow the board, and the summary
+   (`MATCHED n/N, timeouts, mismatches, avg cycles, total s`) plus the per-sample
+   table go to `juri_sonuclar_sweep_<date>.txt`. **STRESS TESTS** runs seven
+   protocol-robustness checks on the live board, each logged PASS/FAIL:
+   (a) 64-byte chunks with 5 ms gaps, (b) 1-byte chunks with 1 ms gaps
+   (~2000 writes), (c) 64 junk bytes with partial `B`/`BL`/`BLG` decoys before
+   the magic — the firmware resynchronises on `BLG1`, (d) checksum+1 —
+   `CHECKSUM ERROR` and no class line within 3 s, (e) length 1961 —
+   `invalid length`, (f) a frame cut after 1000 bytes — `RX timeout` after
+   ~12 s, then a normal vector proves recovery, (g) 20 back-to-back vectors
+   with the mean ms/vector. *Stop* halts either run between samples/tests.
+   `--selftest` exercises the same code paths without hardware against a
+   built-in `FakeSerial` model of the firmware's UART state machine.
 
 > Windows note: Vivado (GUI and batch) fails on paths containing non-ASCII
 > characters (e.g. `Masaüstü`). Map the repository to a drive letter first
