@@ -119,6 +119,8 @@ asic/runs/
 # demo-gunu paneli ve kart taramasinin yeniden uretilebilir ciktilari (tarihli kopyalar ayrica commit edilir)
 juri_sonuclar_*.txt
 juri_anlik_*.txt
+juri_make_*.txt
+juri_panel_log_*.txt
 sw/ai_model/kart_sweep_raporu.txt
 build/vivado_m2.log
 
