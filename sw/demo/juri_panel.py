@@ -211,8 +211,9 @@ MAKE_ACIKLAMA = {
     "ai-uart-load-field": "Same as ai-uart-load at the field baud timing (CPB=434): about 10 M cycles, "
         "slow. PASS = correct class + SRAM match.",
     "ai-acc": "EK-1 accuracy window: generates the 40-sample batch with the TFLite reference, runs the "
-        "accelerator testbench and writes the accuracy report. NEEDS the Python venv with "
-        "tensorflow / tflite_runtime (sw/ai_model); without it the target stops with "
+        "accelerator testbench and writes the accuracy report. NEEDS a Python venv with "
+        "tensorflow or tflite_runtime (README 8.5); the panel puts <repo>/.venv/bin or "
+        "~/tflite-venv/bin on PATH when present, otherwise the target stops with "
         "'[HATA] tensorflow/tflite_runtime yok' and FAILs. PASS = |acc_SW - acc_RTL| = 0.",
     "ai-batch1000": "The 1000-sample version of the accuracy window (about 4 minutes); same TFLite venv "
         "requirement as ai-acc. PASS = |acc_SW - acc_RTL| = 0 over 1000 samples.",
@@ -231,8 +232,15 @@ MAKE_PATH_ONEK = "/opt/riscv/bin:/usr/local/bin"
 # Ilk cikti satiri PANEL_PGID=<grup>: Stop, grubun tamamini (make + sh +
 # verilator simleri) oldurur. Ayni kabuk make'i kosturur, cikis kodu wsl.exe
 # uzerinden panele gelir.
+# Python venv: ai-acc / ai-batch1000 TensorFlow (ya da tflite-runtime) ister.
+# Depo kokundeki .venv (README 8.5) ya da ~/tflite-venv varsa PATH'in basina
+# alinir; PANEL_VENV=<yol> satiri panelde bilgi olarak gosterilir.
 MAKE_BETIK = ('echo PANEL_PGID=$(ps -o pgid= -p $$ | tr -d " "); '
-              'export PATH=%s:$PATH; cd "$1" && make "$2" 2>&1' % MAKE_PATH_ONEK)
+              'export PATH=%s:$PATH; cd "$1" || exit 1; '
+              'for v in "$PWD/.venv/bin" "$HOME/tflite-venv/bin"; do '
+              'if [ -x "$v/python3" ]; then export PATH="$v:$PATH"; '
+              'echo "PANEL_VENV=$v"; break; fi; done; '
+              'make "$2" 2>&1' % MAKE_PATH_ONEK)
 MAKE_GURULTU = ("ccache ", "g++ ", "make[", "python3 /usr/local/share/verilator",
                 "%Warning-", "      |", "rm V")
 
@@ -1273,6 +1281,10 @@ def gui_calistir():
                     if satir.startswith("PANEL_PGID="):
                         make_durum["pgid"] = satir.split("=", 1)[1].strip()
                         continue
+                    if satir.startswith("PANEL_VENV="):
+                        kuyruk.put(("make_satir", "Python venv on PATH: "
+                                    + satir.split("=", 1)[1].strip()))
+                        continue
                     if hedef in ("test-all", "test-full"):   # ozet tablolari -> satirlar
                         m = re.match(r"^\s+([a-z0-9-]+)\s+\(.*\)\s*:\s*(PASS|FAIL)\s*$",
                                      satir)
@@ -1804,7 +1816,8 @@ def selftest():
             "missing: %s" % ", ".join(eksik) if eksik else "%d described" % len(hedefler))
     k = make_komut("lint", "Ubuntu-24.04", "/home/potato/blogic-mcu")
     kontrol("(v) make command", k[-1] == "lint" and k[-2] == "/home/potato/blogic-mcu"
-            and "setsid" in k and "bash" in k and not make_satir_goster("ccache g++ x")
+            and "setsid" in k and "bash" in k and "tflite-venv" in MAKE_BETIK
+            and not make_satir_goster("ccache g++ x")
             and make_satir_goster("[SIM] PASS"), " ".join(k[:3]))
     kart.kapat()
     gecti = all(sonuclar)
