@@ -1,0 +1,94 @@
+[ENTEGRASYON] kart JTAG + YZ cikarimi, 2026-09-06 03:06:09
+
+== 0) flash icerigi (JTAG ile DSRAM 0x00020000 = flash 0x8000 veri bolgesi) ==
+    OCD> halt
+         xc7k325t.cpu halted due to debug-request.
+    OCD> wait_halt 3000
+         (cikti yok)
+    OCD> mdw 0x00020000 8
+         0x00020000: 4d45445b 46205d4f 3a4c4941 52534920 6c656720 6964656d 0000000a 4d45445b
+  [OK ] DSRAM 0x00020000 = firmware_flash.bin[0x8000] ilk 32 bayt 
+    OCD> mdw 0x00010000 8
+         0x00010000: 4d45445b 46205d4f 3a4c4941 52534920 6c656720 6964656d 0000000a 4d45445b
+  [OK ] ISRAM 0x00010000 veri-portu okumasi DSRAM 0x00020000 ile ayni (belgeli yansima) 
+    OCD> resume
+         (cikti yok)
+
+== 1) taban cikarim (JTAG bosta) ==
+    KART> [DEMO] BLG1 cercevesi bekleniyor (send_vector.py)...
+    KART> [DEMO] girdi dogrulandi (1960 bayt), cikarim:
+    KART> [DEMO] sinif = yes  HW cycle = 459062  hizlanma ~21.0x (SW taban 9.684.726)
+  [OK ] vektor 0: kart=yes beklenen=yes (logit [-50, -5, 121, -4]), 459062 cevrim 
+    KART> [DEMO] BLG1 cercevesi bekleniyor (send_vector.py)...
+    KART> [DEMO] girdi dogrulandi (1960 bayt), cikarim:
+    KART> [DEMO] sinif = no  HW cycle = 459062  hizlanma ~21.0x (SW taban 9.684.726)
+  [OK ] vektor 1: kart=no beklenen=no (logit [-61, 37, -13, 68]), 459062 cevrim 
+
+== 2) halt + CSR/bellek inceleme + scratch yazma + resume ==
+    OCD> halt
+         xc7k325t.cpu halted due to debug-request.
+    OCD> wait_halt 3000
+         (cikti yok)
+    OCD> reg pc
+         pc (/32): 0x000104fa
+    pc (bosta dongu) = 0x000104fa
+    OCD> mdw 0x40000600 4
+         0x40000600: 00000000 00000030 00030000 00035a58
+  [OK ] YZ CSR blogu okundu (CTRL/STATUS/...) ['0x0', '0x30', '0x30000', '0x35a58']
+    OCD> mww 0x00021ff0 0xA5A5A5A5
+         (cikti yok)
+    OCD> mdw 0x00021ff0 1
+         0x00021ff0: a5a5a5a5
+  [OK ] DSRAM scratch 0x00021ff0 yaz/oku ['0xa5a5a5a5']
+    OCD> mdw 0x00030000 2
+         0x00030000: 4c404e67 4335364b
+    YZ girdi SRAM ilk 2 sozcuk (son vektorden kalan): ['0x4c404e67', '0x4335364b']
+    OCD> resume
+         (cikti yok)
+    KART> [DEMO] BLG1 cercevesi bekleniyor (send_vector.py)...
+    KART> [DEMO] girdi dogrulandi (1960 bayt), cikarim:
+    KART> [DEMO] sinif = yes  HW cycle = 459062  hizlanma ~21.0x (SW taban 9.684.726)
+  [OK ] resume sonrasi vektor 0: yes/459062 == taban yes/459062 
+
+== 3) hw breakpoint @run_hw (0x0001015a) - vektor gelirken ==
+    OCD> halt
+         xc7k325t.cpu halted due to debug-request.
+    OCD> wait_halt 3000
+         (cikti yok)
+    OCD> bp 0x0001015a 2 hw
+         breakpoint set at 0x0001015a
+  [OK ] hw breakpoint kuruldu breakpoint set at 0x0001015a
+    OCD> resume
+         (cikti yok)
+    KART> [DEMO] BLG1 cercevesi bekleniyor (send_vector.py)...
+    OCD> wait_halt 4000
+         xc7k325t.cpu halted due to breakpoint.
+    OCD> reg pc
+         pc (/32): 0x0001015a
+  [OK ] cekirdek breakpoint'te durdu: pc=0x0001015a == 0x0001015a 
+    OCD> mdw 0x00030000 4
+         0x00030000: 5f766274 5165556a f4dfee43 220980e6
+  [OK ] YZ girdi SRAM'inde UART'tan gelen vektorun ilk 16 bayti 
+    OCD> rbp 0x0001015a
+         (cikti yok)
+    OCD> resume
+         (cikti yok)
+    KART> [DEMO] girdi dogrulandi (1960 bayt), cikarim:
+    KART> [DEMO] sinif = yes  HW cycle = 459062  hizlanma ~21.0x (SW taban 9.684.726)
+  [OK ] breakpoint'ten devam sonrasi sonuc yes/459062 == taban yes/459062 
+
+== 4) son kontrol ==
+    KART> [DEMO] BLG1 cercevesi bekleniyor (send_vector.py)...
+    KART> [DEMO] girdi dogrulandi (1960 bayt), cikarim:
+    KART> [DEMO] sinif = no  HW cycle = 459062  hizlanma ~21.0x (SW taban 9.684.726)
+  [OK ] vektor 1 tekrar: no/459062 == taban 
+    OCD> halt
+         xc7k325t.cpu halted due to debug-request.
+    OCD> wait_halt 2000
+         (cikti yok)
+    OCD> rbp 0x0001015a
+         Error during removal of breakpoint at address 0x0001015a
+    OCD> resume
+         (cikti yok)
+
+[ENTEGRASYON] VERDICT: PASS  (log: logs/jtag/kart_entegrasyon_2026-09-06_030609.log)
