@@ -150,10 +150,12 @@ int main(int argc, char** argv) {
     std::string golden_file;       // +GOLDEN_FILE= : beklenen dizge (bosluk icerebilir)
     std::string trigger_file;      // +UART_RX_TRIGGER_FILE= : RX gonderimini baslatan TX dizgesi
     std::string ai_dump_file;      // +AI_SRAM_DUMP= : kosu sonunda AI SRAM giris bolgesi
+    std::string gpio_log_file;     // +GPIO_LOG= : gpio_out_o her degistiginde "cevrim deger" (OLED bit-bang izi)
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if      (arg.rfind("+CPB=", 0)       == 0) CPB = std::stoi(arg.substr(5));
+        else if (arg.rfind("+GPIO_LOG=", 0)  == 0) gpio_log_file = arg.substr(10);
         else if (arg == "+TEST=LOOPBACK")          golden_string = "LOOPBACK SUCCESS\n";
         else if (arg.rfind("+MAX_CYCLES=", 0) == 0) max_cycles = std::stoull(arg.substr(12));
         else if (arg.rfind("+LOGDIR=", 0)    == 0) log_dir = arg.substr(8);
@@ -267,6 +269,12 @@ int main(int argc, char** argv) {
     int  flash_bit_cnt = 0;
     uint32_t last_printed_pc = 0;
 
+    // +GPIO_LOG: GPIO cikis yazmacinin her degisimi (demo firmware'in OLED SPI
+    // bit-bang'i ve LED bitleri host tarafinda cozulebilsin diye)
+    std::ofstream gpio_log;
+    uint32_t last_gpio_out = 0;
+    if (!gpio_log_file.empty()) gpio_log.open(gpio_log_file);
+
     while (cyc < max_cycles) {
         top->clk_i = 1;
         // RX dosyasi verildiyse hat surucuden gelir; yoksa eski loopback.
@@ -291,6 +299,11 @@ int main(int argc, char** argv) {
         }
 
         top->eval();
+
+        if (gpio_log.is_open() && top->gpio_out_o != last_gpio_out) {
+            last_gpio_out = top->gpio_out_o;
+            gpio_log << cyc << ' ' << last_gpio_out << '\n';
+        }
 
         {
             uint8_t f = top->rootp->soc_top__DOT__i_uart_0__DOT__cfg_rx_done;

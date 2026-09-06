@@ -164,9 +164,13 @@ static void oled_init(void) {
     oled_cmd(0xD9U); oled_cmd(0xF1U);             /* pre-charge */
     gpo_set(GPO_OLED_VBAT); delay_ms(100U);       /* VBAT (panel) acik */
     oled_cmd(0x81U); oled_cmd(0x8FU);             /* kontrast (panel veri sayfasi degeri; MUX 64 ile 0x0F sonuk kalir) */
-    oled_cmd(0xA1U);                              /* segment remap (sol=0) */
-    oled_cmd(0xC8U);                              /* COM tarama tersi (ust=0) */
-    oled_cmd(0xDAU); oled_cmd(0x20U);             /* COM pin yapisi */
+    /* Yonelim/COM yapisi: Digilent'in Genesys 2 OLED demosu (Genesys-2-OLED,
+       init_sequence.coe) ile BIREBIR: A0 / C0 / DA 00. Kartta kanitli birlesim;
+       PmodOLED kutuphanesinin A1 / C8 / DA 20 uclusu 180 derece dondurulmus
+       esdegerdir, burada kullanilmaz. */
+    oled_cmd(0xA0U);                              /* segment remap: normal */
+    oled_cmd(0xC0U);                              /* COM tarama: normal */
+    oled_cmd(0xDAU); oled_cmd(0x00U);             /* COM pin yapisi: ardisik, L/R remap yok */
     oled_cmd(0xAFU);                              /* display on */
     oled_clear();
     oled_line(0U, "BLogic MCU  TEKNOFEST");
