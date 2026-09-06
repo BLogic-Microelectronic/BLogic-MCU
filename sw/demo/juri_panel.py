@@ -33,6 +33,10 @@
 # Kuru test: python sw/demo/juri_panel.py --selftest
 #            (PANEL_QUESTA_LIVE=1 ile uart_stp gercekten vsim -c'de kosar)
 # Arayuz:    python sw/demo/juri_panel.py --gui-smoke   (kurar, 1.5 s sonra kapanir)
+#            python sw/demo/juri_panel.py --make all-sim [--repo /home/x/blogic-mcu]
+#            (arayuzu acar, hedefleri secer ve panelin kendi Run selected isleyicisini
+#            calistirir; all = katalogun tamami, all-sim = kart isteyenler haric, ya da
+#            virgullu liste)
 #            (kartsiz: FakeSerial firmware taklidi ile Kart, stres testleri,
 #             N=45 rastgele tarama; tkinter/pyserial gerekmez)
 # ============================================
@@ -237,6 +241,26 @@ MAKE_ACIKLAMA = {
         "with usbipd, fpga_top.bit loaded, Vivado hw_server closed): halt, registers, memory, step, "
         "breakpoint, reset halt / run. PASS = script verdict.",
 }
+# Donanim isteyen hedefler: --make all-sim bunlari disarida birakir.
+MAKE_DONANIM = ("jtag-board",)
+
+
+def make_hedef_listesi(secim):
+    """--make degeri -> katalog sirasinda hedef listesi. 'all' = katalogdaki her hedef,
+    'all-sim' = kart gerektirenler (MAKE_DONANIM) haric hepsi, aksi halde virgullu liste.
+    Bilinmeyen hedef ValueError."""
+    hepsi = [h for _, hs in MAKE_KATALOG for h, _ in hs]
+    if secim == "all":
+        return hepsi
+    if secim == "all-sim":
+        return [h for h in hepsi if h not in MAKE_DONANIM]
+    istenen = [x.strip() for x in secim.split(",") if x.strip()]
+    bilinmeyen = [x for x in istenen if x not in hepsi]
+    if bilinmeyen:
+        raise ValueError("unknown make target: %s" % ", ".join(bilinmeyen))
+    return [h for h in hepsi if h in istenen]
+
+
 # spike / verilator dizinleri: etkilesimsiz kabuk ~/.bashrc'yi okumaz
 # WSL'de etkilesimsiz bash'in PATH'i .profile'i okumaz: kullanici kurulumu
 # ($HOME/.local/bin: xPack riscv32-unknown-elf-gcc, Verilator 5.049) one alinir;
@@ -976,7 +1000,7 @@ def stres_testleri(kart, bildir, dur_mu, rx_bekle=20.0, yes_vec=None,
 
 
 # ---------------- GUI ------------------------------------------------------
-def gui_calistir(smoke_ms=0):
+def gui_calistir(smoke_ms=0, otomatik_make=None, depo_yolu=None):
     import tkinter as tk
     from tkinter import filedialog, messagebox, ttk
 
@@ -2140,6 +2164,17 @@ def gui_calistir(smoke_ms=0):
         kok.after(80, kuyruk_isle)
 
     kok.after(80, kuyruk_isle)
+    if depo_yolu:                   # --repo: WSL icindeki depo yolu
+        depo_var.set(depo_yolu)
+    if otomatik_make:               # --make: sekmeyi ac, hedefleri sec, Run selected
+        def otomatik_baslat():
+            sekmeler.select(sek_make)
+            agac.selection_set([hedef_satir[h] for h in otomatik_make if h in hedef_satir])
+            agac.see(hedef_satir[otomatik_make[0]])
+            log("--make: %d target(s) selected from the command line; "
+                "starting Run selected" % len(otomatik_make))
+            make_baslat(secili_hedefler())
+        kok.after(1200, otomatik_baslat)
     if smoke_ms:                    # --gui-smoke: arayuz kuruldu, kapat
         kok.after(smoke_ms, kok.destroy)
     kok.mainloop()
@@ -2397,11 +2432,24 @@ def selftest():
     k = make_komut("lint", "Ubuntu-24.04", "/home/potato/blogic-mcu")
     kontrol("(v) make command", k[-1] == "lint" and k[-2] == "/home/potato/blogic-mcu"
             and "setsid" in k and "bash" in k and "tflite-venv" in MAKE_BETIK
-            and k[:4] == ["wsl.exe", "-d", "Ubuntu-24.04", "-e"]
+            and (k[:4] == ["wsl.exe", "-d", "Ubuntu-24.04", "-e"] if os.name == "nt"
+                 else k[:3] == ["setsid", "-w", "bash"])   # Linux: wsl.exe yok
             and "PANEL_MAKE_START" in MAKE_BETIK and "PANEL_MAKE_RC" in MAKE_BETIK
             and "$HOME/.local/bin:" in MAKE_BETIK
             and not make_satir_goster("ccache g++ x")
             and make_satir_goster("[SIM] PASS"), " ".join(k[:3]))
+    try:
+        make_hedef_listesi("regression,nonexistent-target")
+        kotu_hedef_yakalandi = False
+    except ValueError:
+        kotu_hedef_yakalandi = True
+    kontrol("(v) --make target list",
+            len(make_hedef_listesi("all")) == len(hedefler)
+            and "jtag-board" not in make_hedef_listesi("all-sim")
+            and make_hedef_listesi("lint,regression") == ["regression", "lint"]
+            and kotu_hedef_yakalandi,
+            "all=%d all-sim=%d" % (len(make_hedef_listesi("all")),
+                                   len(make_hedef_listesi("all-sim"))))
     # (vi) Questa sekmesi: katalog = tests.tcl, dalga gruplari, komut / ortam /
     #      karar (vsim kosturulmaz; PANEL_QUESTA_LIVE=1 ile uart_stp gercekten kosar)
     tcl_adlar = questa_tests_tcl()
@@ -2471,10 +2519,23 @@ if __name__ == "__main__":
     ap.add_argument("--gui-smoke", action="store_true",
                     help="build the GUI without a board and close it after 1.5 s "
                          "(layout / import check)")
+    ap.add_argument("--make", metavar="TARGETS",
+                    help="open the GUI and start Run selected with these make targets: "
+                         "'all', 'all-sim' (everything except board targets: %s) or a "
+                         "comma-separated list, e.g. regression,uart-baud"
+                         % ", ".join(MAKE_DONANIM))
+    ap.add_argument("--repo", metavar="PATH",
+                    help="repo path inside WSL for the make runs (fills the panel field)")
     a = ap.parse_args()
     if a.selftest:
         sys.exit(selftest())
     elif a.gui_smoke:
         sys.exit(gui_calistir(smoke_ms=1500))
+    elif a.make:
+        try:
+            hedefler = make_hedef_listesi(a.make)
+        except ValueError as e:
+            ap.error(str(e))
+        gui_calistir(otomatik_make=hedefler, depo_yolu=a.repo)
     else:
-        gui_calistir()
+        gui_calistir(depo_yolu=a.repo)

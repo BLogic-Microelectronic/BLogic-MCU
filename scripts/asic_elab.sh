@@ -9,15 +9,32 @@
 set -e
 cd "$(dirname "$0")/.."
 REPO=$PWD
+# nix etkilesimsiz kabukta PATH'te olmayabilir (juri paneli ve 'make' -> bash -c
+# ~/.profile okumaz); standart kurulum dizinlerini ekle. 6 Eylul 2026: asic-elab
+# panelden ve betikten "LibreLane bulunamadi" ile FAIL vermisti, ortam yerindeydi.
+for _d in /nix/var/nix/profiles/default/bin "$HOME/.nix-profile/bin"; do
+  if [ -d "$_d" ]; then case ":$PATH:" in *":$_d:"*) ;; *) PATH="$_d:$PATH" ;; esac; fi
+done
+export PATH
 LL=${LIBRELANE_SHELL:-"$HOME/librelane"}
 APPIMG=${LIBRELANE_APPIMAGE:-"$HOME/librelane-devshell-x86_64.AppImage"}
 # ASIC_SRAM=1 -> SRAM makrolari baglanir (varsayilan: davranissal)
 MACRO_DEF=""
 [ "${ASIC_SRAM:-0}" = "1" ] && MACRO_DEF="-DASIC_SRAM_MACRO"
-FLIST=$(grep -v '^#' asic/filelist.f | grep -v '^+' | grep -v '^$' | grep -v 'verif/' | sed 's#^\.\./##' | tr '\n' ' ')
+# tr -d '\r': Windows'ta duzenlenmis (CRLF) filelist.f'te her yol \r ile bitiyor,
+# read_slang dosyalari bulamayip 'no input files' diyordu (6 Eylul 2026).
+FLIST=$(tr -d '\r' < asic/filelist.f | grep -v '^#' | grep -v '^+' | grep -v '^$' | grep -v 'verif/' | sed 's#^\.\./##' | tr '\n' ' ')
 mkdir -p build/asic
 
-YS_CMD="yosys -m slang -p \"read_slang --keep-hierarchy -DSYNTHESIS $MACRO_DEF \
+# Tanimlar ve include sirasi asic/config.yaml ile BIREBIR (teslim yapilandirmasi:
+# JTAG_DEBUG + FC1_FIX + I2C_SDA_SYNC; v1.38.0 common_cells basliklari cv32e40p
+# altindaki eski kopyadan ONCE - ASSUME makrosu 5 arguman, aksi halde
+# cdc_2phase_clearable.sv:260 "too many arguments provided to function-like macro").
+# ASIC_SRAM_MACRO yalniz ASIC_SRAM=1 ile (varsayilan davranissal SRAM -> $memrd kontrolu).
+YS_CMD="yosys -m slang -p \"read_slang --keep-hierarchy -DSYNTHESIS -DBOOTROM_CONTENT \
+   -DJTAG_DEBUG -DFC1_FIX -DI2C_SDA_SYNC $MACRO_DEF \
+   -Irtl/debug/vendor/common_cells_v1.38.0/include \
+   -Irtl/asic \
    -Irtl/core/cv32e40p/rtl/include \
    -Irtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/include \
    -Irtl/bus/axi/include \
