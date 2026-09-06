@@ -39,7 +39,7 @@ for ax, (dizin, ad, renk) in zip(axes, KOSELER):
     print("%-18s: %4d yol, en kotu %+0.3f ns" % (dizin, len(slacks), en_kotu))
 axes[0].set_ylabel("path count", fontsize=9)
 fig.suptitle("Setup slack distribution - 1000 worst reported paths per corner "
-             "(reports/timing/nom_*/max.rpt, RUN_teslim_2026-08-14)",
+             "(reports/timing/nom_*/max.rpt, RUN_final_2026-09-06)",
              fontsize=10.5)
 fig.tight_layout(rect=[0, 0, 1, 0.92])
 out = os.path.join(ASIC, "results", "images", "setup_slack_histogram.png")

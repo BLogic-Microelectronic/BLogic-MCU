@@ -3,7 +3,7 @@
 
 Reads reports/power/net-VPWR.csv[.gz] and net-VGND.csv[.gz]
 (format: Instance,Terminal,Layer,X location,Y location,Voltage; microns/volts,
-produced by OpenROAD analyze_power_grid, RUN_teslim_2026-08-14) and renders
+produced by OpenROAD analyze_power_grid, RUN_final_2026-09-06) and renders
 the WORST-CASE voltage deviation per 20 um bin across the die:
 
   VPWR: drop  = VDD_NOM - V   (nominal 1.80 V)
@@ -94,7 +94,7 @@ def main():
         cb.set_label("worst-case deviation per %.0f um bin (mV)" % BIN,
                      fontsize=8.5)
         cb.ax.tick_params(labelsize=8)
-    fig.suptitle("Node-level IR-drop map — tt corner, RUN_teslim_2026-08-14 "
+    fig.suptitle("Node-level IR-drop map — tt corner, RUN_final_2026-09-06 "
                  "(source: reports/power/net-*.csv.gz)", fontsize=10.5)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     cikti = os.path.join(ASIC, "results", "images", "irdrop_heatmap.png")
