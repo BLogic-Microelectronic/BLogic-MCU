@@ -1,0 +1,4 @@
+BLogic MCU - firmware bundle for the Questa waveform flow (verif/questa)
+built  : 2026-09-06 commit aaf01b1
+recipe : make -f Makefile.verilator sw FW_SRC=sw/tests/uart_hello.c EXTRA_CFLAGS=""
+files  : ai_sram_init.hex bootrom.hex data_mem.hex firmware.hex 

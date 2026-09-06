@@ -1,0 +1,11 @@
+# Questa run products (the flow itself and the fw/ bundles are tracked)
+work/
+transcript
+*.wlf
+modelsim.ini
+vsim_stacktrace.vstf
+fw/*/transcript
+fw/*/*.wlf
+fw/*/modelsim.ini
+fw/*/work/
+fw/*/vsim_stacktrace.vstf
