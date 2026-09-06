@@ -14,3 +14,4 @@
 # orijinaliyle karsilastirabilir; yeniden bicimlendirmek butun dosyayi degismis
 # gosterir. Bu agac CRLF'iyle birlikte oldugu gibi birakiliyor.
 teknotest/** -text
+*.f    text eol=lf
