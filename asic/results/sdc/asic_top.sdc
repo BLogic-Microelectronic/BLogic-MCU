@@ -10,8 +10,20 @@ set_clock_transition 0.1500 [get_clocks {clk}]
 set_clock_uncertainty -setup 0.5000 clk
 set_clock_uncertainty -hold 0.1000 clk
 set_propagated_clock [get_clocks {clk}]
+create_clock -name jtag_tck -period 100.0000 [get_ports {jtag_tck_i}]
+set_clock_transition 0.1500 [get_clocks {jtag_tck}]
+set_clock_uncertainty -setup 0.5000 jtag_tck
+set_clock_uncertainty -hold 0.1000 jtag_tck
+set_propagated_clock [get_clocks {jtag_tck}]
+set_clock_groups -name group1 -asynchronous \
+ -group [get_clocks {clk}]\
+ -group [get_clocks {jtag_tck}]
 set_input_delay 0.5000 -clock [get_clocks {clk}] -min -add_delay [get_ports {i2c_sda_i}]
 set_input_delay 6.0000 -clock [get_clocks {clk}] -max -add_delay [get_ports {i2c_sda_i}]
+set_input_delay 2.0000 -clock [get_clocks {jtag_tck}] -min -add_delay [get_ports {jtag_tdi_i}]
+set_input_delay 20.0000 -clock [get_clocks {jtag_tck}] -max -add_delay [get_ports {jtag_tdi_i}]
+set_input_delay 2.0000 -clock [get_clocks {jtag_tck}] -min -add_delay [get_ports {jtag_tms_i}]
+set_input_delay 20.0000 -clock [get_clocks {jtag_tck}] -max -add_delay [get_ports {jtag_tms_i}]
 set_input_delay 0.5000 -clock [get_clocks {clk}] -min -add_delay [get_ports {qspi_io_i[0]}]
 set_input_delay 6.0000 -clock [get_clocks {clk}] -max -add_delay [get_ports {qspi_io_i[0]}]
 set_input_delay 0.5000 -clock [get_clocks {clk}] -min -add_delay [get_ports {qspi_io_i[1]}]
@@ -88,6 +100,8 @@ set_output_delay 0.5000 -clock [get_clocks {clk}] -min -add_delay [get_ports {i2
 set_output_delay 6.0000 -clock [get_clocks {clk}] -max -add_delay [get_ports {i2c_scl_o}]
 set_output_delay 0.5000 -clock [get_clocks {clk}] -min -add_delay [get_ports {i2c_sda_oe_o}]
 set_output_delay 6.0000 -clock [get_clocks {clk}] -max -add_delay [get_ports {i2c_sda_oe_o}]
+set_output_delay 2.0000 -clock [get_clocks {jtag_tck}] -min -add_delay [get_ports {jtag_tdo_o}]
+set_output_delay 20.0000 -clock [get_clocks {jtag_tck}] -max -add_delay [get_ports {jtag_tdo_o}]
 set_output_delay 0.5000 -clock [get_clocks {clk}] -min -add_delay [get_ports {qspi_cs_no}]
 set_output_delay 6.0000 -clock [get_clocks {clk}] -max -add_delay [get_ports {qspi_cs_no}]
 set_output_delay 0.5000 -clock [get_clocks {clk}] -min -add_delay [get_ports {qspi_io_o[0]}]
@@ -145,6 +159,7 @@ set_false_path\
            [get_ports {gpio_in_i[7]}]\
            [get_ports {gpio_in_i[8]}]\
            [get_ports {gpio_in_i[9]}]\
+           [get_ports {jtag_trst_ni}]\
            [get_ports {rst_ni}]\
            [get_ports {uart1_rxd_i}]\
            [get_ports {uart_rxd_i}]]
@@ -153,6 +168,7 @@ set_false_path\
 ###############################################################################
 set_load -pin_load 5.0000 [get_ports {i2c_scl_o}]
 set_load -pin_load 5.0000 [get_ports {i2c_sda_oe_o}]
+set_load -pin_load 5.0000 [get_ports {jtag_tdo_o}]
 set_load -pin_load 5.0000 [get_ports {qspi_cs_no}]
 set_load -pin_load 5.0000 [get_ports {qspi_sclk_o}]
 set_load -pin_load 5.0000 [get_ports {uart1_txd_o}]

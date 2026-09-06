@@ -53,6 +53,11 @@
 │                                   │                                   │              │ i2c_scl_o                         │                                   │
 │                                   │                                   │              │ i2c_sda_i                         │                                   │
 │                                   │                                   │              │ i2c_sda_oe_o                      │                                   │
+│                                   │                                   │              │ jtag_tck_i                        │                                   │
+│                                   │                                   │              │ jtag_tdi_i                        │                                   │
+│                                   │                                   │              │ jtag_tdo_o                        │                                   │
+│                                   │                                   │              │ jtag_tms_i                        │                                   │
+│                                   │                                   │              │ jtag_trst_ni                      │                                   │
 │                                   │                                   │              │ qspi_cs_no                        │                                   │
 │                                   │                                   │              │ qspi_io_i[0]                      │                                   │
 │                                   │                                   │              │ qspi_io_i[1]                      │                                   │

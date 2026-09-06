@@ -5,10 +5,18 @@ Clock Skew (Hold)
 ======================= nom_ff_n40C_1v95 Corner ===================================
 
 Clock clk
-2.437239 source latency i_soc.i_ai_accel._23285_/CLK ^
--3.882032 target latency i_soc.i_ai_sram.u_sram.gen_bank[12].gen_512.u_macro/clk1 ^
+2.426636 source latency i_soc.i_obi_axi_data._280_/CLK ^
+-3.572700 target latency i_soc.i_data_sram.u_sram.gen_bank[0].gen_512.u_macro/clk0 ^
 -0.100000 clock uncertainty
 0.000000 CRPR
 --------------
--1.544793 hold skew
+-1.246065 hold skew
+
+Clock jtag_tck
+0.476876 source latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._223_/CLK ^
+-0.701452 target latency i_soc.i_dmi_jtag._599_/CLK ^
+-0.100000 clock uncertainty
+0.000000 CRPR
+--------------
+-0.324576 hold skew
 
