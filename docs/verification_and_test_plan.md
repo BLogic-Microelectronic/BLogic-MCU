@@ -234,6 +234,17 @@ passing on the delivered build). The OpenOCD/gdb demos, the `fpga_top` lint
 and the `jtag-equiv` isolation proof are grouped in `make jtag-gates`
 (the debugger tools are optional; missing tools give `SKIP`).
 
+**Independent reproduction of the full package (2026-09-06, commit
+`2f85f97`, second machine: WSL2 Ubuntu 24.04, Verilator 5.049, Spike
+1.1.1-dev, xPack RISC-V GCC 13.2.0):** `make test-all` **18/18** - regression
+6/6 with both Spike lockstep runs, arch-test 46/46, UVM 8/8, `jtag-sim`
+17/17, `jtag-bridge-sim` 6/6, `soc-perf` unchanged at 459,016 cycles /
+21.0x - and `make jtag-gates` **6/6** (OpenOCD 0.12 end-to-end demo, gdb
+demo, `lint-fpga`, `jtag-equiv`) on the same tree. One environment note for
+a fresh machine: `spike` must be on `PATH`; otherwise the two lockstep
+sub-tests report `Spike kayit: 0` and the regression component fails
+without any design fault.
+
 | # | Target | What it exercises | Pass criterion / key measurement |
 |---|---|---|---|
 | 1 | `regression` | Mixed package over full SoC: UART bring-up set (x3 firmwares), Spike lockstep (minimal + deep), QSPI | All sub-tests `result=PASS`; lockstep diff 0 |
