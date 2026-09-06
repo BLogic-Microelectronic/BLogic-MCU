@@ -43,6 +43,7 @@
 import argparse
 import glob
 import os
+PANEL_DEBUG = os.environ.get("PANEL_DEBUG") == "1"   # 1: kuyruk isleyicisi her 2 s stderr kalp atisi yazar
 import queue
 import random
 import re
@@ -1551,7 +1552,7 @@ def gui_calistir(smoke_ms=0, otomatik_make=None, depo_yolu=None):
                         if m:
                             kuyruk.put(("make_durum", m.group(1), m.group(2), "",
                                         "pass" if m.group(2) == "PASS" else "fail"))
-                    if ayrinti_var.get() or make_satir_goster(satir):
+                    if make_durum.get("ayrinti") or make_satir_goster(satir):
                         kuyruk.put(("make_satir", satir[:220]))
                 p.wait()
                 kod = p.returncode
@@ -1593,6 +1594,7 @@ def gui_calistir(smoke_ms=0, otomatik_make=None, depo_yolu=None):
         for h in hedefler:
             satir_guncelle(h, "queued", "", "idle")
         make_etiket.config(text="running: %d target(s)" % len(hedefler), fg="#1d5fa8")
+        make_durum["ayrinti"] = bool(ayrinti_var.get())   # Tk cagrisi GUI ipliginde
         threading.Thread(target=make_isci, args=(list(hedefler),), daemon=True).start()
 
     def make_durdur():
@@ -1992,10 +1994,25 @@ def gui_calistir(smoke_ms=0, otomatik_make=None, depo_yolu=None):
         else:
             ilerleme_etiket.config(text="%d/%d" % (i, n))
 
+    # Kuyruk her tikte SINIRLI islenir (en cok 300 oge ya da 40 ms). 7 Eylul 2026:
+    # sinirsiz "while True: get_nowait()" dongusu, make ciktisi kuyruga islendiginden
+    # hizli dolunca ana dongu Tk'ya hic donmuyordu: tablo/log 47 dakika boyunca
+    # cizilmedi (hepsi "queued"), sonuc penceresi ancak kuyruk bosalinca geldi.
+    # Ayrica isci ipligi artik her satirda ayrinti_var.get() (Tk cagrisi) yapmiyor.
+    dbg = {"n": 0, "t": time.monotonic()}
+
     def kuyruk_isle():
+        t_bas = time.monotonic()
+        n_oge = 0
+        kaldi = False
+        gor_gerek = False
         try:
             while True:
+                if n_oge >= 300 or (time.monotonic() - t_bas) > 0.04:
+                    kaldi = True
+                    break
                 oge = kuyruk.get_nowait()
+                n_oge += 1
                 if oge[0] == "sonuc":
                     _, i, n, ad, cyc, kalan = oge
                     sinif_etiket.config(text=ad.upper(),
@@ -2045,7 +2062,7 @@ def gui_calistir(smoke_ms=0, otomatik_make=None, depo_yolu=None):
                     prog_dugme.config(state="normal", text="Load bitstream…")
                 elif oge[0] == "make_satir":
                     log_kutu.insert("end", "MAKE ▸ %s\n" % oge[1], "make")
-                    log_kutu.see("end")
+                    gor_gerek = True
                 elif oge[0] == "make_baslik":
                     _, hedef, baslik = oge
                     log("────────────────────────────────────────────────────────")
@@ -2161,7 +2178,20 @@ def gui_calistir(smoke_ms=0, otomatik_make=None, depo_yolu=None):
                     kaydet()
         except queue.Empty:
             pass
-        kok.after(80, kuyruk_isle)
+        if gor_gerek:
+            log_kutu.see("end")
+            try:   # make ciktisi log()'dan gecmez: burada da 4000 satirda kirp
+                if int(log_kutu.index("end-1c").split(".")[0]) > 4000:
+                    log_kutu.delete("1.0", "1500.0")
+            except Exception:
+                pass
+        dbg["n"] += n_oge
+        if PANEL_DEBUG and time.monotonic() - dbg["t"] > 2.0:
+            print("[panel] tick: %d items in last %.1fs, backlog=%d" % (
+                dbg["n"], time.monotonic() - dbg["t"], kuyruk.qsize()),
+                file=sys.stderr, flush=True)
+            dbg["n"], dbg["t"] = 0, time.monotonic()
+        kok.after(15 if kaldi else 80, kuyruk_isle)
 
     kok.after(80, kuyruk_isle)
     if depo_yolu:                   # --repo: WSL icindeki depo yolu
