@@ -41,6 +41,12 @@ or by hand: `vsim -c -do "onerror {quit -code 1}; do verif/questa/run_test.do <t
 from the repository root (the `onerror` makes a compile or elaboration error
 exit instead of leaving `vsim -c` at its prompt).
 
+From the jury panel (`python sw/demo/juri_panel.py`, tab **Questa waves**):
+pick a test in the table, tick the wave groups you want to see (and, if
+needed, type extra signal paths), then *Open in Questa (GUI + wave)*; *Run
+headless* runs the selected tests with `vsim -c` and shows the verdicts in the
+table and the log.
+
 Inside a running Questa GUI (any working directory):
 
 ```
@@ -148,6 +154,15 @@ ports), JTAG TAP pins, DMI handshake, debug-module memory port, `axi_dm_slave`
 request register, crossbar ports. Each `add wave` is wrapped in `catch`, so a
 testbench that does not contain a signal simply skips it. The other testbenches
 have their own small files in `wave/`.
+
+Two environment variables narrow the wave window without editing the files
+(the jury panel sets them from its check boxes): `QUESTA_WAVE_GROUPS`, a
+`;`-separated list of group names — only those `-group` entries are added,
+dividers and ungrouped signals always stay (`questa_lib.tcl` turns it into the
+`WAVE_GROUPS` Tcl list that the `w` proc of every wave file checks); and
+`QUESTA_WAVE_EXTRA`, a `;`-separated list of signal paths added after the wave
+file, e.g. `set QUESTA_WAVE_EXTRA=/questa_soc_tb/dut/i_uart_0/*` before
+`wave.bat uart_hello`.
 
 ## Layout
 

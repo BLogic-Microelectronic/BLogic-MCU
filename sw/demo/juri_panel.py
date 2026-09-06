@@ -21,8 +21,18 @@
 # tasir: AYNI ornek ureteci + AYNI bit-exact SW referansi (run_accuracy_window,
 # sweep basinda lazy import) ve BLG1 protokolunun dayaniklilik testleri (a-g).
 #
+# Arayuz uc sekmedir, log hepsinin altinda ortaktir:
+#   "Board demo"                kart: bitstream, baglanti, juri dosyasi, tarama/stres
+#   "Verification suite (make)" 39 make hedefi tablodan secilip WSL'de kosar
+#   "Questa waves"              verif/questa akisinin 21 testi: secilen test Questa
+#                               GUI'sinde hazir dalga penceresiyle acilir (dalga
+#                               gruplari + ek sinyaller panelden secilir) ya da
+#                               headless (vsim -c) kosup PASS/FAIL'i loga yazar
+#
 # Kullanim:  python sw/demo/juri_panel.py
 # Kuru test: python sw/demo/juri_panel.py --selftest
+#            (PANEL_QUESTA_LIVE=1 ile uart_stp gercekten vsim -c'de kosar)
+# Arayuz:    python sw/demo/juri_panel.py --gui-smoke   (kurar, 1.5 s sonra kapanir)
 #            (kartsiz: FakeSerial firmware taklidi ile Kart, stres testleri,
 #             N=45 rastgele tarama; tkinter/pyserial gerekmez)
 # ============================================
@@ -243,6 +253,155 @@ MAKE_BETIK = ('echo PANEL_PGID=$(ps -o pgid= -p $$ | tr -d " "); '
               'make "$2" 2>&1' % MAKE_PATH_ONEK)
 MAKE_GURULTU = ("ccache ", "g++ ", "make[", "python3 /usr/local/share/verilator",
                 "%Warning-", "      |", "rm V")
+
+
+# ---------------- Questa dalga akisi: verif/questa panelden ----------------
+# "Questa waves" sekmesi verif/questa/tests.tcl'deki 21 testi listeler (ayni
+# sira, ayni adlar; selftest esler). Secilen test ya Questa GUI'sinde hazir
+# dalga penceresiyle acilir (wave.bat ile ayni komut; yuklenecek dalga
+# gruplari ve ek sinyaller QUESTA_WAVE_GROUPS / QUESTA_WAVE_EXTRA ortam
+# degiskenleriyle gecer, questa_lib.tcl okur) ya da headless (vsim -c) kosar;
+# karar batch.ps1 ile ayni: verif/questa/logs/<test>.transcript.
+QUESTA_KATALOG = [
+    ("SystemVerilog testbenches (same tops as the make targets)", [
+        ("boot",            "soc",          "QSPI boot of flash_helloworld through the boot ROM (make boot)"),
+        ("asic_sram_sim",   "soc",          "the same boot on the delivered OpenRAM macro models, ASIC_SRAM_MACRO (make asic-sram-sim)"),
+        ("asic_top_sim",    "soc",          "asic_top + 27 SRAM macros: flash boot + AI inference, argmax check (make asic-top-sim)"),
+        ("qspi_modes",      "soc",          "x1 / x2 / x4 + 4-byte addressing against the flash model (make qspi-modes)"),
+        ("i2c_sys",         "soc",          "CPU -> AXI -> I2C master -> echo slave model (make i2c-sys)"),
+        ("jtag_sim",        "soc",          "riscv-dbg TAP bit-banged from the testbench, 17 stages: halt, registers, memory, step, breakpoint (make jtag-sim)"),
+        ("jtag_bridge_sim", "axi_dm_slave", "axi_dm_slave unit testbench with the real dm_top (make jtag-bridge-sim)"),
+        ("uart_stp",        "uart_stp",     "stop bits 1 / 1.5 / 2 on the bare UART block (make uart-stp)"),
+        ("uart_stream",     "uart_stream",  "UART_1 stream DMA block, scenarios A-E (make uart-stream)"),
+        ("ai",              "ai_accel",     "accelerator standalone: 6 scenarios + 40-sample batch, bit-exact (make ai)"),
+    ]),
+    ("Firmware-driven SoC tests (questa_soc_tb.sv = sim_main.cpp in SystemVerilog)", [
+        ("uart_hello",      "soc", "UART hello at 115200 (CPB 434), golden string on UART0 (regression)"),
+        ("uart_hello_1m",   "soc", "UART hello at 1 Mbps (CPB 50) (regression)"),
+        ("uart_hello_9600", "soc", "UART hello at 9600 (CPB 5208) (regression)"),
+        ("qspi_flash",      "soc", "QSPI driver read: flash stub answers 0xAA after 32 clocks (regression)"),
+        ("uart_baud_sweep", "soc", "runtime baud switch 115200 / 1 Mbps / 9600 in one run, three BAUD-OK phases (make uart-baud)"),
+        ("qspi_fifo_err",   "soc", "QSPI FIFO / flush / status error paths, 25 checks, golden.txt, CPB 64 (make qspi-err)"),
+        ("ai_micro_speech", "soc", "SoC-level inference C test: class + cycle count, irq17 (make soc-ai)"),
+        ("ai_irq",          "soc", "accelerator done interrupt / ISR path (make soc-ai-irq)"),
+        ("timer_irq",       "soc", "timer peripheral + irq16 service routine (make soc-timer)"),
+        ("uart1_strm",      "soc", "UART_1 stream DMA driven from the firmware (make soc-strm)"),
+        ("ai_sw_reference", "soc", "software reference inference, 12.3 M cycles - slow in Questa, ~8 min (make soc-perf)"),
+    ]),
+]
+QUESTA_TESTLER = [t for _, ts in QUESTA_KATALOG for t, _, _ in ts]
+QUESTA_DALGA = {t: w for _, ts in QUESTA_KATALOG for t, w, _ in ts}
+QUESTA_ACIKLAMA = {t: a for _, ts in QUESTA_KATALOG for t, _, a in ts}
+# wave/<name>.do okunamazsa kullanilacak grup listeleri (dosyadaki -group adlari)
+QUESTA_GRUP_VARSAYILAN = {
+    "soc": ["UART0", "CPU (CV32E40P)", "Interrupts", "QSPI", "I2C", "GPIO",
+            "UART1 (stream DMA)", "AI accelerator", "AI accelerator ports",
+            "JTAG TAP pins", "DMI (DTM <-> DM)", "Debug module", "AXI-DM bridge",
+            "Crossbar ports"],
+    "uart_stp": ["uart_axil (i_dut)"],
+    "uart_stream": ["uart_stream_axil (i_dut)"],
+    "ai_accel": ["ai_accelerator FSM", "ai_accelerator ports"],
+    "axi_dm_slave": ["axi_dm_slave (dut)", "dm_top ports"],
+}
+# vsim -c ciktisinda ayrintili mod kapaliyken gizlenen satir baslari
+QUESTA_GURULTU = ("# -- Compiling", "# -- Importing", "# -- Loading", "# Loading",
+                  "# Top level modules:", "# End time:", "# Start time:",
+                  "# Errors: 0, Warnings", "# //", "# vsim ", "# vlog ", "# vmap ",
+                  "# Refreshing", "# Model Technology", "# Reading ", "# do ",
+                  "# Modifying", "# Copying", "# QuestaSim", "# Questa Sim")
+
+
+def questa_bul():
+    """vsim yolu: PATH, sonra bilinen Windows kurulum dizinleri (en yenisi)."""
+    yol = shutil.which("vsim")
+    if yol:
+        return yol
+    adaylar = []
+    for kalip in (r"C:\questasim64_*\win64\vsim.exe", r"C:\questasim*\win64\vsim.exe",
+                  r"C:\Mentor\questasim*\win64\vsim.exe",
+                  r"C:\intelFPGA*\*\questa_fse\win64\vsim.exe",
+                  r"C:\intelFPGA*\*\questa_fe\win64\vsim.exe",
+                  r"C:\intelFPGA*\*\modelsim_ase\win32aloem\vsim.exe"):
+        adaylar += glob.glob(kalip)
+    return sorted(adaylar)[-1] if adaylar else ""
+
+
+def questa_tests_tcl(kok=None):
+    """verif/questa/tests.tcl'deki test adlari (q_def / q_soc), dosya sirasiyla."""
+    kok = REPO if kok is None else kok
+    adlar = []
+    try:
+        with open(os.path.join(kok, "verif", "questa", "tests.tcl"), encoding="utf-8") as f:
+            for satir in f:
+                m = re.match(r"^q_(?:def|soc)\s+(\S+)", satir)
+                if m:
+                    adlar.append(m.group(1))
+    except OSError:
+        pass
+    return adlar
+
+
+def questa_gruplar(dalga, kok=None):
+    """wave/<dalga>.do icindeki -group adlari (sira korunur, tekrarsiz);
+    dosya okunamazsa QUESTA_GRUP_VARSAYILAN."""
+    kok = REPO if kok is None else kok
+    yol = os.path.join(kok, "verif", "questa", "wave", dalga + ".do")
+    gruplar = []
+    try:
+        with open(yol, encoding="utf-8", errors="replace") as f:
+            for satir in f:
+                if satir.lstrip().startswith("#"):      # yorum satirlari
+                    continue
+                m = re.search(r'-group\s+(?:"([^"]+)"|(\S+))', satir)
+                if m:
+                    ad = m.group(1) or m.group(2)
+                    if ad not in gruplar:
+                        gruplar.append(ad)
+    except OSError:
+        pass
+    return gruplar or list(QUESTA_GRUP_VARSAYILAN.get(dalga, []))
+
+
+def questa_komut(vsim, test, gui):
+    """wave.bat (GUI) / batch.ps1 (headless) ile ayni komut; depo kokunden kosar."""
+    if gui:
+        return [vsim, "-gui", "-do", "do verif/questa/run_test.do %s" % test]
+    return [vsim, "-c", "-do",
+            "onerror {quit -code 1}; do verif/questa/run_test.do %s; quit -f" % test]
+
+
+def questa_ortam(gruplar, ekstra):
+    """Alt surec ortami: QUESTA_WAVE_GROUPS (';' ile) ve QUESTA_WAVE_EXTRA;
+    bos grup listesi = degisken yok = dalga dosyasinin tamami."""
+    env = dict(os.environ)
+    for anahtar in ("QUESTA_WAVE_GROUPS", "QUESTA_WAVE_EXTRA"):
+        env.pop(anahtar, None)
+    if gruplar:
+        env["QUESTA_WAVE_GROUPS"] = ";".join(gruplar)
+    ekstra = ";".join(p.strip() for p in re.split(r"[;\s]+", ekstra or "") if p.strip())
+    if ekstra:
+        env["QUESTA_WAVE_EXTRA"] = ekstra
+    return env
+
+
+def questa_karar(transcript):
+    """batch.ps1 ile ayni karar: transcript metninden PASS / FAIL / NO VERDICT."""
+    if not transcript:
+        return "NO TRANSCRIPT"
+    if re.search(r"\*\*\* TEST FAILED|result=FAIL|TIMEOUT|\*\* Fatal|\*\* Error", transcript):
+        return "FAIL"
+    if re.search(r"\*\*\* TEST SUCCESS|result=PASS|\[ADIM E\] PASS", transcript):
+        return "PASS"
+    return "NO VERDICT"
+
+
+def questa_satir_goster(satir):
+    """Ayrintili mod kapaliyken derleme / yukleme gurultusu gizlenir; [QUESTA]
+    adimlari, test ciktisi ve uyari / hata satirlari kalir."""
+    s = satir.strip()
+    if not s or s == "#":
+        return False
+    return not s.startswith(QUESTA_GURULTU)
 
 
 def wsl_hedef(depo=None):
@@ -767,14 +926,14 @@ def stres_testleri(kart, bildir, dur_mu, rx_bekle=20.0, yes_vec=None,
 
 
 # ---------------- GUI ------------------------------------------------------
-def gui_calistir():
+def gui_calistir(smoke_ms=0):
     import tkinter as tk
     from tkinter import filedialog, messagebox, ttk
 
     KOYU, MIST, INK = "#17324a", "#f2f5f8", "#20262f"
     kok = tk.Tk()
     kok.title("BLogic MCU — Jury Data Panel")
-    kok.geometry("1060x820")    # +80 px sweep/stress bolumu, +100 px dogrulama paketi
+    kok.geometry("1060x860")    # sekmeler + ortak log
     kok.configure(bg=MIST)
     # Pencere / gorev cubugu / iletisim kutusu simgesi: takim logosu
     # (sw/demo/panel_icon.png, 256x256; kaynak: balporsugu logosu).
@@ -801,7 +960,19 @@ def gui_calistir():
                                bg=KOYU, font=("Segoe UI", 10, "bold"))
     baglanti_etiket.pack(side="right", padx=12)
 
-    ayarlar = tk.Frame(kok, bg=MIST)
+    # ---- sekmeler: kart demo / dogrulama paketi (make) / Questa dalga akisi.
+    # Log hepsinin altinda ortaktir; her bolum kendi sekme cercevesine yerlesir.
+    sekmeler = ttk.Notebook(kok)
+    sekmeler.pack(fill="x", padx=12, pady=(8, 0))
+    sek_kart = tk.Frame(sekmeler, bg=MIST)
+    sek_make = tk.Frame(sekmeler, bg=MIST)
+    sek_questa = tk.Frame(sekmeler, bg=MIST)
+    sekmeler.add(sek_kart, text="  Board demo  ")
+    sekmeler.add(sek_make, text="  Verification suite (make)  ")
+    sekmeler.add(sek_questa, text="  Questa waves  ")
+    kapat_kancalar = []         # pencere kapanirken cagrilacak durdurucular
+
+    ayarlar = tk.Frame(sek_kart, bg=MIST)
     ayarlar.pack(fill="x", padx=12, pady=(10, 0))
 
     tk.Label(ayarlar, text="Port:", bg=MIST).grid(row=0, column=0, sticky="w")
@@ -924,7 +1095,7 @@ def gui_calistir():
     prog_dugme.grid(row=0, column=5, padx=6)
 
     # ---- dosya secimi
-    dosya_cerceve = tk.Frame(kok, bg=MIST)
+    dosya_cerceve = tk.Frame(sek_kart, bg=MIST)
     dosya_cerceve.pack(fill="x", padx=12, pady=(8, 0))
     dosya_etiket = tk.Label(dosya_cerceve, text="no file selected", bg=MIST,
                             fg=INK, font=("Segoe UI", 10))
@@ -953,7 +1124,7 @@ def gui_calistir():
     dosya_etiket.pack(side="left", padx=10)
 
     # ---- buyuk sonuc gostergesi
-    orta = tk.Frame(kok, bg="white", bd=1, relief="solid")
+    orta = tk.Frame(sek_kart, bg="white", bd=1, relief="solid")
     orta.pack(fill="x", padx=12, pady=10)
     sinif_etiket = tk.Label(orta, text="—", font=("Segoe UI", 52, "bold"),
                             bg="white", fg="#9aa1ab")
@@ -962,7 +1133,7 @@ def gui_calistir():
                             font=("Consolas", 11), bg="white", fg="#5a6472")
     detay_etiket.pack(pady=(0, 12))
 
-    sayaclar = tk.Frame(kok, bg=MIST)
+    sayaclar = tk.Frame(sek_kart, bg=MIST)
     sayaclar.pack(fill="x", padx=12)
     sayac_etiketleri = {}
     for i, ad in enumerate(SINIF_AD):
@@ -974,7 +1145,7 @@ def gui_calistir():
         sayac_etiketleri[ad] = c
 
     # ---- ilerleme + butonlar
-    alt = tk.Frame(kok, bg=MIST)
+    alt = tk.Frame(sek_kart, bg=MIST)
     alt.pack(fill="x", padx=12, pady=8)
     ilerleme = ttk.Progressbar(alt, length=520)
     ilerleme.pack(side="left", fill="x", expand=True)
@@ -1100,7 +1271,7 @@ def gui_calistir():
     ttk.Button(alt, text="Save Results", command=kaydet).pack(side="left", padx=3)
 
     # ---- rastgele tarama + stres testleri (kart_sweep.py provasi panelde)
-    tarama = tk.LabelFrame(kok, text="Random sweep & stress tests", bg=MIST,
+    tarama = tk.LabelFrame(sek_kart, text="Random sweep & stress tests", bg=MIST,
                            fg=INK, font=("Segoe UI", 9, "bold"))
     tarama.pack(fill="x", padx=12, pady=(0, 8))
     n_var = tk.StringVar(value="1000")
@@ -1194,9 +1365,9 @@ def gui_calistir():
     # ---- dogrulama paketi: Makefile hedefleri tablodan secilir, WSL'de kosar,
     # ciktisi asagidaki loga akar, her satir PASS/FAIL ile boyanir
     dogrulama = tk.LabelFrame(
-        kok, text="Verification suite — make targets (run in WSL, output in the log)",
+        sek_make, text="Verification suite — make targets (run in WSL, output in the log)",
         bg=MIST, fg=INK, font=("Segoe UI", 9, "bold"))
-    dogrulama.pack(fill="x", padx=12, pady=(0, 8))
+    dogrulama.pack(fill="x", padx=12, pady=(8, 8))
     agac = ttk.Treeview(dogrulama, columns=("aciklama", "durum", "sure"),
                         show="tree headings", height=6, selectmode="extended")
     agac.heading("#0", text="target")
@@ -1345,9 +1516,14 @@ def gui_calistir():
             kuyruk.put(("make_satir", "stop: %s" % e))
 
     def pencere_kapat():
-        """Panel kapanirken kosan make grubu da kapanir (arkada kalmasin)."""
+        """Panel kapanirken kosan make grubu / headless Questa da kapanir."""
         if make_durum["kosuyor"]:
             make_durdur()
+        for kanca in kapat_kancalar:
+            try:
+                kanca()
+            except Exception:
+                pass
         kok.destroy()
     kok.protocol("WM_DELETE_WINDOW", pencere_kapat)
 
@@ -1371,6 +1547,284 @@ def gui_calistir():
     ttk.Entry(ayar_satir, textvariable=depo_var, width=44).pack(side="left", padx=(4, 12))
     tk.Checkbutton(ayar_satir, text="verbose log (compiler lines)", variable=ayrinti_var,
                    bg=MIST).pack(side="left")
+
+    # ---- Questa dalga akisi sekmesi: verif/questa testleri tablodan secilir.
+    # "Open in Questa" GUI'yi hazir dalga penceresiyle acar (secilen gruplar +
+    # ek sinyaller), "Run headless" vsim -c ile kosup karari tabloya ve loga yazar.
+    questa = tk.LabelFrame(
+        sek_questa, text="Questa waveform flow — verif/questa (21 tests; the delivered "
+        "configuration is recompiled from soc_files.f on every run)",
+        bg=MIST, fg=INK, font=("Segoe UI", 9, "bold"))
+    questa.pack(fill="x", padx=12, pady=(8, 8))
+    q_agac = ttk.Treeview(questa, columns=("aciklama", "dalga", "durum", "sure"),
+                          show="tree headings", height=8, selectmode="extended")
+    q_agac.heading("#0", text="test")
+    q_agac.column("#0", width=190, anchor="w", stretch=False)
+    q_agac.heading("aciklama", text="what it checks")
+    q_agac.column("aciklama", width=340, anchor="w")
+    q_agac.heading("dalga", text="wave file")
+    q_agac.column("dalga", width=100, anchor="center", stretch=False)
+    q_agac.heading("durum", text="status")
+    q_agac.column("durum", width=92, anchor="center", stretch=False)
+    q_agac.heading("sure", text="time")
+    q_agac.column("sure", width=56, anchor="center", stretch=False)
+    for etiket, renk in (("pass", "#1f7a3f"), ("fail", "#b02a2a"),
+                         ("run", "#1d5fa8"), ("idle", INK)):
+        q_agac.tag_configure(etiket, foreground=renk)
+    q_agac.tag_configure("grup", font=("Segoe UI", 9, "bold"))
+    q_satir = {}
+    q_ilk = None
+    for grup, testler in QUESTA_KATALOG:
+        p = q_agac.insert("", "end", text=grup, open=True, tags=("grup",))
+        q_ilk = q_ilk or p
+        for test, dalga, aciklama in testler:
+            q_satir[test] = q_agac.insert(
+                p, "end", text=test, values=(aciklama, dalga + ".do", "", ""),
+                tags=("idle",))
+    q_kaydirma = ttk.Scrollbar(questa, orient="vertical", command=q_agac.yview)
+    q_agac.configure(yscrollcommand=q_kaydirma.set)
+    kok.after(300, lambda: (q_agac.see(q_ilk), q_agac.yview_moveto(0)))
+    q_agac.grid(row=0, column=0, sticky="nsew", padx=(6, 0), pady=4)
+    q_kaydirma.grid(row=0, column=1, sticky="ns", pady=4)
+    questa.columnconfigure(0, weight=1)
+
+    q_yan = tk.Frame(questa, bg=MIST)
+    q_yan.grid(row=0, column=2, sticky="n", padx=8, pady=4)
+    vsim_var = tk.StringVar(value=questa_bul())
+    q_ekstra_var = tk.StringVar(value="")
+    q_ayrinti_var = tk.BooleanVar(value=False)
+    questa_durum = {"kosuyor": False, "dur": False, "proc": None, "gui": []}
+    q_etiket = tk.Label(q_yan, text="idle", bg=MIST, fg="#5a6472",
+                        font=("Segoe UI", 9))
+    q_grup_vars = {}            # grup adi -> BooleanVar (tabloda secili test icin)
+    q_grup_test = [None]
+
+    def q_satir_guncelle(test, durum_s, sure_s=None, etiket=None):
+        iid = q_satir.get(test)
+        if not iid:
+            return
+        eski = q_agac.item(iid, "values")
+        sure_s = eski[3] if sure_s is None else sure_s
+        q_agac.item(iid, values=(eski[0], eski[1], durum_s, sure_s),
+                    tags=(etiket or "idle",))
+
+    def q_secili():
+        """Secili testler; grup basligi secildiyse grubun hepsi. Katalog sirasinda."""
+        secim = set()
+        for iid in q_agac.selection():
+            if q_agac.parent(iid) == "":
+                secim.update(t for t, i in q_satir.items() if q_agac.parent(i) == iid)
+            else:
+                secim.update(t for t, i in q_satir.items() if i == iid)
+        return [t for t in QUESTA_TESTLER if t in secim]
+
+    def q_vsim():
+        """vsim yolu; bulunamazsa uyarir ve None doner."""
+        yol = vsim_var.get().strip()
+        var = os.path.exists(yol) if (os.sep in yol or "/" in yol) else shutil.which(yol)
+        if not yol or not var:
+            messagebox.showerror("Questa", "vsim was not found. Type the full path of "
+                                 "vsim.exe (the Questa win64 directory) into the "
+                                 "vsim box, or add that directory to PATH.")
+            return None
+        if os.name == "nt" and not REPO.isascii():
+            log("NOTE: the repository path contains non-ASCII characters; Questa "
+                "10.7c may fail on it - map the repo to a drive letter (subst Y: "
+                "<repo>) and start the panel from there.")
+        return yol
+
+    # dalga gruplari: tabloda tek test secilince wave/<dalga>.do'dan okunur
+    q_dalga = tk.LabelFrame(
+        questa, text="Wave window of the selected test — groups to load (unchecked "
+        "groups are left out; testbench signals and clock / reset always stay)",
+        bg=MIST, fg=INK, font=("Segoe UI", 9))
+    q_dalga.grid(row=1, column=0, columnspan=3, sticky="ew", padx=6, pady=(2, 4))
+    q_grup_cerceve = tk.Frame(q_dalga, bg=MIST)
+    q_grup_cerceve.pack(fill="x", padx=4, pady=2)
+
+    def q_gruplari_kur(test):
+        for w in q_grup_cerceve.winfo_children():
+            w.destroy()
+        q_grup_vars.clear()
+        q_grup_test[0] = test
+        if test is None:
+            tk.Label(q_grup_cerceve, text="select one test in the table to pick its "
+                     "wave groups (a multi-selection runs headless only)",
+                     bg=MIST, fg="#5a6472", font=("Segoe UI", 9)).grid(
+                row=0, column=0, sticky="w")
+            return
+        dalga = QUESTA_DALGA[test]
+        tk.Label(q_grup_cerceve, text="%s  →  wave/%s.do" % (test, dalga), bg=MIST,
+                 fg=INK, font=("Segoe UI", 9, "bold")).grid(
+            row=0, column=0, columnspan=5, sticky="w", pady=(0, 2))
+        for i, g in enumerate(questa_gruplar(dalga)):
+            v = tk.BooleanVar(value=True)
+            q_grup_vars[g] = v
+            tk.Checkbutton(q_grup_cerceve, text=g, variable=v, bg=MIST,
+                           anchor="w").grid(row=1 + i // 5, column=i % 5,
+                                            sticky="w", padx=(0, 10))
+    q_gruplari_kur(None)
+
+    def q_secim_degisti(_olay=None):
+        secim = q_secili()
+        q_gruplari_kur(secim[0] if len(secim) == 1 else None)
+    q_agac.bind("<<TreeviewSelect>>", q_secim_degisti)
+
+    q_ek = tk.Frame(q_dalga, bg=MIST)
+    q_ek.pack(fill="x", padx=4, pady=(0, 4))
+    ttk.Button(q_ek, text="all", width=5,
+               command=lambda: [v.set(True) for v in q_grup_vars.values()]).pack(side="left")
+    ttk.Button(q_ek, text="none", width=5,
+               command=lambda: [v.set(False) for v in q_grup_vars.values()]).pack(
+        side="left", padx=(3, 10))
+    tk.Label(q_ek, text="extra signals (full paths, ';' separated, e.g. "
+             "/questa_soc_tb/dut/i_uart_0/*):", bg=MIST, fg="#5a6472",
+             font=("Segoe UI", 9)).pack(side="left")
+    ttk.Entry(q_ek, textvariable=q_ekstra_var, width=40).pack(side="left", padx=4)
+
+    def q_gui_ac():
+        secim = q_secili()
+        if len(secim) != 1:
+            messagebox.showinfo("Questa", "Select exactly one test for the GUI "
+                                "(a multi-selection is for Run headless).")
+            return
+        test = secim[0]
+        vsim = q_vsim()
+        if not vsim:
+            return
+        if q_grup_test[0] != test:
+            q_gruplari_kur(test)
+        secili = [g for g, v in q_grup_vars.items() if v.get()]
+        gruplar = [] if len(secili) == len(q_grup_vars) else secili   # hepsi = kisit yok
+        if q_grup_vars and not secili:
+            if not messagebox.askyesno("Questa", "No wave group is checked: only the "
+                                       "testbench signals and clock / reset will be "
+                                       "shown. Continue?"):
+                return
+            gruplar = ["-"]              # hicbir grup adiyla eslesmez
+        env = questa_ortam(gruplar, q_ekstra_var.get())
+        ek = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} \
+            if os.name == "nt" else {}
+        try:
+            p = subprocess.Popen(questa_komut(vsim, test, True), cwd=REPO, env=env, **ek)
+        except Exception as e:
+            messagebox.showerror("Questa", "vsim could not be started:\n%s" % e)
+            return
+        questa_durum["gui"].append(p)
+        q_satir_guncelle(test, "GUI pid %d" % p.pid, "", "run")
+        log("QUESTA GUI: %s opened in Questa (pid %d) - wave groups: %s%s"
+            % (test, p.pid, "all" if not gruplar else (", ".join(secili) or "none"),
+               ("; extra: " + env["QUESTA_WAVE_EXTRA"]) if "QUESTA_WAVE_EXTRA" in env
+               else ""))
+        log("    Questa recompiles the delivered configuration, loads the testbench, "
+            "opens the wave window and runs to the verdict; the transcript copy is "
+            "verif/questa/logs/%s.transcript" % test)
+
+    def q_isci(testler):
+        vsim = vsim_var.get().strip()
+        sonuclar = []
+        t_hepsi = time.time()
+        for test in testler:
+            if questa_durum["dur"]:
+                break
+            kuyruk.put(("questa_durum", test, "running…", "", "run"))
+            kuyruk.put(("questa_baslik", test, "questa %s   (headless: vsim -c, cwd %s)"
+                        % (test, REPO)))
+            tr = os.path.join(REPO, "verif", "questa", "logs", test + ".transcript")
+            try:
+                os.remove(tr)
+            except OSError:
+                pass
+            t0, kod = time.time(), -1
+            try:
+                ek = {"creationflags": subprocess.CREATE_NO_WINDOW} \
+                    if os.name == "nt" else {}
+                p = subprocess.Popen(questa_komut(vsim, test, False), cwd=REPO,
+                                     env=questa_ortam([], ""),
+                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                     text=True, encoding="utf-8", errors="replace", **ek)
+                questa_durum["proc"] = p
+                for satir in p.stdout:
+                    satir = satir.rstrip("\r\n")
+                    if q_ayrinti_var.get() or questa_satir_goster(satir):
+                        kuyruk.put(("questa_satir", satir[:220]))
+                p.wait()
+                kod = p.returncode
+            except Exception as e:
+                kuyruk.put(("questa_satir", "ERROR: %s" % e))
+            questa_durum["proc"] = None
+            try:
+                with open(tr, encoding="utf-8", errors="replace") as f:
+                    karar = questa_karar(f.read())
+            except OSError:
+                karar = "NO TRANSCRIPT"
+            sure = time.time() - t0
+            sure_s = "%d:%02d" % (int(sure) // 60, int(sure) % 60)
+            if questa_durum["dur"]:
+                durum_s, etiket = "stopped", "fail"
+            else:
+                durum_s, etiket = karar, ("pass" if karar == "PASS" else "fail")
+            sonuclar.append((test, durum_s, sure_s, kod))
+            kuyruk.put(("questa_durum", test, durum_s, sure_s, etiket))
+            kuyruk.put(("questa_karar", test, durum_s, sure_s, kod))
+        kuyruk.put(("questa_bitti", sonuclar, time.time() - t_hepsi))
+        questa_durum["kosuyor"] = False
+
+    def q_baslat(testler):
+        if questa_durum["kosuyor"]:
+            messagebox.showwarning("Busy", "A headless Questa run is in progress; "
+                                   "press Stop first.")
+            return
+        if not testler:
+            messagebox.showinfo("Questa", "Select one or more tests (Ctrl / Shift-click) "
+                                "or a group heading, then Run headless.")
+            return
+        if not q_vsim():
+            return
+        questa_durum["kosuyor"], questa_durum["dur"] = True, False
+        for t in testler:
+            q_satir_guncelle(t, "queued", "", "idle")
+        q_etiket.config(text="running: %d test(s)" % len(testler), fg="#1d5fa8")
+        threading.Thread(target=q_isci, args=(list(testler),), daemon=True).start()
+
+    def q_durdur():
+        if not questa_durum["kosuyor"]:
+            return
+        questa_durum["dur"] = True
+        p = questa_durum["proc"]
+        kuyruk.put(("questa_satir", "STOP requested - killing vsim"))
+        try:
+            if p:
+                if os.name == "nt":      # vsim.exe -> vsimk.exe agacinin tamami
+                    subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)],
+                                   timeout=10, creationflags=subprocess.CREATE_NO_WINDOW,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                p.kill()
+        except Exception as e:
+            kuyruk.put(("questa_satir", "stop: %s" % e))
+    kapat_kancalar.append(q_durdur)
+
+    ttk.Button(q_yan, text="Open in Questa (GUI + wave)",
+               command=q_gui_ac).pack(fill="x", pady=2)
+    ttk.Button(q_yan, text="Run headless (selected)",
+               command=lambda: q_baslat(q_secili())).pack(fill="x", pady=2)
+    ttk.Button(q_yan, text="Run all headless (~25 min)",
+               command=lambda: q_baslat(list(QUESTA_TESTLER))).pack(fill="x", pady=2)
+    ttk.Button(q_yan, text="Select all",
+               command=lambda: q_agac.selection_set(list(q_satir.values()))
+               ).pack(fill="x", pady=2)
+    ttk.Button(q_yan, text="Stop", command=q_durdur).pack(fill="x", pady=2)
+    q_etiket.pack(anchor="w", pady=(4, 0))
+    q_ayar = tk.Frame(questa, bg=MIST)
+    q_ayar.grid(row=2, column=0, columnspan=3, sticky="w", padx=6, pady=(0, 4))
+    tk.Label(q_ayar, text="vsim:", bg=MIST, fg="#5a6472",
+             font=("Segoe UI", 9)).pack(side="left")
+    ttk.Entry(q_ayar, textvariable=vsim_var, width=44).pack(side="left", padx=(4, 12))
+    tk.Checkbutton(q_ayar, text="verbose log (compiler lines)", variable=q_ayrinti_var,
+                   bg=MIST).pack(side="left")
+    tk.Label(q_ayar, text="   firmware bundles: verif/questa/fw (make questa-pack); "
+             "verdict strings as in batch.ps1", bg=MIST, fg="#5a6472",
+             font=("Segoe UI", 9)).pack(side="left")
 
     # ---- log (arac cubugu: temizle / kaydet)
     import tkinter.scrolledtext as st
@@ -1401,6 +1855,7 @@ def gui_calistir():
     log_kutu.tag_config("kart", foreground="#7fd4a8")  # kart satirlari yesilimsi
     log_kutu.tag_config("make", foreground="#9fc5e8")  # make ciktisi mavimsi
     log_kutu.tag_config("bilgi", foreground="#e8d27a") # hedef aciklamasi sari
+    log_kutu.tag_config("questa", foreground="#d8b4fe") # Questa ciktisi mor
     log_kutu.tag_config("pass", foreground="#7fe0a0", font=("Consolas", 9, "bold"))
     log_kutu.tag_config("fail", foreground="#ff8080", font=("Consolas", 9, "bold"))
 
@@ -1552,6 +2007,47 @@ def gui_calistir():
                                              % (gecen, len(sonuclar),
                                                 "\n".join("%s  make %s  (%s)" % (d, h, sr)
                                                           for h, d, sr, k in sonuclar), yol))
+                elif oge[0] == "questa_satir":
+                    log_kutu.insert("end", "QUESTA ▸ %s\n" % oge[1], "questa")
+                    log_kutu.see("end")
+                elif oge[0] == "questa_baslik":
+                    _, test, baslik = oge
+                    log("────────────────────────────────────────────────────────")
+                    log("▶ " + baslik)
+                    for satir in textwrap.wrap(
+                            "WHAT IT CHECKS: " + QUESTA_ACIKLAMA.get(test, "(no description)"), 100):
+                        log_kutu.insert("end", "    " + satir + "\n", "bilgi")
+                    log_kutu.see("end")
+                elif oge[0] == "questa_durum":
+                    _, test, durum_s, sure_s, etiket = oge
+                    q_satir_guncelle(test, durum_s, sure_s, etiket)
+                elif oge[0] == "questa_karar":
+                    _, test, durum_s, sure_s, kod = oge
+                    if durum_s == "PASS":
+                        log_kutu.insert("end", "[%s] ✔ PASS   questa %s   (%s) — verdict line "
+                                        "found in verif/questa/logs/%s.transcript\n"
+                                        % (time.strftime("%H:%M:%S"), test, sure_s, test), "pass")
+                    else:
+                        log_kutu.insert("end", "[%s] ✘ %s   questa %s   (%s, vsim exit %d) — read "
+                                        "the QUESTA ▸ lines above and verif/questa/logs/%s.transcript\n"
+                                        % (time.strftime("%H:%M:%S"), durum_s, test, sure_s,
+                                           kod, test), "fail")
+                    log_kutu.see("end")
+                elif oge[0] == "questa_bitti":
+                    _, sonuclar, sure = oge
+                    gecen = sum(1 for _, d, _, _ in sonuclar if d == "PASS")
+                    ozet = "QUESTA FINISHED: %d/%d PASS, %d:%02d" % (
+                        gecen, len(sonuclar), int(sure) // 60, int(sure) % 60)
+                    q_etiket.config(
+                        text="last run: %d/%d PASS" % (gecen, len(sonuclar)),
+                        fg="#1f7a3f" if gecen == len(sonuclar) else "#b02a2a")
+                    log("════════════════════════════════════════════════════════")
+                    log_kutu.insert("end", "[%s] %s\n" % (time.strftime("%H:%M:%S"), ozet),
+                                    "pass" if gecen == len(sonuclar) else "fail")
+                    for t, d, sr, k in sonuclar:
+                        log_kutu.insert("end", "    %-6s questa %-18s %s\n" % (d, t, sr),
+                                        "pass" if d == "PASS" else "fail")
+                    log_kutu.see("end")
                 elif oge[0] == "log":
                     log(oge[1])
                 elif oge[0] == "bitti":
@@ -1563,7 +2059,10 @@ def gui_calistir():
         kok.after(80, kuyruk_isle)
 
     kok.after(80, kuyruk_isle)
+    if smoke_ms:                    # --gui-smoke: arayuz kuruldu, kapat
+        kok.after(smoke_ms, kok.destroy)
     kok.mainloop()
+    return 0
 
 
 # ---------------- selftest (kartsiz) ---------------------------------------
@@ -1819,6 +2318,57 @@ def selftest():
             and "setsid" in k and "bash" in k and "tflite-venv" in MAKE_BETIK
             and not make_satir_goster("ccache g++ x")
             and make_satir_goster("[SIM] PASS"), " ".join(k[:3]))
+    # (vi) Questa sekmesi: katalog = tests.tcl, dalga gruplari, komut / ortam /
+    #      karar (vsim kosturulmaz; PANEL_QUESTA_LIVE=1 ile uart_stp gercekten kosar)
+    tcl_adlar = questa_tests_tcl()
+    kontrol("(vi) questa catalog = tests.tcl", tcl_adlar == QUESTA_TESTLER
+            and len(QUESTA_TESTLER) == 21, "%d tests" % len(QUESTA_TESTLER))
+    g_soc = questa_gruplar("soc")
+    kontrol("(vi) wave groups (soc.do)", "UART0" in g_soc and "JTAG TAP pins" in g_soc
+            and "AXI-DM bridge" in g_soc, "%d groups" % len(g_soc))
+    kontrol("(vi) wave groups (unit testbenches)",
+            all(questa_gruplar(w) for w in ("uart_stp", "uart_stream", "ai_accel",
+                                            "axi_dm_slave"))
+            and QUESTA_GRUP_VARSAYILAN["soc"] == questa_gruplar("soc"))
+    k1 = questa_komut("vsim", "uart_stp", True)
+    k2 = questa_komut("vsim", "uart_stp", False)
+    env = questa_ortam(["UART0", "QSPI"], " /tb/dut/x ; /tb/dut/y ")
+    kontrol("(vi) questa command + env", k1[1] == "-gui" and "run_test.do uart_stp" in k1[3]
+            and k2[1] == "-c" and "quit -code 1" in k2[3]
+            and env["QUESTA_WAVE_GROUPS"] == "UART0;QSPI"
+            and env["QUESTA_WAVE_EXTRA"] == "/tb/dut/x;/tb/dut/y"
+            and "QUESTA_WAVE_GROUPS" not in questa_ortam([], ""))
+    kontrol("(vi) questa verdict + filter", questa_karar("# *** TEST SUCCESS ***") == "PASS"
+            and questa_karar("# result=FAIL") == "FAIL"
+            and questa_karar("# ** Error: x") == "FAIL"
+            and questa_karar("") == "NO TRANSCRIPT" and questa_karar("# hi") == "NO VERDICT"
+            and not questa_satir_goster("# -- Compiling module x")
+            and questa_satir_goster("# [QUESTA] running uart_stp ..."))
+    if os.environ.get("PANEL_QUESTA_LIVE") == "1":
+        vsim = questa_bul()
+        if vsim:
+            tr = os.path.join(REPO, "verif", "questa", "logs", "uart_stp.transcript")
+            try:
+                os.remove(tr)
+            except OSError:
+                pass
+            t0 = time.time()
+            r = subprocess.run(questa_komut(vsim, "uart_stp", False), cwd=REPO,
+                               env=questa_ortam([], ""), stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT, text=True, encoding="utf-8",
+                               errors="replace", timeout=900)
+            try:
+                with open(tr, encoding="utf-8", errors="replace") as f:
+                    karar = questa_karar(f.read())
+            except OSError:
+                karar = "NO TRANSCRIPT"
+            gorunen = [l for l in r.stdout.splitlines() if questa_satir_goster(l)]
+            kontrol("(vi) live: vsim -c uart_stp", r.returncode == 0 and karar == "PASS",
+                    "exit %d, %s, %.0f s, %d/%d lines shown" % (
+                        r.returncode, karar, time.time() - t0, len(gorunen),
+                        len(r.stdout.splitlines())))
+        else:
+            print("(vi) live questa run: SKIP (vsim not found)")
     kart.kapat()
     gecti = all(sonuclar)
     print("SELFTEST: %s" % ("PASS" if gecti else "FAIL"))
@@ -1830,8 +2380,13 @@ if __name__ == "__main__":
     ap.add_argument("--selftest", action="store_true",
                     help="dry test without board (frame, loaders, FakeSerial "
                          "board: stress tests + N=45 sweep)")
+    ap.add_argument("--gui-smoke", action="store_true",
+                    help="build the GUI without a board and close it after 1.5 s "
+                         "(layout / import check)")
     a = ap.parse_args()
     if a.selftest:
         sys.exit(selftest())
+    elif a.gui_smoke:
+        sys.exit(gui_calistir(smoke_ms=1500))
     else:
         gui_calistir()

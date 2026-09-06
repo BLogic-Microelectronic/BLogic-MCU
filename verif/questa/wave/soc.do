@@ -10,6 +10,12 @@
 onerror {resume}
 if {![info exists DUT] || $DUT eq ""} { echo "wave/soc.do: DUT is not set"; return }
 proc w {args} {
+    # WAVE_GROUPS (questa_lib.tcl, from QUESTA_WAVE_GROUPS): when it is a
+    # non-empty list, -group entries outside it are skipped
+    global WAVE_GROUPS
+    set i [lsearch -exact $args -group]
+    if {$i >= 0 && [info exists WAVE_GROUPS] && [llength $WAVE_GROUPS] > 0 &&
+        [lsearch -exact $WAVE_GROUPS [lindex $args [expr {$i + 1}]]] < 0} { return }
     if {[catch {eval add wave -noupdate $args} err]} { echo "wave: skipped $args" }
 }
 set TB [lindex [split $DUT /] 1]

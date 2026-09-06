@@ -84,10 +84,32 @@ proc q_sim {name t} {
     q_msg "simulate (cwd $wd): $cmd"
     eval $cmd
     set DUT [dict get $t dut]
+    # Wave selection from the launcher (jury panel, "Questa waves" tab):
+    #   QUESTA_WAVE_GROUPS = "UART0;QSPI"   only these -group entries of the
+    #       wave file are added (dividers and ungrouped signals always stay;
+    #       the 'w' proc of the wave files reads the WAVE_GROUPS global)
+    #   QUESTA_WAVE_EXTRA  = "/tb/dut/a;/tb/dut/i_x/*"   added afterwards
+    global WAVE_GROUPS
+    set WAVE_GROUPS {}
+    if {[info exists ::env(QUESTA_WAVE_GROUPS)] && $::env(QUESTA_WAVE_GROUPS) ne ""} {
+        set WAVE_GROUPS [split $::env(QUESTA_WAVE_GROUPS) ";"]
+        q_msg "wave groups limited to: $WAVE_GROUPS"
+    }
     set wave [file join $QDIR wave [dict get $t wave].do]
     if {[batch_mode]} {
         q_msg "batch mode: wave window skipped"
     } elseif {[file exists $wave]} { do $wave } else { q_msg "no wave file $wave" }
+    if {![batch_mode] && [info exists ::env(QUESTA_WAVE_EXTRA)] && $::env(QUESTA_WAVE_EXTRA) ne ""} {
+        foreach s [split $::env(QUESTA_WAVE_EXTRA) ";"] {
+            set s [string trim $s]
+            if {$s eq ""} { continue }
+            if {[catch {add wave -noupdate -radix hexadecimal $s} err]} {
+                q_msg "extra wave skipped: $s ($err)"
+            } else {
+                q_msg "extra wave: $s"
+            }
+        }
+    }
     q_msg "running $name ..."
     run -all
     catch {wave zoom full}

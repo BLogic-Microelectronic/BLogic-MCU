@@ -1527,6 +1527,11 @@ One window replaces Vivado GUI + terminal + scripts on demo day:
 python sw/demo/juri_panel.py
 ```
 
+The window has three tabs above one shared log: **Board demo** (items 1-4),
+**Verification suite (make)** (the 39 `make` targets of the Makefile in a
+table, run inside WSL with a PASS/FAIL line and a `juri_make_<date>.txt`
+report) and **Questa waves** (item 5).
+
 1. **Load bitstream…** — pick `rtl/fpga/fpga_top.bit` (normal, flash boot) or
    `rtl/fpga/fpga_top_m2_demo.bit` (backup: demo firmware embedded, boots
    from SRAM, needs no flash at all; no JTAG debug subsystem). Note that the backup
@@ -1570,6 +1575,20 @@ python sw/demo/juri_panel.py
    with the mean ms/vector. *Stop* halts either run between samples/tests.
    `--selftest` exercises the same code paths without hardware against a
    built-in `FakeSerial` model of the firmware's UART state machine.
+5. **Questa waves** — the `verif/questa` flow from the panel. The 21 tests of
+   `verif/questa/tests.tcl` sit in a table; *Open in Questa (GUI + wave)*
+   recompiles the delivered configuration, loads the selected testbench and
+   opens the ready-made wave window of `verif/questa/wave/*.do` — the groups to
+   load (UART0, CPU, interrupts, QSPI, I2C, GPIO, AI accelerator, JTAG TAP
+   pins, DMI, debug module, AXI-DM bridge, crossbar, …) are ticked in the
+   panel and extra signal paths can be typed in; they reach the flow as
+   `QUESTA_WAVE_GROUPS` / `QUESTA_WAVE_EXTRA`, read by `questa_lib.tcl`.
+   *Run headless* runs `vsim -c` for the selected tests (or all 21) with the
+   verdict taken from `verif/questa/logs/<test>.transcript` exactly as
+   `verif/questa/batch.ps1` does, coloured PASS/FAIL per test in the table and
+   the log. Needs Questa on the machine (the *vsim* box is auto-detected);
+   `--selftest` checks the catalogue against `tests.tcl` and, with
+   `PANEL_QUESTA_LIVE=1`, really runs `uart_stp` headless.
 
 > Windows note: Vivado (GUI and batch) fails on paths containing non-ASCII
 > characters (e.g. `Masaüstü`). Map the repository to a drive letter first
