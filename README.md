@@ -1406,9 +1406,13 @@ break down as follows and are all benign for this design:
 
 ![FPGA Implemented Design](images/fpga_implemented_design.png)
 
-> Illustrative device view captured from an earlier revision; the numeric
-> signoff data for the current bitstream is the table in 12.4 and the reports
-> under `rtl/fpga/reports/`.
+> Device view of the delivered bitstream (`fpga_top.bit`, 6 September 2026,
+> checkpoint `build/fpga_genesys2/post_route.dcp`) with every placed cell
+> highlighted: the SoC together with the JTAG debug module occupies clock
+> regions X0Y1-X0Y3 of the XC7K325T (13,772 LUT = 6.76 %, 9,756 FF = 2.39 %).
+> The June 2026 revision pictured here earlier used 23 % LUT / 15 % FF, which
+> is why its floorplan looked much fuller. Numeric signoff data: the table in
+> 12.4 and the reports under `rtl/fpga/reports/`.
 
 ### 12.6 FPGA Demos — Live Board
 
