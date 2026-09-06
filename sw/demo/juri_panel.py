@@ -545,6 +545,15 @@ def gui_calistir():
     kok.title("BLogic MCU — Jury Data Panel")
     kok.geometry("980x720")     # +80 px: 'Random sweep & stress tests' bolumu
     kok.configure(bg=MIST)
+    # Pencere / gorev cubugu / iletisim kutusu simgesi: takim logosu
+    # (sw/demo/panel_icon.png, 256x256; kaynak: balporsugu logosu).
+    # iconphoto(True, ...) sonradan acilan tum Toplevel'lere de uygulanir.
+    try:
+        ikon = tk.PhotoImage(file=os.path.join(REPO, "sw", "demo", "panel_icon.png"))
+        kok.iconphoto(True, ikon)
+        durum_ikon = ikon           # cop toplayici silmesin
+    except Exception:
+        durum_ikon = None
 
     durum = {"kart": None, "vektorler": [], "kosuyor": False, "dur": False,
              "sonuclar": []}
