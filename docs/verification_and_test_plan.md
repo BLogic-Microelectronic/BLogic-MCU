@@ -61,9 +61,18 @@ Companion documents:
 - FPGA prototype (Digilent Genesys-2, Kintex-7 XC7K325T-2) and the live
   on-board system
 
-**Out of scope:** JTAG debug module (optional per specification; not
-implemented in this revision), analog blocks (different category), ASIC
-physical verification details (covered by `asic/README.md`).
+**Optional, implemented, not enabled in the tapeout configuration:** the JTAG
+debug module (optional per specification). It is present in the RTL behind the
+`JTAG_DEBUG` define (PULP riscv-dbg: IEEE 1149.1 TAP, RISC-V Debug 0.13 DTM/DM),
+verified in simulation (17-stage TAP/DTM/DM testbench, OpenOCD and gdb sessions),
+on the Genesys 2 board (OpenOCD through the on-board USB-JTAG, hardware
+breakpoints, and together with the AI demo) and through the full sky130 flow
+(root README Section 10.10). The delivered ASIC run (`RUN_teslim_2026-08-14`) and
+the default FPGA image are built without the define; `make jtag-equiv` proves the
+define-off RTL byte-identical to the signed inputs.
+
+**Out of scope:** analog blocks (different category), ASIC physical verification
+details (covered by `asic/README.md`).
 
 ## 3. Verification Strategy
 
@@ -471,8 +480,10 @@ that the methodology works, not just that the design passes:
 - **UART_0 RX FIFO:** none, by EK-2 register-map fidelity (FIFO is
   mandated only in QSPI, where a 64-deep FIFO is implemented). Hosts
   must follow the documented handshake.
-- **JTAG debug:** optional per specification; not implemented in this
-  revision.
+- **JTAG debug:** optional per specification; implemented as a define-guarded
+  option (`JTAG_DEBUG`, riscv-dbg), verified in simulation, on the board and in
+  the sky130 flow; **not enabled** in the delivered tapeout configuration (root
+  README Section 10.10).
 - **ASIC SS corner:** 50 MHz closes at TT with +2.210 ns margin; SS
   closure is ~34.4 MHz - disclosed with rationale in `asic/README.md`
   9.1/9.9 (the frequency target metric is defined as ~50 MHz on FPGA,

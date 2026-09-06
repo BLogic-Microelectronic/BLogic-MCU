@@ -61,6 +61,7 @@ The design has been verified through Verilator-based directed and randomized sim
 | **AI Accelerator** | TFLite Micro Speech **Tiny Conv** (Conv2D + ReLU + FC + Argmax), INT8 × INT8 → INT32 MAC, AXI4 master + AXI-Lite slave CSR, hardware interrupt on completion |
 | **Boot Flow** | Boot ROM → QSPI Flash loader → Instruction SRAM (M3 flash-boot mode active) |
 | **Interrupts** | CV32E40P CLINT-style vector: Timer (bit 16), AI Accelerator (bit 17), UART-stream DMA (bit 18) |
+| **Debug (optional)** | PULP riscv-dbg JTAG (IEEE 1149.1 TAP, RISC-V Debug 0.13 DTM/DM) behind `JTAG_DEBUG` — verified in simulation, on the Genesys 2 (OpenOCD/gdb, hardware breakpoints, alongside the AI demo) and in the sky130 flow; **not enabled in the delivered tapeout configuration** (§10.10) |
 | **Target Frequency** | **50 MHz** (post-implementation, met) |
 | **FPGA Platform** | Digilent Genesys 2 — Xilinx Kintex-7 `XC7K325T-2FFG900C` |
 | **Source Lang.** | SystemVerilog (RTL) + C / RISC-V Assembly (firmware) + Python (golden vectors & AI model) |
@@ -772,13 +773,18 @@ The UVM library is vendored under `verif/uvm-lib` — no external clone is neede
 
 ### 10.10 JTAG Debug Prototype (branch `deneme/jtag`, riscv-dbg + OpenOCD + gdb)
 
-> **Status.** JTAG is an *optional* item of the competition specification and is
-> **not part of the delivered chip** (openly declared in the requirements
-> matrix). This prototype lives on the `deneme/jtag` branch, is never merged into
-> `main`, and leaves `asic/` and the signed ASIC run untouched. Everything is
-> guarded by `` `ifdef JTAG_DEBUG ``: without the define the crossbar elaborates to
-> logic proven identical by a preprocessor diff, and the 6-test regression still
-> passes. Full working log and guard rails: `JTAG_DENEME_PLANI.md`.
+> **Status (merged into `main` on 6 September 2026 as an option).** JTAG is an
+> *optional* item of the competition specification. It is implemented and verified
+> — in simulation, on the Genesys 2 board and through the full sky130 flow — but
+> **not enabled in the delivered tapeout configuration**: `RUN_teslim_2026-08-14`
+> and the default FPGA image are built without `JTAG_DEBUG`. The signed ASIC run
+> and `asic/` are untouched; `make jtag-equiv` proves the RTL without the define
+> byte-identical to the signed inputs (0 differing lines across `soc_top`, the
+> crossbar, `asic_top`, `fpga_top` and `ai_accelerator`). JTAG builds
+> (`make jtag-*`, `build_genesys2_jtag.tcl`, `jtag_asic_config.py`) also enable two
+> small fixes that the delivered run declares but does not carry: `FC1_FIX`
+> (`asic/README.md` §9.5) and `I2C_SDA_SYNC` (`asic/README.md` §9.9/3). The
+> development history is on the `deneme/jtag` branch.
 
 **What was integrated.** PULP `riscv-dbg` (RISC-V Debug Spec 0.13: JTAG TAP, DTM,
 Debug Module) mapped at `0x0004_0000` (4 KB). A new bridge `rtl/debug/axi_dm_slave.sv`

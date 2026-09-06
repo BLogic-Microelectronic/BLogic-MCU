@@ -226,7 +226,11 @@ treated as unverified. Remediation for any future re-spin is a one-line
 RTL change (keep re-issuing `co_re` with the same address during
 `ST_FC_FETCH_W_WAIT`); per Section 1.3 and the signed-run consistency
 rule, neither the RTL nor `RUN_teslim_2026-08-14` was touched — the
-finding is declared here instead. Argmax correctness itself is proven on
+finding is declared here instead. That one-line change now exists in the
+RTL behind the `FC1_FIX` define (validated in the JTAG-variant flow runs
+and the FPGA JTAG build, root README Section 10.10); it is **not** enabled
+in the delivered configuration, so this run and this declaration remain
+accurate. Argmax correctness itself is proven on
 the behavioural side (Section 9.11 / root README Section 11).
 
 **Corner assumption (the most important item of this section):** both
@@ -558,6 +562,24 @@ Known and accepted limits (final run `RUN_teslim_2026-08-14`):
    - *SRAM Liberty substitution (Aug 17, 2026):* the TT_1p8V_25C model is
      accepted as a documented substitute in the SS/FF analyses; no
      scaling is required (section 9.5).
+
+9. **Optional JTAG debug block — present in the RTL, not enabled in this
+   run.** The RTL carries a riscv-dbg based debug interface (IEEE 1149.1
+   TAP, RISC-V Debug 0.13 DTM and DM, `rtl/debug/axi_dm_slave.sv`) behind
+   the `JTAG_DEBUG` define. `RUN_teslim_2026-08-14` was built without it;
+   `make jtag-equiv` (scripted, in the repository) proves that the RTL
+   without the define is byte-identical to the signed inputs, so every
+   number in this document describes the delivered configuration. When the
+   define is enabled the design gains five JTAG pins and a second clock
+   domain (`jtag_tck`, asynchronous to `clk`, crossed inside riscv-dbg's
+   `dmi_cdc`); the single-clock statements of 9.1 and 9.6 therefore apply to
+   the delivered configuration only. The variant has its own full sky130
+   flow results (DRC/LVS/XOR/antenna 0, TT setup +1.684 ns) and one open
+   finding — the DM address window is not qualified by debug mode — both
+   documented in root README Section 10.10. The `I2C_SDA_SYNC` define
+   (2FF synchroniser for `i2c_sda_i`, item 3 above) and the `FC1_FIX`
+   define (9.5) follow the same rule: available in the RTL, off in this
+   run.
 
 ## 9.10 Power and IR-Drop Analysis
 
