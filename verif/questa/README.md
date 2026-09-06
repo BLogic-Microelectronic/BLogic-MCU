@@ -180,6 +180,13 @@ file, e.g. `set QUESTA_WAVE_EXTRA=/questa_soc_tb/dut/i_uart_0/*` before
 
 ## Troubleshooting
 
+- `init_dbinfo() DATABASE ERROR: (sqlite3_open .../work/_lib.qdb): unable to
+  open database file` followed by `** Fatal: (vlog-9) Problem while writing
+  token file` - the repository path contains non-ASCII characters (seen with
+  `C:/Users/.../Masaüstü/...`, 6 September 2026); Questa 10.7c cannot open its
+  library there. Map the repository to a drive letter (`subst Y: "<repo>"`)
+  and run from `Y:`; the jury panel does this on its own.
+
 - `vsim not found`: add Questa's `win64` (or `linux_x86_64`) directory to
   `PATH`; `wave.bat` prints the exact command.
 - `working directory ... is missing`: the bundles were not generated; run

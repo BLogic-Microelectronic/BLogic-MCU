@@ -1588,12 +1588,17 @@ report) and **Questa waves** (item 5).
    `verif/questa/batch.ps1` does, coloured PASS/FAIL per test in the table and
    the log. Needs Questa on the machine (the *vsim* box is auto-detected);
    `--selftest` checks the catalogue against `tests.tcl` and, with
-   `PANEL_QUESTA_LIVE=1`, really runs `uart_stp` headless.
+   `PANEL_QUESTA_LIVE=1`, really runs `uart_stp` headless. Questa 10.7c cannot
+   open a repository path with non-ASCII characters (`work/_lib.qdb: unable to
+   open database file`, seen with `Masaüstü`), so on Windows the panel runs
+   Questa from an ASCII drive letter: it reuses an existing `subst` mapping of
+   the repository or creates one on a free letter, and says so in the log.
 
-> Windows note: Vivado (GUI and batch) fails on paths containing non-ASCII
-> characters (e.g. `Masaüstü`). Map the repository to a drive letter first
-> (`subst X: "<repo path>"`) and work from `X:\`; the panel copies bitstreams to
-> an ASCII temp directory on its own. Board-verified 2026-09-03: 1000/1000 with
+> Windows note: Vivado (GUI and batch) and Questa 10.7c fail on paths containing
+> non-ASCII characters (e.g. `Masaüstü`). Map the repository to a drive letter
+> first (`subst X: "<repo path>"`) and work from `X:\`; the panel copies
+> bitstreams to an ASCII temp directory on its own and runs Questa from a
+> `subst` drive it finds or creates. Board-verified 2026-09-03: 1000/1000 with
 > `kart_sweep.py --n 1000`, M2 backup boots and classifies without flash.
 
 5. **Verification suite** — the `make` targets from a table inside the panel:

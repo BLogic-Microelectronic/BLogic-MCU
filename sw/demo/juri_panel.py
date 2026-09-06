@@ -326,6 +326,43 @@ def questa_bul():
     return sorted(adaylar)[-1] if adaylar else ""
 
 
+def ascii_kok(depo=None):
+    """Questa 10.7c ASCII disi yollari acamiyor (work/_lib.qdb 'unable to open
+    database file' + vlog-9 token-file hatasi; 6 Eylul, OneDrive/Masaustu yolu).
+    Depo yolu ASCII disiysa ayni dizine bagli bir subst surucusu aranir
+    (os.path.samefile), yoksa bos bir harfe 'subst' ile olusturulur.
+    (kok, mesaj) doner: kok Questa'nin cwd'si olur, mesaj loga yazilir
+    ("" = yol zaten ASCII, oldugu gibi kullanilir)."""
+    depo = REPO if depo is None else depo
+    if os.name != "nt" or depo.isascii():
+        return depo, ""
+    harfler = "ZYXWVUTSRQPONMLKJIHGFED"
+    for harf in harfler:
+        surucu = harf + ":" + os.sep
+        try:
+            if os.path.exists(surucu) and os.path.samefile(surucu, depo):
+                return surucu, ("the repository path is not ASCII; Questa runs from the "
+                                "existing drive mapping %s -> %s" % (surucu, depo))
+        except OSError:
+            pass
+    for harf in harfler:
+        surucu = harf + ":" + os.sep
+        if os.path.exists(surucu):
+            continue
+        try:
+            r = subprocess.run(["subst", harf + ":", depo], capture_output=True,
+                               timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+        except Exception:
+            r = None
+        if r is not None and r.returncode == 0 and os.path.exists(surucu):
+            return surucu, ("the repository path is not ASCII (Questa 10.7c cannot open "
+                            "it): mapped it with 'subst %s: <repo>', Questa runs from %s "
+                            "(remove later with 'subst %s: /D')" % (harf, surucu, harf))
+    return depo, ("WARNING: the repository path is not ASCII and no drive letter could "
+                  "be mapped; Questa 10.7c will probably fail - run 'subst Y: <repo>' "
+                  "by hand and start the panel from Y:")
+
+
 def questa_tests_tcl(kok=None):
     """verif/questa/tests.tcl'deki test adlari (q_def / q_soc), dosya sirasiyla."""
     kok = REPO if kok is None else kok
@@ -1627,11 +1664,17 @@ def gui_calistir(smoke_ms=0):
                                  "vsim.exe (the Questa win64 directory) into the "
                                  "vsim box, or add that directory to PATH.")
             return None
-        if os.name == "nt" and not REPO.isascii():
-            log("NOTE: the repository path contains non-ASCII characters; Questa "
-                "10.7c may fail on it - map the repo to a drive letter (subst Y: "
-                "<repo>) and start the panel from there.")
         return yol
+
+    q_kok_son = [None]
+
+    def q_kok():
+        """Questa'nin calisma dizini (ASCII; gerekirse subst), mesaji bir kez loglar."""
+        kok, mesaj = ascii_kok()
+        if mesaj and mesaj != q_kok_son[0]:
+            log("QUESTA: " + mesaj)
+            q_kok_son[0] = mesaj
+        return kok
 
     # dalga gruplari: tabloda tek test secilince wave/<dalga>.do'dan okunur
     q_dalga = tk.LabelFrame(
@@ -1703,17 +1746,18 @@ def gui_calistir(smoke_ms=0):
                 return
             gruplar = ["-"]              # hicbir grup adiyla eslesmez
         env = questa_ortam(gruplar, q_ekstra_var.get())
+        kok = q_kok()
         ek = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} \
             if os.name == "nt" else {}
         try:
-            p = subprocess.Popen(questa_komut(vsim, test, True), cwd=REPO, env=env, **ek)
+            p = subprocess.Popen(questa_komut(vsim, test, True), cwd=kok, env=env, **ek)
         except Exception as e:
             messagebox.showerror("Questa", "vsim could not be started:\n%s" % e)
             return
         questa_durum["gui"].append(p)
         q_satir_guncelle(test, "GUI pid %d" % p.pid, "", "run")
-        log("QUESTA GUI: %s opened in Questa (pid %d) - wave groups: %s%s"
-            % (test, p.pid, "all" if not gruplar else (", ".join(secili) or "none"),
+        log("QUESTA GUI: %s opened in Questa (pid %d, cwd %s) - wave groups: %s%s"
+            % (test, p.pid, kok, "all" if not gruplar else (", ".join(secili) or "none"),
                ("; extra: " + env["QUESTA_WAVE_EXTRA"]) if "QUESTA_WAVE_EXTRA" in env
                else ""))
         log("    Questa recompiles the delivered configuration, loads the testbench, "
@@ -1722,6 +1766,9 @@ def gui_calistir(smoke_ms=0):
 
     def q_isci(testler):
         vsim = vsim_var.get().strip()
+        kok, mesaj = ascii_kok()          # isci iplikten tkinter'a dokunulmaz: kuyruk
+        if mesaj:
+            kuyruk.put(("questa_satir", mesaj))
         sonuclar = []
         t_hepsi = time.time()
         for test in testler:
@@ -1729,8 +1776,8 @@ def gui_calistir(smoke_ms=0):
                 break
             kuyruk.put(("questa_durum", test, "running…", "", "run"))
             kuyruk.put(("questa_baslik", test, "questa %s   (headless: vsim -c, cwd %s)"
-                        % (test, REPO)))
-            tr = os.path.join(REPO, "verif", "questa", "logs", test + ".transcript")
+                        % (test, kok)))
+            tr = os.path.join(kok, "verif", "questa", "logs", test + ".transcript")
             try:
                 os.remove(tr)
             except OSError:
@@ -1739,7 +1786,7 @@ def gui_calistir(smoke_ms=0):
             try:
                 ek = {"creationflags": subprocess.CREATE_NO_WINDOW} \
                     if os.name == "nt" else {}
-                p = subprocess.Popen(questa_komut(vsim, test, False), cwd=REPO,
+                p = subprocess.Popen(questa_komut(vsim, test, False), cwd=kok,
                                      env=questa_ortam([], ""),
                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                      text=True, encoding="utf-8", errors="replace", **ek)
@@ -2344,16 +2391,20 @@ def selftest():
             and questa_karar("") == "NO TRANSCRIPT" and questa_karar("# hi") == "NO VERDICT"
             and not questa_satir_goster("# -- Compiling module x")
             and questa_satir_goster("# [QUESTA] running uart_stp ..."))
+    kok, mesaj = ascii_kok()
+    kontrol("(vi) ascii root for Questa", ascii_kok("C:" + os.sep + "x")[0] == "C:" + os.sep + "x"
+            and os.path.isdir(kok) and (REPO.isascii() or os.path.samefile(kok, REPO)),
+            mesaj or ("%s (ASCII, used as is)" % kok))
     if os.environ.get("PANEL_QUESTA_LIVE") == "1":
         vsim = questa_bul()
         if vsim:
-            tr = os.path.join(REPO, "verif", "questa", "logs", "uart_stp.transcript")
+            tr = os.path.join(kok, "verif", "questa", "logs", "uart_stp.transcript")
             try:
                 os.remove(tr)
             except OSError:
                 pass
             t0 = time.time()
-            r = subprocess.run(questa_komut(vsim, "uart_stp", False), cwd=REPO,
+            r = subprocess.run(questa_komut(vsim, "uart_stp", False), cwd=kok,
                                env=questa_ortam([], ""), stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, encoding="utf-8",
                                errors="replace", timeout=900)
