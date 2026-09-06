@@ -1,125 +1,138 @@
-> **DURUM (6 Eylul 2026): Secenek B - JTAG TESLIM CIPININ PARCASI.** riscv-dbg
-> tabanli JTAG debug altsistemi (TAP + DTM/CDC + DM + `axi_dm_slave` koprusu)
-> teslim yapilandirmasina alindi: `JTAG_DEBUG`, `FC1_FIX` ve `I2C_SDA_SYNC`
-> tanimlari `soc_files.f`, `asic/config.yaml` + `asic/filelist.f` ve
-> `rtl/fpga/build_genesys2.tcl`'de ACIK; `design.sdc`'de `jtag_tck` (100 ns) +
-> asenkron saat grubu + TAP pin butceleri; 3-4 Eylul taramasinin dort CTS ayari
-> `config.yaml`'da; `asic_top` 21 portlu. Resmi ASIC kosusu `RUN_final_2026-09-06`
-> (VM1, commit 248069b); 14 Agustos imzali kosu (JTAG'siz RTL, 73d8dcd) tarihsel
-> referans. Onceki "Secenek A" cercevesi (tanim arkasinda, teslimde kapali, yaninda
-> istege bagli varyant) TERK EDILDI; `ifdef`'ler yalniz izolasyon kaniti
-> (`make jtag-equiv`) icin duruyor. Bilinen acik bulgu: DM bolgesi debug modu
-> disinda korumasiz (belgelenen sinir, asic/README 9.9/9). Asagisi tarihsel
-> calisma gunlugudur; "merge edilmez" / "asic/ dokunulmaz" / "teslim edilen cipte
-> JTAG yoktur" ifadeleri o donemin kurallaridir.
+> **STATUS (6 September 2026): Option B - JTAG IS PART OF THE DELIVERED CHIP.** The
+> riscv-dbg based JTAG debug subsystem (TAP + DTM/CDC + DM + the `axi_dm_slave`
+> bridge) has been taken into the delivery configuration: the `JTAG_DEBUG`,
+> `FC1_FIX` and `I2C_SDA_SYNC` defines are ON in `soc_files.f`, `asic/config.yaml` +
+> `asic/filelist.f` and `rtl/fpga/build_genesys2.tcl`; `design.sdc` carries
+> `jtag_tck` (100 ns) + the asynchronous clock group + the TAP pin budgets; the four
+> CTS settings of the 3-4 September sweep are in `config.yaml`; `asic_top` has
+> 21 ports. The official ASIC run is `RUN_final_2026-09-06` (VM1, commit 248069b);
+> the 14 August signed run (JTAG-less RTL, 73d8dcd) is the historical reference.
+> The earlier "Option A" framing (behind a define, off in the delivery, an optional
+> variant alongside it) was ABANDONED; the `ifdef`s remain only as the isolation
+> proof (`make jtag-equiv`). Known open finding: the DM region is unprotected
+> outside debug mode (documented limitation, asic/README 9.9/9). Everything below
+> is the historical working log; the statements "is not merged", "asic/ is not
+> touched" and "the delivered chip has no JTAG" were the rules of that period.
 
-# deneme/jtag — Calisma Plani ve Koruma Raylari
+# deneme/jtag — Working Plan and Guard Rails
 
-Amac: riscv-dbg tabanli JTAG debug entegrasyonunun PROTOTIP dalda
-gosterilmesi (OpenOCD halt/resume/register/bellek/breakpoint demosu).
-Teslim edilen cipte JTAG YOKTUR ve bu dal o beyani DEGISTIRMEZ.
+Purpose: demonstrate the riscv-dbg based JTAG debug integration on a
+PROTOTYPE branch (OpenOCD halt/resume/register/memory/breakpoint demo).
+The delivered chip has NO JTAG and this branch DOES NOT CHANGE that statement.
 
-## Koruma raylari (ihlal edilemez)
-1. Bu dal main'e MERGE EDILMEZ; teslim paketine tek dosya sizmaz.
-2. `asic/` klasorune bu daldan da dokunulmaz (config, RTL listesi,
-   reports, results, checksums dahil).
-3. Butun kosular VM'lerde yapilir; yerel makinede asic akisi kosulmaz.
-4. Her RTL degisikligi commit mesajinda gerekcesiyle raporlanir.
+## Guard rails (must not be violated)
+1. This branch IS NOT MERGED into main; not a single file leaks into the
+   delivery package.
+2. The `asic/` directory is not touched from this branch either (including
+   config, RTL list, reports, results, checksums).
+3. All runs are done on VMs; the asic flow is not run on the local machine.
+4. Every RTL change is reported with its rationale in the commit message.
 
-## Zaman kutusu (3 is gunu, go/no-go'lu)
-- Gun 1: riscv-dbg vendor; `debug_req_i` + `dm_halt_addr_i` DM'e
-  baglanir; crossbar'a DM slave bolgesi (progbuf-only, SBA YOK);
-  temiz derleme + smoke sim.
-- Gun 2: dmi_jtag TAP simulasyonu + OpenOCD remote_bitbang ile
-  halt/resume/register okuma. GO/NO-GO: aksama halt/resume yoksa
-  deneme kapatilir, sunuma donulur.
-- Gun 3: bellek erisimi + breakpoint + demo log/goruntu; artan
-  zamanla FPGA denemesi (bitstream YALNIZ Berk'in izniyle yazilir).
-- Sunum kapisi: 6 Eylul'e kadar sunum bitmemisse deneme o gun durur.
+## Timebox (3 working days, with a go/no-go)
+- Day 1: vendor riscv-dbg; `debug_req_i` + `dm_halt_addr_i` connected to
+  the DM; DM slave region on the crossbar (progbuf-only, NO SBA);
+  clean build + smoke sim.
+- Day 2: dmi_jtag TAP simulation + halt/resume/register read over OpenOCD
+  remote_bitbang. GO/NO-GO: if there is no halt/resume by the evening,
+  the experiment is closed and we go back to the presentation.
+- Day 3: memory access + breakpoint + demo log/screenshot; with the time
+  left over, an FPGA trial (the bitstream is written ONLY with Berk's
+  permission).
+- Presentation gate: if the presentation is not finished by September 6,
+  the experiment stops that day.
 
-## Dal kapsaminda onerilen uc ayri commit
-1. JTAG entegrasyonu (go/no-go buna bagli).
-2. FC-1 tek satir duzeltmesi: `ST_FC_FETCH_W_WAIT` boyunca `co_re`
-   ayni adresle yeniden surulur (asic/README 9.5); kanit:
-   `make asic-top-sim` FC argmax kontrolu acik, PASS.
-3. `i2c_sda_i` girisine 2FF senkronizator (README 9.9/3 notu);
-   kanit: `make i2c-sys`.
+## Three separate commits proposed within the branch scope
+1. JTAG integration (the go/no-go depends on this).
+2. FC-1 single-line fix: during `ST_FC_FETCH_W_WAIT`, `co_re` is
+   re-driven with the same address (asic/README 9.5); evidence:
+   `make asic-top-sim` with the FC argmax check enabled, PASS.
+3. A 2FF synchronizer on the `i2c_sda_i` input (README 9.9/3 note);
+   evidence: `make i2c-sys`.
 
-## Bu dalda YAPILMAYACAKLAR
-- obi_to_axi'ye outstanding/pipeline (dogrulama yuku kutuyu patlatir)
-- UART0'a RX FIFO (EK-2 sadakati bozulur)
-- SS kosesi icin yeniden zamanlama (kose fizigi, RTL yamasi degil)
-- io_oe yazmaclama (olcumle reddedilmis bilincli karar, 9.9/7)
+## NOT to be done on this branch
+- outstanding/pipeline in obi_to_axi (the verification load blows the timebox)
+- an RX FIFO on UART0 (breaks EK-2 fidelity)
+- retiming for the SS corner (corner physics, not an RTL patch)
+- registering io_oe (a deliberate decision rejected by measurement, 9.9/7)
 
-## Durum gunlugu
+## Status log
 
-### Gun 1 (2 Eylul 2026) - GO/NO-GO KAPISI ERKEN GECILDI
-- riscv-dbg @ 21a5fbe + common_cells v1.38.0 (4 cdc dosyasi + basliklar) +
-  tech_cells_generic v0.2.3 (tc_clk) vendor edildi: `rtl/debug/vendor/`,
-  kaynak/pin/lisans kaydi `rtl/debug/VENDOR.md`, dosya listesi
-  `rtl/debug/jtag_files.f` (soc_files.f DEGISMEDI).
-- Entegrasyon tamamen `ifdef JTAG_DEBUG` altinda; define'siz `make sim`
-  (uart_hello PASS) ve `make lint` (temiz) ile mevcut davranis dogrulandi.
-  - `rtl/bus/soc_axi_interconnect.sv`: DM bolgesi 0x0004_0000 icin buyruk
-    (3. AR bacagi + 3-yollu R mux) ve veri (AW/W/AR bacaklari, wr/rd_to_dm
-    kayitli bayraklari) yollari; define yokken bayraklar sabit 0.
-  - `rtl/debug/axi_dm_slave.sv` (yeni): iki AXI portunu dm_top'un tek bellek
-    portuna tahkim eder (veri yazma > veri okuma > buyruk okuma), adresi
-    son istekte tutar (dm_mem secicileri addr'i her cevrim ornekler).
-  - `rtl/soc_top.sv`: jtag_tck/tms/tdi/trst_n/tdo portlari, dmi_jtag + dm_top,
+### Day 1 (September 2, 2026) - GO/NO-GO GATE PASSED EARLY
+- riscv-dbg @ 21a5fbe + common_cells v1.38.0 (4 cdc files + headers) +
+  tech_cells_generic v0.2.3 (tc_clk) were vendored: `rtl/debug/vendor/`,
+  source/pin/license record in `rtl/debug/VENDOR.md`, file list
+  `rtl/debug/jtag_files.f` (soc_files.f UNCHANGED).
+- The integration is entirely under `ifdef JTAG_DEBUG`; existing behavior was
+  verified without the define via `make sim` (uart_hello PASS) and
+  `make lint` (clean).
+  - `rtl/bus/soc_axi_interconnect.sv`: instruction (3rd AR leg + 3-way R mux)
+    and data (AW/W/AR legs, wr/rd_to_dm registered flags) paths for the DM
+    region 0x0004_0000; without the define the flags are constant 0.
+  - `rtl/debug/axi_dm_slave.sv` (new): arbitrates the two AXI ports onto
+    dm_top's single memory port (data write > data read > instruction read),
+    and holds the address from the most recent request (the dm_mem selectors
+    sample addr on every cycle).
+  - `rtl/soc_top.sv`: jtag_tck/tms/tdi/trst_n/tdo ports, dmi_jtag + dm_top,
     debug_req_i / dm_halt_addr (0x40800) / dm_exception_addr (0x40810),
-    SBA hata ile tamamlanan tie-off (progbuf-only), IDCODE 0x0B1061C1.
-- `make jtag-sim` (verif/tb/jtag_smoke_tb.sv, saf-SV bit-bang): ilk surum
-  **5/5 PASS** (UART, IDCODE, DTMCS v1/abits 7, DMI->DM dmstatus v2,
+    an SBA tie-off that completes with an error (progbuf-only),
+    IDCODE 0x0B1061C1.
+- `make jtag-sim` (verif/tb/jtag_smoke_tb.sv, pure-SV bit-bang): the first
+  version **5/5 PASS** (UART, IDCODE, DTMCS v1/abits 7, DMI->DM dmstatus v2,
   haltreq -> allhalted (1 poll) -> resumereq -> allresumeack+allrunning);
-  10 protokol denetcisi 0 ihlal. Gun-2 go/no-go kriteri (halt/resume)
-  boylece Gun 1'de saglandi.
-- Dusman gozlu RTL incelemesi (3 mercek, 0 blocker): crossbar define'siz
-  bit-aynilik `verilator -E` diff'iyle ISPATLANDI (12 satir fark, hepsi
-  sabit-0 katlanir). Uyarilar uygulandi: axi_dm_slave yazmalari da
-  rd_pending ile kapilar, AW/W kabulu atomik (ready kardes valid'e bagli),
-  2 SVA sozlesme denetimi; crossbar DM penceresi yorumu 64 KB/16x alias
-  olarak duzeltildi; dosya modu (755) geri alindi.
-- TB **7 asamaya** cikarildi (incelemenin "ROM-disi DM yolu hic egzersiz
-  edilmemis" uyarisi): halt'tayken abstract command ile x10 yaz/oku
-  round-trip, progbuf ile DSRAM 0x2_1000'e `sw` + `lw` (x12 == yazilan),
-  dpc firmware bolgesinde, cmderr==0; cekirdek tarafi `debug_halted_o` /
-  `debug_running_o` / `pc_id` gozlemi. -> WhereTo/abstract_cmd/progbuf/data0
-  sozcukleri buyruk+veri portlarindan gecer, DM<->DSRAM erisimleri araya girer.
-- Ayni dalda, ayri commit'ler (scripts/commit_jtag_gun1.sh): FC-1 duzeltmesi
-  (`make asic-top-sim` argmax kontrolu ACIK, PASS) ve `i2c_sda_i` 2FF
-  senkronizatoru (`make i2c-sys` PASS + `i2c_soc_test` PASS; A/B farki yok).
-- DPI fizibilitesi DOGRULANDI: Verilator 5.049 `--binary --timing` ile
-  `import "DPI-C"` calisiyor (depo disi mini test, r=42). Tek kosul: Verilator
-  `.c` dosyalarini g++ ile derledigi icin isimler bozuluyor (undefined
-  reference) -> vendor `remote_bitbang.c` / `sim_jtag.c`, `extern "C"`
-  sarmalayan bir `.cpp` uzerinden derlenmeli.
-- Kalanlar (Gun 2-3): OpenOCD remote_bitbang DPI koprusu (SimJTAG +
-  `rtl/debug/openocd/blogic_sim.cfg` hazir; DPI smoke gecti),
-  abstract command ile GPR/bellek erisimi TB'de, ndmreset -> SoC reseti,
-  istege bagli FPGA (bitstream yalniz Berk'in izniyle). OpenOCD WSL'de kurulu
-  degil (`sudo apt install openocd`, 0.12 RISC-V destekli).
+  10 protocol checkers, 0 violations. The Day-2 go/no-go criterion
+  (halt/resume) was therefore met on Day 1.
+- Adversarial RTL review (3 lenses, 0 blockers): bit-identity of the crossbar
+  without the define was PROVEN with a `verilator -E` diff (12 lines of
+  difference, all folding to constant 0). The warnings were applied:
+  axi_dm_slave writes are gated by rd_pending as well, AW/W acceptance is
+  atomic (ready depends on the sibling valid), 2 SVA contract checks; the
+  crossbar DM window comment was corrected to 64 KB/16x alias; the file mode
+  (755) was reverted.
+- The TB was extended to **7 stages** (the review's warning that "the non-ROM
+  DM path is never exercised"): an x10 write/read round-trip with an abstract
+  command while halted, `sw` + `lw` to DSRAM 0x2_1000 via progbuf
+  (x12 == what was written), dpc in the firmware region, cmderr==0; core-side
+  observation of `debug_halted_o` / `debug_running_o` / `pc_id`. -> The
+  WhereTo/abstract_cmd/progbuf/data0 words pass through the instruction and
+  data ports, and DM<->DSRAM accesses interleave with them.
+- On the same branch, as separate commits (scripts/commit_jtag_gun1.sh): the
+  FC-1 fix (`make asic-top-sim` with the argmax check ON, PASS) and the
+  `i2c_sda_i` 2FF synchronizer (`make i2c-sys` PASS + `i2c_soc_test` PASS;
+  no A/B difference).
+- DPI feasibility CONFIRMED: `import "DPI-C"` works with Verilator 5.049
+  `--binary --timing` (mini test outside the repo, r=42). One condition:
+  because Verilator compiles `.c` files with g++, the names get mangled
+  (undefined reference) -> the vendor `remote_bitbang.c` / `sim_jtag.c` must
+  be compiled through a `.cpp` that wraps them in `extern "C"`.
+- Remaining (Days 2-3): the OpenOCD remote_bitbang DPI bridge (SimJTAG +
+  `rtl/debug/openocd/blogic_sim.cfg` ready; the DPI smoke test passed),
+  GPR/memory access via abstract command in the TB, ndmreset -> SoC reset,
+  optional FPGA (bitstream only with Berk's permission). OpenOCD is not
+  installed on WSL (`sudo apt install openocd`, 0.12 with RISC-V support).
 
-### Gun 2 (2 Eylul 2026) - OPENOCD UCDAN-UCA DEMO PASS
-- Kopru: `rtl/debug/tb/jtag_dpi.cpp` (DPI-C, extern "C") vendor
-  `remote_bitbang.c`'yi sarar; `jtag_tick` non-blocking (accept / recv
-  MSG_DONTWAIT) -> OpenOCD bosta iken sim ilerler (firmware kosar, UART
-  'Hello World from BLogic MCU!' 2.5 ms sim zamaninda). Vendor `sim_jtag.c`
-  alinmadi: istemci baglanana ve her bayt gelene kadar mesgul-bekliyor.
-  TB `verif/tb/jtag_openocd_tb.sv`: soc_top + SimJTAG (TCP 9999), UART cozucu,
-  30 s sim-zamani bekci, 'Q' (shutdown) -> SimJTAG exit -> $finish.
-  Derleme `make jtag-openocd-build` (obj_dir_jtag_ocd/jtag_openocd_sim; sim
-  Mdir icinden kosulur, hex'ler oradan). Ham protokol sondasi
-  `scripts/jtag_bitbang_probe.py` (IDCODE 0x0B1061C1 OK).
-- Kosucu: `make jtag-openocd` -> `scripts/run_jtag_openocd.sh`: simi arka
-  planda baslatir (binary yoksa once derler), port 9999'u bekler (<=60 s),
-  `timeout 900 openocd -f blogic_sim.cfg -f demo_halt_regs_mem.tcl`, simin
-  'Q' ile kendiliginden bitmesini bekler (<=30 s, yoksa oldurur), loglar
-  `logs/jtag/sim.log` + `logs/jtag/openocd.log`, VERDICT PASS/FAIL (cikis
-  0/1). Toplam ~18 s duvar saati (sim 119 ms sim zamani, ~6 ms/s).
-- OpenOCD 0.12 demo (`rtl/debug/openocd/demo_halt_regs_mem.tcl`: halt,
-  reg oku/yaz, progbuf ile bellek, resume/halt) sonucu **PASS**; kanit logu
-  `rtl/debug/openocd/demo_run_2026-09-02.log` (openocd.log kopyasi):
+### Day 2 (September 2, 2026) - OPENOCD END-TO-END DEMO PASS
+- Bridge: `rtl/debug/tb/jtag_dpi.cpp` (DPI-C, extern "C") wraps the vendor
+  `remote_bitbang.c`; `jtag_tick` is non-blocking (accept / recv
+  MSG_DONTWAIT) -> the sim advances while OpenOCD is idle (the firmware runs,
+  UART 'Hello World from BLogic MCU!' at 2.5 ms of sim time). The vendor
+  `sim_jtag.c` was not taken: it busy-waits until a client connects and until
+  every byte arrives.
+  TB `verif/tb/jtag_openocd_tb.sv`: soc_top + SimJTAG (TCP 9999), UART decoder,
+  30 s sim-time watchdog, 'Q' (shutdown) -> SimJTAG exit -> $finish.
+  Build with `make jtag-openocd-build` (obj_dir_jtag_ocd/jtag_openocd_sim; the
+  sim is run from inside the Mdir, the hex files come from there). Raw protocol
+  probe `scripts/jtag_bitbang_probe.py` (IDCODE 0x0B1061C1 OK).
+- Runner: `make jtag-openocd` -> `scripts/run_jtag_openocd.sh`: starts the sim
+  in the background (builds it first if the binary is missing), waits for port
+  9999 (<=60 s), runs
+  `timeout 900 openocd -f blogic_sim.cfg -f demo_halt_regs_mem.tcl`, waits for the sim to finish by itself on 'Q'
+  (<=30 s, otherwise kills it), logs to `logs/jtag/sim.log` +
+  `logs/jtag/openocd.log`, VERDICT PASS/FAIL (exit 0/1). ~18 s wall clock in
+  total (119 ms of sim time, ~6 ms/s).
+- The OpenOCD 0.12 demo (`rtl/debug/openocd/demo_halt_regs_mem.tcl`: halt,
+  register read/write, memory via progbuf, resume/halt) came out **PASS**;
+  evidence log `rtl/debug/openocd/demo_run_2026-09-02.log` (a copy of
+  openocd.log):
   ```
   Info : JTAG tap: blogic.cpu tap/device found: 0x0b1061c1 (mfg: 0x0e0 (Truevision), part: 0xb106, ver: 0x0)
   Info : datacount=2 progbufsize=8
@@ -138,61 +151,68 @@ Teslim edilen cipte JTAG YOKTUR ve bu dal o beyani DEGISTIRMEZ.
   pc (/32): 0x0001011c
   == DEMO: done ==
   ```
-  Yani: halt (cfg) -> pc/a0 oku -> a0 abstract command ile yaz + geri oku ->
-  progbuf ile DSRAM 0x2_1000'e mww/mdw (SBA yok, cfg `set_mem_access progbuf`)
-  -> resume, 200 ms sonra halt, pc uart_hello sonsuz dongusunde
-  (0x1011c/0x1011e) -> shutdown. Gun-3'un "bellek erisimi" maddesi boylece
-  OpenOCD uzerinden de saglandi; breakpoint ve FPGA kaldi.
-- Ogrenilen: OpenOCD 0.12'de `-f` dosyasi icindeki `reg`/`mdw` ciktisi Tcl
-  sonucu olarak toplanir, loga DUSMEZ (`-c "reg pc"` ust seviyede basilir);
-  ilk kosuda isaretler vardi, degerler yoktu -> her cikti veren komut
-  `echo [string trimright [reg pc]]` ile sarildi. ndmreset SoC resetine bagli
-  degil: "reset"/"reset halt" degil "halt" (cfg ve tcl boyle).
-- Not: `.gitignore`'a `!rtl/debug/openocd/demo_run_*.log` istisnasi eklendi;
-  kanit logu normal `git add` ile izlenir (dal-ici degisiklik).
-- Yeniden uretim (WSL, depo koku): `export PATH=/opt/riscv/bin:$PATH` ;
-  `make jtag-openocd` (OpenOCD 0.12 + iproute2 `ss` + coreutils `timeout`
-  gerekli). Elle: `cd obj_dir_jtag_ocd && ./jtag_openocd_sim` (terminal 1),
+  That is: halt (cfg) -> read pc/a0 -> write a0 with an abstract command +
+  read it back -> mww/mdw to DSRAM 0x2_1000 via progbuf (no SBA, cfg
+  `set_mem_access progbuf`) -> resume, halt 200 ms later, pc in the uart_hello
+  infinite loop (0x1011c/0x1011e) -> shutdown. The Day-3 "memory access" item
+  was thus also met over OpenOCD; breakpoint and FPGA remain.
+- Learned: in OpenOCD 0.12 the output of `reg`/`mdw` inside a `-f` file is
+  collected as the Tcl result and DOES NOT reach the log (`-c "reg pc"` is
+  printed at the top level); on the first run the markers were there but the
+  values were not -> every command that produces output was wrapped in
+  `echo [string trimright [reg pc]]`. ndmreset is not connected to the SoC
+  reset: not "reset"/"reset halt" but "halt" (that is how the cfg and the tcl
+  are written).
+- Note: the exception `!rtl/debug/openocd/demo_run_*.log` was added to
+  `.gitignore`; the evidence log is tracked with a plain `git add`
+  (a within-branch change).
+- Reproduction (WSL, repository root): `export PATH=/opt/riscv/bin:$PATH` ;
+  `make jtag-openocd` (requires OpenOCD 0.12 + iproute2 `ss` + coreutils
+  `timeout`). Manually: `cd obj_dir_jtag_ocd && ./jtag_openocd_sim`
+  (terminal 1),
   `openocd -f rtl/debug/openocd/blogic_sim.cfg -f rtl/debug/openocd/demo_halt_regs_mem.tcl`
   (terminal 2).
 
-### Gun 3 (2 Eylul 2026) - NDMRESET + BREAKPOINT: TB 9/9, OPENOCD DEMO PASS
-- `rtl/soc_top.sv`: sistem reseti `sys_rst_n = rst_ni & ~ndmreset` (yalniz
-  `ifdef JTAG_DEBUG`; define yokken `sys_rst_n = rst_ni`, mantik birebir).
-  Cekirdek, obi_to_axi kopruleri, crossbar, axi_dm_slave, AXI-Lite kopru +
-  periph_decoder, UART0/1, GPIO, timer, QSPI, I2C (+2FF senk.), YZ
-  hizlandirici, ai_sram_arbiter, boot ROM, ISRAM/DSRAM/AI-SRAM sarmalayicilari
-  ve protokol denetcileri sys_rst_n'de; dm_top + dmi_jtag rst_ni'de kalir
-  (yoksa reset istegi kendini silerdi). ndmreset_ack_i = ndmreset_o. Sonuc:
-  dmcontrol.ndmreset SoC'yi gercekten resetler, DM/TAP ayakta kalir, SRAM
-  icerigi korunur (yalniz sarmalayici yazmaclari), firmware reset vektorunden
-  (BOOT_ADDR 0x1_0000) yeniden kosar. `make lint` temiz.
-- `make jtag-sim` **9/9 PASS** (verif/tb/jtag_smoke_tb.sv, NSTAGE=9; asama
-  1-7 dokunulmadi):
+### Day 3 (September 2, 2026) - NDMRESET + BREAKPOINT: TB 9/9, OPENOCD DEMO PASS
+- `rtl/soc_top.sv`: system reset `sys_rst_n = rst_ni & ~ndmreset` (only under
+  `ifdef JTAG_DEBUG`; without the define `sys_rst_n = rst_ni`, logic identical
+  one-to-one). The core, the obi_to_axi bridges, the crossbar, axi_dm_slave,
+  the AXI-Lite bridge + periph_decoder, UART0/1, GPIO, timer, QSPI, I2C
+  (+2FF sync.), the AI accelerator, ai_sram_arbiter, the boot ROM, the
+  ISRAM/DSRAM/AI-SRAM wrappers and the protocol checkers run on sys_rst_n;
+  dm_top + dmi_jtag stay on rst_ni (otherwise the reset request would erase
+  itself). ndmreset_ack_i = ndmreset_o. Result: dmcontrol.ndmreset really does
+  reset the SoC, the DM/TAP stay up, the SRAM contents are preserved (only the
+  wrapper registers are reset), and the firmware runs again from the reset
+  vector (BOOT_ADDR 0x1_0000). `make lint` clean.
+- `make jtag-sim` **9/9 PASS** (verif/tb/jtag_smoke_tb.sv, NSTAGE=9; stages
+  1-7 untouched):
   ```
   [8/9] STEP/TRIGGER OK: A=0x0001011a step->B=0x0001011c, trigger@A -> dpc=0x0001011a cause=2
   [9/9] NDMRESET OK: firmware bastan kostu, UART 'Hello World from BLogic MCU!' (2. kez), core running
   *** TEST SUCCESS *** JTAG: UART+IDCODE+DTMCS+DMI+halt+abstract/progbuf+resume+step/trigger+ndmreset (9/9)
   ```
-  Asama 8: dcsr.step=1 + resume -> dpc=B, dcsr cause=4; tselect=0, tdata2=A,
-  tdata1=0x2800104C yaz (geri okuma 0x28001044: u biti PULP_SECURE=0 ile
-  WARL 0; TB type==2 + execute bitini denetler) -> resume -> dpc==A, cause=2
-  (trigger), debug_halted_o=1; tdata1 execute=0 ile kapatilir. Asama 9: on
-  kosul ackhavereset -> allhavereset=0 (riscv-dbg havereset_q DM resetinden
-  ilk ack'e kadar 1'dir, onsuz kontrol bos gecerdi); ndmreset=1+haltreq=1 ->
+  Stage 8: dcsr.step=1 + resume -> dpc=B, dcsr cause=4; tselect=0, tdata2=A,
+  write tdata1=0x2800104C (read-back 0x28001044: the u bit is WARL 0 with
+  PULP_SECURE=0; the TB checks type==2 and the execute bit) -> resume ->
+  dpc==A, cause=2 (trigger), debug_halted_o=1; tdata1 is turned off with
+  execute=0. Stage 9: precondition ackhavereset -> allhavereset=0 (in
+  riscv-dbg, havereset_q is 1 from the DM reset until the first ack; without
+  it the check would have passed vacuously); ndmreset=1+haltreq=1 ->
   sys_rst_n=0, debug_halted_o=0; ndmreset=0 -> allhalted=1 allhavereset=1
   (1 poll) -> ackhavereset -> 0; dpc=0x00010000 == BOOT_ADDR, dcsr cause=3
-  (haltreq); resume -> UART selamlamasi 2. kez, debug_running_o=1. 0 $error,
-  protokol denetcileri 0 ihlal, sim 6 ms.
-- OpenOCD demo genisletildi (`rtl/debug/openocd/demo_halt_regs_mem.tcl`;
-  cfg'de yalniz yorum, init+halt ayni): `== DEMO: breakpoint ==` (halt'taki
-  pc `regexp` ile yakalanir, `bp <pc> 4 hw`, resume, wait_halt, pc == bp
-  adresi, rbp) ve `== DEMO: reset halt ==` (OpenOCD dmcontrol ndmreset+haltreq
-  yazar, ndmreset'i birakip haltreq'i tutar, allhalted bekler, ackhavereset;
-  pc == reset vektoru; resume 300 ms; halt; pc yine firmware dongusu).
-  `make jtag-openocd` **PASS** ilk kosuda, 33 s duvar saati (sim 363 ms sim
-  zamani, 11 ms/s); kanit `rtl/debug/openocd/demo_run_2026-09-02.log`
-  (openocd.log kopyasi, ustune yazildi):
+  (haltreq); resume -> the UART greeting for the 2nd time,
+  debug_running_o=1. 0 $error, protocol checkers 0 violations, sim 6 ms.
+- The OpenOCD demo was extended (`rtl/debug/openocd/demo_halt_regs_mem.tcl`;
+  in the cfg only a comment changed, init+halt the same):
+  `== DEMO: breakpoint ==` (the pc at halt is captured with `regexp`,
+  `bp <pc> 4 hw`, resume, wait_halt, pc == the bp address, rbp) and
+  `== DEMO: reset halt ==` (OpenOCD writes dmcontrol ndmreset+haltreq,
+  releases ndmreset while holding haltreq, waits for allhalted, ackhavereset;
+  pc == the reset vector; resume 300 ms; halt; pc back in the firmware loop).
+  `make jtag-openocd` **PASS** on the first run, 33 s wall clock (363 ms of
+  sim time, 11 ms/s); evidence `rtl/debug/openocd/demo_run_2026-09-02.log`
+  (a copy of openocd.log, overwritten):
   ```
   == DEMO: breakpoint ==
   pc (/32): 0x0001011c
@@ -213,69 +233,80 @@ Teslim edilen cipte JTAG YOKTUR ve bu dal o beyani DEGISTIRMEZ.
   pc (/32): 0x0001011a
   == DEMO: done ==
   ```
-  sim.log: `[2514870000] UART: 'Hello World from BLogic MCU!'` ve reset
-  sonrasi `[340359790000] UART: 'Hello World from BLogic MCU!'` (2. kez; TB
-  `jtag_openocd_tb.sv` UART cozucusu 40 -> 58 karakter, eski "reset DEGIL"
-  yorumu duzeltildi). Logda Error / "unexpectedly reset" yok.
-- OpenOCD 0.12 gozlemi: `bp ... hw` tetikleyiciyi tselect/tdata1
-  numaralandirmasiyla ("Found 1 triggers") kurar; tdata1 yaz-geri-oku esitligi
-  saglanir (misa'da U yok -> 0x28001044 = CV32E40P'nin sabit geri okuma
-  deseni). pc == bp adresi iken `resume` once tetikleyiciyi kapatip tek adim
-  atar, sonra acar (yerlesik davranis; dongu 0x1011a/1c/1e bir tur sonra ayni
-  adrese gelir). `reset halt`: reset_config varsayilani none -> TAP TLR
-  (IDCODE yeniden bulunur) + dmcontrol.ndmreset; havereset ack'ini OpenOCD
-  kendisi yapar.
-- Kosucu `scripts/run_jtag_openocd.sh` VERDICT 5 kriter (a0 0x12345678, mdw
-  cafef00d, bp adresi == breakpoint sonrasi ilk pc, reset halt sonrasi ilk
-  pc 0x00010000, done isareti); cikti:
+  sim.log: `[2514870000] UART: 'Hello World from BLogic MCU!'` and, after the
+  reset, `[340359790000] UART: 'Hello World from BLogic MCU!'` (2nd time; the
+  UART decoder in TB `jtag_openocd_tb.sv` went 40 -> 58 characters, and the
+  stale `"reset" DEGIL` (EN: NOT "reset") comment was corrected). No Error /
+  "unexpectedly reset" in the log.
+- OpenOCD 0.12 observation: `bp ... hw` installs the trigger through the
+  tselect/tdata1 enumeration ("Found 1 triggers"); tdata1 write-then-read-back
+  equality holds (no U in misa -> 0x28001044 = CV32E40P's fixed read-back
+  pattern). When pc == the bp address, `resume` first disables the trigger and
+  takes a single step, then re-enables it (built-in behavior; the loop
+  0x1011a/1c/1e reaches the same address one iteration later).
+  `reset halt`: the reset_config default is none -> TAP TLR (the IDCODE is
+  found again) + dmcontrol.ndmreset; OpenOCD performs the havereset ack
+  itself.
+- The runner `scripts/run_jtag_openocd.sh` VERDICT has 5 criteria (a0
+  0x12345678, mdw cafef00d, the bp address == the first pc after the
+  breakpoint, the first pc after reset halt 0x00010000, the done marker);
+  output:
   `VERDICT: PASS - a0 geri okuma 0x12345678, mdw cafef00d, hw breakpoint pc=0x0001011c == bp 0x0001011c, reset halt pc=0x00010000, '== DEMO: done =='`
-- Yeniden uretim (WSL, depo koku): `export PATH=/opt/riscv/bin:$PATH` ;
-  `make jtag-sim` (9/9) ; `make jtag-openocd-build` (RTL degisti: sys_rst_n) ;
-  `make jtag-openocd` (PASS). Elle iki terminal akisi Gun 2 ile ayni.
-- Kalan: FPGA denemesi (bitstream yalniz Berk'in izniyle). Not: Makefile
-  `jtag-sim` recipe'sindeki "(7/7)" PASS metni ve `jtag-openocd-build`
-  yorumundaki '"reset" DEGIL' notu eskidi (hedef govdelerine dokunulmadi,
-  yalniz `make help` satirlari eklendi).
+- Reproduction (WSL, repository root): `export PATH=/opt/riscv/bin:$PATH` ;
+  `make jtag-sim` (9/9) ; `make jtag-openocd-build` (the RTL changed:
+  sys_rst_n) ; `make jtag-openocd` (PASS). The manual two-terminal flow is the
+  same as on Day 2.
+- Remaining: the FPGA trial (bitstream only with Berk's permission). Note: the
+  "(7/7)" PASS text in the Makefile `jtag-sim` recipe and the
+  `"reset" DEGIL` (EN: NOT "reset") note in the `jtag-openocd-build` comment
+  have gone stale (the target bodies were not touched, only `make help` lines
+  were added).
 
-### Gun 3 - ek: sertlestirme, kapsama, test-all, sentez-elab hazirligi
-- Sertlestirme: crossbar DM penceresi 64 KB -> 4 KB (`addr[15:12]==0`,
-  0x0004_1000+ eskisi gibi varsayilan bacaklara duser); remote_bitbang sunucusu
-  yalniz loopback'e baglanir (`jtag_dpi.cpp`: vendor include'undan once
-  INADDR_ANY -> INADDR_LOOPBACK; `ss -ltn` -> `127.0.0.1:9999`). Ikisiyle
-  `make jtag-sim` 9/9 ve `make jtag-openocd` (bp hw + reset halt) yeniden PASS;
-  define'siz `make regression` 6/6 PASS (sys_rst_n + 4 KB dekod main
-  davranisini degistirmedi).
-- Kapsama (`make jtag-sim TBCOV=--coverage-line`, verif/jtag_cov_waivers.vlt ile
-  TB enstrumantasyon disi - Verilator 5.049 fork/join+coverage C++ hatasi):
-  satir kapsamasi axi_dm_slave 35/35 %100, soc_axi_interconnect 78/78 %100
-  (DM bacaklari dahil), soc_top JTAG blogu 10/10 %100, dmi_cdc %100,
-  debug_rom %100; vendor dm_mem %85, dmi_jtag_tap %82, dmi_jtag %75,
-  dm_csrs %57 (cok-hart/SBA/hawindow yollari bu SoC'de kullanilmiyor).
-- `make test-all`: `jtag-sim` her zaman, `jtag-openocd` yalniz openocd kuruluysa
-  (yoksa ozet "SKIP (openocd yok)").
-- Sentez-elab kontrolu (`scripts/jtag_elab_check.sh`): asic_elab.sh'in JTAG
-  varyanti, SYNTHESIS + ASIC_SRAM_MACRO + JTAG_DEBUG, top soc_top, `asic/`
-  yalniz okunur, cikti build/jtag_elab/. Yerel WSL'de yosys-slang eklentisi
-  yok -> LibreLane ortamli VM'de kosulacak (koruma rayi 3 ile uyumlu).
-- gdb demosu icin gdb-multiarch gerekli (kurulum sudo; /opt/riscv zincirinde
-  gdb yok); OpenOCD zaten :3333'te gdb sunucusu aciyor.
+### Day 3 - addendum: hardening, coverage, test-all, synthesis-elab preparation
+- Hardening: the crossbar DM window 64 KB -> 4 KB (`addr[15:12]==0`,
+  0x0004_1000+ falls through to the default legs as before); the
+  remote_bitbang server binds to loopback only (`jtag_dpi.cpp`: INADDR_ANY ->
+  INADDR_LOOPBACK before the vendor include; `ss -ltn` -> `127.0.0.1:9999`).
+  With both in place, `make jtag-sim` 9/9 and `make jtag-openocd` (bp hw +
+  reset halt) PASS again; without the define `make regression` 6/6 PASS
+  (sys_rst_n + the 4 KB decode did not change main's behavior).
+- Coverage (`make jtag-sim TBCOV=--coverage-line`, with
+  verif/jtag_cov_waivers.vlt keeping the TB out of instrumentation - Verilator
+  5.049 fork/join+coverage C++ error): line coverage axi_dm_slave 35/35 100%,
+  soc_axi_interconnect 78/78 100% (including the DM legs), the soc_top JTAG
+  block 10/10 100%, dmi_cdc 100%, debug_rom 100%; vendor dm_mem 85%,
+  dmi_jtag_tap 82%, dmi_jtag 75%, dm_csrs 57% (the multi-hart/SBA/hawindow
+  paths are not used in this SoC).
+- `make test-all`: `jtag-sim` always, `jtag-openocd` only if openocd is
+  installed (otherwise the summary reads "SKIP (openocd yok)", EN: openocd not
+  present).
+- Synthesis-elab check (`scripts/jtag_elab_check.sh`): the JTAG variant of
+  asic_elab.sh, SYNTHESIS + ASIC_SRAM_MACRO + JTAG_DEBUG, top soc_top, `asic/`
+  read-only, output build/jtag_elab/. The yosys-slang plugin is not available
+  on the local WSL -> it will be run on the VM that has the LibreLane
+  environment (consistent with guard rail 3).
+- The gdb demo requires gdb-multiarch (installing it needs sudo; there is no
+  gdb in the /opt/riscv toolchain); OpenOCD already opens a gdb server
+  on :3333.
 
-### Gun 3 - gdb (2 Eylul 2026) - GDB DEMOSU (OPENOCD :3333) PASS
-- Arac: gdb-multiarch `GNU gdb (Ubuntu 15.1-1ubuntu1~24.04.1) 15.1` + OpenOCD
-  0.12 gdb sunucusu (blogic_sim.cfg init+halt, :3333; cfg DEGISMEDI). Yeni:
-  `rtl/debug/openocd/demo_gdb.gdb` (gdb komut dosyasi), `scripts/run_jtag_gdb.sh`
-  (kosucu), Makefile `jtag-gdb` hedefi (+ .PHONY, help satiri; test-all
-  DOKUNULMADI), kanit `rtl/debug/openocd/demo_run_gdb_2026-09-02.log` (gdb.log
-  kopyasi, .gitignore `demo_run_*.log` istisnasiyla izlenir).
-- Akis (demo_gdb.gdb, her bolum `== GDB: ... ==` isaretli): set architecture
+### Day 3 - gdb (September 2, 2026) - GDB DEMO (OPENOCD :3333) PASS
+- Tooling: gdb-multiarch `GNU gdb (Ubuntu 15.1-1ubuntu1~24.04.1) 15.1` +
+  the OpenOCD 0.12 gdb server (blogic_sim.cfg init+halt, :3333; the cfg is
+  UNCHANGED). New: `rtl/debug/openocd/demo_gdb.gdb` (gdb command file),
+  `scripts/run_jtag_gdb.sh` (runner), the Makefile `jtag-gdb` target
+  (+ .PHONY, help line; test-all UNTOUCHED), evidence
+  `rtl/debug/openocd/demo_run_gdb_2026-09-02.log` (a copy of gdb.log, tracked
+  via the `demo_run_*.log` exception in .gitignore).
+- Flow (demo_gdb.gdb, every section marked `== GDB: ... ==`): set architecture
   riscv:rv32, trust-readonly-sections on, remotetimeout 120 -> target
-  extended-remote :3333 -> monitor gdb_breakpoint_override hard -> monitor reset
-  halt (pc 0x00010000) -> break *main + continue -> info registers pc ra sp a0,
-  x/8i $pc -> delete 1 -> stepi x3 -> set {int}0x00021000 = 0x600DF00D + x/4xw
-  (gdb yazdi, OpenOCD progbuf ile okudu) -> set $a0 = 0x0BADCAFE + print/x,/z
-  -> monitor resume / sleep 100 / halt (pc sonsuz dongu) -> monitor shutdown
-  ('Q' -> SimJTAG exit -> sim biter). `make jtag-gdb` **PASS**, 107 s duvar
-  saati (sim 1.18 s sim zamani, 11 ms/s; gdb/openocd/sim cikis 0/0/0):
+  extended-remote :3333 -> monitor gdb_breakpoint_override hard -> monitor
+  reset halt (pc 0x00010000) -> break *main + continue -> info registers pc ra
+  sp a0, x/8i $pc -> delete 1 -> stepi x3 -> set {int}0x00021000 = 0x600DF00D
+  + x/4xw (gdb wrote it, OpenOCD read it back via progbuf) -> set
+  $a0 = 0x0BADCAFE + print/x,/z -> monitor resume / sleep 100 / halt (pc in
+  the infinite loop) -> monitor shutdown ('Q' -> SimJTAG exit -> the sim
+  ends). `make jtag-gdb` **PASS**, 107 s wall clock (1.18 s of sim time,
+  11 ms/s; gdb/openocd/sim exit 0/0/0):
   ```
   == GDB: reset halt (pc 0x00010000 beklenir) ==
   pc             0x10000	0x10000 <_start>
@@ -301,50 +332,58 @@ Teslim edilen cipte JTAG YOKTUR ve bu dal o beyani DEGISTIRMEZ.
   pc             0x1011e	0x1011e <main+54>
   == GDB: done ==
   ```
-  sim_gdb.log: UART 'Hello World from BLogic MCU!' 2 kez (reset halt + continue
-  ile firmware bastan), sonda `SimJTAG exit=1` ('Q'). openocd_gdb.log'da Error yok.
-- Kosucu VERDICT 5 kriter (Breakpoint 1 satirinda main, sonraki pc 0x0001xxxx,
-  print/z a0 0x0badcafe, x/4xw 0x600df00d, done isareti); cikti:
+  sim_gdb.log: UART 'Hello World from BLogic MCU!' 2 times (the firmware starts
+  over with reset halt + continue), and at the end `SimJTAG exit=1` ('Q').
+  No Error in openocd_gdb.log.
+- The runner VERDICT has 5 criteria (main on the Breakpoint 1 line, the next
+  pc 0x0001xxxx, print/z a0 0x0badcafe, x/4xw 0x600df00d, the done marker);
+  output:
   `VERDICT: PASS - 'Breakpoint 1, 0x000100e8 in main ()', pc=0x000100e8, a0 geri okuma 0x0badcafe, bellek 0x00021000 geri okuma 0x600df00d, '== GDB: done ==' (logs/jtag/gdb.log)`
-- Ogrenilen (ilk kosu FAIL, ikinci PASS):
-  - build/test.elf -g'siz (Makefile.verilator RV_CFLAGS -O2) -> next/step degil
-    stepi + x/i. `break main` -g olmadan gdb prolog sezgisiyle main+12'ye
-    (0x100f4) kaydi; `break *main` sembol adresine (0x100e8) kurar.
-  - ISRAM (0x0001_xxxx) veri portundan YALNIZ yazilir (crossbar rd_dest'te
-    instr-SRAM secenegi yok, okuma DSRAM'e duser): `monitor mdw 0x000100e8`
-    00000000 dondurur, ELF'te 400007b7 (lui). Bu yuzden trust-readonly-sections
-    on (x/i ve breakpoint turu ELF .text'ten) ve gdb_breakpoint_override hard:
-    yazilim breakpoint'i "eski buyrugu" alias'tan okuyup kaldirirken ISRAM'e
-    geri yazacagi icin firmware'i bozardi; donanim tetikleyicisi bellege dokunmaz.
-  - gdb'nin riscv stepi'si YAZILIM tek-adimi: sonraki pc'ye gecici breakpoint
-    koyup resume eder (vCont;s degil). CV32E40P'de tek tetikleyici var; bp 1
-    duruyorken 2. stepi "Cannot insert breakpoint 0. Cannot access memory at
-    address 0x100fa" / OpenOCD "Couldn't find an available hardware trigger"
-    verdi -> main'e gelince `delete 1`, sonra stepi (her adim tetikleyiciyi
-    gecici kullanir).
-  - remote_bitbang + sim yavas: gdb'nin 2 s remotetimeout'u "Ignoring packet
-    error, continuing..." uretti -> `set remotetimeout 120`; OpenOCD yine
-    "keep_alive() was not invoked in the 1000 ms timelimit" uyarisi basar
-    (zararsiz). monitor reset halt / halt sonrasi gdb register onbellegi bayat
-    -> `maintenance flush register-cache`. print/x sifir doldurmaz (0xbadcafe),
-    print/z doldurur (0x0badcafe).
-  - `monitor shutdown`: OpenOCD qRcmd'ye ERROR_COMMAND_CLOSE_CONNECTION (-600,
-    "EA8") dondurur, gdb "Protocol error with Rcmd: A8." der ve -batch'te
-    dosyayi keser (cikis 1); demo_gdb.gdb'de python try/except ile yakalanir,
-    ardindan `disconnect` -> gdb cikis 0, OpenOCD 'Q' ile kapanir.
-- Yeniden uretim (WSL, depo koku): `export PATH=/opt/riscv/bin:$PATH` ;
-  `make jtag-gdb` (gdb-multiarch 15.1, OpenOCD 0.12, iproute2 `ss`, coreutils
-  `timeout` gerekli; sim binary/ELF yoksa ya da build/instr_mem.hex ile
-  obj_dir_jtag_ocd/firmware.hex uyusmuyorsa once jtag-openocd-build kosar).
-  Elle uc terminal: `cd obj_dir_jtag_ocd && ./jtag_openocd_sim` ;
+- Learned (first run FAIL, second PASS):
+  - build/test.elf is built without -g (Makefile.verilator RV_CFLAGS -O2) ->
+    stepi + x/i instead of next/step. Without -g, `break main` slid to main+12
+    (0x100f4) because of gdb's prologue heuristic; `break *main` sets it at
+    the symbol address (0x100e8).
+  - ISRAM (0x0001_xxxx) can ONLY be written from the data port (the crossbar
+    rd_dest has no instr-SRAM option, so reads fall through to DSRAM):
+    `monitor mdw 0x000100e8` returns 00000000, while the ELF has 400007b7
+    (lui). Hence trust-readonly-sections on (x/i and the breakpoint kind come
+    from the ELF .text) and gdb_breakpoint_override hard: a software
+    breakpoint would corrupt the firmware, because it would read the "old
+    instruction" from the alias and write it back into ISRAM when removing the
+    breakpoint; a hardware trigger does not touch memory.
+  - gdb's riscv stepi is a SOFTWARE single-step: it places a temporary
+    breakpoint at the next pc and resumes (not vCont;s). CV32E40P has a single
+    trigger; with bp 1 still in place, the 2nd stepi gave "Cannot insert
+    breakpoint 0. Cannot access memory at address 0x100fa" / OpenOCD
+    "Couldn't find an available hardware trigger" -> `delete 1` once main is
+    reached, then stepi (each step uses the trigger temporarily).
+  - remote_bitbang + the sim are slow: gdb's 2 s remotetimeout produced
+    "Ignoring packet error, continuing..." -> `set remotetimeout 120`; OpenOCD
+    still prints the "keep_alive() was not invoked in the 1000 ms timelimit"
+    warning (harmless). After monitor reset halt / halt, gdb's register cache
+    is stale -> `maintenance flush register-cache`. print/x does not zero-pad
+    (0xbadcafe), print/z does (0x0badcafe).
+  - `monitor shutdown`: OpenOCD returns ERROR_COMMAND_CLOSE_CONNECTION (-600,
+    "EA8") to qRcmd, gdb says "Protocol error with Rcmd: A8." and, under
+    -batch, aborts the command file (exit 1); in demo_gdb.gdb this is caught
+    with a python try/except, followed by `disconnect` -> gdb exit 0, and
+    OpenOCD closes on 'Q'.
+- Reproduction (WSL, repository root): `export PATH=/opt/riscv/bin:$PATH` ;
+  `make jtag-gdb` (requires gdb-multiarch 15.1, OpenOCD 0.12, iproute2 `ss`,
+  coreutils `timeout`; if the sim binary/ELF is missing, or if
+  build/instr_mem.hex does not match obj_dir_jtag_ocd/firmware.hex,
+  jtag-openocd-build runs first).
+  Three terminals manually: `cd obj_dir_jtag_ocd && ./jtag_openocd_sim` ;
   `openocd -f rtl/debug/openocd/blogic_sim.cfg` ;
   `gdb-multiarch -batch -x rtl/debug/openocd/demo_gdb.gdb build/test.elf`.
-- Kalan: FPGA denemesi (bitstream yalniz Berk'in izniyle).
+- Remaining: the FPGA trial (bitstream only with Berk's permission).
 
-## Sunum cercevesi
-Ister matrisinde JTAG isareti degismez (yok / opsiyonel / beyanli).
-Basari halinde yalniz "Gelecek Calisma" slayti + soru-cevap karti:
-"Sartnamede opsiyonel; imzali tasarimi yeniden acmamak icin cipe
-koymadik. Entegrasyonu ayri dalda prototipledik - OpenOCD demosu
-calisir durumda, logu depoda. FC-1 duzeltmesiyle birlikte sonraki
-revizyona planli."
+## Presentation framing
+The JTAG entry in the requirements matrix does not change (absent /
+optional / declared). On success, only a "Future Work" slide + a Q&A card:
+"It is optional in the specification; we did not put it on the chip so as
+not to reopen the signed-off design. We prototyped the integration on a
+separate branch - the OpenOCD demo works, and its log is in the
+repository. It is planned for the next revision together with the FC-1
+fix."

@@ -931,7 +931,10 @@ LibreLane environment and **was run on the flow VM on 3 September 2026: PASS**
 The sky130 synthesis cost of the revision is measured with `scripts/vm_jtag_asic.sh`
 (same Classic flow, `--to Yosys.Synthesis`, top `soc_top` with and without
 `JTAG_DEBUG`; configs derived by `scripts/jtag_asic_config.py` into `build/asic_jtag/`,
-`asic/` strictly read-only). **Result (VM, 3 September 2026, both runs exit 0,
+`asic/` strictly read-only; the three full-flow exploration runs kept under
+`rtl/debug/asic_jtag_sentez/` are indexed, with the reason each one exists, in
+[`rtl/debug/asic_jtag_sentez/README.md`](rtl/debug/asic_jtag_sentez/README.md) -
+the delivered run itself is `RUN_final_2026-09-06`, §13.7). **Result (VM, 3 September 2026, both runs exit 0,
 `rtl/debug/asic_jtag_sentez/`):** the JTAG-less `soc_top` baseline reproduces the
 14 August synthesis (61,679 cells / 727,453 µm² vs. 61,823 / 728,153 for `asic_top`,
 27 SRAM macros in both); with `JTAG_DEBUG` the design grows to **66,852 cells /
