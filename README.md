@@ -1369,6 +1369,9 @@ The SoC stays in reset until both the user reset button is released **and** the 
 | **Failed routes** | **0** (19,973 / 19,973 routable nets fully routed) | | | |
 | **Implementation DRC** | **0 errors**, 80 warnings (see 12.4.1) | | | |
 
+<p align="center"><img src="images/fpga_timing_summary.png" width="820" alt="Vivado Design Timing Summary of the delivered bitstream"></p>
+<p align="center"><sub>Vivado <code>report_timing_summary</code> of the delivered <code>fpga_top.bit</code> (6 September 2026, <code>rtl/fpga/reports/impl_timing_summary.rpt</code>): WNS +2.433 ns, WHS +0.059 ns, WPWS +1.100 ns, 0 failing among 24,260 setup / 24,257 hold / 9,796 pulse-width endpoints &mdash; "All user specified timing constraints are met".</sub></p>
+
 Two clock domains are constrained: the synchronous `clk_50_mmcm` SoC domain
 (WNS +2.433 ns / WHS +0.059 ns, zero failing among 24,260 setup / 24,257 hold
 endpoints in total) and the BSCANE2 `jtag_tck` domain of the debug TAP (100 ns
@@ -1404,15 +1407,23 @@ break down as follows and are all benign for this design:
 
 ### 12.5 Placed & Routed Design
 
-![FPGA Implemented Design](images/fpga_implemented_design.png)
+<p align="center"><img src="images/fpga_implemented_design.png" width="380" alt="Placed design - every cell highlighted">&nbsp;&nbsp;&nbsp;<img src="images/fpga_device_routed.png" width="380" alt="Routed design - routing resources shown"></p>
+<p align="center"><sub>Left: placement, every leaf cell of the design highlighted. Right: the same checkpoint with routing resources displayed &mdash; the green nets (19,973 / 19,973 fully routed) fan out from the logic block to the I/O columns at both die edges.</sub></p>
 
-> Device view of the delivered bitstream (`fpga_top.bit`, 6 September 2026,
-> checkpoint `build/fpga_genesys2/post_route.dcp`) with every placed cell
-> highlighted: the SoC together with the JTAG debug module occupies clock
+> Both device views show the delivered bitstream (`fpga_top.bit`, 6 September 2026,
+> checkpoint `build/fpga_genesys2/post_route.dcp`); on the left every placed cell
+> is highlighted: the SoC together with the JTAG debug module occupies clock
 > regions X0Y1-X0Y3 of the XC7K325T (13,772 LUT = 6.76 %, 9,756 FF = 2.39 %).
 > The June 2026 revision pictured here earlier used 23 % LUT / 15 % FF, which
 > is why its floorplan looked much fuller. Numeric signoff data: the table in
 > 12.4 and the reports under `rtl/fpga/reports/`.
+
+#### 12.5.1 Synthesized netlist — Vivado schematic views
+
+<p align="center"><img src="images/fpga_top_schematic.png" width="900" alt="fpga_top schematic (Vivado, post-synthesis)"></p>
+<p align="center"><sub><code>fpga_top</code> after synthesis (95 cells, 53 I/O ports, 198 nets): the MMCM and reset synchroniser at the bottom left, the heartbeat counter chain, the single <code>i_soc</code> instance in the centre and the I/O buffers on the right &mdash; LEDs, Pmod JB, QSPI, UART and the six OLED lines.</sub></p>
+<p align="center"><img src="images/fpga_soc_schematic.png" width="900" alt="i_soc schematic (Vivado, post-synthesis)"></p>
+<p align="center"><sub>One level down, <code>i_soc</code> (23 cells, 2,418 nets): the module instances of the hierarchical utilization report in 12.4 &mdash; CV32E40P core, OBI&rarr;AXI bridges, crossbar, SRAMs and boot ROM, AI accelerator, the peripherals (2&times; UART, QSPI, I2C, timer, GPIO) and the JTAG debug subsystem (<code>dmi_jtag</code>, <code>dm_top</code>, <code>axi_dm_slave</code>) &mdash; joined by the 2,418 nets of the AXI/OBI fabric.</sub></p>
 
 ### 12.6 FPGA Demos — Live Board
 
@@ -1781,12 +1792,11 @@ that the exploration tables of §10.10 compare against.
 | Power (estimated, no VCD) | TT **117.2 mW** (SRAM 63 %, clock 18 %, seq. 17 %) |
 | Lint | Verilator **0 errors** / 979 warnings, no waivers |
 
-<p align="center">
-  <img src="asic/results/images/asic_top.png" alt="asic_top final layout" width="480">
-</p>
+<p align="center"><img src="asic/results/images/asic_top_render_hd.png" alt="asic_top - delivered GDS, power grid and fill cells hidden" width="820"></p>
+<p align="center"><sub>Full-chip render of the delivered GDS (<code>asic/results/gds/asic_top_klayout.gds.gz</code>, 4180 &times; 4490 &micro;m) with the met4/met5 power grid and the fill / decap / tap cells hidden (<code>asic/scripts/render_die.py</code>, KLayout batch): the 27 hand-placed SRAM macros (4 &times; 7 grid, bitcell arrays dark), the standard-cell logic drawn by its met2 (orange) / met3 (green) routing &mdash; the wide band across the middle is the CV32E40P core (left, 30.6 k cells), the crossbar and peripherals (centre) and the QSPI controller (right, 12.9 k cells); the separate cluster at the lower right is the AI accelerator (12.0 k cells); the narrow vertical strip at the top centre is the JTAG debug module (<code>dm_top</code> + <code>dmi_jtag</code>) reaching the JTAG pins on the top edge (placement centroids from <code>asic/results/def/asic_top.def.gz</code>) &mdash; and the met1 (blue) routing channels between the macros. Colour key: diff green, poly red, li1 grey, met1 blue, met2 orange, met3 green. The flow's own render with the power grid drawn (<code>asic/results/images/asic_top.png</code>) is in <code>asic/README.md</code> &sect;9.7.</sub></p>
 
 <p align="center"><img src="asic/results/images/zoom_80um_cells.png" width="360" alt="80 um zoom - standard cell rows">&nbsp;<img src="asic/results/images/zoom_sram_edge.png" width="360" alt="SRAM macro edge"></p>
-<p align="center"><sub>Zoomed die crops from the delivered GDS — left: 80 µm window of standard-cell rows (PDN hidden); right: SRAM macro edge (bitcell array, word-line drivers). Full-chip HD render and more crops: <code>asic/README.md</code> §9.7.</sub></p>
+<p align="center"><sub>Zoomed die crops from the delivered GDS — left: 80 µm window of standard-cell rows (PDN hidden); right: SRAM macro edge (bitcell array, word-line drivers). More crops (25 &micro;m transistor-level window): <code>asic/README.md</code> §9.7.</sub></p>
 
 ---
 
