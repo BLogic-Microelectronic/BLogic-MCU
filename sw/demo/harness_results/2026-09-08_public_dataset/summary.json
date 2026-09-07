@@ -1,0 +1,71 @@
+{
+  "harness_version": "1.0.2",
+  "primary_metric": "golden_agreement_pct",
+  "team": "BLogic Mikroelektronik",
+  "team_id": "Ostim Teknik Universitesi",
+  "timestamp": "2026-09-08T00:54:39+03:00",
+  "config_file": "C:\\demo\\demo_program\\team_icd.json",
+  "config_sha256": "220628f1d78e59614ea2a4a6263bbdc13af5f0e4a0513041dafbdabaf7216fb6",
+  "total_samples": 156,
+  "answered": 156,
+  "timeouts": 0,
+  "with_golden_ref": 156,
+  "golden_agreement_pct": 100.0,
+  "golden_agreement_strict_pct": 100.0,
+  "mismatch_count": 0,
+  "ref_timeout_count": 0,
+  "accuracy_info_hw_pct": 72.43589743589743,
+  "accuracy_info_sw_pct": 72.43589743589743,
+  "score_comparison_samples": 0,
+  "score_error_mean_pct": null,
+  "score_error_max_pct": null,
+  "latency_ms": {
+    "n": 156,
+    "min": 42.68159999628551,
+    "median": 43.27799999737181,
+    "p95": 43.80930000115768,
+    "max": 44.06179999932647
+  },
+  "tx_ms_median": 166.69050000200514,
+  "speedup_ratio": 4.475715144224849,
+  "software_reference_ms": 193.7,
+  "robustness_passed": 11,
+  "robustness_total": 11,
+  "robustness_skipped": 0,
+  "confusion_matrix": {
+    "silence": {
+      "silence": 6,
+      "unknown": 0,
+      "yes": 0,
+      "no": 0,
+      "TIMEOUT": 0
+    },
+    "unknown": {
+      "silence": 0,
+      "unknown": 16,
+      "yes": 0,
+      "no": 0,
+      "TIMEOUT": 0
+    },
+    "yes": {
+      "silence": 0,
+      "unknown": 0,
+      "yes": 50,
+      "no": 0,
+      "TIMEOUT": 0
+    },
+    "no": {
+      "silence": 0,
+      "unknown": 0,
+      "yes": 0,
+      "no": 84,
+      "TIMEOUT": 0
+    }
+  },
+  "meta": {
+    "seed": 1337,
+    "dataset": "C:\\demo\\demo_program\\public_dataset\\manifest.csv",
+    "dataset_size": 156,
+    "dry_run": false
+  }
+}

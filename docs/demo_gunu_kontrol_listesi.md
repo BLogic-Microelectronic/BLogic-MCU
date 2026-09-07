@@ -6,6 +6,9 @@ uyumunu, gecikmeyi ve 11 sağlamlık senaryosunu raporlar. Bizim tarafımızda
 firmware v2 (`sw/demo/demo_main.c`), ICD `sw/demo/team_icd.json`, simülasyon
 kanıtı `make demo-harness-sim` (README §12.6).
 
+**Durum (8 Eylül 00:53):** kartta jüri aracıyla public set 156/156 golden uyumu, 0 timeout, sağlamlık 11/11,
+gecikme ~43 ms; CP2102 adaptör (COM8) + kart FT232 (COM7) ile. Rapor: `sw/demo/harness_results/2026-09-08_public_dataset/`.
+
 ## 1. Yanımızda olacaklar
 
 - Genesys 2 + güç adaptörü, USB-JTAG kablosu, USB-UART için USB-A kablosu (COM7).

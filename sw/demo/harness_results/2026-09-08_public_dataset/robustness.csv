@@ -1,0 +1,12 @@
+scenario,result,detail
+silence_zeros,PASS,"output=no, latency=43.3 ms, next valid frame responded"
+silence_dither,PASS,"output=no, latency=43.6 ms, next valid frame responded"
+saturate_max,PASS,"output=unknown, latency=43.9 ms, next valid frame responded"
+saturate_min,PASS,"output=silence, latency=43.3 ms, next valid frame responded"
+alternating,PASS,"output=silence, latency=43.3 ms, next valid frame responded"
+back_to_back,PASS,received responses for 5 of 5 back-to-back frames
+truncated_frame,PASS,recovery after truncated frame successful (output=no)
+oversized_frame,PASS,recovery after oversized frame successful (output=no)
+peripheral_interleave,PASS,"recovery without reset after peripheral use successful; before=no, after=no"
+determinism,PASS,1 distinct result(s) across 10 repetitions; latency jitter=0.90 ms
+recovery_after_idle,PASS,after a 3 s idle period responded (no)
