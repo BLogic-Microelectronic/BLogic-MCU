@@ -70,7 +70,8 @@ The design has been verified through Verilator-based directed and randomized sim
 
 ## 3. System Architecture
 
-![SoC Architecture](images/system_architecture.jpeg)
+<p align="center"><img src="images/system_architecture_jtag.png" width="900" alt="BLogic MCU block diagram with the JTAG debug subsystem"></p>
+<p align="center"><sub>Delivered configuration (7 September 2026): CV32E40P with its two OBI-to-AXI4 bridges, the AXI4 interconnect, the four memories and the AI SRAM arbiter, the AXI4-Lite peripheral bank, the AI accelerator (master port into the AI SRAM, CSR slave) and the <b>JTAG debug subsystem</b> — host (OpenOCD + gdb) &rarr; TAP + DTM &rarr; DMI &rarr; Debug Module at 0x0004_0000 (4 KB), <code>debug_req</code> into the core, and the AXI-DM bridge that lets the core fetch the debug ROM / program buffer through the interconnect (instruction and data legs). Dotted lines: interrupts and the UART_1 stream DMA path.</sub></p>
 
 ### Block Description
 
