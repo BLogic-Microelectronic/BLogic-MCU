@@ -685,7 +685,10 @@ In the AI integration test alone, `414027` AXI-Lite transactions were validated 
 
 Block-TB verdict string: `*** TEST SUCCESS *** I2C SISTEM YOLU DOGRULANDI` (system path verified).
 
-<p align="center"><sub>🖼️ placeholder — I²C terminal capture (to be re-taken; the previous embed reused a QSPI-series file name)</sub></p>
+<p align="center">
+  <img src="images/i2c_sys_pass.png" width="75%" alt="make i2c-sys terminal output: TEST SUCCESS, I2C protocol checker 3758/3758">
+</p>
+<p align="center"><sub><code>make i2c-sys</code> (7 September 2026, delivered configuration): the block test verdict <code>*** TEST SUCCESS *** I2C sistem yolu dogrulandi</code> (system path verified), the I²C AXI-Lite protocol checker with <b>3,758 / 3,758</b> checks and 0 failures (<code>PROTOKOL UYUMLU</code> = protocol compliant), and the Makefile verdict <code>[I2C-SYS] PASS</code>; rendered from the captured terminal log.</sub></p>
 
 ### 10.8 Coverage Report
 
