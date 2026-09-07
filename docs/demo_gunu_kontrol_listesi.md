@@ -8,6 +8,14 @@ kanıtı `make demo-harness-sim` (README §12.6).
 
 **Durum (8 Eylül 00:53):** kartta jüri aracıyla public set 156/156 golden uyumu, 0 timeout, sağlamlık 11/11,
 gecikme ~43 ms; CP2102 adaptör (COM8) + kart FT232 (COM7) ile. Rapor: `sw/demo/harness_results/2026-09-08_public_dataset/`.
+Ek: jüri aracı biçiminde **1000 vektörlük rastgele set** (`make demo-harness-dataset`, `C:\demo\random_dataset`),
+aracın grafik arayüzü (`demo_gui.py`) aynı ICD ile denendi (aşağıda adım 8).
+
+Aracın README §11 ön-demo listesi madde madde: validate hatasız ✔ · iki ayrı fiziksel UART aynı anda ✔ (COM7 + COM8) ·
+50+ vektörde 0 timeout ✔ (156) · her sonuç ayrıştırıldı ✔ (predicted 156/156) · zorunlu sağlamlık senaryoları ✔ (11/11) ·
+interleave hook'u ✔ (`r`) · boot banner algılandı ✔ (`?` → `BLogic MCU`, transcript ilk satır) · payload encoding int8 ✔ ·
+public set golden uyumu ✔ (156/156) · skor bildirimi yok (kart argmax basar, metrik puanlanmaz) · kendi büyük regresyon seti ✔
+(RTL simde 1000/1000 `ai-batch1000`, kartta 1000/1000 sweep, jüri biçiminde rastgele set) · teslim edilen ICD = test edilen ICD ✔.
 
 ## 1. Yanımızda olacaklar
 
@@ -16,7 +24,9 @@ gecikme ~43 ms; CP2102 adaptör (COM8) + kart FT232 (COM7) ile. Rapor: `sw/demo/
   5 V mantık seviyeli adaptör kullanılmaz (Pmod bankı LVCMOS33).
 - Laptop: Vivado HW manager, `rtl/fpga/fpga_top.bit`, flash'ta firmware v2.
 - USB bellek: `demo_program` klasörü (kısa yola kopyalanmış, örn. `C:\demo`), `team_icd.json`,
-  FTDI VCP ve CP210x sürücü kurulum dosyaları, basılı ICD + kablolama şeması.
+  FTDI VCP ve CP210x sürücü kurulum dosyaları, basılı ICD + kablolama şeması,
+  `C:\demo\random_dataset` (1000 vektör, seed 31082026; `py -3 sw/demo/make_harness_dataset.py --n 1000 --out <dizin>`
+  ile 1 dakikada yeniden üretilir) ve `sw/demo/harness_results/` rapor setleri.
 
 ## 2. Kablolama (Pmod JA, üst sıra)
 
@@ -46,13 +56,25 @@ Adaptör takılıyken jumper ÇIKARILIR.
    Stream hızı: **sw2 aşağı = 115200** (ICD `115200`), sw2 yukarı = 230400 (ICD `230400`).
    1 Mbps kullanma (UART bölücüsü 8'in katına yuvarlar, +%4,2 hata).
 3. `python demo_harness.py validate -c team_icd.json` → `Valid` (1 uyarı normal: baud < 921600).
-4. Isınma: `python demo_harness.py run -c team_icd.json -n 20 -o C:\demo\results` → timeout 0.
+4. Isınma (aracın README'sindeki 50+ vektör koşulu): `python demo_harness.py run -c team_icd.json -n 50 -o C:\demo\results`
+   → timeout 0, her satır ayrıştı ("no golden column" uyarısı normal: sentetik vektörlerin golden'ı yok).
 5. Public set: `python demo_harness.py run -c team_icd.json --manifest public_dataset\manifest.csv -o C:\demo\results`
    → beklenen **Golden agreement 156/156**, timeouts 0 (SW referansı offline 156/156 eşleşti).
 6. Jürinin gizli seti aynı komutla; ardından `--only-robustness` → 11/11
    (`peripheral_interleave` bizde `r` komutuyla PASS).
 7. `results\BLogic_Mikroelektronik_<zaman>\` klasörünü USB'ye ve laptopa kopyala:
    `report.md`, `summary.json`, `samples.csv`, `robustness.csv`, `transcript.log`, `config_used.json`.
+8. **Vakit kalırsa (aracın README'sindeki ek öneriler):**
+   - Rastgele set: `python demo_harness.py run -c team_icd.json --manifest C:\demo\random_dataset\manifest.csv -n 200 -o C:\demo\results`
+     (`-n 0` = 1000 vektör, ~6 dk). Golden sütunu bit-exact SW referansından; beklenen uyum N/N.
+   - Grafik arayüz: `python demo_harness.py gui -c team_icd.json` → pencere başlığında `[PARTICIPANT]` + 1.0.2 →
+     **Validate** (yalnız baud uyarısı) → **Run** sekmesi: *Manifest CSV* seçili, dosya `public_dataset\manifest.csv`
+     ya da `random_dataset\manifest.csv`, *Sample count* 0 (hepsi), *Output directory* `C:\demo\results`, **START**;
+     uyarı kutusuna *Yes*; sonunda "Run complete" kutusu (golden agreement, timeouts, robustness) ve **Open Report**.
+     *Synthetic (test only)* SEÇİLMESİN: GUI sentetik vektörlere döngüsel yapay bir golden etiketi yazar,
+     uyum ~%25 görünür (aracın kendi özelliği, kartla ilgisi yok). **Probe (listen 20 s)** düğmesi Log sekmesinde
+     banner'ı gösterir (`?` göndermez; R19'a basılınca banner + açılış çıkarımı görünür).
+   - Panel demosu (RANDOM SWEEP, OLED, JTAG) ancak jüri aracı kapandıktan sonra (COM7 tek kullanıcı).
 
 ## 4. Firmware'in beklediği / verdiği
 
@@ -73,6 +95,8 @@ Adaptör takılıyken jumper ÇIKARILIR.
 | `Boot NOT DETECTED` uyarısı | zararsız (rapora girmez); `?` gönderildiğinde banner basılır, flush sonrası 200 ms kaybolabilir |
 | Rapor klasörü yazılamadı | uzun yol (OneDrive); `-o C:\demo\results` kullan |
 | Panel ile aynı anda çalışmaz | jüri aracı COM7'yi kullanırken paneli açma; ek demolar araç kapandıktan sonra |
+| GUI'de golden uyumu ~%25 | *Synthetic* veri seçilmiş; *Manifest CSV* ile public set ya da `random_dataset` seçilir |
+| GUI START'ta "Invalid configuration" | port adı listede yok (adaptör takılı değil / sürücü); ICD sekmesinde **Scan Ports** sonra portu seç |
 
 Yedek: `fpga_top_m2_demo.bit` (SRAM boot) eski firmware taşır, jüri aracıyla uyumlu DEĞİL;
 yalnız flash boot başarısızsa ve panel demosu için.

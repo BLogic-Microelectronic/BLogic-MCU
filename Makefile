@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: demo-harness-sim compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-gates jtag-sim jtag-openocd-build jtag-openocd jtag-gdb jtag-board lint-fpga jtag-equiv jtag-bridge-sim jtag-cov questa-pack test-full
+.PHONY: demo-harness-sim demo-harness-dataset demo-harness-sim-dataset compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-gates jtag-sim jtag-openocd-build jtag-openocd jtag-gdb jtag-board lint-fpga jtag-equiv jtag-bridge-sim jtag-cov questa-pack test-full
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -502,6 +502,35 @@ demo-harness-sim:
 	    && echo "[HARNESS-SIM] loopback self-test PASS (frame sent on UART1 TX came back on RX, RESULT: yes)" \
 	    || { echo "[HARNESS-SIM] loopback self-test FAIL"; exit 1; }
 
+# Juri araci biciminde rastgele regresyon seti (manifest.csv + vectors/*.bin + dataset_summary.json):
+# kart_sweep.py / panel RANDOM SWEEP ureteci (40 adli aile + 8 aileli tohumlu uzatma) +
+# bit-exact SW referansindan golden sinif (saf Python, ~0.3 s/vektor). Aracla kosu:
+#   python demo_harness.py run -c team_icd.json --manifest <DS_OUT>/manifest.csv
+DS_N    ?= 200
+DS_SEED ?= 31082026
+DS_OUT  ?= build/harness_dataset
+DS_K    ?= 10
+demo-harness-dataset:
+	@python3 sw/demo/make_harness_dataset.py --n $(DS_N) --seed $(DS_SEED) --out $(DS_OUT)
+
+# Ayni setin DS_K vektorluk tohumlu alt kumesi simulasyonda stream yolundan (UART1 230400,
+# team_icd.json cercevesi, her cerceveden sonra harness gibi ara) surulur; RESULT
+# satirlari manifest'in golden sutunuyla sirayla karsilastirilir -> [HARNESS-SIM] PASS.
+# Set yoksa DS_N ornekle uretilir. Firmware DEMO_STREAM_CPB=216 ile yeniden derlenir
+# (EXTRA_CFLAGS damgaya girmez), verilated model (obj_dir) korunur.
+demo-harness-sim-dataset:
+	rm -rf build/harness_sim_ds build/test.elf build/fw_src.stamp logs/sim/demo_main
+	@[ -f $(DS_OUT)/manifest.csv ] || python3 sw/demo/make_harness_dataset.py --n $(DS_N) --seed $(DS_SEED) --out $(DS_OUT)
+	@python3 sw/demo/harness_frames.py sim --outdir build/harness_sim_ds --manifest $(DS_OUT)/manifest.csv --count $(DS_K)
+	@printf r > build/harness_sim_ds/r.txt
+	-$(MAKE) -f Makefile.verilator sim FW_SRC=sw/demo/demo_main.c \
+	    EXTRA_CFLAGS="-DDEMO_STREAM_CPB=216" \
+	    SIM_PLUSARGS="+UART1_RX_FILE=../build/harness_sim_ds/uart1_rx.bin +UART1_CPB=216 +UART1_RX_DELAY=8000000 \
+	                  +UART1_GAPS=../build/harness_sim_ds/gaps.txt +UART1_GAP_CYC=600000 \
+	                  +UART_RX_FILE=../build/harness_sim_ds/r.txt +UART_RX_DELAY=$$((10000000 + $(DS_K) * 5600000)) \
+	                  +MAX_CYCLES=$$((14000000 + $(DS_K) * 5600000)) +RTL_TRACE=0"
+	@python3 sw/demo/harness_frames.py check build/harness_sim_ds/expect.txt logs/sim/demo_main/uart.log
+
 ai-uart-load-field:
 	$(MAKE) ai-uart-load AI_UART_CPB=434 AI_UART_MAXCYC=16000000
 
@@ -783,6 +812,7 @@ help:
 	@echo "  make coverage-tb - modul kapsama kosusu (satir/dal)"
 	@echo "  make isa-compliance - ISA uyumluluk C testi (self-checking, DTR bolum 4)"
 	@echo "  make demo-harness-sim - TEKNOFEST demo harness stream yolu (UART1, team_icd.json cercevesi) + saglamlik senaryolari sim; [HARNESS-SIM] PASS"
+	@echo "  make demo-harness-dataset - juri araci biciminde rastgele regresyon seti (DS_N=200 DS_SEED=31082026 DS_OUT=build/harness_dataset); -sim-dataset: DS_K=10 vektorunu stream yolundan simde dogrular"
 	@echo "  make ai-uart-load - KF5: gorulmemis vektor UART0'dan surulur, sinif dogrulanir (sim); -field: saha zamanlamasi CPB=434 (~10 M cevrim)"
 	@echo "  make ai-acc      - EK-1 dogruluk penceresi: uretim + sim + rapor (40 ornek); ai-batch1000: 1000 ornek (~4 dk)"
 	@echo "  make asic-elab   - sv2v + yosys elaborasyon kapisi (sentez oncesi erken uyari; sv2v/yosys gerekir)"
