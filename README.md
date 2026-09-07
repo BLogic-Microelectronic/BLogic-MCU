@@ -1317,7 +1317,8 @@ USB-JTAG (Xilinx `BSCANE2` USER3/USER4 in place of the ASIC TAP pins), so no ext
 is needed (§12.7 D). `rtl/fpga/fpga_top_m2_demo.bit` is the JTAG-less SRAM-boot backup
 for demo day (`build_genesys2_m2demo.tcl`).
 
-![Genesys 2 Board](images/genesys2_board.jpg)
+<p align="center"><img src="images/genesys2_board_20260907.jpg" width="900" alt="Digilent Genesys 2 running the delivered bitstream"></p>
+<p align="center"><sub>Digilent Genesys 2 running the delivered bitstream (7 September 2026): USB-UART, USB-JTAG and Ethernet at the left edge, DONE lit next to the CONFIG jumpers, the on-board OLED (bottom centre) showing class / HW cycle / baud, and the class code on the LED row above the switches.</sub></p>
 
 ### 12.2 Clock Architecture
 
@@ -1841,6 +1842,9 @@ that the exploration tables of §10.10 compare against.
 
 <p align="center"><img src="asic/results/images/asic_top_render_hd.png" alt="asic_top - delivered GDS, power grid and fill cells hidden" width="820"></p>
 <p align="center"><sub>Full-chip render of the delivered GDS (<code>asic/results/gds/asic_top_klayout.gds.gz</code>, 4180 &times; 4490 &micro;m) with the met4/met5 power grid and the fill / decap / tap cells hidden (<code>asic/scripts/render_die.py</code>, KLayout batch): the 27 hand-placed SRAM macros (4 &times; 7 grid, bitcell arrays dark), the standard-cell logic drawn by its met2 (orange) / met3 (green) routing &mdash; the wide band across the middle is the CV32E40P core (left, 30.6 k cells), the crossbar and peripherals (centre) and the QSPI controller (right, 12.9 k cells); the separate cluster at the lower right is the AI accelerator (12.0 k cells); the narrow vertical strip at the top centre is the JTAG debug module (<code>dm_top</code> + <code>dmi_jtag</code>) reaching the JTAG pins on the top edge (placement centroids from <code>asic/results/def/asic_top.def.gz</code>) &mdash; and the met1 (blue) routing channels between the macros. Colour key: diff green, poly red, li1 grey, met1 blue, met2 orange, met3 green. The flow's own render with the power grid drawn (<code>asic/results/images/asic_top.png</code>) is in <code>asic/README.md</code> &sect;9.7.</sub></p>
+
+<p align="center"><img src="asic/results/images/asic_top_render_layers.jpg" alt="asic_top - every layer drawn, power grid visible" width="820"></p>
+<p align="center"><sub>The same GDS with every layer drawn (KLayout, 7 September 2026): the met4 / met5 power grid and the fill cells cover the whole core, which is what the chip physically looks like &mdash; the render above hides exactly those to expose the logic underneath.</sub></p>
 
 <p align="center"><img src="asic/results/images/zoom_80um_cells.png" width="360" alt="80 um zoom - standard cell rows">&nbsp;<img src="asic/results/images/zoom_sram_edge.png" width="360" alt="SRAM macro edge"></p>
 <p align="center"><sub>Zoomed die crops from the delivered GDS — left: 80 µm window of standard-cell rows (PDN hidden); right: SRAM macro edge (bitcell array, word-line drivers). More crops (25 &micro;m transistor-level window): <code>asic/README.md</code> §9.7.</sub></p>
