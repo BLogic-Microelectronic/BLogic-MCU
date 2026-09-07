@@ -27,6 +27,14 @@ kanıtı `make demo-harness-sim` (README §12.6).
 Core UART = karttaki FT232 (COM7). Adaptör takılınca ikinci COM portu çıkar
 (`python demo_harness.py ports`).
 
+## 2b. Adaptörsüz ön test (jumper)
+
+USB-TTL adaptör gelmeden UART1 hattı ve ayrıştırıcı kartta denenebilir: **JA1 ile JA2'yi bir
+jumper telle birleştir**, COM7 terminalinde `l` gönder. Firmware kendi golden vektörünü
+harness çerçevesi olarak JA2'den yollar, JA1'den geri alır ve `[DEMO] loopback frame received`
++ `RESULT: yes` basar. Başarısızsa `[DEMO] loopback FAILED` yazar (jumper, sw2/hız).
+Adaptör takılıyken jumper ÇIKARILIR.
+
 ## 3. Sıra
 
 1. `fpga_top.bit` yükle, **R19**'a bas. COM7'de banner + açılış çıkarımı görünür

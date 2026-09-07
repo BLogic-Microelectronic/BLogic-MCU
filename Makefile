@@ -493,6 +493,14 @@ demo-harness-sim:
 	    SIM_PLUSARGS="+UART1_RX_FILE=../build/harness_sim/uart1_rx.bin +UART1_CPB=216 \
 	                  +UART1_RX_DELAY=8000000 +UART_RX_FILE=../build/harness_sim/r.txt +UART_RX_DELAY=92000000 +MAX_CYCLES=100000000 +RTL_TRACE=0"
 	@python3 sw/demo/harness_frames.py check build/harness_sim/expect.txt logs/sim/demo_main/uart.log
+	@# (b) UART1 loopback oz-testi ('l'): sim UART1 TX->RX loopback'tedir (enjeksiyon yok);
+	@#     firmware kendi cercevesini yollar, RX'ten alir, RESULT basar -> kartta JA1-JA2 jumper ile ayni test
+	@printf l > build/harness_sim/l.txt
+	-$(MAKE) -f Makefile.verilator sim FW_SRC=sw/demo/demo_main.c \
+	    SIM_PLUSARGS="+UART_RX_FILE=../build/harness_sim/l.txt +UART_RX_DELAY=9000000 +MAX_CYCLES=24000000 +RTL_TRACE=0"
+	@grep -q "loopback frame received" logs/sim/demo_main/uart.log && [ "$$(grep -c '^RESULT: yes' logs/sim/demo_main/uart.log)" -ge 2 ] \
+	    && echo "[HARNESS-SIM] loopback self-test PASS (frame sent on UART1 TX came back on RX, RESULT: yes)" \
+	    || { echo "[HARNESS-SIM] loopback self-test FAIL"; exit 1; }
 
 ai-uart-load-field:
 	$(MAKE) ai-uart-load AI_UART_CPB=434 AI_UART_MAXCYC=16000000

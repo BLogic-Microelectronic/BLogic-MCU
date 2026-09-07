@@ -44,6 +44,11 @@
 #include "../drivers/blogic_mcu.h"
 #include "oled_font.h"
 
+/* Komut SRAM 8 KB: -O2 ile .text 8,6 KB (sigmiyor), -Os ile 4,4 KB. Tum derleme
+   yollari (make flash-bin, demo-harness-sim, panel) ayni sonucu alsin diye
+   secim dosyada. Zamanlama payi 230400'de 2170 cevrim/bayt; sim bunu dogrular. */
+#pragma GCC optimize ("Os")
+
 #define AI_SRAM_BASE        0x00030000U
 #define AI_INPUT_OFF        0x00000000U
 #define AI_RESULT_OFF       0x00005A58U
@@ -499,11 +504,39 @@ static void load_vector_uart(void) {
 
 /* Acilis satiri onek TASIMAZ: harness boot_banner_regex ("BLogic MCU") ve
    '?' tetigi (boot_trigger_core_hex 3F) bu satiri bekler. */
+/* UART1 TX: TDR yazisi gondermeyi baslatir (tx_start = wr_tdr_hit); tx_done
+   bayragi strm_poll'un CFG=0 yazmasiyla silindigi icin bekleme sure tabanli
+   (11 bit-suresi), bu arada halka bosaltilir. */
+static void tx1_byte(uint32_t b) {
+    uint32_t t0 = rdcycle(), n = g_scpb * 11U + 8U;
+    UART1->TDR = b & 0xFFU;
+    while ((rdcycle() - t0) < n) strm_pump();
+}
+/* 'l': YZ SRAM'deki girdi vektorunu (acilista flash'tan yuklenen golden
+   vektor ya da son gonderilen) harness cercevesi olarak UART1 TX'ten yolla;
+   JA1<->JA2 jumper ile RX'e doner, normal yol RESULT basar. */
+static void loopback_test(void) {
+    const volatile uint8_t *src = (const volatile uint8_t *)(AI_SRAM_BASE + AI_INPUT_OFF);
+    uint32_t i, crc = 0xFFFFU;
+    puts0("[DEMO] UART1 loopback self-test: sending one frame on JA2 (TXD), expecting it on JA1 (RXD)\n");
+    for (i = 0U; i < 4U; i++) tx1_byte((uint32_t)STRM_PRE[i]);
+    tx1_byte(STRM_PAYLOAD & 0xFFU); tx1_byte(STRM_PAYLOAD >> 8);
+    for (i = 0U; i < STRM_PAYLOAD; i++) {
+        uint32_t b = src[i];
+        crc = crc16_step(crc, b);
+        tx1_byte(b);
+    }
+    tx1_byte(crc & 0xFFU); tx1_byte(crc >> 8);
+    delay_ms(5U);                                   /* son bayt gelsin, ayristirilsin */
+    if (g_ready) puts0("[DEMO] loopback frame received (CRC OK) - inference follows\n");
+    else         puts0("[DEMO] loopback FAILED: no valid frame back on UART1 RX (jumper JA1-JA2? sw2/baud?)\n");
+}
+
 static void banner(void) {
     puts0("\nBLogic MCU - Micro Speech live demo (QSPI boot, demo firmware v2)\n");
 }
 static void menu(void) {
-    puts0("[DEMO] h=HW inference  v=new input via BLG1 (send_vector.py)  r=report  ?=menu\n");
+    puts0("[DEMO] h=HW inference  v=new input via BLG1 (send_vector.py)  r=report  l=UART1 loopback test  ?=menu\n");
     puts0("[DEMO] baud: sw0=9600 sw1=115200 (both down=115200); sw2 up = stream UART1 230400\n");
     puts0("[DEMO] stream UART1 (Pmod JA) frames BLG1+len16+1960 int8+CRC16, answered on UART0 with a result line\n");
 }
@@ -571,6 +604,7 @@ int main(void) {
             if      (c == 'h') run_hw();
             else if (c == 'v') load_vector_uart();
             else if (c == 'r') report();
+            else if (c == 'l') loopback_test();
             else if (c == '?') { banner(); menu(); }
         } else {
             uint32_t sw = sw_read();
