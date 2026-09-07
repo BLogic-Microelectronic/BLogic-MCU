@@ -139,3 +139,6 @@ vsim_stacktrace.vstf
 # flash_firmware.tcl ara urunleri (mcs/prm; kaynak firmware_flash.bin izlenir)
 rtl/fpga/firmware_flash.mcs
 rtl/fpga/firmware_flash.prm
+
+# TEKNOFEST'in demo gunu icin paylastigi belge (repoya girmez)
+/teknofestin*/
