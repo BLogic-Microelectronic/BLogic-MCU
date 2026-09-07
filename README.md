@@ -1208,6 +1208,7 @@ The custom AI Accelerator implements Google's **TensorFlow Lite Micro Speech "Ti
 | Requantize saturation rails | `make sim FW_SRC=sw/tests/ai_sat_test.c` | **PASS** — ±2³⁰ bias forces every conv output to the 0x7F / 0x80 rails, 2 × 1000 words verified word-by-word |
 | Live board sweep | `sw/ai_model/kart_sweep.py` (COM port) | **60 / 60 diversified UART vectors** match the SW argmax on Genesys 2 |
 | Scale rehearsal at the announced jury volume | `kart_sweep.py --n 1000` | **1000 / 1000** (jury criterion is >= 900/1000 argmax match) — 40 named families + 960 seeded-random vectors, zero timeouts, 260 s end-to-end (2026-09-03, `sw/ai_model/kart_sweep_raporu_n1000_2026-09-03.txt`) |
+| The same rehearsal from the jury panel, delivered bitstream (7 Sep 2026) | `juri_panel.py` → RANDOM SWEEP, N = 1000, seed 31082026 | **MATCHED 1000 / 1000**, 0 timeouts, 0 mismatches, 459,065 cycles every vector, 275.7 s — report `sw/ai_model/juri_panel_sweep_raporu_n1000_20260907.txt` |
 
 <p align="center"><img src="images/demo_boot_terminal_20260902.png" width="900" alt="boot terminal - power-on inference"></p>
 <p align="center"><sub>Live board, 2026-09-02 re-validation: QSPI boot banner and the power-on inference — <code>sinif = yes, HW cycle = 459062, ~21.0x</code> — byte-identical to the August delivery run.</sub></p>
@@ -1215,7 +1216,14 @@ The custom AI Accelerator implements Google's **TensorFlow Lite Micro Speech "Ti
 <p align="center"><img src="images/kart_sweep_60of60_20260902.png" width="900" alt="kart_sweep 60/60 tail"></p>
 <p align="center"><sub>The same session's full jury rehearsal: <code>kart_sweep.py --n 60</code> → <b>ESLESEN: 60/60, zero timeouts</b> (report committed as <code>sw/ai_model/kart_sweep_raporu_n60_2026-09-02.txt</code>).</sub></p>
 
-<p align="center"><sub>🖼️ placeholder — add photo: Genesys 2 board + host terminal in one frame</sub></p>
+<p align="center"><img src="images/board_panel_sweep_yes_20260907.jpg" width="900" alt="Genesys 2 board and the jury panel during the 1000-vector sweep"></p>
+<p align="center"><sub>7 September 2026, delivered bitstream (<code>fpga_top.bit</code> with the JTAG debug subsystem and the OLED): the Genesys 2 and the jury panel in one frame during the seeded 1000-vector sweep — vector 379/1000 classified <b>yes</b> by both the software reference and the board, 459,065 cycles = 9.18 ms at 50 MHz, the OLED on the board showing the same class.</sub></p>
+
+<p align="center"><img src="images/board_panel_sweep_no_20260907.jpg" width="440" alt="sweep: class no">&nbsp;<img src="images/board_panel_sweep_unknown_20260907.jpg" width="440" alt="sweep: class unknown"></p>
+<p align="center"><sub>Later vectors of the same run: <b>no</b> (386/1000) and <b>unknown</b> (391/1000) — the big label, the four class counters and the log follow the board live.</sub></p>
+
+<p align="center"><img src="images/panel_sweep_1000of1000_20260907.png" width="900" alt="panel log at the end of the sweep: MATCHED 1000/1000"></p>
+<p align="center"><sub>End of the run: <code>SWEEP SUMMARY: MATCHED 1000/1000, timeouts 0, mismatches 0, avg cycles 459065, total 275.7 s</code>; the per-vector table (sample name, SW <code>fc_out</code>, SW and board class, cycles) is committed as <code>sw/ai_model/juri_panel_sweep_raporu_n1000_20260907.txt</code>.</sub></p>
 
 ### 11.5 Performance — Hardware vs Software
 
@@ -1462,6 +1470,11 @@ shown on LED3-6 and printed on UART_0 as a single line, so every script that
 parses `class = … HW cycle = …` keeps working. The font is
 `sw/demo/oled_font.h` (5×7, generated from ASCII-art glyph definitions).
 
+<p align="center"><img src="images/board_oled_class_20260907.jpg" width="900" alt="Genesys 2 with the OLED showing the class, cycle count and baud"></p>
+<p align="center"><sub>Genesys 2 running the delivered bitstream (7 September 2026): USB-UART and JTAG cables at the left edge, DONE lit, the OLED with <code>BLogic MCU TEKNOFEST / class = yes / HW cycle = 459065 / UART: 115200 [def]</code> and the class code on the LED row.</sub></p>
+<p align="center"><img src="images/oled_closeup_20260907.jpg" width="700" alt="OLED close-up: class = no, HW cycle = 459065, UART 115200"></p>
+<p align="center"><sub>Close-up after a <b>no</b> vector: the four OLED lines and LD1/LD2/LD6 — the class code on LED3-6 next to the switches (all down = 115200 default).</sub></p>
+
 #### QSPI Boot-Flow Live Trace
 
 ![QSPI Boot Live](images/uart_timing_signaltap.png)
@@ -1534,6 +1547,9 @@ report; the panel puts `~/.local/bin`, `/opt/riscv/bin`, `/usr/local/bin` and
 a TFLite venv in front of the WSL `PATH`, so a user-local RISC-V toolchain and
 Verilator are found by the non-interactive shell) and **Questa waves** (item 5).
 
+<p align="center"><img src="images/panel_board_demo_20260907.png" width="900" alt="jury panel, Board demo tab, during the 1000-vector sweep"></p>
+<p align="center"><sub>The panel on 7 September 2026 during the seeded sweep (vector 604/1000): tabs, port and bitstream controls, the big class label with the live cycle count, class counters, progress and the shared log with the board's own UART lines (<code>BOARD ▸</code>).</sub></p>
+
 1. **Load bitstream…** — pick `rtl/fpga/fpga_top.bit` (normal, flash boot) or
    `rtl/fpga/fpga_top_m2_demo.bit` (backup: demo firmware embedded, boots
    from SRAM, needs no flash at all; no JTAG debug subsystem). Note that the backup
@@ -1601,7 +1617,9 @@ Verilator are found by the non-interactive shell) and **Questa waves** (item 5).
 > first (`subst X: "<repo path>"`) and work from `X:\`; the panel copies
 > bitstreams to an ASCII temp directory on its own and runs Questa from a
 > `subst` drive it finds or creates. Board-verified 2026-09-03: 1000/1000 with
-> `kart_sweep.py --n 1000`, M2 backup boots and classifies without flash.
+> `kart_sweep.py --n 1000`, M2 backup boots and classifies without flash; and
+> 2026-09-07 from the panel itself on the delivered bitstream: RANDOM SWEEP
+> 1000/1000 (§11.4).
 
 5. **Verification suite** — the `make` targets from a table inside the panel:
    the 18 `test-all` components, the gates (`lint`, `lint-fpga`, `jtag-gates`,
