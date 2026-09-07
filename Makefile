@@ -15,7 +15,7 @@ ARCH_EXT ?= I M
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
 
-.PHONY: compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-gates jtag-sim jtag-openocd-build jtag-openocd jtag-gdb jtag-board lint-fpga jtag-equiv jtag-bridge-sim jtag-cov questa-pack test-full
+.PHONY: demo-harness-sim compile verilate sim regression boot ai soc-ai arch-test uvm test-all spike clean logs-clean help coverage lint asic-elab bootrom coverage-tb flash-image qspi-modes i2c-sys uart-baud uart-stp uart-stream ai-acc soc-perf soc-ai-irq soc-timer soc-strm ai-uart-load ai-uart-load-field uart-rx-bisect qspi-err boot-real asic-sram-sim asic-top-sim jtag-gates jtag-sim jtag-openocd-build jtag-openocd jtag-gdb jtag-board lint-fpga jtag-equiv jtag-bridge-sim jtag-cov questa-pack test-full
 
 compile:
 	$(MAKE) -f Makefile.verilator sw FW_SRC=$(FW_SRC)
@@ -473,6 +473,27 @@ ai-uart-load:
 	    || { echo "[UART-DEMO] FAIL"; exit 1; }
 
 # Saha zamanlamasiyla ayni kosu (CPB=434). Yavas: ~10 M cevrim.
+# TEKNOFEST demo test harness'inin STREAM yolu (UART1, Pmod JA) simulasyonda:
+# demo firmware v2 (sw/demo/demo_main.c) + harness cercevesi (sw/demo/team_icd.json:
+# "BLG1" + len16 + 1960 int8 + CRC16-CCITT, sw/demo/harness_frames.py = harness
+# FrameBuilder ile bayt-bayt ayni) UART1'e 230400 (CPB 216 = sw2 yukari hizi, kartin en yuksek stream hizi) ARASIZ surulur; 13 senaryo: gecerli
+# cerceveler, sifir / doygun / almasik vektorler, kesik cerceve + gecerli, fazla
+# baytli cerceve, bozuk CRC, preamble taklidi, arasiz 3 cerceve. Firmware'in
+# core UART'a bastigi "RESULT: <sinif>" satirlari bit-exact SW referansinin
+# etiketleriyle sirayla karsilastirilir. PASS = [HARNESS-SIM] PASS. (1 Mbps'de
+# UART1'in tek baytlik RDR'si CPU gecikmesine yenik dusuyor - o hiz sunulmuyor;
+# arasiz akis harness'ten daha zorludur: harness her cerceveden sonra RESULT bekler.
+# +UART1_GAPS/+UART1_GAP_CYC ile o bekleme de modellenebilir.)
+demo-harness-sim:
+	rm -rf obj_dir build logs/sim/demo_main
+	@python3 sw/demo/harness_frames.py sim --outdir build/harness_sim
+	@printf r > build/harness_sim/r.txt   # kosu sonunda 'r': stream sayaclari loga
+	-$(MAKE) -f Makefile.verilator sim FW_SRC=sw/demo/demo_main.c \
+	    EXTRA_CFLAGS="-DDEMO_STREAM_CPB=216" \
+	    SIM_PLUSARGS="+UART1_RX_FILE=../build/harness_sim/uart1_rx.bin +UART1_CPB=216 \
+	                  +UART1_RX_DELAY=8000000 +UART_RX_FILE=../build/harness_sim/r.txt +UART_RX_DELAY=92000000 +MAX_CYCLES=100000000 +RTL_TRACE=0"
+	@python3 sw/demo/harness_frames.py check build/harness_sim/expect.txt logs/sim/demo_main/uart.log
+
 ai-uart-load-field:
 	$(MAKE) ai-uart-load AI_UART_CPB=434 AI_UART_MAXCYC=16000000
 
@@ -753,6 +774,7 @@ help:
 	@echo "  make coverage    - line coverage raporu (logs/coverage/)"
 	@echo "  make coverage-tb - modul kapsama kosusu (satir/dal)"
 	@echo "  make isa-compliance - ISA uyumluluk C testi (self-checking, DTR bolum 4)"
+	@echo "  make demo-harness-sim - TEKNOFEST demo harness stream yolu (UART1, team_icd.json cercevesi) + saglamlik senaryolari sim; [HARNESS-SIM] PASS"
 	@echo "  make ai-uart-load - KF5: gorulmemis vektor UART0'dan surulur, sinif dogrulanir (sim); -field: saha zamanlamasi CPB=434 (~10 M cevrim)"
 	@echo "  make ai-acc      - EK-1 dogruluk penceresi: uretim + sim + rapor (40 ornek); ai-batch1000: 1000 ornek (~4 dk)"
 	@echo "  make asic-elab   - sv2v + yosys elaborasyon kapisi (sentez oncesi erken uyari; sv2v/yosys gerekir)"

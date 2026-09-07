@@ -115,6 +115,7 @@ MAKE_KATALOG = [
         ("isa-compliance",  "self-checking ISA compliance C test (DTR section 4)"),
         ("ai-uart-load",    "KF5: unseen vector streamed over UART0, class checked (simulation)"),
         ("ai-uart-load-field", "same at field timing, CPB=434 (~10 M cycles, slow)"),
+        ("demo-harness-sim", "TEKNOFEST jury tool stream path: UART1 frames + robustness scenarios (simulation)"),
         ("ai-acc",          "EK-1 accuracy window: generate + simulate + report (40 samples)"),
         ("ai-batch1000",    "1000-sample accuracy window (~4 min)"),
         ("coverage-tb",     "per-module testbench coverage (line / branch)"),
@@ -225,6 +226,7 @@ MAKE_ACIKLAMA = {
         "PASS = correct class + SRAM match.",
     "ai-uart-load-field": "Same as ai-uart-load at the field baud timing (CPB=434): about 10 M cycles, "
         "slow. PASS = correct class + SRAM match.",
+    "demo-harness-sim": "The TEKNOFEST demo test harness stream path in simulation: demo firmware v2 on the Verilator model, 13 stream scenarios injected gaplessly on UART1 at 230400 with the team ICD frame (BLG1 + len16 + 1960 int8 + CRC16-CCITT): valid, all-zero, saturated and alternating vectors, a truncated frame followed by a valid one, junk bytes after a frame, a bad-CRC frame, a BLG decoy and three back-to-back frames. The 14 RESULT lines on the core UART must equal the bit-exact software reference in order. PASS = [HARNESS-SIM] PASS.",
     "ai-acc": "EK-1 accuracy window: generates the 40-sample batch with the TFLite reference, runs the "
         "accelerator testbench and writes the accuracy report. NEEDS a Python venv with "
         "tensorflow or tflite_runtime (README 8.5); the panel puts <repo>/.venv/bin or "

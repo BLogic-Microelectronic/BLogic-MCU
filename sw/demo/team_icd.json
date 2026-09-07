@@ -1,0 +1,102 @@
+{
+  "_info": "BLogic MCU - Interface Control Document for the TEKNOFEST 2026 FPGA demo test harness (demo_harness.py 1.0.2). Firmware: sw/demo/demo_main.c v2. Only the two port names may need to change on the jury computer.",
+  "team": {
+    "name": "BLogic Mikroelektronik",
+    "id": "Ostim Teknik Universitesi",
+    "notes": "Genesys 2 (XC7K325T), CV32E40P + Micro Speech int8 accelerator (argmax only, no logits -> no scores). core UART = on-board FT232 USB-UART (uart_tx_in/uart_rx_out, 115200 8N1). stream UART = UART1 on Pmod JA: JA1 = board RXD (host TX), JA2 = board TXD (host RX), JA5 = GND, 3.3 V USB-TTL adapter, 115200 8N1 (board switch sw2 up = 230400; set stream baudrate 230400 then). The UART divisor rounds to multiples of 8 clocks, so 115200 and 230400 are within +0.5 % while 1 Mbps would be +4.2 % off - hence not offered. Frame: 'BLG1' + len16 LE (1960) + 1960 int8 + CRC16-CCITT LE over the payload. Result line on the core UART: 'RESULT: <class>' followed by a '[DEMO] class = ... HW cycle = ...' log line. software_reference_ms = 9,684,726 cycles @ 50 MHz (CV32E40P -O2, make soc-perf)."
+  },
+  "stream": {
+    "port": {
+      "port": "COM8",
+      "baudrate": 115200,
+      "bytesize": 8,
+      "parity": "N",
+      "stopbits": 1,
+      "rtscts": false,
+      "dsrdtr": false,
+      "xonxoff": false,
+      "write_timeout_s": 5.0,
+      "read_timeout_s": 0.05,
+      "dtr": null,
+      "rts": null,
+      "open_settle_ms": 200,
+      "flush_input_on_open": true
+    },
+    "framing": {
+      "preamble_hex": "424C4731",
+      "index_field_size": 0,
+      "length_field_size": 2,
+      "length_counts": "payload",
+      "endian": "little",
+      "checksum": "crc16_ccitt",
+      "checksum_covers": "payload",
+      "trailer_hex": "",
+      "chunk_size": 256,
+      "inter_chunk_delay_ms": 0,
+      "inter_frame_delay_ms": 20,
+      "drain_after_write": true
+    },
+    "payload": {
+      "length": 1960,
+      "encoding": "int8",
+      "pad_value": 0
+    }
+  },
+  "core": {
+    "port": {
+      "port": "COM7",
+      "baudrate": 115200,
+      "bytesize": 8,
+      "parity": "N",
+      "stopbits": 1,
+      "rtscts": false,
+      "dsrdtr": false,
+      "xonxoff": false,
+      "read_timeout_s": 0.05,
+      "write_timeout_s": 5.0,
+      "dtr": null,
+      "rts": null,
+      "open_settle_ms": 200,
+      "flush_input_on_open": true
+    },
+    "result": {
+      "mode": "regex_line",
+      "line_terminator": "\n",
+      "encoding": "ascii",
+      "regex": "RESULT\\s*[:=]\\s*(?P<label>[A-Za-z_0-9]+)(?:.*?scores\\s*[:=]\\s*(?P<scores>[-+0-9.,;\\s]+))?",
+      "json_label_key": "label",
+      "json_scores_key": "scores",
+      "csv_label_index": 0,
+      "csv_scores_start": 1,
+      "binary_preamble_hex": "",
+      "binary_label_size": 1,
+      "binary_score_count": 0,
+      "binary_score_size": 1,
+      "binary_score_signed": true,
+      "binary_endian": "little",
+      "label_map": {},
+      "classes": ["silence", "unknown", "yes", "no"],
+      "timeout_ms": 5000,
+      "ignore_regex": "^\\[DEMO\\]"
+    }
+  },
+  "hooks": {
+    "boot_banner_regex": "BLogic MCU",
+    "boot_timeout_ms": 10000,
+    "boot_trigger_core_hex": "3F",
+    "core_init_hex": "",
+    "stream_init_hex": "",
+    "pre_frame_core_hex": "",
+    "interleave_core_hex": "72",
+    "interleave_expect_regex": "^REPORT:",
+    "reset_hex": ""
+  },
+  "run": {
+    "warmup_frames": 1,
+    "retries_per_sample": 1,
+    "inter_sample_delay_ms": 0,
+    "stop_on_consecutive_timeouts": 10,
+    "software_reference_ms": 193.7,
+    "speedup_threshold": 10.0
+  }
+}

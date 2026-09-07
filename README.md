@@ -111,7 +111,7 @@ The design has been verified through Verilator-based directed and randomized sim
 
 | Offset | Name | Access | Description |
 |---|---|---|---|
-| `0x00` | `CPB` | RW | Clock-per-bit (50 MHz / baud). `434 → 115200`, `50 → 1 Mbps`, `5208 → 9600` |
+| `0x00` | `CPB` | RW | Clock-per-bit (50 MHz / baud); the UART core uses `CPB[18:3]` as its prescaler, so the value is rounded down to a multiple of 8: `434 → 432 → 115,741 baud` (+0.5 %), `217 → 216 → 231,481` (+0.5 %), `5208 → 9600`, `50 → 48 → 1,041,667` (+4.2 %, at the edge of the 8N1 tolerance — 115200 / 230400 are the rates used on the board) |
 | `0x04` | `STP` | RW | Stop bit count: `0 = 1`, `1 = 1.5`, `2 = 2` |
 | `0x08` | `RDR` | RO | Received data register |
 | `0x0C` | `TDR` | RW | Transmit data register |
@@ -154,7 +154,7 @@ The design has been verified through Verilator-based directed and randomized sim
 | `0x00` | `CTRL` | bit 0 = START, bit 1 = CLEAR_DONE |
 | `0x04` | `STATUS` | bit 0 = BUSY, bit 1 = DONE, bits[7:4] = argmax class |
 | `0x08` | `DATA_ADDR` | Input feature vector base in AI SRAM |
-| `0x0C` | `OUT_ADDR` | Output (logits + argmax) base in AI SRAM |
+| `0x0C` | `OUT_ADDR` | Result word in AI SRAM: one INT32 holding the argmax (0..3); the four FC logits stay inside the accelerator (`STATUS[7:4]` carries the same argmax) |
 
 ---
 
@@ -164,7 +164,7 @@ The design has been verified through Verilator-based directed and randomized sim
 |---|---|---|---|
 | `irq_i[16]` | **Timer** | Auto-reload overflow | Timer `EVC` register |
 | `irq_i[17]` | **AI Accelerator** | `STATUS.DONE` rising edge (level-sensitive) | `CTRL.CLEAR_DONE` |
-| `irq_i[18]` | **UART_1 Stream DMA** | DMA word transfer complete | DMA CFG clear |
+| `irq_i[18]` | **UART_1 Stream DMA** | DMA transfer complete (`STRM_LEN` bytes landed) | one-cycle pulse, no acknowledge; the delivered firmware polls `STRM_STAT` and leaves `mie[18]` clear |
 
 > The IRQ vector is built in `soc_top.sv` as `{13'd0, strm_irq, ai_irq, timer_irq, 16'd0}` and routed to `CV32E40P.irq_i`. `mtvec_addr_i` is tied to `0x0001_0000` in `soc_top.sv`; `crt0.S` does **not** write `mtvec` at run time — it places the vector table at the start of instruction memory (slot 0 = exceptions, slot 16 = timer, slot 17 = AI, slot 18 = stream) and also provides a `mcause`-decoding dispatcher so the design works in both direct and vectored trap modes.
 
@@ -526,6 +526,7 @@ make test-all
 | `make jtag-gates` | JTAG package: `jtag-sim`, `jtag-bridge-sim`, `lint-fpga`, `jtag-equiv`, plus the OpenOCD/gdb end-to-end demos when the tools are installed (`SKIP` otherwise) |
 | `make jtag-board` | **OpenOCD on the real Genesys 2** through the on-board USB-JTAG (BSCANE2 tunnel): halt, register and memory read/write, single-step, CSR, hardware breakpoint, `reset halt`/`reset run` — `scripts/run_jtag_board.sh`, evidence `rtl/debug/openocd/demo_run_board_2026-09-06.log` |
 | `scripts/kart_jtag_entegrasyon.py` | **JTAG + AI inference together on the board**: halt/inspect/resume leaves results bit-identical; a hardware breakpoint on `run_hw` catches the UART-delivered vector before inference — evidence `rtl/debug/openocd/demo_run_board_entegrasyon_2026-09-06.log` |
+| `make demo-harness-sim` | **TEKNOFEST jury-tool path in simulation**: demo firmware v2 on the Verilator model, 13 stream scenarios injected gaplessly on UART_1 at 230400 with the `team_icd.json` frame (valid / zero / saturated / alternating vectors, truncated, oversized, bad CRC, `BLG` decoy, back-to-back ×3); the 14 `RESULT:` lines must equal the bit-exact software reference in order → `[HARNESS-SIM] PASS` (§12.6; passed 7 September 2026: 14/14, all 30,560 bytes received, only the truncated and the bad-CRC frames rejected) |
 | `make test-full` | **Everything that runs locally in one command**: `test-all` (18) + `lint` + `lint-fpga` + `jtag-gates` + `asic-sram-sim` + `asic-top-sim` + `boot-real` + `isa-compliance` + `ai-uart-load`, with a second summary table (~40 min). Only the board demo (`jtag-board`) and the VM flow (`asic_run`) stay outside |
 | `verif/questa/wave.bat <test>` (Windows) / `verif/questa/wave.sh <test>`; headless: `verif/questa/batch.ps1` / `batch.sh` | **Questa / ModelSim waveform flow** - validated on Questa Sim-64 10.7c, **21/21 tests pass** (6 September 2026, run record in `verif/questa/README.md`): recompiles the delivered configuration from `soc_files.f`, loads the chosen testbench (the ten SystemVerilog testbenches and, through `verif/questa/questa_soc_tb.sv`, the eleven firmware-driven SoC tests) with a ready-made wave window and runs it to its verdict; firmware bundles come from `make questa-pack` and are committed under `verif/questa/fw/` — `verif/questa/README.md` |
 | `make coverage` | SoC line + branch coverage (15 self-checking C tests, single build) |
@@ -1479,6 +1480,36 @@ parses `class = … HW cycle = …` keeps working. The font is
 <p align="center"><img src="images/oled_closeup_20260907.jpg" width="700" alt="OLED close-up: class = no, HW cycle = 459065, UART 115200"></p>
 <p align="center"><sub>Close-up after a <b>no</b> vector: the four OLED lines and LD1/LD2/LD6 — the class code on LED3-6 next to the switches (all down = 115200 default).</sub></p>
 
+#### TEKNOFEST demo test harness — two-UART flow (demo firmware v2, 7 September 2026)
+
+On demo day the jury connects the board to its own Python tool
+(`demo_harness.py` 1.0.2): a **stream UART** carries the 1960-byte int8
+vectors, a separate **core UART** returns one result line per vector, and the
+tool scores golden agreement, latency and ten robustness scenarios from a JSON
+Interface Control Document (ICD) written by the team. The delivered firmware
+`sw/demo/demo_main.c` serves that flow next to the panel protocol of §12.7-C:
+
+| Item | Our implementation |
+|---|---|
+| core UART | UART_0 on the on-board FT232 USB-UART (COM7 on the demo laptop), 115200 8N1 — result line `RESULT: <class>` immediately followed by the `[DEMO] class = … HW cycle = …` log line the panel and `kart_sweep.py` parse |
+| stream UART | UART_1 on **Pmod JA**: JA1 = board RXD (host TX), JA2 = board TXD (host RX), JA5 = GND, 3.3 V USB-TTL adapter; 115200 8N1 by default, **230400 with `sw2` up** (the ICD baud must match; the OLED's fourth line shows both rates). 1 Mbps is deliberately not offered: the UART divisor rounds to multiples of 8 clocks (50 → 48, +4.2 %) and, with a single-byte receive register, a 1 Mbps stream lost 3.8 % of the bytes to CPU latency in simulation |
+| frame | `"BLG1"` + length (2 bytes LE, 1960) + 1960 int8 + CRC16-CCITT (poly 0x1021, init 0xFFFF, LE, over the payload) — `sw/demo/team_icd.json`; `sw/demo/harness_frames.py` builds the same bytes as the harness's `FrameBuilder` (verified byte-identical) |
+| receiver | byte-driven state machine with a 256-byte software ring: preamble mismatch, wrong length or bad CRC → shift to the next `BLG1` candidate inside the buffer and re-parse (truncated and oversized frames), 15 ms of silence inside a frame → drop it, every wait loop (UART_0 printing, OLED SPI, inference wait) keeps draining UART_1 so back-to-back frames survive the single-byte RDR |
+| hooks | boot banner `BLogic MCU` on `?`, `peripheral_interleave` via `r` (`REPORT: SW baseline …`), `ignore_regex` empty |
+| ICD status | `python demo_harness.py validate -c sw/demo/team_icd.json` → **Valid** (one advisory warning about 115200 on the stream port; `sw2` up + ICD baud 230400 halves the vector time); `run --dry-run` against the tool's simulated device: 10/11 robustness scenarios pass, the eleventh (`peripheral_interleave`) needs the real board |
+| simulation evidence | `make demo-harness-sim` — the firmware runs on the Verilator model with 13 stream scenarios injected back-to-back on UART_1 at 230400 baud, the board's fastest stream rate (valid / zero / saturated / alternating vectors, a truncated frame followed by a valid one, 37 junk bytes after a frame, a bad-CRC frame, a `BLG` decoy, three back-to-back frames); the 14 `RESULT:` lines must match the bit-exact software reference in order → `[HARNESS-SIM] PASS` |
+
+Demo-day sequence with the jury tool: load `fpga_top.bit`, press R19 (the
+banner and the boot inference appear on the core UART), plug the USB-TTL
+adapter into JA, set the two port names in `team_icd.json`, then
+`python demo_harness.py run -c team_icd.json --manifest public_dataset/manifest.csv`
+followed by `--only-robustness`; keep the `results/<team>_<timestamp>/` folder
+(`report.md`, `summary.json`, `samples.csv`, `robustness.csv`, `transcript.log`,
+`config_used.json`). The hardware reports the class only (the accelerator writes
+the argmax, not the four scores), so the tool's optional score-error metric
+stays empty. Team checklist for the day (cabling, commands, expected outputs, fallbacks):
+`docs/demo_gunu_kontrol_listesi.md`.
+
 #### QSPI Boot-Flow Live Trace
 
 ![QSPI Boot Live](images/uart_timing_signaltap.png)
@@ -1545,7 +1576,7 @@ python sw/demo/juri_panel.py
 ```
 
 The window has three tabs above one shared log: **Board demo** (items 1-4),
-**Verification suite (make)** (the 39 `make` targets of the Makefile in a
+**Verification suite (make)** (the 40 `make` targets of the Makefile in a
 table, run inside WSL with a PASS/FAIL line and a `juri_make_<date>.txt`
 report; the panel puts `~/.local/bin`, `/opt/riscv/bin`, `/usr/local/bin` and
 a TFLite venv in front of the WSL `PATH`, so a user-local RISC-V toolchain and
@@ -1565,7 +1596,8 @@ Verilator are found by the non-interactive shell) and **Questa waves** (item 5).
    (115200 or 9600; it must match the board's `sw0`/`sw1` selection, §12.6);
    from then on every line the board prints (boot banner after R19, menu,
    results) appears live in the panel log.
-3. **Select jury file…** — auto-detects `.bin` / `.npy` / `.csv` / `.txt` /
+3. **Select jury file…** — (panel protocol on UART_0; the jury tool's own
+   two-UART flow is described in §12.6) auto-detects `.bin` / `.npy` / `.csv` / `.txt` /
    `.hex` or a folder, validates every vector (1960 bytes, int8) *before*
    touching the board, then **RUN ALL** streams them with the BLG1
    frame + checksum. A timeout retries once; each result is written to disk

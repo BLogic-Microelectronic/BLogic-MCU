@@ -83,7 +83,11 @@ class UartBitDriver {
     size_t idx = 0;
     uint64_t delay;
     bool trig_armed = true;   // tetik istenmezse bastan acik
+    std::vector<size_t> gaps; // bu bayt ofsetlerinden ONCE gap_cyc cevrim bekle (UART1: harness RESULT bekler)
+    size_t   gap_i = 0;
+    uint64_t gap_cyc = 0, gap_left = 0;
 public:
+    void setGaps(std::vector<size_t> g, uint64_t cyc) { gaps = std::move(g); gap_cyc = cyc; gap_i = 0; }
     UartBitDriver(int cpb, std::vector<uint8_t> data, uint64_t start_delay)
         : CPB(cpb), buf(std::move(data)), delay(start_delay) {}
 
@@ -101,8 +105,12 @@ public:
     uint8_t tick() {
         if (!trig_armed) return 1;              // tetik beklenirken hat bosta
         if (delay > 0) { delay--; return 1; }   // tetik SONRASI bekleme
+        if (gap_left > 0) { gap_left--; return 1; }
         switch (st) {
         case IDLE:
+            if (gap_i < gaps.size() && idx == gaps[gap_i] && gap_cyc > 0) {
+                gap_i++; gap_left = gap_cyc; return 1;   // cerceve sinirinda ara ver
+            }
             if (idx < buf.size()) {
                 sr = buf[idx++]; st = START; clks = CPB; bit = 0;
                 return 0;
@@ -151,6 +159,12 @@ int main(int argc, char** argv) {
     std::string trigger_file;      // +UART_RX_TRIGGER_FILE= : RX gonderimini baslatan TX dizgesi
     std::string ai_dump_file;      // +AI_SRAM_DUMP= : kosu sonunda AI SRAM giris bolgesi
     std::string gpio_log_file;     // +GPIO_LOG= : gpio_out_o her degistiginde "cevrim deger" (OLED bit-bang izi)
+    std::string uart1_rx_file;     // +UART1_RX_FILE= : UART1'e (stream) hosttan surulecek ham baytlar
+    uint64_t uart1_rx_delay = 0;   // +UART1_RX_DELAY= : surmeden once beklenecek cevrim
+    int      uart1_cpb = 0;        // +UART1_CPB= : UART1 surucusunun CPB'si (0 = +CPB ile ayni)
+    std::string uart1_gaps_file;   // +UART1_GAPS= : ara verilecek bayt ofsetleri (satir basina bir)
+    uint64_t uart1_gap_cyc = 0;    // +UART1_GAP_CYC= : her arada beklenecek cevrim
+    bool     rtl_trace_on = true;  // +RTL_TRACE=0 : retire PC izini (rtl_trace.log) kapat - uzun demo simleri icin
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -169,6 +183,12 @@ int main(int argc, char** argv) {
         else if (arg.rfind("+GOLDEN_FILE=", 0)   == 0) golden_file   = arg.substr(13);
         else if (arg.rfind("+UART_RX_TRIGGER_FILE=", 0) == 0) trigger_file = arg.substr(22);
         else if (arg.rfind("+AI_SRAM_DUMP=", 0) == 0) ai_dump_file = arg.substr(14);
+        else if (arg.rfind("+UART1_RX_FILE=", 0)  == 0) uart1_rx_file  = arg.substr(15);
+        else if (arg.rfind("+UART1_RX_DELAY=", 0) == 0) uart1_rx_delay = std::stoull(arg.substr(16));
+        else if (arg.rfind("+UART1_CPB=", 0)      == 0) uart1_cpb      = std::stoi(arg.substr(11));
+        else if (arg.rfind("+UART1_GAPS=", 0)     == 0) uart1_gaps_file = arg.substr(12);
+        else if (arg.rfind("+UART1_GAP_CYC=", 0)  == 0) uart1_gap_cyc  = std::stoull(arg.substr(15));
+        else if (arg == "+RTL_TRACE=0")                 rtl_trace_on   = false;
         else if (arg.rfind("+SWEEP=", 0)     == 0) {
             // virgul ayrili CPB listesi, orn: +SWEEP=434,50,5208
             std::string lst = arg.substr(7);
@@ -229,6 +249,31 @@ int main(int argc, char** argv) {
         uart_driver = new UartBitDriver(CPB, std::move(d), uart_rx_delay);
     }
 
+    // +UART1_RX_FILE: TEKNOFEST demo harness'in stream UART'ini benzet (UART1,
+    // Pmod JA). Dosya verilirse UART1 TX->RX loopback'i KAPANIR (uart1_strm
+    // testi loopback'e dayanir, o yuzden yalniz plusarg verilince degisir).
+    UartBitDriver* uart1_driver = nullptr;
+    if (!uart1_rx_file.empty()) {
+        std::ifstream rf(uart1_rx_file, std::ios::binary);
+        if (!rf) { std::cerr << "[SIM] HATA: UART1 RX dosyasi acilamadi: "
+                             << uart1_rx_file << std::endl; return 2; }
+        std::vector<uint8_t> d((std::istreambuf_iterator<char>(rf)),
+                                std::istreambuf_iterator<char>());
+        if (d.empty()) { std::cerr << "[SIM] HATA: UART1 RX dosyasi bos" << std::endl; return 2; }
+        int cpb1 = uart1_cpb ? uart1_cpb : CPB;
+        std::cout << "[SIM] UART1 (stream) RX enjeksiyonu: " << d.size() << " bayt, CPB=" << cpb1
+                  << ", gecikme=" << uart1_rx_delay << " cevrim (UART1 loopback KAPALI)" << std::endl;
+        uart1_driver = new UartBitDriver(cpb1, std::move(d), uart1_rx_delay);
+        if (!uart1_gaps_file.empty() && uart1_gap_cyc > 0) {
+            std::ifstream gf(uart1_gaps_file);
+            std::vector<size_t> g; size_t v;
+            while (gf >> v) g.push_back(v);
+            std::cout << "[SIM] UART1 aralar: " << g.size() << " sinirda " << uart1_gap_cyc
+                      << " cevrim (harness cerceve arasi RESULT bekleme modeli)" << std::endl;
+            uart1_driver->setGaps(std::move(g), uart1_gap_cyc);
+        }
+    }
+
     std::string uart_trigger;
     if (uart_driver && !trigger_file.empty()) {
         std::ifstream tf(trigger_file, std::ios::binary);
@@ -264,6 +309,8 @@ int main(int argc, char** argv) {
 
     uint64_t rx_flag_rises = 0;   // cfg_rx_done yukselen kenar = teslim edilen bayt
     uint8_t  prev_rx_flag  = 0;
+    uint64_t u1_flag_rises = 0;   // UART1 (stream) cfg_rx_done yukselen kenar sayisi
+    uint8_t  prev_u1_flag  = 0;
     std::vector<uint8_t> rx_first;   // ilk 16 teslim edilen bayt
     bool last_sclk = false;
     int  flash_bit_cnt = 0;
@@ -279,7 +326,8 @@ int main(int argc, char** argv) {
         top->clk_i = 1;
         // RX dosyasi verildiyse hat surucuden gelir; yoksa eski loopback.
         top->uart_rxd_i = uart_driver ? uart_driver->tick() : top->uart_txd_o;
-        top->uart1_rxd_i = top->uart1_txd_o;   // UART_1 TX->RX loopback (strm DMA testi)
+        // UART_1: dosya verildiyse stream surucusu, yoksa eski TX->RX loopback (strm DMA testi)
+        top->uart1_rxd_i = uart1_driver ? uart1_driver->tick() : top->uart1_txd_o;
 
         if (top->qspi_cs_no == 0) {
             bool current_sclk = top->qspi_sclk_o;
@@ -314,6 +362,11 @@ int main(int argc, char** argv) {
             }
             prev_rx_flag = f;
         }
+        if (uart1_driver) {
+            uint8_t f1 = top->rootp->soc_top__DOT__i_uart_1__DOT__cfg_rx_done;
+            if (f1 && !prev_u1_flag) u1_flag_rises++;
+            prev_u1_flag = f1;
+        }
         uint32_t current_pc  = top->rootp->soc_top__DOT__i_cpu__DOT__core_i__DOT__pc_id;
         // Lockstep icin: pc_id sadece commit-time'da loglansin. id_valid && is_decoding
         // birlikte HIGH iken instruction retire ediliyor (bkz cv32e40p_id_stage.sv:1639
@@ -322,7 +375,7 @@ int main(int argc, char** argv) {
         // dusuyor ve Spike (committed-only) ile lockstep ayrisiyor.
         uint8_t  id_valid    = top->rootp->soc_top__DOT__i_cpu__DOT__core_i__DOT__id_valid;
         uint8_t  is_decoding = top->rootp->soc_top__DOT__i_cpu__DOT__core_i__DOT__is_decoding;
-        if (id_valid && is_decoding &&
+        if (rtl_trace_on && id_valid && is_decoding &&
             current_pc != last_printed_pc &&
             current_pc >= 0x10000 && current_pc < 0x100000) {
             char buf[32];
@@ -366,6 +419,11 @@ int main(int argc, char** argv) {
 
     uart_log.flush();
     rtl_trace_log.flush();
+    if (uart1_driver) {
+        std::cout << "[SIM] UART1 stream: gonderilen=" << uart1_driver->sent() << "/" << uart1_driver->total()
+                  << " bayt, alicida rx_done yukselisi=" << u1_flag_rises
+                  << " (fark = RX cozme kaybi; firmware rx-bytes sayaci ile karsilastir)" << std::endl;
+    }
 
     std::string t_end_iso = iso_now();
     long wall_s = (long)(time(nullptr) - t_start_s);
