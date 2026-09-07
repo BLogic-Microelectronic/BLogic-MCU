@@ -2,7 +2,7 @@
   "_info": "BLogic MCU - Interface Control Document for the TEKNOFEST 2026 FPGA demo test harness (demo_harness.py 1.0.2). Firmware: sw/demo/demo_main.c v2. Only the two port names may need to change on the jury computer.",
   "team": {
     "name": "BLogic Mikroelektronik",
-    "id": "Ostim Teknik Universitesi",
+    "id": "772759",
     "notes": "Genesys 2 (XC7K325T), CV32E40P + Micro Speech int8 accelerator (argmax only, no logits -> no scores). core UART = on-board FT232 USB-UART (uart_tx_in/uart_rx_out, 115200 8N1). stream UART = UART1 on Pmod JA: JA1 = board RXD (host TX), JA2 = board TXD (host RX), JA5 = GND, 3.3 V USB-TTL adapter, 115200 8N1 (board switch sw2 up = 230400; set stream baudrate 230400 then). The UART divisor rounds to multiples of 8 clocks, so 115200 and 230400 are within +0.5 % while 1 Mbps would be +4.2 % off - hence not offered. Frame: 'BLG1' + len16 LE (1960) + 1960 int8 + CRC16-CCITT LE over the payload. Result line on the core UART: 'RESULT: <class>' followed by a '[DEMO] class = ... HW cycle = ...' log line. software_reference_ms = 9,684,726 cycles @ 50 MHz (CV32E40P -O2, make soc-perf)."
   },
   "stream": {
