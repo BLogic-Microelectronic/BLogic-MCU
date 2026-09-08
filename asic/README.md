@@ -26,7 +26,8 @@ QSPI boot, UART/GPIO/Timer/I2C peripherals, and a TFLite Micro Speech
 `asic_top`. Clocks: `clk_i` (system clock, all SoC logic) and `jtag_tck_i`
 (JTAG TAP clock, asynchronous to `clk_i`; the only crossing is riscv-dbg's
 `dmi_cdc` two-phase handshake - 9.6, 9.9/9). Resets: `rst_ni` (asynchronous
-assert, synchronous release) and `jtag_trst_ni` (TAP reset, false path). The
+assert; release synchronization is an integration requirement outside the
+delivered macro - 9.6, 9.9/10) and `jtag_trst_ni` (TAP reset, false path). The
 design also carries the specification's optional JTAG debug interface (PULP
 riscv-dbg debug module on an IEEE 1149.1 TAP, connected to the CV32E40P debug
 port - `JTAG_DEBUG`, 9.4, 9.9/9). Inputs/outputs are macro pins
@@ -36,7 +37,7 @@ in the final LEF/DEF (Section 2).
 
 | Port | Direction | Width | Function |
 |---|---|---|---|
-| `clk_i` / `rst_ni` | input | 1/1 | system clock / asynchronous reset (synchronous release) |
+| `clk_i` / `rst_ni` | input | 1/1 | system clock / asynchronous reset (release synchronization outside the macro, 9.6) |
 | `uart_rxd_i` / `uart_txd_o` | input/output | 1/1 | UART0 (console + BLG1 vector reception) |
 | `uart1_rxd_i` / `uart1_txd_o` | input/output | 1/1 | UART1 (stream DMA input) |
 | `gpio_in_i` / `gpio_out_o` | input/output | 32/32 | GPIO (inputs with 2FF synchronizers) |
@@ -44,25 +45,37 @@ in the final LEF/DEF (Section 2).
 | `i2c_scl_o` `i2c_sda_oe_o` `i2c_sda_i` | output x2, input | 1/1/1 | I2C master (open-drain drive via `sda_oe`) |
 | `jtag_tck_i` `jtag_tms_i` `jtag_tdi_i` `jtag_trst_ni` / `jtag_tdo_o` | input x4 / output | 1 each | JTAG debug port (IEEE 1149.1 TAP -> riscv-dbg DTM/DM -> CV32E40P debug port; specification "1x JTAG (Opsiyonel)", EK-2 debug module); `jtag_tck` is a second, asynchronous clock (9.6) |
 
-**Target clock frequency and per-corner closure (final delivery run
-`RUN_final_2026-09-06`):**
+**Target clock frequency, per-corner closure and the declared operating
+frequency (final delivery run `RUN_final_2026-09-06`):**
 
-| Corner | Setup WS | Setup TNS | Closing frequency |
-|---|---|---|---|
-| tt_025C_1v80 | **+1.684 ns** | 0 | 50 MHz target CLOSES (fmax ~54.6 MHz) |
-| ss_100C_1v60 | -10.537 ns | -12,533.0 ns | ~32.7 MHz (equivalent to 30.54 ns) |
-| ff_n40C_1v95 | **+4.010 ns** | 0 | CLOSES (fmax ~62.5 MHz) |
+| Corner | Setup WS | Setup viol. | Hold WS | Hold viol. | Setup-side closing point |
+|---|---|---|---|---|---|
+| tt_025C_1v80 | **+1.684 ns** | 0 | -0.309 ns | 87 | 50 MHz target closes on setup (fmax ~54.6 MHz) |
+| ss_100C_1v60 | -10.537 ns | 2,219 | -0.122 ns | 5 | ~32.7 MHz (period 30.54 ns) |
+| ff_n40C_1v95 | **+4.010 ns** | 0 | -0.290 ns | 142 | closes on setup (fmax ~62.5 MHz) |
 
-Declared statement: target clock is **50 MHz**; it closes in the TT corner
-with a +1.684 ns margin. In the SS (1.6 V / 100 C) corner 50 MHz does not
-close — the closing frequency in this corner is **~32.7 MHz** and the
+Declared statement - wording per the DDK ruling of 8 September 2026, which
+defines a *verified* operating frequency as one that closes **setup and
+hold in every mandatory signoff corner** after post-PnR parasitic extraction
+(`DDK_KARARLARI.md` item 8): the **target** clock is **50 MHz** (`config.yaml`
+CLOCK_PERIOD = 20 ns, identical to `design.sdc` create_clock). Setup closes
+at 50 MHz in TT (+1.684 ns) and FF (+4.010 ns); in SS (1.6 V / 100 C) it does
+not - the setup-side closing point of that corner is **~32.7 MHz**, and the
 worst path is a pure standard-cell CPU path (`id_stage` -> `ex_stage.alu_i`
 / `alu_div_i` -> `id_stage`, first path of
-`reports/timing/nom_ss_100C_1v60/max.rpt`; it is NOT SRAM/derate
-induced; it is a consequence of the corner physics). The STA reports for
-all three corners are delivered in full (`reports/timing/`); details:
-sections 9.9 and 9.11. `config.yaml` CLOCK_PERIOD = 20 ns, identical to
-`design.sdc` create_clock.
+`reports/timing/nom_ss_100C_1v60/max.rpt`; it is NOT SRAM/derate induced; it
+is a consequence of the corner physics). Hold does **not** close in any of
+the three corners (-0.309 / -0.122 / -0.290 ns; 87 / 5 / 142 reg-to-reg
+paths, mechanism measured and classified in 9.9/2); hold is
+period-independent, so slowing the clock does not remove those paths.
+Therefore **no verified ASIC operating frequency is declared**: 50 MHz is
+reported as the target, ~32.7 MHz only as the SS setup limit, and the hold
+exceptions stay declared beside both. The STA reports for all three corners
+are delivered in full (`reports/timing/`); details: sections 9.9 and 9.11.
+The FPGA prototype of the same RTL is verified at 50 MHz in the full sense
+(WNS +2.433 ns / WHS +0.059 ns, zero failing endpoints - root README
+section 12.4); the difference is one of target technology and PVT signoff,
+not of design (root README section 13.8).
 
 ## 9.2 Tool and Environment Information
 
@@ -345,13 +358,33 @@ single SDC delivery is sufficient.
   **Input transition:** clock transition 0.150 ns. **Output load:** 5 pF
   (pessimistic pad + trace budget). (Section 3.2 "recommended" items.)
 - **False path (reset):** `set_false_path -from [get_ports rst_ni]`.
-  Rationale: `rst_ni` is asynchronous assert / synchronous release;
-  release synchronization is done at the chip top level (pad ring /
-  reset controller), and this class of path carries no real data timing.
-  Recovery/removal behavior is guaranteed by the release
-  synchronization. No path that genuinely needs to be timed has been
-  put under an exception. `jtag_trst_ni` (asynchronous TAP reset, IEEE
-  1149.1 TRST) is a false path for the same reason (JTAG block at the end of
+  `rst_ni` is a **primary asynchronous chip input**: it is asserted
+  asynchronously and is distributed inside `asic_top` **without a
+  synchronizer** (`rtl/asic/asic_top.sv:55` passes the pad straight to
+  `soc_top`; `rtl/soc_top.sv:93` forms `sys_rst_n = rst_ni & ~dm_ndmreset`).
+  The port has no launching clock, so no recovery/removal or setup check
+  can be formulated from it - OpenSTA lists it under `check_setup` as an
+  input without `set_input_delay` (`reports/timing/*/checks.rpt`). The
+  exception therefore removes an **unconstrainable asynchronous input arc,
+  not a genuinely timed synchronous path**; the Section 3.2 rule (a
+  genuinely timed path must not be made a false path) is not violated.
+  **The reset network itself is not left unmeasured:** the same `sys_rst_n`
+  net is also driven by `dm_ndmreset`, a flip-flop clocked by `clk`, so
+  every recovery/removal check on the reset pins is timed from that
+  startpoint. In `RUN_final_2026-09-06` the `asynchronous` path group
+  reports 1,000 recovery and 1,000 removal paths per corner with **0
+  violations** - worst recovery slack +12.515 ns (TT) / +6.567 ns (SS) /
+  +14.943 ns (FF), worst removal slack +0.390 ns (TT) / +1.024 ns (SS) /
+  +0.199 ns (FF) (`reports/timing/*/max.rpt`, `min.rpt`). **Synchronizing
+  the release of `rst_ni` to `clk` is an integration requirement on the pad
+  ring / reset controller outside the delivered macro** - the FPGA
+  prototype implements exactly that with a 2-FF release synchronizer
+  (`rtl/fpga_top.sv`, `rst_sync_n`); see the known-limitation entry 9.9/10.
+  (The comment block above line 41 of `design.sdc` still uses the earlier
+  wording "synchronization is done at the chip top level"; this section is
+  the authoritative statement, the SDC file is left byte-identical to the
+  delivery run.) `jtag_trst_ni` (asynchronous TAP reset, IEEE 1149.1 TRST)
+  is a false path for the same reason (JTAG block at the end of
   `design.sdc`).
 - **False path (asynchronous inputs):** via `set_false_path -from`:
   `gpio_in_i*` (2FF synchronizer, `gpio_axil.sv:44-50`), `uart_rxd_i` and
@@ -383,7 +416,7 @@ the official run; this table is documentation consolidation only.
 | `set_clock_uncertainty -setup` (line 25) | 0.500 ns | Jitter + skew budget (Section 3.2 "recommended" item); a pessimistic constant since the source is not finalized. |
 | `set_clock_uncertainty -hold` (line 26) | 0.100 ns | Hold side of the same budget; margin against the skew measured after CTS. |
 | `set_clock_transition` (line 27) | 0.150 ns | Clock input transition time assumption (typical value in the absence of a pad model). |
-| `set_false_path -from rst_ni` (line 41) | - | One of the two reset false paths (the other is `jtag_trst_ni`, JTAG block). `rst_ni` is asynchronous assert / synchronous release; release synchronization at the chip top level. Carries no real data timing; the Section 3.2 rule "gercekte zamanlanan yol false path yapilamaz" (EN: a genuinely timed path must not be made a false path) is not violated. |
+| `set_false_path -from rst_ni` (line 41) | - | One of the two reset false paths (the other is `jtag_trst_ni`, JTAG block). `rst_ni` is a primary asynchronous input with no launching clock (release synchronization is expected from the integrating pad ring / reset controller); the reset network is timed from the `dm_ndmreset` startpoint (asynchronous path group, 0 violations, worst removal +0.199 ns FF). Carries no real data timing; the Section 3.2 rule "gercekte zamanlanan yol false path yapilamaz" (EN: a genuinely timed path must not be made a false path) is not violated. |
 | `set_false_path -from` asynchronous inputs (lines 58-59) | `gpio_in_i*`, `uart_rxd_i`, `uart1_rxd_i` | 2FF synchronizer (`gpio_axil.sv:44-50`) and asynchronous serial lines; no meaningful arrival window relative to `clk`. A synchronous input_delay produces spurious violations (measured: the TT worst hold path had come out as `gpio_in_i[0]`). |
 | `set_input_delay` (lines 67-68) | max 6.000 / min 0.500 ns | ~30% input budget for the inputs that remain synchronous (`i2c_sda_i`, `qspi_io_i*`); ports are given as an explicit list for tool portability. |
 | `set_output_delay` (lines 69-70) | max 6.000 / min 0.500 ns | ~30% output budget for ALL outputs; sufficient margin for the low-speed peripherals (UART/I2C/QSPI/GPIO). |
@@ -550,9 +583,65 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
    return of the debug-memory window (`dm_mem` registers -> CPU prefetch
    buffer / load-store unit). Margin-based repair was MEASURED and
    rejected (0.3 margin: hold unchanged, SS setup collapsed to -10.3;
-   0.5: tool crash; August 3-11 experiments on the JTAG-less RTL). The FF
-   figure on the macro paths is the result of the deliberately
-   pessimistic early-0.5 derate model. The delivery is at macro level
+   0.5: tool crash; August 3-11 experiments on the JTAG-less RTL). **Hold across the three corners - rule identity, region, measured
+   mechanism, and exclusion of the macro model** (re-measured on the
+   delivered reports, 8 September 2026):
+   *Rule identity:* all 234 remaining violations belong to a single check
+   class, `[hold reg-reg]` on the `clk` group
+   (`reports/timing/<corner>/violator_list.rpt`); there is no hold
+   violation on `jtag_tck`, on any I/O boundary or in any other check
+   class, and recovery/removal on the reset network is clean at all three
+   corners (9.6). *Region:* the two families above (SRAM-macro
+   address/chip-select/data-in pins; `dm_mem`/`dm_csrs` -> CPU
+   prefetch/load-store registers), no path ends in JTAG/DM logic.
+   *Mechanism, measured:* the cause is clock-tree skew, not logic depth. On
+   the worst path - identical at all three corners,
+   `i_obi_axi_instr._250_/Q -> i_instr_sram ... gen_bank[1] ... u_macro/addr1[3]`
+   - the capture clock arrives 1.651 ns (TT), 2.840 ns (SS) and 1.120 ns
+   (FF) later than the launch clock, against a data path of only 1.386 /
+   2.761 / 0.875 ns; the violation is exactly that skew plus the 0.100 ns
+   hold uncertainty minus the 0.056 ns library hold term minus the data
+   path (TT: 1.651 + 0.100 - 0.056 - 1.386 = 0.309 ns; `min.rpt` first
+   path: launch 3.485 / capture 5.136 / arrival 4.871 / slack -0.309 ns). Globally, TT `clock.rpt`
+   reports 3.310 ns network latency at the earliest flop against 5.192 ns
+   at the latest macro clock pin - 1.882 ns skew; `skew.min.rpt` gives
+   -1.780 / -2.979 / -1.246 ns hold skew (TT / SS / FF). The corner
+   ordering is the standard one for a skew-dominated hold check: FF has
+   the most violating paths (142) and the worst TNS (-13.16 ns), TT keeps
+   the worst single slack (-0.309 ns).
+   *Exclusion of the SRAM Liberty substitution (9.5):* the TT_1p8V_25C
+   substitution does NOT produce these numbers. Not one of the 234
+   violating paths is launched from an SRAM macro, and no SRAM output arc
+   (`*/dout*`) appears in any of the 3 x 2,310 reported minimum-delay paths
+   (`grep -c "u_macro/dout\|u_input_mem/dout\|u_conv_out/dout\|u_conv_w_mem/dout" min.rpt` = 0
+   at all three corners); therefore neither the macro's `clk->Q` model nor
+   the FF `set_timing_derate -cell_delay -early 0.500` enters a violating
+   path - that derate is visible only on setup (max) paths of the macro
+   outputs. The only macro-Liberty term on the violating paths is the
+   library hold time, `-0.056 ns`, identical at all three corners and
+   negative (it relaxes the check). The earlier wording "the FF figure on
+   the macro paths is the result of the pessimistic early-0.5 derate" was
+   therefore incorrect and has been withdrawn.
+   *Repair status:* hold repair did run - the delivered netlist contains
+   115 hold cells (`hold9290`-`hold9404`: 110 `sky130_fd_sc_hd__dlygate4sd3_1`,
+   3 `clkbuf_4`, 2 `buf_4`; `results/netlist/asic_top_pnr.v.gz`). It
+   stops there because `PL_RESIZER_ALLOW_SETUP_VIOS` /
+   `GRT_RESIZER_ALLOW_SETUP_VIOS` are false (LibreLane defaults,
+   `results/config/resolved.json`) and the violating endpoints overlap the
+   SS setup violators - 63 of the 87 TT and 78 of the 142 FF hold-violating
+   endpoints are also SS setup-violation endpoints (9.9/1; 63 of the 2,219
+   SS setup paths end on SRAM macro pins) - so further delay insertion
+   would deepen an already negative setup slack and `repair_timing -hold`
+   correctly declines. The metric `design__instance__count__hold_buffer = 0`
+   in `metrics.json` is the last resizer step's own insertion counter, not
+   a netlist census; the netlist figure above is authoritative.
+   *Conclusion:* the limitation is a clock-tree / floorplan integration
+   effect of a 4,180 x 4,490 um die with 27 macros, declared with its
+   mechanism and bounded by measurement; it is not a consequence of the
+   DDK-approved Liberty substitution, not an RTL defect, and not located in
+   the JTAG/DM subsystem. Under the DDK ruling of 8 September 2026
+   (`DDK_KARARLARI.md` item 8) these hold exceptions are the reason no
+   verified ASIC operating frequency is declared (9.1). The delivery is at macro level
    (Section 2); the limit is declared with its mechanism.
 3. **`i2c_sda_i` 2FF synchronizer - APPLIED.** The RTL review of the
    August 14 run noted that `i2c_sda_i` was sampled without a synchronizer;
@@ -583,9 +672,22 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
      **cannot be attributed to the vendor macro**; the phrase
      "vendor macro noise" present in earlier revisions was removed
      because it was not supported by measurement.
-   - On the same GDS, **KLayout DRC returns 0 across all 257 rules**;
-     furthermore LVS is 0 and XOR is 0, i.e. netlist equivalence and the
-     geometry of the two flows are verified.
+   - **Input basis of the two DRC runs differs (declared):** the Magic DRC
+     step of this run reads the DEF plus abstract cell views (`config.yaml`
+     `MAGIC_DRC_USE_GDS: false`), whereas **KLayout DRC runs on the
+     streamed-out GDS and returns 0 across all 257 rules**; Netgen LVS is a
+     real GDS extraction (`MAGIC_EXT_USE_GDS: true`) with 0 errors, and the
+     Magic/KLayout streamout XOR is 0 (a streamout consistency check, not a
+     rule check). Under the DDK ruling of 8 September 2026 (the final
+     signoff DRC must be GDS-based; a LEF/DEF-based result is supporting
+     evidence only; XOR does not replace a DRC - `DDK_KARARLARI.md` item 9)
+     the GDS-based signoff DRC of this delivery is the KLayout result, and
+     that check covers the full geometry including the 27 pre-approved SRAM
+     macros (no blackboxing). The Magic figure is reported unmodified as the
+     abstract-view result it is; a GDS-based Magic DRC of the same GDSII was
+     not re-run before the freeze because the deliverables rule (Final
+     Deliverables document section 7: files from the same LibreLane run,
+     no post-flow edits) was given priority over a mixed-run report set.
    - **ROOT CAUSE MEASURED — NOT missing taps.** The positions of the
      135,957 tap cells (1,605 rows) were extracted from the final DEF of
      `RUN_final_2026-09-06` and the nearest-tap distance from each
@@ -606,11 +708,13 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
    - **Assessment:** `nwell.4` is a connectivity-aware rule; it requires
      not only the presence of a tap but also that it be metal-connected.
      Given that geometric deficiency was ruled out by measurement, that
-     KLayout returns 0 across 257 rules on the same GDS, and that LVS
-     verified netlist equivalence with 0 errors (including VPWR/VGND
-     connections), the markers point not to a design defect but to
-     Magic's connectivity-resolution limit from GDS. It is therefore
-     declared an **accepted exception**.
+     KLayout returns 0 across 257 rules on the GDS, and that LVS verified
+     netlist equivalence with 0 errors (including VPWR/VGND connections),
+     the markers point not to a design defect but to Magic's connectivity
+     resolution on the DEF + abstract-view input of this run
+     (`MAGIC_DRC_USE_GDS: false`): an abstract cell view carries no
+     metal-connected tap geometry for a connectivity-aware rule to resolve.
+     It is therefore declared an **accepted exception**.
    - Reproduction: `python3 scripts/tap_analiz.py results/def/<design>.def
      reports/drc/drc.magic.rpt` (repeats the measurement).
    - Note: the Magic steps **do complete** in the flow; the report has
@@ -675,6 +779,16 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
    - *SRAM Liberty substitution (Aug 17, 2026):* the TT_1p8V_25C model is
      accepted as a documented substitute in the SS/FF analyses; no
      scaling is required (section 9.5).
+   - *Verified operating frequency (Sep 8, 2026):* only a frequency that
+     closes setup AND hold in all mandatory corners counts as verified; a
+     negative-slack frequency is the target - hence the wording of 9.1 and
+     9.11 ("target 50 MHz, no verified ASIC frequency").
+   - *GDS-based signoff DRC (Sep 8, 2026):* LEF/DEF-based DRC is supporting
+     evidence only and XOR does not replace a DRC - hence the KLayout run is
+     named as the GDS-based signoff DRC in 9.9/4 and 9.11.
+   - *FPGA and ASIC frequencies may differ (Sep 8, 2026):* performance is
+     reported per implementation at its own verified frequency - root
+     README sections 11.5 and 13.8.
 
 9. **JTAG debug subsystem - part of the delivered chip; one timing note
    and two accepted limitations.** The specification lists JTAG as optional
@@ -739,6 +853,14 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
    - Licences: `asic/licenses/riscv-dbg_SHL-0.51.txt`,
      `common_cells_v1.38.0_SHL-0.51.txt`, `tech_cells_generic_SHL-0.51.txt`
      (9.13); pins in `rtl/debug/VENDOR.md`.
+
+10. **`rst_ni` release is not synchronized inside `asic_top` (integration
+    requirement, declared).** The delivered macro has no pad ring; a 2-FF
+    release synchronizer on `rst_ni` is an integration requirement of the
+    chip top level (the FPGA prototype implements it in `rtl/fpga_top.sv`,
+    `rst_sync_n`). No signoff number depends on it: the reset network's
+    recovery/removal checks are timed from the `dm_ndmreset` startpoint and
+    close at all three corners (9.6).
 
 ## 9.10 Power and IR-Drop Analysis
 
@@ -806,9 +928,9 @@ Corner set: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 |---|---|
 | Route (TritonRoute) DRC | **0** |
 | KLayout DRC | **0** (257 rules, all zero) |
-| Magic DRC | 9,201 — all from a single rule (`nwell.4`); root cause measured, accepted exception (9.9/4) |
+| Magic DRC (DEF + abstract-view input, `MAGIC_DRC_USE_GDS: false`; the GDS-based signoff DRC is the KLayout row) | 9,201 — all from a single rule (`nwell.4`); root cause measured, accepted exception (9.9/4) |
 | Netgen LVS (real GDS extraction) | **0 errors / 0 device differences** |
-| XOR (Magic vs KLayout GDS) | **0** |
+| XOR (Magic vs KLayout GDS; streamout consistency check, not a DRC) | **0** |
 | Antenna violations | **0 nets / 0 pins** (101 diodes inserted, `antenna_diodes_count`) |
 | Disconnected pins | 880 (classification: note below the table) |
 | PDN grid errors (VPWR / VGND) | **0 / 0** (report files empty) |
@@ -818,6 +940,7 @@ Corner set: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 | Hold WS (tt / ss / ff) | -0.309 / -0.122 / -0.290 ns (section 9.9/2) |
 | Hold TNS (tt / ss / ff) | -8.36 / -0.40 / -13.16 ns |
 | Hold violation count (tt / ss / ff) | 87 / 5 / 142 |
+| **Verified operating frequency** (DDK definition of 8 Sep 2026: setup + hold closed in all mandatory corners) | **none declared** — target 50 MHz; setup closes in TT/FF only (SS setup limit ~32.7 MHz); hold negative in all three corners (9.1, 9.9/2) |
 | Max cap violation count (tt / ss / ff) | 224 / 647 / 194 |
 | Max slew violation count (tt / ss / ff) | 5,506 / 34,716 / 2,852 |
 | Power (total, estimated, tt corner) | **117.2 mW** |

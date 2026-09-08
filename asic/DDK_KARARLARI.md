@@ -188,4 +188,141 @@ the reference family (Spansion S25FL256S). The decision's principle
 RX FIFO declaration rests on (README 9.9 and
 `docs/oznitelik_vektoru_formati.md`).
 
-<!-- English translation of DDK_KARARLARI.md, 2026-09-01; numeric values converted from Turkish to English number format. -->
+---
+
+## 8. Definition of the Verified Operating Frequency (8 September 2026, Google Groups "2026 ÇİP TASARIM YARIŞMASI", reply to a question of 15:45)
+
+> SDC içerisinde tanımlanan saat periyodu/frekansı tasarımın hedef çalışma
+> frekansını ifade eder. Ancak yalnızca SDC içerisinde daha yüksek bir
+> frekans tanımlanmış olması, tasarımın bu frekansta zamanlamayı kapattığı
+> anlamına gelmez. [...] Dolayısıyla bir çalışma frekansının zamanlama
+> açısından başarıyla elde edilmiş kabul edilebilmesi için ilgili saat
+> kısıtı altında zorunlu signoff corner'larında setup ve hold zamanlamasının
+> kapanması beklenir. Negatif setup slack bulunan bir frekans, yalnızca
+> hedeflenen frekanstır; zamanlaması doğrulanmış çalışma frekansı olarak
+> değerlendirilmez. [...] DRC, LVS, anten, zamanlama ve diğer signoff
+> sonuçları ise değerlendirmede birlikte dikkate alınmaktadır. Bu
+> kontrollerden birinde ihlal bulunması tasarımı otomatik olarak geçersiz
+> hâle getirmez; ancak ilgili değerlendirme kalemini ve genel tasarım
+> kalitesi değerlendirmesini etkileyebilir.
+
+(EN: The clock period/frequency defined in the SDC expresses the design's
+target operating frequency. Merely defining a higher frequency in the SDC
+does not mean the design closes timing at that frequency. [...] For an
+operating frequency to be accepted as achieved, setup and hold timing must
+close in the mandatory signoff corners under that clock constraint. A
+frequency with negative setup slack is only the targeted frequency; it is
+not evaluated as a timing-verified operating frequency. [...] DRC, LVS,
+antenna, timing and the other signoff results are considered together; a
+violation in one of them does not automatically invalidate the design, but
+it can affect that evaluation item and the overall quality assessment.)
+
+**Impact on our submission:** this is the decision that bears directly on
+our section 9.1 declaration. Our SDC target is 50 MHz (`design.sdc`
+`create_clock -period 20.000`; `config.yaml` CLOCK_PERIOD = 20). Setup
+closes in TT (+1.684 ns) and FF (+4.010 ns) but not in SS (WS -10.537 ns,
+2,219 paths); hold is negative in all three corners (TT -0.309 / SS -0.122 /
+FF -0.290 ns; 87 / 5 / 142 paths, classified in 9.9/2). Under this
+definition 50 MHz is our **targeted** frequency and, because hold does not
+close anywhere, **no verified ASIC operating frequency is declared**; the
+SS figure of ~32.7 MHz is reported only as that corner's setup-side limit.
+No measured number changed; what changed on 8 September is the wording of
+9.1, 9.11 and root README sections 11.5 / 13.7, which previously read
+"50 MHz target met" for the TT corner. The FPGA prototype is verified at
+50 MHz in the full sense (root README section 12.4).
+
+---
+
+## 9. Final Signoff DRC Must Be GDS-Based; XOR Does Not Replace a DRC (8 September 2026, replies of 15:49 and 15:52)
+
+> LEF+DEF üzerinden elde ettiğiniz [...] sonuç ve buna ilişkin tapcell pitch
+> analizi, problemin kaynağını açıklayan destekleyici bir analiz olarak
+> sunulabilir. Ancak yarışma kapsamında nihai signoff DRC sonucu olarak GDS
+> tabanlı kontroller esas alınmalıdır. Bu nedenle LEF+DEF üzerinden elde
+> edilen sonuç nihai DRC sonucu yerine geçmez. SRAM makrolarının top-level
+> DRC sırasında blackbox olarak ele alınması ise tek başına bir ihlal
+> değildir. [...] SRAM, yarışmada sağlanan hazır ve onaylanmış SRAM
+> makrolarından biri ise makronun kendi DRC/LVS kontrollerinin takım
+> tarafından yeniden gerçekleştirilmesi zorunlu değildir. [...] DRC kural
+> dosyalarının, PDK'nın veya kontrol eşiklerinin değiştirilmemesi ve
+> kullanılan yöntemin/config değişikliklerinin README içerisinde açıkça
+> belirtilmesi gerekmektedir.
+>
+> Magic ve KLayout tarafından üretilen GDSII dosyaları arasındaki XOR
+> sonucunun Total XOR differences: 0 olması, iki GDSII görünümünün geometrik
+> olarak birbiriyle uyumlu olduğunu göstermektedir. Bununla birlikte XOR
+> kontrolü, Magic DRC kontrolünün yerine geçmez. Yarışma kapsamında Magic
+> DRC ve KLayout DRC sonuçları ayrı fiziksel signoff çıktıları olarak
+> değerlendirilmektedir.
+
+(EN: A LEF+DEF-based result and its tapcell-pitch analysis may be presented
+as supporting analysis explaining the source of a problem, but within the
+competition the final signoff DRC result must be GDS-based; a LEF+DEF result
+does not replace the final DRC. Treating SRAM macros as blackboxes during
+top-level DRC is not in itself a violation; for the ready-made, approved SRAM
+macros the team need not redo the macro's own DRC/LVS. DRC rule files, the
+PDK and check thresholds must not be modified, and the method/config changes
+used must be stated clearly in the README. A zero XOR between the Magic and
+KLayout GDSII views shows geometric consistency but does not replace the
+Magic DRC check; Magic DRC and KLayout DRC are evaluated as separate signoff
+outputs.)
+
+**Impact on our submission:** two wording corrections and one open item,
+all recorded in 9.9/4 and 9.11.
+- Our Magic DRC step ran with `MAGIC_DRC_USE_GDS: false`, i.e. on the DEF
+  plus abstract cell views; the 9,201 `nwell.4` markers are that run's
+  result. Under this decision it cannot be offered as the final DRC and is
+  now labelled as the abstract-view result it is.
+- The GDS-based signoff DRC of the delivery is the **KLayout run: 0 across
+  257 rules on the streamed-out GDS**, covering the full geometry including
+  the 27 pre-approved SRAM macros (no blackboxing was needed). Netgen LVS is
+  a real GDS extraction with 0 errors. The XOR row is kept but relabelled as
+  a streamout consistency check.
+- Open item, declared: a GDS-based Magic DRC of the same GDSII was not
+  re-run before the freeze; the Final Deliverables rule that files come from
+  the same LibreLane run and are not edited after the flow was given
+  priority over a mixed-run report set.
+
+---
+
+## 10. FPGA and ASIC Need Not Share a Frequency; Performance per Implementation (8 September 2026, replies of 15:56 and 15:59)
+
+> FPGA prototipi ile ASIC fiziksel tasarımının aynı saat frekansında
+> çalışması zorunlu değildir. [...] Her iki akışın da kendi çalışma
+> frekansında ilgili zamanlama gereksinimlerini sağlaması ve kullanılan
+> frekansların raporlarda açıkça belirtilmesi gerekmektedir. ASIC tarafında
+> nihai çalışma frekansı değerlendirilirken, zorunlu signoff corner'larında
+> parazitik çıkarım sonrası Post-PnR STA sonuçları esas alınmalıdır. YZ
+> hızlandırıcı performansı raporlanırken de kullanılan frekans açıkça
+> belirtilmelidir. Veri/saat döngüsü metriği ile veri/saniye metriği ayrı
+> olarak verilmelidir. Veri/saniye hesabında hangi implementasyon
+> değerlendiriliyorsa o implementasyonda doğrulanmış çalışma frekansı
+> kullanılmalıdır. [...] FPGA ve ASIC arasındaki frekans farkının nedeni ve
+> her iki akışta kullanılan saat kısıtları raporda kısaca açıklanmalıdır.
+
+(EN: The FPGA prototype and the ASIC physical design need not run at the
+same clock frequency. Each flow must meet its timing requirements at its
+own frequency and the frequencies used must be stated clearly in the
+reports; on the ASIC side the final operating frequency is judged on the
+post-PnR STA after parasitic extraction in the mandatory signoff corners.
+When reporting AI-accelerator performance the frequency used must be
+stated; the data-per-clock-cycle and data-per-second metrics must be given
+separately, and the data-per-second figure must use the verified operating
+frequency of the implementation being evaluated. The reason for the
+FPGA/ASIC frequency difference and the clock constraints of both flows
+must be explained briefly in the report.)
+
+**Impact on our submission:** both implementations target the same 50 MHz,
+but only the FPGA verifies it (Vivado post-implementation: WNS +2.433 ns /
+WHS +0.059 ns, 0 failing endpoints among 24,260 setup / 24,257 hold - root
+README section 12.4). On the ASIC the same 50 MHz is a target (item 8). The
+cycle count per inference (459,016; 459,065 measured on the board) is
+identical in both implementations because the RTL is the same; the
+inference/s figures are therefore given per implementation in root README
+section 11.5 (FPGA at the verified 50 MHz; ASIC rows explicitly marked as
+target / setup-limit figures, not verified-frequency figures), and the
+implementation differences with the reason for the frequency gap (target
+technology and PVT signoff, not design) are tabulated in root README
+section 13.8.
+
+<!-- English translation of DDK_KARARLARI.md, 2026-09-08; numeric values converted from Turkish to English number format. -->

@@ -45,7 +45,7 @@
 
 **BLogic MCU** is a 32-bit RISC-V based System-on-Chip (SoC) developed by **BLogic Mikroelektronik (Ostim Technical University)** for the **TEKNOFEST 2026 Chip Design Competition, Microcontroller Design Category**. The system is built around the open-source **CV32E40P** processor core (RV32IMC, 4-stage in-order pipeline) and integrates an AXI4 / AXI4-Lite bus fabric, on-chip SRAMs, a Boot ROM with QSPI boot loader, a full set of peripherals (UART × 2, GPIO, Timer, I²C Master, QSPI Master), and a custom **TFLite Micro Speech** hardware AI accelerator.
 
-The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, a UVM environment covering **four peripheral blocks (8/8 tests passing)**, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite (46/46), and end-to-end AI accuracy regression (**1000/1000 samples bit-exact**; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). SoC-level line coverage is **90.7 %** (branch 88.6 %; the JTAG bridge reaches 100 % under its own testbench), with every remaining uncovered line classified and justified in `verif/coverage_siniflandirma.md`. The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +2.538 ns` / `WHS = +0.085 ns` (timing met, zero failing endpoints across 24,248 setup and 24,245 hold endpoints; `jtag_tck` domain WNS +94.703 ns) and `0.328 W` total estimated on-chip power. On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). The chip also carries the specification's optional JTAG debug interface — a PULP riscv-dbg debug module on an IEEE 1149.1 TAP, connected to the CV32E40P debug port — exercised with OpenOCD and gdb in simulation and, through the board's own USB-JTAG, on the Genesys 2 (§10.10). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
+The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, a UVM environment covering **four peripheral blocks (8/8 tests passing)**, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite (46/46), and end-to-end AI accuracy regression (**1000/1000 samples bit-exact**; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). SoC-level line coverage is **90.7 %** (branch 88.6 %; the JTAG bridge reaches 100 % under its own testbench), with every remaining uncovered line classified and justified in `verif/coverage_siniflandirma.md`. The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +2.433 ns` / `WHS = +0.059 ns` (timing met, zero failing endpoints across 24,260 setup and 24,257 hold endpoints; `jtag_tck` domain WNS +94.976 ns) and `0.328 W` total estimated on-chip power. On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). The chip also carries the specification's optional JTAG debug interface — a PULP riscv-dbg debug module on an IEEE 1149.1 TAP, connected to the CV32E40P debug port — exercised with OpenOCD and gdb in simulation and, through the board's own USB-JTAG, on the Genesys 2 (§10.10). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
 
 ---
 
@@ -987,7 +987,7 @@ ended with the same deferred error as the 14 August run (hold violations, exit 2
 | Setup WNS TT / SS / FF (ns) | +2.210 / −9.083 / +4.375 | **+2.303 / −11.983 / +4.390** | +0.09 / **−2.90** / +0.02 |
 | Hold WNS TT / SS / FF (ns) | −0.323 / +0.227 / −0.382 | −0.611 / −0.381 / −0.539 | −0.29 / −0.61 / −0.16 |
 | Hold-violating endpoints TT / SS / FF | 48 / 0 / 112 (AI accel → SRAM, §9.9) | 136 / 13 / 207 — **0 in JTAG logic** | same family, more endpoints |
-| SS closes at | ≈34.4 MHz | ≈31.3 MHz | −3.1 MHz |
+| SS setup-side closing point (hold not closed in either build, §13.7) | ≈34.4 MHz | ≈31.3 MHz | −3.1 MHz |
 | Std-cell instances / area | 296,010 / 1.249 mm² | 309,985 / 1.337 mm² | +4.7 % / +7.0 % |
 | Sequential cells | 8,920 | 10,094 | +1,174 |
 | Utilization (with macros / std-cell) | 49.9 % / 12.3 % | 50.4 % / 13.2 % | +0.5 / +0.9 pt |
@@ -1251,10 +1251,20 @@ the SoC, so both numbers come from the same clock and the same memory system.
 
 Throughput derived from the cycle counts:
 
-| System clock | HW inference/s | HW throughput | SW inference/s | SW throughput |
-|---|---|---|---|---|
-| 50 MHz (target) | 108 | 211.7 kB/s | 5 | 9.8 kB/s |
-| 100 MHz (reference) | 217 | 425.3 kB/s | 10 | 19.6 kB/s |
+| Implementation | Clock basis | HW inference/s | HW throughput | HW latency | SW inference/s | SW throughput |
+|---|---|---|---|---|---|---|
+| **FPGA — Genesys 2, delivered bitstream** | **50 MHz, verified** (WNS +2.433 / WHS +0.059 ns, §12.4; board-measured 459,065 cycles) | **108** | **211.7 kB/s** | **9.18 ms** | 5 | 9.8 kB/s |
+| ASIC — sky130, TT corner | 50 MHz **target** (setup +1.684 ns; hold not closed, §13.7) | 108 | 211.7 kB/s | 9.18 ms | 5 | 9.8 kB/s |
+| ASIC — sky130, SS corner | ~32.7 MHz **setup-side limit** (not a verified frequency, §13.7) | 71 | 139.2 kB/s | 14.04 ms | 3 | 5.9 kB/s |
+| Scale reference (no implementation) | 100 MHz | 217 | 425.3 kB/s | 4.59 ms | 10 | 19.6 kB/s |
+
+The cycle count is the same in both implementations (same RTL); each row uses the clock
+that is actually signed off for that implementation, as the DDK ruling of 8 September 2026
+requires (performance per implementation at its verified frequency). **No ASIC row is a
+verified-frequency figure**: the ASIC has no operating frequency that closes both setup and
+hold in all three mandatory corners (§13.7); the ASIC rows are derived from the STA slack of
+`RUN_final_2026-09-06`, not from `make soc-perf`. The 21.0 × hardware/software speed-up is
+frequency-independent and holds on every row.
 
 Input is `yes_real` — a real speech feature vector from the TFLite Micro Speech dataset,
 not a synthetic pattern. Source: `sw/tests/ai_sw_reference.c`.
@@ -1263,7 +1273,7 @@ not a synthetic pattern. Source: `sw/tests/ai_sw_reference.c`.
 the entire gap: the `tflite_requant` pipeline cut plus the `data_sram` output register
 (timing closure) cost +5.2 % cycles (436,344 → **459,016**) and bought the ASIC frequency
 ceiling (38.2 → 45.0 MHz at the time of the change; the final LibreLane 3.0.6 signoff
-closes **50 MHz with +1.684 ns of TT slack** — see §13.7) without changing
+closes setup at **50 MHz in the TT corner with +1.684 ns of slack**; the SS corner and hold do not close, so no verified ASIC frequency is declared — see §13.7) without changing
 any result — `conv_out` remains 1000 / 1000 words bit-exact. The software baseline is
 essentially unchanged (9,683,882 → 9,684,726, +0.009 %): 22.1 × (436,344 ÷) → 21.0 ×
 (459,016 ÷), same truncating arithmetic as the on-chip report (`(sw × 10) / hw`,
@@ -1868,16 +1878,17 @@ that the exploration tables of §10.10 compare against.
 | Standard cells | 310,510 instances (2.58 M total incl. fill + tap) |
 | SRAM macros | **27** (26 × `sky130_sram_2kbyte_1rw1r_32x512_8` + 1 × `32x256`), hand-placed 4 × 7 grid |
 | Routing | 6.52 m wire, 812,086 vias, **routing DRC = 0** |
-| **Setup (tt_025C_1v80)** | **+1.684 ns @ 50 MHz — target met** (fmax ≈ 54.6 MHz) |
-| Setup (ff_n40C_1v95) | +4.010 ns (met) |
-| Setup (ss_100C_1v60) | −10.537 ns → **~32.7 MHz closes** at the SS corner (worst path is a pure std-cell CPU path, `id_stage` → ALU/divider → `id_stage`; declared openly, see `asic/README.md` §9.9) |
-| Hold | TT 87 / SS 5 / FF 142 violations — of the FF paths, 50 end at SRAM-macro pins under a deliberately pessimistic derate, 78 are launched from the debug module into CPU registers, 14 are boot-ROM/bridge/CPU-internal; no violating path ends in JTAG/DM logic — root-caused in `asic/README.md` §9.9/2 |
+| **Setup (tt_025C_1v80)** | **+1.684 ns @ 50 MHz — setup closes in this corner** (fmax ≈ 54.6 MHz) |
+| Setup (ff_n40C_1v95) | +4.010 ns (setup closes) |
+| Setup (ss_100C_1v60) | −10.537 ns; the setup-side closing point of this corner is ≈32.7 MHz (worst path is a pure std-cell CPU path, `id_stage` → ALU/divider → `id_stage`; declared openly, see `asic/README.md` §9.9/1). **A setup-side figure, not a verified operating frequency** — see the row below |
+| Hold (all three corners) | **−0.309 / −0.122 / −0.290 ns**, TT 87 / SS 5 / FF 142 reg-to-reg violations — of the FF paths, 50 end at SRAM-macro address/chip-select/data-in pins, 78 are launched from the debug module into CPU registers, 14 are boot-ROM/bridge/CPU-internal; no violating path ends in JTAG/DM logic. Mechanism measured: clock-tree skew to the macro clock pins (1.88 ns at TT), not logic depth and not the SRAM Liberty substitution; 115 hold delay cells are in the netlist — `asic/README.md` §9.9/2. Hold is period-independent, so it is not removed by slowing the clock |
+| **Verified operating frequency** (DDK ruling of 8 September 2026: setup **and** hold closed in all mandatory corners) | **none declared for the ASIC** — 50 MHz is the target (setup closes in TT/FF, SS setup limit ≈32.7 MHz, hold negative in all three corners). The FPGA implementation of the same RTL is verified at 50 MHz (§12.4). Why they differ: target technology and PVT signoff, not design — §13.8 |
 | **KLayout DRC** | **0** (257 rules) |
 | **LVS (Netgen, GDS extraction)** | **"Circuits match uniquely"** — 0 errors (top level 92,149 devices / 81,121 nets after parallel-device merge) |
-| XOR (Magic vs KLayout GDS) | **0** |
+| XOR (Magic vs KLayout GDS; streamout consistency check, not a DRC) | **0** |
 | Antenna | **0** nets / 0 pins (101 diodes inserted) |
 | PDN | 0 grid errors; IR-drop **0.05 % VPWR / 0.06 % VGND** (0.95 mV drop / 1.00 mV rise) |
-| Magic DRC | 9,201 markers, **all one rule (`nwell.4`)** — measured root-cause analysis (every marker ≤ 6.13 µm from a tap, 0 markers inside SRAM footprints) documents it as a Magic connectivity-resolution artefact; KLayout/LVS/XOR are clean on the same GDS (`asic/README.md` §9.9/4) |
+| Magic DRC (DEF + abstract-view input, `MAGIC_DRC_USE_GDS: false`; the GDS-based signoff DRC is the KLayout row) | 9,201 markers, **all one rule (`nwell.4`)** — measured root-cause analysis (every marker ≤ 6.13 µm from a tap, 0 markers inside SRAM footprints) documents it as a Magic connectivity-resolution artefact; KLayout/LVS/XOR are clean on the same GDS (`asic/README.md` §9.9/4) |
 | Power (estimated, no VCD) | TT **117.2 mW** (SRAM 63 %, clock 18 %, seq. 17 %) |
 | Lint | Verilator **0 errors** / 979 warnings, no waivers |
 
@@ -1891,6 +1902,46 @@ that the exploration tables of §10.10 compare against.
 <p align="center"><sub>Zoomed die crops from the delivered GDS — left: 80 µm window of standard-cell rows (PDN hidden); right: SRAM macro edge (bitcell array, word-line drivers). More crops (25 &micro;m transistor-level window): <code>asic/README.md</code> §9.7.</sub></p>
 
 ---
+
+### 13.8 FPGA vs ASIC — Implementation Differences and Per-Implementation Performance
+
+Both implementations are built from the **same RTL and the same `soc_files.f`
+design defines** (`JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC`, `BOOTROM_CONTENT`); the
+only functional switch that differs is `ASIC_SRAM_MACRO`. Everything else below is
+wrapper or technology, not behaviour — the isolation proof is `make jtag-equiv`
+(§10.10), and `make asic-top-sim` runs `asic_top` itself with all 27 macros against
+the same golden vector the FPGA build matches on the board (§13.4). This section is
+the summary the DDK ruling of 8 September 2026 asks for (differences between the two
+implementations, the reason for any frequency difference, performance reported per
+implementation — `asic/DDK_KARARLARI.md` items 8 and 10).
+
+| Aspect | FPGA (Genesys 2, Kintex-7 XC7K325T-2) | ASIC (sky130A, LibreLane 3.0.6) | Where it is switched |
+|---|---|---|---|
+| Top module | `rtl/fpga/fpga_top.sv` (IBUFDS, MMCME2, BUFG, IOBUF, OLED pins) | `rtl/asic/asic_top.sv` — 21 ports, clock and reset from pads | separate file lists (`soc_files.f` / `asic/filelist.f`) |
+| Synthesis defines | `JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC`, `BOOTROM_CONTENT` | the same four **plus** `SYNTHESIS`, `ASIC_SRAM_MACRO` | `asic/filelist.f` vs `rtl/fpga/build_genesys2.tcl` |
+| SRAM implementation | behavioural arrays inferred as Block RAM — 14 BRAM 36k tiles (13 × RAMB36 + 2 × RAMB18) | **27 SKY130 SRAM macros** (26 × `sky130_sram_2kbyte_1rw1r_32x512_8` + 1 × `sky130_sram_1kbyte_1rw1r_32x256_8`), hand-placed 4 × 7 grid | `ASIC_SRAM_MACRO` in the SRAM wrappers and `ai_accelerator.sv` |
+| **SRAM read latency** | address at T, data at T+1 | address at T, data at T+1 — **identical** | only the position of the output register differs; `slv.r_data` from a common `rdata_src` (§13.4) |
+| SRAM contents at power-up | `$readmemh` / BRAM INIT baked into the bitstream | no preload — boot ROM + QSPI bootloader load firmware, data and AI weights over the bus | `ifndef ASIC_SRAM_MACRO` block of the SRAM wrapper |
+| QSPI TX/RX FIFO depth | 64 words each | 64 words each — identical, no `ifdef` | `rtl/peripherals/qspi_master_axil.sv` (`FIFO_DEPTH = 64`) |
+| Boot ROM | synthesised `case` ROM, `BOOTROM_CONTENT` on | the same synthesised `case` ROM, `BOOTROM_CONTENT` on | no difference |
+| Clock source | 200 MHz LVDS → IBUFDS → MMCME2 → BUFG → 50 MHz | `clk_i` pad at 50 MHz; no PLL/MMCM on chip | §12.2 vs `asic/constraints/design.sdc` |
+| Reset release | 2-FF release synchronizer in `fpga_top` (`rst_sync_n`) | `rst_ni` pad straight into `soc_top`; release synchronization is an integration requirement outside the macro | `asic/README.md` §9.6, §9.9/10 |
+| CPU clock gate | vendor `cv32e40p_sim_clock_gate.sv` (BUFGCE on the board) | `rtl/asic/cv32e40p_clock_gate_asic.sv` | §13.5 |
+| JTAG TAP access | Xilinx `BSCANE2` USER3/USER4 through the board USB-JTAG — no extra pins | 5 dedicated pads (`jtag_tck_i`, `jtag_tms_i`, `jtag_tdi_i`, `jtag_trst_ni`, `jtag_tdo_o`) | §12.1, §10.10 |
+| JTAG clock domain | BSCANE2 `jtag_tck`, 100 ns, 320 endpoints, WNS +94.976 ns | `jtag_tck` 100 ns, asynchronous clock group, `jtag_trst_ni` false path | §12.4 vs `asic/README.md` §9.6 |
+| Resource / area | 13,772 LUT (6.76 %), 9,756 FF (2.39 %), 10 DSP48E1, 49 IOB, 1 MMCM, 3 BUFG, 2 BSCANE2 | 310,510 std-cell instances (2.58 M incl. fill/tap), die 4180 × 4490 µm = 18.77 mm², utilization 50.40 % | §12.4 vs §13.7 |
+| Power (estimated) | 0.330 W (dynamic 0.167 + static 0.163), Vivado | 117.2 mW, no VCD (SRAM 63 %, clock 18 %, seq. 17 %) | §12.4 vs §13.7 / `asic/README.md` §9.10 |
+| **Timing status at the 50 MHz target** | **Verified**: WNS +2.433 ns / WHS +0.059 ns, 0 failing among 24,260 setup / 24,257 hold endpoints | **Target only**: setup closes in TT (+1.684 ns) and FF (+4.010 ns), not in SS (−10.537 ns, setup limit ≈32.7 MHz); hold negative in all three corners (−0.309 / −0.122 / −0.290 ns) → **no verified ASIC frequency** | `rtl/fpga/reports/impl_timing_summary.rpt` vs `asic/reports/timing/`, `asic/README.md` §9.1 |
+| Why the frequencies differ | one operating point, hold-safe fabric routing, BRAM primitives | three PVT signoff corners on sky130A; the SS corner's CPU ALU cone (§9.9/1) and the clock-tree skew to 27 macro clock pins (§9.9/2) are corner-physics and floorplan effects of the target technology, not RTL differences | `asic/README.md` §9.9 |
+| Signoff evidence | 0 failed routes (19,973 / 19,973), impl DRC 0 errors, live board 1000/1000 sweep and jury-tool 156/156 + 200/200 | routing DRC 0, KLayout DRC 0 (257 rules, GDS-based), LVS "Circuits match uniquely", XOR 0, antenna 0; Magic DRC reported on the abstract-view input (§13.7) | §12.4 / §12.6 vs §13.7 |
+
+**Per-implementation performance.** Cycles per inference are identical (459,016 in
+simulation, 459,065 measured on the board; 21.0 × over the software baseline, both
+frequency-independent). Data per second is therefore quoted per implementation at its
+own clock basis in §11.5: the FPGA at its verified 50 MHz (108 inference/s, 211.7 kB/s,
+9.18 ms), the ASIC only as target / setup-limit figures (50 MHz target: the same 108
+inference/s; SS setup limit ≈32.7 MHz: 71 inference/s, 139.2 kB/s, 14.04 ms), with no
+ASIC figure claimed as a verified-frequency result.
 
 ## 14. Software Test Suite
 
@@ -1989,7 +2040,7 @@ This project was developed by **BLogic Mikroelektronik** for the **TEKNOFEST 202
 
 | Component | Author | License | Path |
 |---|---|---|---|
-| CV32E40P core | OpenHW Group | Solderpad Hardware Licence v2.1 | `rtl/core/cv32e40p/` |
+| CV32E40P core | OpenHW Group | Solderpad Hardware Licence v0.51 | `rtl/core/cv32e40p/` |
 | PULP `axi` library | PULP Platform | Solderpad Hardware Licence v0.51 | `rtl/bus/axi/` |
 | PULP `common_cells` | PULP Platform | Solderpad Hardware Licence v0.51 | `rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/` |
 | `verilog-uart` | Alex Forencich | MIT | `rtl/peripherals/verilog-uart/` |
