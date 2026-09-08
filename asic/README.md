@@ -72,6 +72,10 @@ Therefore **no verified ASIC operating frequency is declared**: 50 MHz is
 reported as the target, ~32.7 MHz only as the SS setup limit, and the hold
 exceptions stay declared beside both. The STA reports for all three corners
 are delivered in full (`reports/timing/`); details: sections 9.9 and 9.11.
+For reference, the August 14 signed run of the JTAG-less RTL gave setup
++2.210 / -9.083 / +4.375 ns and hold -0.323 / +0.227 / -0.382 ns (TT / SS /
+FF); the change is the debug module's effect on the clock tree - 9.7 and the
+delta table in 9.11.1.
 The FPGA prototype of the same RTL is verified at 50 MHz in the full sense
 (WNS +2.433 ns / WHS +0.059 ns, zero failing endpoints - root README
 section 12.4); the difference is one of target technology and PVT signoff,
@@ -479,7 +483,9 @@ Measurement source: **`RUN_final_2026-09-06`** (final delivery run).
   showed that clustering the macro clock sub-tree plus obstruction-aware CTS
   and a clock wire-length cap recovers it (exploration run v3: TT setup
   +1.684 ns against +1.060 ns without the settings, hold back to the
-  JTAG-less level at all three corners, worst IR-drop 0.95 mV; the official
+  JTAG-less level at TT (-0.309 vs -0.323 ns) and better at FF (-0.290 vs
+  -0.382 ns) - SS, hold-clean on August 14 (+0.227 ns), keeps 5 endpoints at
+  -0.122 ns (9.9/2) - worst IR-drop 0.95 mV; the official
   run `RUN_final_2026-09-06` reproduces these figures, 9.11), while the
   knobs aimed directly at the mechanism (`CTS_DELAY_BUFFER_DERATE_PCT`,
   `CTS_MAX_CAP`) measured no effect and a wider resizer setup margin was
@@ -561,7 +567,12 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
    the logic depth of the core's ALU cone, which no constraint or
    clock-tree setting removes - so a dual declaration was made
    (section 9.1): TT 50 MHz / SS ~32.7 MHz. The reports for all three
-   corners are complete.
+   corners are complete. August 14 signed run: -9.083 ns / 2,521 endpoints
+   (setup-side ~34.4 MHz). Of the -1.454 ns change, -1.179 ns came with the
+   debug module (exploration run v2, same RTL, default CTS: -10.262 ns) and
+   -0.275 ns with the CTS settings of 9.7 that recover TT margin (root README
+   section 10.10); the endpoint count fell to 2,219 while WS/TNS worsened,
+   and the worst path is the same ALU/divider cone in both runs.
 2. **Remaining hold violations: tt -0.309 ns (87 paths), ss -0.122 ns
    (5 paths), ff -0.290 ns (142 paths).** The worst path is the same at
    all three corners: an `i_obi_axi_instr` register -> instruction-SRAM
@@ -576,7 +587,17 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
    CPU-internal control paths; in the TT corner the same three families
    are 25 / 50 / 12 of 87, in the SS corner 4 macro pins + 1 CPU control
    path (`sleep_unit` -> `id_stage.controller`). No hold path ENDS in
-   JTAG/DM logic. The root cause of the macro family is macro clock skew:
+   JTAG/DM logic. For reference, the August 14 signed run was hold-clean in
+   the SS corner (+0.227 ns, 0 endpoints) with 48 / 112 endpoints at TT / FF,
+   and all 111 FF macro endpoints were data-in pins of the AI-side macros
+   (`din0` 77: `i_ai_sram` 34, `u_input_mem` 32, `u_conv_out` 27,
+   `u_conv_w_mem` 18; `i_instr_sram` 0). In `RUN_final_2026-09-06` the macro
+   family has moved to the instruction-SRAM address / chip-select pins
+   (`addr1` 24; `i_instr_sram` 20, `i_ai_sram` 0) - the hold-side trace of
+   the clock-tree change described in 9.7 (the delay-balancing chain now
+   sits on the instruction-SRAM branch) - and the 5 SS endpoints (4
+   `i_instr_sram` pins + `sleep_unit` -> `controller`) belong to the same
+   family, not to debug logic. The root cause of the macro family is macro clock skew:
    CTS delivers the clock late to the macro clock pins (TT `clock.rpt`:
    network latency 3.31 ns at the earliest flop vs 5.19 ns at the latest
    macro clock pin, 1.88 ns skew); the DM -> CPU family is the read-data
@@ -812,7 +833,11 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
    Verilator model, and OpenOCD on the Genesys 2 board on September 6, 2026
    (root README Section 10.10).
    - *Timing:* the second clock domain (`jtag_tck`, 100 ns, asynchronous
-     group, 9.6) adds no constrained crossing. In the official run
+     group, 9.6) adds no constrained crossing, and the `jtag_tck` path
+     group itself closes at every corner: worst setup slack +21.29 ns (SS;
+     TT +24.34, FF +25.62), worst hold slack +0.124 ns (FF; TT +0.257,
+     SS +0.636) - `reports/timing/<corner>/max.rpt` / `min.rpt`, "Path
+     Group: jtag_tck". In the official run
      (`RUN_final_2026-09-06`) no setup or hold violating path ENDS in
      JTAG/DM logic (0 endpoints in `dm_top` / `dmi_jtag` / TAP at all
      three corners). Paths that START in the debug module do appear: 41 of
@@ -862,6 +887,20 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
     recovery/removal checks are timed from the `dm_ndmreset` startpoint and
     close at all three corners (9.6).
 
+11. **Flow warnings new in `RUN_final_2026-09-06` (absent from the August 14
+    run's `warning.log`), declared, none affects signoff:** `[CTS-0128]
+    -obstruction_aware is obsolete` (OpenROAD of this LibreLane build treats
+    `CTS_OBSTRUCTION_AWARE` as a no-op; the setting is kept as documented in
+    9.7, the measured gain of that sweep arm is therefore attributable to the
+    clock wire-length cap); `[CTS-0041] Net "i_soc.i_dmi_jtag.i_dmi_jtag_tap.
+    i_dft_tck_mux.clk_o" has 1 sinks. Skipping...` (the `jtag_tck` DFT mux
+    net has a single sink and is skipped by CTS - expected, the TAP clock
+    group closes with the margins in 9.9/9); `[RSZ-0065] max wire length
+    less than 6884u increases wire delays` (side effect of
+    `CTS_CLK_MAX_WIRE_LENGTH: 900`, accepted because the measured
+    post-resizer margin improved, 9.7). Source:
+    `reports/general/warning.log`.
+
 ## 9.10 Power and IR-Drop Analysis
 
 Measurement source: **`RUN_final_2026-09-06`** (final delivery run).
@@ -884,6 +923,10 @@ Measurement source: **`RUN_final_2026-09-06`** (final delivery run).
   1.3%. The dominant item of the power budget is memory — the expected
   picture for 27 macros. The single declared figure is the TT corner
   (**117.2 mW**); the 9.11 table carries the same value.
+  August 14 signed run: 112.1 / 104.4 / 118.3 mW (TT / SS / FF); the
+  +5.1 mW at TT (+4.5 %) is the debug module's share in the clock network
+  and sequential groups (clock 16.8 -> 18.1 %, sequential 16.1 -> 17.3 %),
+  the SRAM share is unchanged in absolute terms (9.11.1).
 
 <p align="center"><img src="results/images/power_breakdown.png" width="760" alt="power breakdown tt"></p>
 <p align="center"><sub>Total-power split, tt corner — rendered from the delivered report by <code>scripts/power_breakdown.py</code>.</sub></p>
@@ -974,6 +1017,44 @@ Corner set: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
   stem from the same corner conditions as the SS closure statement in
   9.1. Setup closure is achieved in the TT corner (WS +1.684 ns,
   TNS 0); the remaining hold violations are classified in 9.9/2.
+
+### 9.11.1 Delta against the August 14 signed run
+
+Both columns are read from the committed `summary.rpt` / `metrics.json` of
+the respective run (August 14: `origin/main-save`, JTAG-less RTL `73d8dcd`;
+final: `RUN_final_2026-09-06`). The debug module adds +14,500 standard
+cells (+4.9 %), +1,213 flip-flops and +5 pins; setup margin drops 0.526 ns
+at TT (54 % of the initial 1.150 ns loss recovered by the CTS settings of
+9.7), SS worsens 1.454 ns (9.9/1), hold worsens at SS only (0 -> 5
+endpoints, 9.9/2), power rises 5.1 mW at TT, worst IR-drop improves
+1.54 -> 0.95 mV; manufacturability signoff (route DRC / KLayout DRC / LVS /
+XOR / antenna) is 0 in both.
+
+| Metric | August 14 signed run | `RUN_final_2026-09-06` | Delta |
+|---|---|---|---|
+| Setup WS TT / SS / FF (ns) | +2.210 / -9.083 / +4.375 | +1.684 / -10.537 / +4.010 | -0.526 / -1.454 / -0.365 |
+| Setup TNS SS (ns) / violating endpoints | -10,639.4 / 2,521 | -12,533.0 / 2,219 | -1,893.6 / -302 |
+| Hold WS TT / SS / FF (ns) | -0.323 / **+0.227** / -0.382 | -0.309 / **-0.122** / -0.290 | +0.014 / **-0.349** / +0.092 |
+| Hold TNS TT / SS / FF (ns) | -6.996 / 0 / -14.680 | -8.360 / -0.399 / -13.158 | -1.364 / -0.399 / +1.522 |
+| Hold violating endpoints TT / SS / FF | 48 / **0** / 112 | 87 / **5** / 142 | +39 / +5 / +30 |
+| Hold / setup repair buffers (`metrics.json` insertion counters) | 40 / 620 | 0 / 385 | -40 / -235 (the delivered netlist nevertheless contains 115 hold cells, 9.9/2; the resizer log is not part of the delivered set) |
+| Max slew / max cap / max fanout violations (worst corner) | 30,668 / 662 / 786 | 34,716 / 647 / 865 | +4,048 / -15 / +79 |
+| Worst hold clock skew TT / SS / FF (ns) | -2.076 / -3.182 / -1.545 | -1.780 / -2.979 / -1.246 | better in all three |
+| `jtag_tck` path group (setup / hold worst slack) | - (single clock domain) | +21.29 / +0.124 ns, closed | new domain |
+| Instances total / standard cells | 2,588,379 / 296,010 | 2,578,862 / 310,510 | -9,517 / +14,500 (+4.9 %) |
+| Standard-cell area (um2) | 1,249,370 | 1,342,780 | +93,410 (+7.5 %) |
+| Sequential cells / clock buffers / clock inverters | 8,920 / 1,771 / 276 | 10,133 / 2,104 / 311 | +1,213 / +333 / +35 |
+| Utilization total / std-cell | 49.87 % / 12.33 % | 50.40 % / 13.25 % | +0.53 / +0.92 pt |
+| Die / core area | 18.77 / 17.72 mm2 | 18.77 / 17.72 mm2 | 0 |
+| I/O pins | 89 | 94 | +5 (JTAG) |
+| Power TT / SS / FF (mW, estimated) | 112.1 / 104.4 / 118.3 | 117.2 / 108.5 / 124.2 | +5.1 / +4.1 / +5.9 |
+| IR-drop worst / average | 1.54 mV / 9.8 uV | 0.95 mV / 12.5 uV | -0.59 mV / +2.7 uV |
+| Routed wire length / vias | 6.135 m / 746,392 | 6.522 m / 812,086 | +6.3 % / +8.8 % |
+| Antenna diodes inserted / antenna violations | 114 / 0 | 101 / 0 | -13 / 0 |
+| Route DRC / KLayout DRC / LVS / XOR | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 | 0 |
+| Magic DRC (`nwell.4`, abstract-view input) | 9,201 | 9,201 | 0 |
+| Unannotated nets (SPEF) | 2,438 | 2,734 | +296 |
+| New flow warnings | - | CTS-0128, CTS-0041, RSZ-0065 (9.9/11) | declared |
 
 ## 9.12 Report and Output Locations
 

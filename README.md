@@ -1088,8 +1088,9 @@ the v3 column figure for figure — TT +1.684 / SS −10.537 / FF +4.010 ns setu
 is byte-identical to the official `metrics.json`: the settings moved into the
 config give the same result as the command-line overrides (§13.7).
 
-54 % of the TT setup loss comes back, hold improves at all three corners and returns
-to the 14 August level at TT, and area and power are unchanged. The cost, stated
+54 % of the TT setup loss comes back, hold improves at all three corners relative to the
+v2 run and returns to the 14 August level at TT (against 14 August, SS is worse: +0.227 →
+−0.122 ns, 0 → 5 endpoints — `asic/README.md` §9.9/2, §9.11.1), and area and power are unchanged. The cost, stated
 plainly: SS setup loses another 0.275 ns and debug-module-launched paths re-enter
 the SS violator list (48 were counted in the step-45 sweep report; the final STA,
 byte-identical between v3 and the official run, lists 41, all launched from the

@@ -265,8 +265,9 @@ ROUTING_OBSTRUCTIONS:
 # varyant_taramasi.txt ve OZET.md). JTAG DM eklenince CTS'in gecikme-dengeleme
 # zinciri (8x clkbuf_16) CPU dalindan komut-SRAM dalina kaymis, TT setup marji
 # +2,210 -> +1,060 ns'ye dusmustu. Makro saat alt-agaci kumelemesi + engel-farkindali
-# CTS + saat teli tavani ile TT +1,684 ns; hold uc kosede JTAG'siz kosu seviyesine
-# dondu; IR-drop 1,54 -> 0,95 mV. Etkisiz olculen anahtarlar (CTS_DELAY_BUFFER_DERATE_PCT,
+# CTS + saat teli tavani ile TT +1,684 ns; hold TT'de JTAG'siz seviyeye dondu (-0,309 vs -0,323),
+# FF'te daha iyi (-0,290 vs -0,382); 14 Agustos kosusunda temiz olan SS'te 5 uc nokta -0,122 ns
+# kaldi (README 9.9/2); IR-drop 1,54 -> 0,95 mV. Etkisiz olculen anahtarlar (CTS_DELAY_BUFFER_DERATE_PCT,
 # CTS_MAX_CAP) ve zararli olan (resizer setup marji 0.15) bilerek YOK.
 CTS_MACRO_CLUSTERING_MAX_DIAMETER: 600
 CTS_MACRO_CLUSTERING_SIZE: 2
