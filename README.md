@@ -183,7 +183,7 @@ The design has been verified through Verilator-based directed and randomized sim
 │   │   ├── obi_to_axi.sv                 # OBI ↔ AXI4 bridges (CPU side)
 │   │   ├── soc_axi_interconnect.sv       # AXI4 crossbar
 │   │   ├── axi4_to_axilite_bridge.sv     # AXI4 → AXI4-Lite (peripheral feed)
-│   │   ├── periph_decoder.sv             # Address decoder (8 slaves)
+│   │   ├── periph_decoder.sv             # Address decoder (7 AXI4-Lite slaves)
 │   │   └── axi/                          # PULP-platform AXI library
 │   ├── peripherals/
 │   │   ├── uart_axil.sv                  # UART_0 (general)
