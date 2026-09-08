@@ -1,0 +1,71 @@
+{
+  "harness_version": "1.0.2",
+  "primary_metric": "golden_agreement_pct",
+  "team": "BLogic Mikroelektronik",
+  "team_id": "772759",
+  "timestamp": "2026-09-08T23:56:30+03:00",
+  "config_file": "team_icd.json",
+  "config_sha256": "02d4513aec3fb9f13e1182b4542e0dcd8cfcb2e46810ff8a462427b12713cfb6",
+  "total_samples": 2000,
+  "answered": 2000,
+  "timeouts": 0,
+  "with_golden_ref": 2000,
+  "golden_agreement_pct": 100.0,
+  "golden_agreement_strict_pct": 100.0,
+  "mismatch_count": 0,
+  "ref_timeout_count": 0,
+  "accuracy_info_hw_pct": 100.0,
+  "accuracy_info_sw_pct": 100.0,
+  "score_comparison_samples": 0,
+  "score_error_mean_pct": null,
+  "score_error_max_pct": null,
+  "latency_ms": {
+    "n": 2000,
+    "min": 42.039699997985736,
+    "median": 43.33950000000186,
+    "p95": 43.916965000971686,
+    "max": 46.37860000002547
+  },
+  "tx_ms_median": 166.78250000040862,
+  "speedup_ratio": 4.4693639751264245,
+  "software_reference_ms": 193.7,
+  "robustness_passed": 11,
+  "robustness_total": 11,
+  "robustness_skipped": 0,
+  "confusion_matrix": {
+    "silence": {
+      "silence": 27,
+      "unknown": 0,
+      "yes": 0,
+      "no": 0,
+      "TIMEOUT": 0
+    },
+    "unknown": {
+      "silence": 0,
+      "unknown": 481,
+      "yes": 0,
+      "no": 0,
+      "TIMEOUT": 0
+    },
+    "yes": {
+      "silence": 0,
+      "unknown": 0,
+      "yes": 741,
+      "no": 0,
+      "TIMEOUT": 0
+    },
+    "no": {
+      "silence": 0,
+      "unknown": 0,
+      "yes": 0,
+      "no": 751,
+      "TIMEOUT": 0
+    }
+  },
+  "meta": {
+    "seed": 1337,
+    "dataset": "C:\\demo\\random_dataset_2000\\manifest.csv",
+    "dataset_size": 2000,
+    "dry_run": false
+  }
+}

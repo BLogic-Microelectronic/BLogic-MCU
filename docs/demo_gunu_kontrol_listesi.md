@@ -9,7 +9,8 @@ kanıtı `make demo-harness-sim` (README §12.6).
 **Durum (8 Eylül 00:53):** kartta jüri aracıyla public set 156/156 golden uyumu, 0 timeout, sağlamlık 11/11,
 gecikme ~43 ms; CP2102 adaptör (COM8) + kart FT232 (COM7) ile. Rapor: `sw/demo/harness_results/2026-09-08_public_dataset/`.
 Ek: jüri aracı biçiminde **1000 vektörlük rastgele set** (`make demo-harness-dataset`, `C:\demo\random_dataset`);
-kartta 8 Eylül 03:05: **200/200 golden, 0 timeout, 11/11** (`sw/demo/harness_results/2026-09-08_random_dataset_n200/`).
+kartta 8 Eylül 03:05: **200/200**, 23:56: **2000/2000 golden, 0 timeout, 11/11**, gecikme medyanı 43,34 ms
+(`sw/demo/harness_results/2026-09-08_random_dataset_n200/` ve `…_n2000/`).
 Aracın grafik arayüzü (`demo_gui.py`) aynı ICD ile denendi (aşağıda adım 8).
 
 Aracın README §11 ön-demo listesi madde madde: validate hatasız ✔ · iki ayrı fiziksel UART aynı anda ✔ (COM7 + COM8) ·
@@ -66,8 +67,10 @@ Adaptör takılıyken jumper ÇIKARILIR.
 7. `results\BLogic_Mikroelektronik_<zaman>\` klasörünü USB'ye ve laptopa kopyala:
    `report.md`, `summary.json`, `samples.csv`, `robustness.csv`, `transcript.log`, `config_used.json`.
 8. **Vakit kalırsa (aracın README'sindeki ek öneriler):**
-   - Rastgele set: `python demo_harness.py run -c team_icd.json --manifest C:\demo\random_dataset\manifest.csv -n 200 -o C:\demo\results`
-     (`-n 0` = 1000 vektör, ~6 dk). Golden sütunu bit-exact SW referansından; beklenen uyum N/N.
+   - Rastgele set: `python demo_harness.py run -c team_icd.json --manifest C:\demo\random_dataset_2000\manifest.csv -n 200 -o C:\demo\results`
+     (`-n 0` = setin tamamı; 2000 vektör ~9 dk, kartta 2000/2000 ölçüldü). Golden sütunu bit-exact SW
+     referansından; beklenen uyum N/N. Set yoksa 90 saniyede yeniden üretilir:
+     `py -3 sw\demo\make_harness_dataset.py --n 2000 --seed 31082026 --out C:\demo\random_dataset_2000`.
    - Grafik arayüz: `python demo_harness.py gui -c team_icd.json` → pencere başlığında `[PARTICIPANT]` + 1.0.2 →
      **Validate** (yalnız baud uyarısı) → **Run** sekmesi: *Manifest CSV* seçili, dosya `public_dataset\manifest.csv`
      ya da `random_dataset\manifest.csv`, *Sample count* 0 (hepsi), *Output directory* `C:\demo\results`, **START**;
