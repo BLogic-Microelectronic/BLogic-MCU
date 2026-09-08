@@ -282,7 +282,8 @@ RUN_POST_GRT_RESIZER_TIMING: true   # PnR-ici hold onarimi (11 Agu, JTAG'siz RTL
                                     # mekanizma README 9.9/2; netlistte 115 hold gecikme hucresi (hold9290..hold9404).
 # *_RESIZER_HOLD/SETUP_SLACK_MARGIN bilerek yazilmadi -> LibreLane 3.0.6 varsayilanlari gecerli
 # (results/config/resolved.json: PL hold 0.1 / setup 0.05; GRT hold 0.05 / setup 0.025). Marji buyutmek
-# OLCULDU ve reddedildi: 0.3 -> hold degismedi, SS setup -10.3'e coktu; 0.5 -> arac cokmesi (README 9.9/2).
+# OLCULDU ve reddedildi (3-11 Agu, JTAG'siz RTL, o tarihte SS setup tabani -9.08 ns): 0.3 -> hold degismedi,
+# SS setup -10.3'e coktu; 0.5 -> arac cokmesi (README 9.9/2).
 RSZ_CORNERS:   # onarim 3 kosede — DDK bolum 1.2 kose seti
   - nom_tt_025C_1v80
   - nom_ss_100C_1v60

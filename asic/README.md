@@ -54,6 +54,12 @@ frequency (final delivery run `RUN_final_2026-09-06`):**
 | ss_100C_1v60 | -10.537 ns | 2,219 | -0.122 ns | 5 | ~32.7 MHz (period 30.54 ns) |
 | ff_n40C_1v95 | **+4.010 ns** | 0 | -0.290 ns | 142 | closes on setup (fmax ~62.5 MHz) |
 
+(fmax figures are slack-derived, 1 / (20 ns - WS), and therefore include
+the macro-launched paths; OpenSTA's `report_clock_min_period` in
+`reports/timing/<corner>/clock.rpt` gives 62.66 / 98.17 / 32.75 MHz for
+TT / FF / SS because it excludes paths launched from the SRAM macros - the
+slack-derived value is the conservative one and is the one quoted.)
+
 Declared statement - wording per the DDK ruling of 8 September 2026, which
 defines a *verified* operating frequency as one that closes **setup and
 hold in every mandatory signoff corner** after post-PnR parasitic extraction
@@ -612,7 +618,7 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
    (`reports/timing/<corner>/violator_list.rpt`); there is no hold
    violation on `jtag_tck`, on any I/O boundary or in any other check
    class, and recovery/removal on the reset network is clean at all three
-   corners (9.6). *Region:* the two families above (SRAM-macro
+   corners (9.6). *Region:* the three families above (SRAM-macro
    address/chip-select/data-in pins; `dm_mem`/`dm_csrs` -> CPU
    prefetch/load-store registers), no path ends in JTAG/DM logic.
    *Mechanism, measured:* the cause is clock-tree skew, not logic depth. On
@@ -637,23 +643,28 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
    (`grep -c "u_macro/dout\|u_input_mem/dout\|u_conv_out/dout\|u_conv_w_mem/dout" min.rpt` = 0
    at all three corners); therefore neither the macro's `clk->Q` model nor
    the FF `set_timing_derate -cell_delay -early 0.500` enters a violating
-   path - that derate is visible only on setup (max) paths of the macro
-   outputs. The only macro-Liberty term on the violating paths is the
+   path - the `-early` derate acts on min-delay (hold) arcs through the
+   macro, and no reported min path contains such an arc; on setup paths the
+   only macro derate is the SS `-late 2.661` factor (`design.sdc`, macro
+   derate block). The only macro-Liberty term on the violating paths is the
    library hold time, `-0.056 ns`, identical at all three corners and
    negative (it relaxes the check). The earlier wording "the FF figure on
    the macro paths is the result of the pessimistic early-0.5 derate" was
    therefore incorrect and has been withdrawn.
    *Repair status:* hold repair did run - the delivered netlist contains
    115 hold cells (`hold9290`-`hold9404`: 110 `sky130_fd_sc_hd__dlygate4sd3_1`,
-   3 `clkbuf_4`, 2 `buf_4`; `results/netlist/asic_top_pnr.v.gz`). It
-   stops there because `PL_RESIZER_ALLOW_SETUP_VIOS` /
-   `GRT_RESIZER_ALLOW_SETUP_VIOS` are false (LibreLane defaults,
-   `results/config/resolved.json`) and the violating endpoints overlap the
-   SS setup violators - 63 of the 87 TT and 78 of the 142 FF hold-violating
-   endpoints are also SS setup-violation endpoints (9.9/1; 63 of the 2,219
-   SS setup paths end on SRAM macro pins) - so further delay insertion
-   would deepen an already negative setup slack and `repair_timing -hold`
-   correctly declines. The metric `design__instance__count__hold_buffer = 0`
+   3 `clkbuf_4`, 2 `buf_4`; `results/netlist/asic_top_pnr.v.gz`). Why it
+   stopped there is a plausible mechanism, not a fact evidenced in the
+   delivered logs (the resizer step logs are not part of the delivered set):
+   `PL_RESIZER_ALLOW_SETUP_VIOS` / `GRT_RESIZER_ALLOW_SETUP_VIOS` are false
+   (LibreLane defaults, `results/config/resolved.json`), the in-PnR repair
+   runs on pre-extraction timing while the 234 violations are the post-RCX
+   signoff figures, and most violating endpoints overlap the SS setup
+   violators - 63 of the 87 TT and 78 of the 142 FF hold-violating endpoints
+   are also SS setup-violation endpoints (9.9/1; 63 of the 2,219 SS setup
+   paths end on SRAM macro pins), so for those a delay insertion would
+   deepen an already negative setup slack; the remaining 24 (TT) / 64 (FF)
+   endpoints are not covered by that argument. The metric `design__instance__count__hold_buffer = 0`
    in `metrics.json` is the last resizer step's own insertion counter, not
    a netlist census; the netlist figure above is authoritative.
    *Conclusion:* the limitation is a clock-tree / floorplan integration
@@ -704,7 +715,14 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
      evidence only; XOR does not replace a DRC - `DDK_KARARLARI.md` item 9)
      the GDS-based signoff DRC of this delivery is the KLayout result, and
      that check covers the full geometry including the 27 pre-approved SRAM
-     macros (no blackboxing). The Magic figure is reported unmodified as the
+     macros - no blackboxing: the delivered GDS carries the full OpenRAM
+     cell hierarchy (`sky130_fd_bd_sram__openram_dp_cell` instances are present
+     by the tens of thousands in `results/gds/asic_top_klayout.gds`),
+     `resolved.json` sets no
+     exclusion, and the step order in `reports/general/flow.log` is
+     StreamOut (59/60) -> XOR (64) -> Magic.DRC (66) -> KLayout.DRC (67);
+     the KLayout DRC step log itself is not part of the delivered set. The
+     Magic figure is reported unmodified as the
      abstract-view result it is; a GDS-based Magic DRC of the same GDSII was
      not re-run before the freeze because the deliverables rule (Final
      Deliverables document section 7: files from the same LibreLane run,
@@ -728,14 +746,18 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
      real latch-up risk.**
    - **Assessment:** `nwell.4` is a connectivity-aware rule; it requires
      not only the presence of a tap but also that it be metal-connected.
-     Given that geometric deficiency was ruled out by measurement, that
-     KLayout returns 0 across 257 rules on the GDS, and that LVS verified
-     netlist equivalence with 0 errors (including VPWR/VGND connections),
-     the markers point not to a design defect but to Magic's connectivity
+     Given that geometric deficiency was ruled out by measurement and that
+     LVS verified netlist equivalence with 0 errors (including VPWR/VGND
+     connections), the markers point not to a design defect but to Magic's connectivity
      resolution on the DEF + abstract-view input of this run
      (`MAGIC_DRC_USE_GDS: false`): an abstract cell view carries no
      metal-connected tap geometry for a connectivity-aware rule to resolve.
-     It is therefore declared an **accepted exception**.
+     The KLayout result (0 across 257 rules) is independent evidence for
+     those 257 rules only - the KLayout deck does not implement `nwell.4`
+     (its nwell rules are `nwell.1`, `nwell.2a`, `nwell.6`, `nwell.9` plus
+     the tap rules `difftap.*`, `reports/drc/drc.klayout.json`), so it
+     neither confirms nor refutes the Magic markers. It is therefore
+     declared an **accepted exception**.
    - Reproduction: `python3 scripts/tap_analiz.py results/def/<design>.def
      reports/drc/drc.magic.rpt` (repeats the measurement).
    - Note: the Magic steps **do complete** in the flow; the report has

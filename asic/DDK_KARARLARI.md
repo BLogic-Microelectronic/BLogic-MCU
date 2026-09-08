@@ -190,12 +190,15 @@ RX FIFO declaration rests on (README 9.9 and
 
 ---
 
-## 8. Definition of the Verified Operating Frequency (8 September 2026, Google Groups "2026 ÇİP TASARIM YARIŞMASI", reply to a question of 15:45)
+## 8. Definition of the Verified Operating Frequency (8 September 2026, Google Groups "2026 ÇİP TASARIM YARIŞMASI" - public reply to another team's question of 15:45; ruling of general applicability)
 
 > SDC içerisinde tanımlanan saat periyodu/frekansı tasarımın hedef çalışma
 > frekansını ifade eder. Ancak yalnızca SDC içerisinde daha yüksek bir
 > frekans tanımlanmış olması, tasarımın bu frekansta zamanlamayı kapattığı
-> anlamına gelmez. [...] Dolayısıyla bir çalışma frekansının zamanlama
+> anlamına gelmez. Zamanlama değerlendirmesinde, yarışmada zorunlu olarak
+> belirtilen signoff PVT corner'larında, parazitik çıkarım sonrasında elde
+> edilen nihai Post-PnR statik zamanlama analizi sonuçları esas alınacaktır.
+> Dolayısıyla bir çalışma frekansının zamanlama
 > açısından başarıyla elde edilmiş kabul edilebilmesi için ilgili saat
 > kısıtı altında zorunlu signoff corner'larında setup ve hold zamanlamasının
 > kapanması beklenir. Negatif setup slack bulunan bir frekans, yalnızca
@@ -208,7 +211,9 @@ RX FIFO declaration rests on (README 9.9 and
 
 (EN: The clock period/frequency defined in the SDC expresses the design's
 target operating frequency. Merely defining a higher frequency in the SDC
-does not mean the design closes timing at that frequency. [...] For an
+does not mean the design closes timing at that frequency. The timing
+evaluation is based on the final post-PnR static timing analysis after
+parasitic extraction in the mandatory signoff PVT corners. For an
 operating frequency to be accepted as achieved, setup and hold timing must
 close in the mandatory signoff corners under that clock constraint. A
 frequency with negative setup slack is only the targeted frequency; it is
@@ -233,7 +238,7 @@ No measured number changed; what changed on 8 September is the wording of
 
 ---
 
-## 9. Final Signoff DRC Must Be GDS-Based; XOR Does Not Replace a DRC (8 September 2026, replies of 15:49 and 15:52)
+## 9. Final Signoff DRC Must Be GDS-Based; XOR Does Not Replace the Magic DRC (8 September 2026 - public replies of 15:49 and 15:52 to two other teams' questions; the second-person wording and the "[...]" in the first quote refer to that team's LEF+DEF result; rulings of general applicability)
 
 > LEF+DEF üzerinden elde ettiğiniz [...] sonuç ve buna ilişkin tapcell pitch
 > analizi, problemin kaynağını açıklayan destekleyici bir analiz olarak
@@ -275,7 +280,11 @@ all recorded in 9.9/4 and 9.11.
   now labelled as the abstract-view result it is.
 - The GDS-based signoff DRC of the delivery is the **KLayout run: 0 across
   257 rules on the streamed-out GDS**, covering the full geometry including
-  the 27 pre-approved SRAM macros (no blackboxing was needed). Netgen LVS is
+  the 27 pre-approved SRAM macros (no blackboxing was needed: the delivered
+  GDS carries the full OpenRAM cell hierarchy and `resolved.json` sets no
+  exclusion; the KLayout step log is not in the delivered set). The KLayout
+  deck does not implement `nwell.4`, so its 0 is independent evidence for
+  the other rules, not a verdict on the Magic markers (9.9/4). Netgen LVS is
   a real GDS extraction with 0 errors. The XOR row is kept but relabelled as
   a streamout consistency check.
 - Open item, declared: a GDS-based Magic DRC of the same GDSII was not
@@ -285,7 +294,7 @@ all recorded in 9.9/4 and 9.11.
 
 ---
 
-## 10. FPGA and ASIC Need Not Share a Frequency; Performance per Implementation (8 September 2026, replies of 15:56 and 15:59)
+## 10. FPGA and ASIC Need Not Share a Frequency; Performance per Implementation (8 September 2026 - public replies of 15:56 and 15:59 to another team's question; ruling of general applicability)
 
 > FPGA prototipi ile ASIC fiziksel tasarımının aynı saat frekansında
 > çalışması zorunlu değildir. [...] Her iki akışın da kendi çalışma
