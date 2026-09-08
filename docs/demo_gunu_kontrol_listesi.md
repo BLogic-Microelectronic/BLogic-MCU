@@ -8,8 +8,9 @@ kanıtı `make demo-harness-sim` (README §12.6).
 
 **Durum (8 Eylül 00:53):** kartta jüri aracıyla public set 156/156 golden uyumu, 0 timeout, sağlamlık 11/11,
 gecikme ~43 ms; CP2102 adaptör (COM8) + kart FT232 (COM7) ile. Rapor: `sw/demo/harness_results/2026-09-08_public_dataset/`.
-Ek: jüri aracı biçiminde **1000 vektörlük rastgele set** (`make demo-harness-dataset`, `C:\demo\random_dataset`),
-aracın grafik arayüzü (`demo_gui.py`) aynı ICD ile denendi (aşağıda adım 8).
+Ek: jüri aracı biçiminde **1000 vektörlük rastgele set** (`make demo-harness-dataset`, `C:\demo\random_dataset`);
+kartta 8 Eylül 03:05: **200/200 golden, 0 timeout, 11/11** (`sw/demo/harness_results/2026-09-08_random_dataset_n200/`).
+Aracın grafik arayüzü (`demo_gui.py`) aynı ICD ile denendi (aşağıda adım 8).
 
 Aracın README §11 ön-demo listesi madde madde: validate hatasız ✔ · iki ayrı fiziksel UART aynı anda ✔ (COM7 + COM8) ·
 50+ vektörde 0 timeout ✔ (156) · her sonuç ayrıştırıldı ✔ (predicted 156/156) · zorunlu sağlamlık senaryoları ✔ (11/11) ·
@@ -90,7 +91,7 @@ Adaptör takılıyken jumper ÇIKARILIR.
 | Belirti | Sebep / çözüm |
 |---|---|
 | İkinci port görünmüyor | adaptör sürücüsü; USB bellekteki kurulumu yükle, `ports` ile tekrar bak |
-| Tüm vektörler timeout | JA1/GND kablosu, ICD'de stream portu ile core portu yer değiştirmiş, sw2 ile ICD hızı uyuşmuyor |
+| Tüm vektörler timeout | JA1/GND kablosu, ICD'de stream portu ile core portu yer değiştirmiş, sw2 ile ICD hızı uyuşmuyor. **Ayırt etmek için** COM7'ye `r` gönder: `[DEMO] stream frames … rx-bytes=` satırı. **rx-bytes=0** → kabloya bayt gelmiyor: adaptör **JB'ye takılmış** (8 Eylül 03:01 provasında olan buydu; yanlış Pmod'da banner yine gelir, core UART ayrı), tel JA1 değil, GND yok. rx-bytes>0 ama bad-crc/bad-len artıyor → sw2 ile ICD hızı uyuşmuyor |
 | İlk kare tamam, sonrakiler timeout | COM7'yi başka bir terminal açık tutuyor (PuTTY/panel) — kapat |
 | `Boot NOT DETECTED` uyarısı | zararsız (rapora girmez); `?` gönderildiğinde banner basılır, flush sonrası 200 ms kaybolabilir |
 | Rapor klasörü yazılamadı | uzun yol (OneDrive); `-o C:\demo\results` kullan |
