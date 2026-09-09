@@ -4,7 +4,9 @@ Team: Ostim BLogic Mikroelektronik - Ostim Teknik Universitesi
 Category: TEKNOFEST 2026 Chip Design Competition - Microcontroller (MCU)
 Baseline: delivered RTL of 2026-09-06 (commit `248069b` - riscv-dbg JTAG
 debug subsystem, `FC1_FIX` and `I2C_SDA_SYNC` enabled at every entry point) -
-official ASIC run `RUN_final_2026-09-06`; historical reference: RTL freeze
+official ASIC run `RUN_hold035_2026-09-09` (same RTL and clean clone, signed
+off at the verified 27.0 MHz; supersedes `RUN_final_2026-09-06`); historical
+references: `RUN_final_2026-09-06` (6 September run, superseded) and RTL freeze
 2026-08-14 / `RUN_teslim_2026-08-14` (JTAG-less RTL, commit `73d8dcd`)
 Basis: Competition specification p.16 (verification/test plan, methods,
 completion reporting), scoring breakdown Table 3-1 ("Design &
@@ -598,11 +600,27 @@ that the methodology works, not just that the design passes:
   access, OpenOCD `riscv set_mem_access progbuf`); CV32E40P has a single
   hardware trigger (no data watchpoints). Root README Section 10.10,
   `asic/README.md` 9.9/9.
-- **ASIC SS corner:** 50 MHz closes at TT with +1.684 ns margin; the SS
-  setup-side closing point is 28.6 MHz, measured by period sweep (the
-  earlier extrapolated ~32.7 MHz is withdrawn) - disclosed with rationale
-  in `asic/README.md` 9.1/9.9 (the frequency target metric is defined as ~50 MHz on FPGA,
-  which is met with +2.538 ns).
+- **ASIC frequency - target vs. verified:** the 50 MHz target (PnR SDC
+  20 ns) closes setup in TT (+1.218 ns) and FF (+3.685 ns) but not in SS
+  (-9.879 ns, `reports/timing_target_20ns/`); the **verified operating
+  frequency is 27.0 MHz** (signoff SDC 37.000 ns: setup and hold closed in
+  all three corners, SS setup margin +0.197 ns, DDK definition of
+  8 September 2026). The setup-only closing point of the delivered netlist
+  is 36.6 ns = 27.3 MHz, measured by period sweep rather than extrapolated
+  from slack: at long periods the binding path is the half-cycle SRAM read
+  path (the OpenRAM macros drive read data on the falling edge, so the
+  path gets T/2 and slack grows 0.5 ns per ns of period - root cause in
+  `asic/README.md` 9.1). Hold is closed (+0.165 / +0.637 / +0.040 ns
+  TT / SS / FF, 0 endpoints) at the cost of 10,509 delay cells
+  (`asic/README.md` 9.9/2, 9.9/12). The September 6 run's figures (28.6 MHz
+  setup-side point, withdrawn ~32.7 MHz extrapolation, 87 / 5 / 142 hold
+  exceptions) are superseded by this run. Disclosed with rationale in
+  `asic/README.md` 9.1/9.9 (the frequency target metric is defined as ~50 MHz on FPGA,
+  which is met with +2.433 ns on the delivered bitstream).
+- **ASIC antenna:** 2 violating nets / 2 pins (met1 side-area ratio at
+  1.6-1.7x the limit, on nets re-routed by the hold-repair pass; 173 diodes
+  inserted) - declared exception, `asic/README.md` 9.9/13; route DRC,
+  KLayout DRC (257 rules), LVS, XOR and PDN are clean.
 
 <!-- Team decision (Berk approval): the paragraph below is the 30 KB
      interpretation statement; keep or drop per decision. -->

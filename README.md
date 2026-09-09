@@ -280,7 +280,8 @@ The design has been verified through Verilator-based directed and randomized sim
 │   ├── Makefile                          # make pdk / asic_run / asic_verify / asic_clean
 │   ├── config.yaml + filelist.f          # LibreLane Classic config + RTL file list (84 files incl. riscv-dbg;
 │   │                                     #   JTAG_DEBUG / FC1_FIX / I2C_SDA_SYNC defines; 4 CTS settings)
-│   ├── constraints/design.sdc            # single SDC (PnR = signoff): clk 20 ns + jtag_tck 100 ns, asynchronous groups
+│   ├── constraints/design.sdc            # PnR SDC (PNR_SDC_FILE): clk 20 ns = 50 MHz target + jtag_tck 100 ns, asynchronous groups
+│   ├── constraints/design_signoff.sdc    # signoff SDC (SIGNOFF_SDC_FILE): identical except clk 37 ns = verified 27.0 MHz
 │   ├── THIRD_PARTY.md + licenses/        # third-party inventory + licence copies (riscv-dbg, common_cells, tech_cells_generic, ...)
 │   ├── environment/                      # flake.nix + flake.lock + versions.txt
 │   ├── macros/                           # SRAM GDS / LEF / LIB / Verilog / SPICE views
@@ -844,7 +845,9 @@ The UVM library is vendored under `verif/uvm-lib` — no external clone is neede
 > `fpga_top`, which is not part of the chip, additionally carries the 12 lines of
 > the FPGA-only OLED pins added on 6 September for the demo firmware, stored as its
 > expected diff). The official ASIC run of
-> the delivered configuration is `RUN_final_2026-09-06` (§13.7, `asic/README.md`); the
+> this configuration was `RUN_final_2026-09-06`, superseded on 9 September 2026 by the
+> delivered run `RUN_hold035_2026-09-09` (same CTS settings plus the hold-repair settings
+> of `asic/README.md` §9.7; §13.7); the
 > 14 August run is the historical reference of the exploration tables below. Two
 > accepted limitations of the delivered chip are documented at the end of this section
 > and in `asic/README.md` §9.9/9. The development history (branch `deneme/jtag`) is in
@@ -945,7 +948,9 @@ The sky130 synthesis cost of the revision is measured with `scripts/vm_jtag_asic
 `asic/` strictly read-only; the three full-flow exploration runs kept under
 `rtl/debug/asic_jtag_sentez/` are indexed, with the reason each one exists, in
 [`rtl/debug/asic_jtag_sentez/README.md`](rtl/debug/asic_jtag_sentez/README.md) -
-the delivered run itself is `RUN_final_2026-09-06`, §13.7). **Result (VM, 3 September 2026, both runs exit 0,
+the official run of this configuration was `RUN_final_2026-09-06`, superseded on 9 September 2026
+by the delivered `RUN_hold035_2026-09-09` — same CTS settings plus the hold-repair settings of
+`asic/README.md` §9.7, §13.7). **Result (VM, 3 September 2026, both runs exit 0,
 `rtl/debug/asic_jtag_sentez/`):** the JTAG-less `soc_top` baseline reproduces the
 14 August synthesis (61,679 cells / 727,453 µm² vs. 61,823 / 728,153 for `asic_top`,
 27 SRAM macros in both); with `JTAG_DEBUG` the design grows to **66,852 cells /
@@ -987,7 +992,7 @@ ended with the same deferred error as the 14 August run (hold violations, exit 2
 | Setup WNS TT / SS / FF (ns) | +2.210 / −9.083 / +4.375 | **+2.303 / −11.983 / +4.390** | +0.09 / **−2.90** / +0.02 |
 | Hold WNS TT / SS / FF (ns) | −0.323 / +0.227 / −0.382 | −0.611 / −0.381 / −0.539 | −0.29 / −0.61 / −0.16 |
 | Hold-violating endpoints TT / SS / FF | 48 / 0 / 112 (AI accel → SRAM, §9.9) | 136 / 13 / 207 — **0 in JTAG logic** | same family, more endpoints |
-| SS setup-side closing point (hold not closed in either build, §13.7) | ≈34.4 MHz | ≈31.3 MHz | −3.1 MHz |
+| SS setup-side closing point (hold not closed in either of these exploration builds; the delivered run closes it, §13.7) | ≈34.4 MHz | ≈31.3 MHz | −3.1 MHz |
 | Std-cell instances / area | 296,010 / 1.249 mm² | 309,985 / 1.337 mm² | +4.7 % / +7.0 % |
 | Sequential cells | 8,920 | 10,094 | +1,174 |
 | Utilization (with macros / std-cell) | 49.9 % / 12.3 % | 50.4 % / 13.2 % | +0.5 / +0.9 pt |
@@ -1080,13 +1085,15 @@ settings (v3, 3 h 28 min, 78/78 stages) gives:
 | Route DRC / KLayout / LVS / XOR / antenna | 0 | 0 | **0** |
 | Worst IR drop | 1.54 mV | 2.92 mV | **0.95 mV** |
 
-The official run `RUN_final_2026-09-06` (VM1, commit `248069b`, the same four
-CTS settings read from `asic/config.yaml` instead of `-c` overrides) reproduced
+The official run of this configuration, `RUN_final_2026-09-06` (VM1, commit `248069b`, the same four
+CTS settings read from `asic/config.yaml` instead of `-c` overrides), reproduced
 the v3 column figure for figure — TT +1.684 / SS −10.537 / FF +4.010 ns setup,
 −0.309 / −0.122 / −0.290 ns hold, TT hold TNS −8.36 ns, 0.95 mV worst IR drop,
 124.2 mW (`power__total`, FF corner) and 310,510 std-cells — `full_v3/metrics.json`
-is byte-identical to the official `metrics.json`: the settings moved into the
-config give the same result as the command-line overrides (§13.7).
+is byte-identical to that run's `metrics.json`: the settings moved into the
+config give the same result as the command-line overrides. That run was superseded
+on 9 September 2026 by the delivered `RUN_hold035_2026-09-09` (same CTS settings plus
+the hold-repair settings of `asic/README.md` §9.7), whose figures are in §13.7.
 
 54 % of the TT setup loss comes back, hold improves at all three corners relative to the
 v2 run and returns to the 14 August level at TT (against 14 August, SS is worse: +0.227 →
@@ -1098,7 +1105,8 @@ byte-identical between v3 and the official run, lists 41, all launched from the
 14 August run sits at −9.083 ns — and the limit there is the ALU cone's logic depth,
 not the clock tree, so the trade was accepted: these four settings are the CTS
 configuration of the delivered chip, and the debug-module-launched paths in the SS
-violator list (41, all from the `ndmreset` register) are declared in
+violator list (41 in the September 6 run, all from the `ndmreset` register; the delivered
+run's SS violator list at the 20 ns target contains the same family) are declared in
 `asic/README.md` §9.9/9.
 
 One detail worth keeping: straight out of CTS, v2 and v3 report the *same* number
@@ -1109,8 +1117,10 @@ In the exploration these settings were passed on the command line (`-c KEY=VALUE
 6 September 2026 they were written into `asic/config.yaml`
 (`CTS_MACRO_CLUSTERING_MAX_DIAMETER: 600`, `CTS_MACRO_CLUSTERING_SIZE: 2`,
 `CTS_OBSTRUCTION_AWARE: true`, `CTS_CLK_MAX_WIRE_LENGTH: 900`) together with the JTAG
-sources, the three defines and the `jtag_tck` SDC block, so the official run
-`RUN_final_2026-09-06` is the v3 configuration run from the committed `asic/` tree. The
+sources, the three defines and the `jtag_tck` SDC block, so the official run of that day,
+`RUN_final_2026-09-06`, was the v3 configuration run from the committed `asic/` tree; the
+delivered `RUN_hold035_2026-09-09` (9 September 2026) keeps these four CTS settings unchanged
+and adds only the hold-repair settings and the signoff SDC of `asic/README.md` §9.7. The
 knobs measured ineffective (`CTS_DELAY_BUFFER_DERATE_PCT`, `CTS_MAX_CAP`) and the harmful
 one (resizer setup margin 0.15) are deliberately absent. The exploration evidence stays
 under `rtl/debug/asic_jtag_sentez/` (`full/`, `full_v2/`, `full_v3/` with
@@ -1255,16 +1265,17 @@ Throughput derived from the cycle counts:
 | Implementation | Clock basis | HW inference/s | HW throughput | HW latency | SW inference/s | SW throughput |
 |---|---|---|---|---|---|---|
 | **FPGA — Genesys 2, delivered bitstream** | **50 MHz, verified** (WNS +2.433 / WHS +0.059 ns, §12.4; board-measured 459,065 cycles) | **108** | **211.7 kB/s** | **9.18 ms** | 5 | 9.8 kB/s |
-| ASIC — sky130, TT corner | 50 MHz **target** (setup +1.684 ns; hold not closed, §13.7) | 108 | 211.7 kB/s | 9.18 ms | 5 | 9.8 kB/s |
-| ASIC — sky130, SS corner | **28.6 MHz setup-side limit**, measured by period sweep (not a verified frequency, §13.7) | 62 | 121.5 kB/s | 16.05 ms | 2 | 3.9 kB/s |
+| **ASIC — sky130, verified** | **27.0 MHz, verified** (37.0 ns signoff; setup **and** hold closed in all three corners, §13.7) | **58** | **113.7 kB/s** | **16.98 ms** (459,016 × 37.000 ns) | 2 | 3.9 kB/s |
+| ASIC — sky130, target | 50 MHz **target** (setup closes in TT +1.218 ns / FF +3.685 ns, not in SS −9.879 ns; hold closed, §13.7) | 108 | 211.7 kB/s | 9.18 ms | 5 | 9.8 kB/s |
 | Scale reference (no implementation) | 100 MHz | 217 | 425.3 kB/s | 4.59 ms | 10 | 19.6 kB/s |
 
 The cycle count is the same in both implementations (same RTL); each row uses the clock
 that is actually signed off for that implementation, as the DDK ruling of 8 September 2026
-requires (performance per implementation at its verified frequency). **No ASIC row is a
-verified-frequency figure**: the ASIC has no operating frequency that closes both setup and
-hold in all three mandatory corners (§13.7); the ASIC rows are derived from the STA slack of
-`RUN_final_2026-09-06`, not from `make soc-perf`. The 21.0 × hardware/software speed-up is
+requires (performance per implementation at its verified frequency). **The verified ASIC
+row is the 27.0 MHz one**: it is the operating frequency at which the delivered run
+`RUN_hold035_2026-09-09` closes both setup and hold in all three mandatory corners (§13.7);
+the 50 MHz row is the design target, at which SS setup does not close. Both ASIC rows are
+derived from the signoff STA of that run, not from `make soc-perf`. The 21.0 × hardware/software speed-up is
 frequency-independent and holds on every row.
 
 Input is `yes_real` — a real speech feature vector from the TFLite Micro Speech dataset,
@@ -1274,7 +1285,7 @@ not a synthetic pattern. Source: `sw/tests/ai_sw_reference.c`.
 the entire gap: the `tflite_requant` pipeline cut plus the `data_sram` output register
 (timing closure) cost +5.2 % cycles (436,344 → **459,016**) and bought the ASIC frequency
 ceiling (38.2 → 45.0 MHz at the time of the change; the final LibreLane 3.0.6 signoff
-closes setup at **50 MHz in the TT corner with +1.684 ns of slack**; the SS corner and hold do not close, so no verified ASIC frequency is declared — see §13.7) without changing
+closes setup at **50 MHz in the TT corner with +1.218 ns of slack** and hold in all three corners; the SS corner does not close at 50 MHz, so the verified ASIC frequency is **27.0 MHz** at the 37 ns signoff period — see §13.7) without changing
 any result — `conv_out` remains 1000 / 1000 words bit-exact. The software baseline is
 essentially unchanged (9,683,882 → 9,684,726, +0.009 %): 22.1 × (436,344 ÷) → 21.0 ×
 (459,016 ÷), same truncating arithmetic as the on-chip report (`(sw × 10) / hw`,
@@ -1296,9 +1307,12 @@ clean jury machine with plain `make soc-perf`; the `-O3` figure is published alo
 and the EK-1 criterion (> 1.0 ×) is met by every cell.
 
 > **EK-1 acceptance criteria:** speed-up > 1.0 × **and** results bit-identical to the
-> golden reference. Both are met. **Single source of truth for every number in this
-> section: `verif/perf_summary.txt`**, regenerated by `make soc-perf`. If this README and
-> that file ever disagree, the file wins.
+> golden reference. Both are met. **Single source of truth for the cycle counts and the
+> FPGA / scale-reference rows of this section: `verif/perf_summary.txt`**, regenerated by
+> `make soc-perf`. If this README and that file ever disagree on those, the file wins. The
+> ASIC clock bases (verified 27.0 MHz, target 50 MHz) come from the signoff STA of §13.7,
+> which `make soc-perf` does not know about; the ASIC rows are the same cycle counts at
+> those clocks.
 
 ### 11.6 End-to-End AI Regeneration
 
@@ -1777,10 +1791,11 @@ reproducible from a clean clone; no step depends on a commercial EDA licence.
 | Path | Purpose |
 |---|---|
 | `asic/filelist.f` | synthesis file list — 84 source files in compilation order (SoC RTL + the JTAG debug subsystem: riscv-dbg, common_cells v1.38.0 CDC cells, tech_cells_generic, `axi_dm_slave`) and the six defines `SYNTHESIS`, `ASIC_SRAM_MACRO`, `BOOTROM_CONTENT`, `JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC` (canonical source is `config.yaml`; regenerated from it with `check_filelist.py --generate` and cross-checked on every `make asic_run`; SVA/TB excluded, top = `asic_top`) |
-| `asic/config.yaml` | LibreLane Classic master configuration (floorplan, PDN, obstructions, STA corners; the JTAG source block, the three design defines, the v1.38.0 include directory listed first, and the four CTS settings of §10.10: `CTS_MACRO_CLUSTERING_MAX_DIAMETER`, `CTS_MACRO_CLUSTERING_SIZE`, `CTS_OBSTRUCTION_AWARE`, `CTS_CLK_MAX_WIRE_LENGTH`) |
+| `asic/config.yaml` | LibreLane Classic master configuration (floorplan, PDN, obstructions, STA corners; the JTAG source block, the three design defines, the v1.38.0 include directory listed first, the four CTS settings of §10.10: `CTS_MACRO_CLUSTERING_MAX_DIAMETER`, `CTS_MACRO_CLUSTERING_SIZE`, `CTS_OBSTRUCTION_AWARE`, `CTS_CLK_MAX_WIRE_LENGTH`, and the hold-repair settings of the delivered run (`asic/README.md` §9.7): `PL_RESIZER_HOLD_SLACK_MARGIN: 0.35`, `GRT_RESIZER_HOLD_SLACK_MARGIN: 0.35`, `PL_RESIZER_ALLOW_SETUP_VIOS: true`, `GRT_RESIZER_ALLOW_SETUP_VIOS: true`, plus `SIGNOFF_SDC_FILE: dir::constraints/design_signoff.sdc` next to `PNR_SDC_FILE: dir::constraints/design.sdc`) |
 | `asic/Makefile` | `make pdk` / `make asic_run` / `make asic_verify` — DDK §8 automation |
 | `asic/README.md` | DDK §9.1–9.13 master delivery document (run tag, results, known issues) |
-| `asic/constraints/design.sdc` | timing constraints — `clk` 20 ns (50 MHz) and `jtag_tck` 100 ns (JTAG block at the end of the file: asynchronous `clk`/`jtag_tck` group, `jtag_trst_ni` false path, TMS/TDI input and TDO output budgets of 20 ns, 5 pF TDO load); single SDC for PnR + signoff |
+| `asic/constraints/design.sdc` | PnR timing constraints (`PNR_SDC_FILE`) — `clk` 20 ns (50 MHz target) and `jtag_tck` 100 ns (JTAG block at the end of the file: asynchronous `clk`/`jtag_tck` group, `jtag_trst_ni` false path, TMS/TDI input and TDO output budgets of 20 ns, 5 pF TDO load) |
+| `asic/constraints/design_signoff.sdc` | signoff timing constraints (`SIGNOFF_SDC_FILE`, read by the final post-PnR STA) — identical to `design.sdc` except `create_clock -period 37.000` for `clk` = the verified 27.0 MHz (§13.7, `asic/README.md` §9.1 / §9.6) |
 | `asic/BELLEK_ENVANTERI.md` | memory inventory, macro/banking plan, corner analysis |
 | `rtl/asic/asic_top.sv` | ASIC top level — no MMCM/BUFG/IOBUF, clock and reset from pads |
 | `rtl/asic/sram_macro_bank.sv` | 512-word banked SRAM macro wrapper |
@@ -1893,41 +1908,52 @@ cd asic && make asic_run     # LibreLane Classic; fills reports/ + results/ (asi
 `make asic-elab` fails if `$display` / `$readmemh` residue reaches the synthesis view,
 and reports any latch it finds — both are regression gates, not one-off checks.
 
-### 13.7 Final Signoff Results — `RUN_final_2026-09-06`
+### 13.7 Final Signoff Results — `RUN_hold035_2026-09-09`
 
 Every number below comes from a **single LibreLane run on a clean clone**,
-`RUN_final_2026-09-06` (GCP VM1, 8 vCPU / 60 GB RAM, 3 h 28 min for
+`RUN_hold035_2026-09-09` (GCP VM1, 8 vCPU / 60 GB RAM, 3 h 44 min for
 `make asic_run`, `make pdk` excluded), with
 reports delivered unmodified under `asic/reports/` and outputs under
 `asic/results/`. The authoritative document is `asic/README.md` §9.1–9.13.
 The delivered configuration is the one of §13.2: 21-port `asic_top` with the
 riscv-dbg JTAG debug subsystem (`JTAG_DEBUG`), `FC1_FIX` and `I2C_SDA_SYNC`,
-two asynchronous clocks (`clk` 20 ns, `jtag_tck` 100 ns) and the four CTS
-settings of §10.10; its official run is `RUN_final_2026-09-06` (VM1, fresh
-clone of commit `248069b`, LibreLane 3.0.6 Classic, sky130A). The 14 August 2026
+two asynchronous clocks (`clk` — 20 ns for PnR, 37 ns for signoff — and `jtag_tck` 100 ns), the four CTS
+settings of §10.10 and the hold-repair settings of `asic/README.md` §9.7. Two SDC
+files are delivered: the design is **built** with the PnR SDC
+(`asic/constraints/design.sdc`, `clk` 20 ns = the 50 MHz target) and **signed off**
+with the signoff SDC (`asic/constraints/design_signoff.sdc`, `clk` 37 ns = the
+verified 27.0 MHz) — LibreLane's `PNR_SDC_FILE` / `SIGNOFF_SDC_FILE` mechanism;
+`asic/reports/timing/` is the 37 ns signoff, `asic/reports/timing_target_20ns/` the
+same database re-timed at the 20 ns target. The delivered run is
+`RUN_hold035_2026-09-09` (VM1, fresh clone of commit `248069b`, LibreLane 3.0.6
+Classic, sky130A); it supersedes `RUN_final_2026-09-06` of 6 September, which had the
+same configuration without the hold repair and the split SDC and could declare no
+verified frequency (its figures are kept for comparison in `asic/README.md` §9.11.1).
+The 14 August 2026
 signed run of the JTAG-less RTL (commit `73d8dcd`) is the historical reference
 that the exploration tables of §10.10 compare against.
 
 | Item | Result |
 |---|---|
 | Die / core area | **4180 × 4490 µm = 18.77 mm²** / 17.74 mm² configured, 17.72 mm² after row snapping (`FP_SIZING: absolute`) |
-| Utilization | 50.40 % total (std-cell 13.25 %) |
-| Standard cells | 310,510 instances (2.58 M total incl. fill + tap) |
+| Utilization | 51.05 % total (std-cell 14.39 %) |
+| Standard cells | 321,880 instances (2.56 M total incl. fill + tap; 10,509 of them hold delay cells, `asic/README.md` §9.9/2) |
 | SRAM macros | **27** (26 × `sky130_sram_2kbyte_1rw1r_32x512_8` + 1 × `32x256`), hand-placed 4 × 7 grid |
-| Routing | 6.52 m wire, 812,086 vias, **routing DRC = 0** |
-| **Setup (tt_025C_1v80)** | **+1.684 ns @ 50 MHz — setup closes in this corner** (fmax ≈ 54.6 MHz) |
-| Setup (ff_n40C_1v95) | +4.010 ns (setup closes) |
-| Setup (ss_100C_1v60) | −10.537 ns; the setup-side closing point of this corner is **28.6 MHz (35.0 ns)**, obtained by re-running signoff STA on the unmodified routed database at a series of clock periods, not by extrapolation. Setup slack recovers only 0.5 ns per ns of period because the supplied SRAM macro's read-data arc is `falling_edge`, making the read path half-cycle; the earlier extrapolated ≈32.7 MHz is withdrawn (`asic/README.md` §9.1). At the 20 ns target the worst path is still a pure std-cell CPU path (`id_stage` → ALU/divider → `id_stage`, §9.9/1). **A setup-side figure, not a verified operating frequency** — see the row below |
-| Hold (all three corners) | **−0.309 / −0.122 / −0.290 ns**, TT 87 / SS 5 / FF 142 reg-to-reg violations — of the FF paths, 50 end at SRAM-macro address/chip-select/data-in pins, 78 are launched from the debug module into CPU registers, 14 are boot-ROM/bridge/CPU-internal; no violating path ends in JTAG/DM logic. Mechanism measured: clock-tree skew to the macro clock pins (1.88 ns at TT), not logic depth and not the SRAM Liberty substitution; 115 hold delay cells are in the netlist — `asic/README.md` §9.9/2. Hold is period-independent, so it is not removed by slowing the clock |
-| **Verified operating frequency** (DDK ruling of 8 September 2026: setup **and** hold closed in all mandatory corners) | **none declared for the ASIC** — 50 MHz is the target (setup closes in TT/FF, SS setup limit **28.6 MHz measured**, hold negative in all three corners). The FPGA implementation of the same RTL is verified at 50 MHz (§12.4). Why they differ: target technology and PVT signoff, not design — §13.8 |
+| Routing | 6.67 m wire, 856,965 vias, **routing DRC = 0** |
+| **Setup (tt_025C_1v80)** | **+9.718 ns @ 37 ns signoff (27.0 MHz), 0 violating endpoints**; at the 20 ns target (`asic/reports/timing_target_20ns/`, same database and parasitics re-timed with `design.sdc`) **+1.218 ns — setup closes at 50 MHz in this corner** |
+| Setup (ff_n40C_1v95) | +12.185 ns @ 37 ns (0 violating endpoints); +3.685 ns at the 20 ns target (setup closes at 50 MHz) |
+| Setup (ss_100C_1v60) | **+0.197 ns @ 37 ns — setup closes**, 0 violating endpoints; at the 20 ns target −9.879 ns with 3,304 violating endpoints (TNS −11,648 ns) — 50 MHz does not close in this corner. The setup-only closing point of this netlist is **36.6 ns = 27.3 MHz**, obtained by re-running signoff STA on the unmodified routed database at a series of clock periods (20 / 32 / 34 / 36 / 37 ns → −9.879 / −2.303 / −1.303 / −0.303 / +0.197 ns), not by extrapolation; 37.000 ns was chosen to leave +0.197 ns of margin. Setup slack recovers only 0.5 ns per ns of period because the supplied SRAM macro's read-data arc is `falling_edge`, making the read path half-cycle — at 37 ns the worst path in every corner is that half-cycle SRAM read path (`i_instr_sram` bank 3 macro → `if_stage`), at the 20 ns target it is still the pure std-cell CPU path (`id_stage` → ALU/divider → `id_stage`, §9.9/1). The superseded September 6 netlist closed at 35.0 ns = 28.6 MHz, and its earlier extrapolated ≈32.7 MHz was withdrawn (`asic/README.md` §9.1) |
+| Hold (all three corners) | **Closed: +0.165 / +0.637 / +0.040 ns (TT / SS / FF), 0 violating endpoints** (`asic/reports/timing/<corner>/min.rpt`; hold is period-independent, so the hold reports of the 20 ns target are byte-identical). Obtained with the resizer hold margin raised to 0.35 and `ALLOW_SETUP_VIOS` on (`asic/README.md` §9.7): the resizer inserted **10,509 hold delay cells** (10,467 `dlygate4sd3_1` + 42 buffers) at a cost of about 1.3 MHz of setup ceiling (28.6 → 27.3 MHz, §9.9/12). The clock-tree skew to the macro clock pins that caused the September 6 violations is essentially unchanged (1.79 ns at TT; 1.88 ns then) — the repair adds delay on the data side of the skew-dominated paths. Worst post-extraction hold path: `i_obi_axi_instr._263_` → `if_stage_i.prefetch_buffer_i.instruction_obi_i._305_`. The superseded September 6 run carried TT 87 / SS 5 / FF 142 reg-to-reg violations (−0.309 / −0.122 / −0.290 ns) with 115 hold cells; its mechanism and endpoint families are kept in `asic/README.md` §9.9/2 |
+| **Verified operating frequency** (DDK ruling of 8 September 2026: setup **and** hold closed in all mandatory corners) | **27.0 MHz (37.000 ns signoff)** — every corner closes setup and hold with 0 violating endpoints at this period; the `jtag_tck` group, recovery and removal checks are clean at the same period (`asic/README.md` §9.1). **50 MHz remains the target**: at 20 ns setup closes in TT (+1.218 ns) and FF (+3.685 ns), not in SS (−9.879 ns); hold is closed at any period. The FPGA implementation of the same RTL is verified at 50 MHz (§12.4). Why they differ: target technology and PVT signoff, not design — §13.8 |
 | **KLayout DRC** | **0** (257 rules) |
-| **LVS (Netgen, GDS extraction)** | **"Circuits match uniquely"** — 0 errors (top level 92,149 devices / 81,121 nets after parallel-device merge) |
+| **LVS (Netgen, GDS extraction)** | **"Circuits match uniquely"** — 0 errors (top level 103,699 devices / 92,242 nets after parallel-device merge) |
 | XOR (Magic vs KLayout GDS; streamout consistency check, not a DRC) | **0** |
-| Antenna | **0** nets / 0 pins (101 diodes inserted) |
-| PDN | 0 grid errors; IR-drop **0.05 % VPWR / 0.06 % VGND** (0.95 mV drop / 1.00 mV rise) |
+| Antenna | **2** nets / 2 pins after 173 diode insertions — **declared exception** (`asic/README.md` §9.9/13): two met1 side-area ratio violations at 1.6–1.7× the limit (`net7416`, a resizer-inserted buffer net, 685.56 vs 400.00; `i_soc.i_periph_decoder.qspi_wdata[22]`, 645.11 vs 400.00) on nets created or lengthened by the hold-repair pass; the standard remedy is one antenna diode per affected gate as a routing ECO, not applied because a full re-run costs 3 h 44 min inside the freeze window and a partial ECO would invalidate the extraction / STA / DRC / LVS chain. The superseded September 6 run had 0 nets / 0 pins with 101 diodes |
+| PDN | 0 grid errors; IR-drop **0.05 % VPWR / 0.06 % VGND** (0.96 mV drop / 1.04 mV rise) |
 | Magic DRC (DEF + abstract-view input, `MAGIC_DRC_USE_GDS: false`; the GDS-based signoff DRC is the KLayout row) | 9,201 markers, **all one rule (`nwell.4`)** — measured root-cause analysis (every marker ≤ 6.13 µm from a tap, 0 markers inside SRAM footprints) documents it as a Magic connectivity-resolution artefact; KLayout/LVS/XOR are clean on the same GDS (`asic/README.md` §9.9/4) |
-| Power (estimated, no VCD) | TT **117.2 mW** (SRAM 63 %, clock 18 %, seq. 17 %) |
+| Power (estimated, no VCD) | TT **64.0 mW at the verified 27.0 MHz** (SRAM 63 %, clock 18 %, seq. 17 %; SS 59.6 / FF 67.9 mW); at the 50 MHz target TT 117.5 mW (SS 108.8 / FF 124.6 mW, `asic/reports/timing_target_20ns/<corner>/power.rpt`) |
 | Lint | Verilator **0 errors** / 979 warnings, no waivers |
+| Transistors (MOS gates counted on the delivered GDS) | **12,750,459** (`asic/scripts/count_transistors.py`; 12,715,215 in the September 6 run) |
 
 <p align="center"><img src="asic/results/images/asic_top_render_hd.png" alt="asic_top - delivered GDS, power grid and fill cells hidden" width="820"></p>
 <p align="center"><sub>Full-chip render of the delivered GDS (<code>asic/results/gds/asic_top_klayout.gds.gz</code>, 4180 &times; 4490 &micro;m) with the met4/met5 power grid and the fill / decap / tap cells hidden (<code>asic/scripts/render_die.py</code>, KLayout batch): the 27 hand-placed SRAM macros (4 &times; 7 grid, bitcell arrays dark), the standard-cell logic drawn by its met2 (orange) / met3 (green) routing &mdash; the wide band across the middle is the CV32E40P core (left, 30.6 k cells), the crossbar and peripherals (centre) and the QSPI controller (right, 12.9 k cells); the separate cluster at the lower right is the AI accelerator (12.0 k cells); the narrow vertical strip at the top centre is the JTAG debug module (<code>dm_top</code> + <code>dmi_jtag</code>) reaching the JTAG pins on the top edge (placement centroids from <code>asic/results/def/asic_top.def.gz</code>) &mdash; and the met1 (blue) routing channels between the macros. Colour key: diff green, poly red, li1 grey, met1 blue, met2 orange, met3 green. The flow's own render with the power grid drawn (<code>asic/results/images/asic_top.png</code>) is in <code>asic/README.md</code> &sect;9.7.</sub></p>
@@ -1966,19 +1992,18 @@ implementation — `asic/DDK_KARARLARI.md` items 8 and 10).
 | CPU clock gate | vendor `cv32e40p_sim_clock_gate.sv` (BUFGCE on the board) | `rtl/asic/cv32e40p_clock_gate_asic.sv` | §13.5 |
 | JTAG TAP access | Xilinx `BSCANE2` USER3/USER4 through the board USB-JTAG — no extra pins | 5 dedicated pads (`jtag_tck_i`, `jtag_tms_i`, `jtag_tdi_i`, `jtag_trst_ni`, `jtag_tdo_o`) | §12.1, §10.10 |
 | JTAG clock domain | BSCANE2 `jtag_tck`, 100 ns, 320 endpoints, WNS +94.976 ns | `jtag_tck` 100 ns, asynchronous clock group, `jtag_trst_ni` false path | §12.4 vs `asic/README.md` §9.6 |
-| Resource / area | 13,772 LUT (6.76 %), 9,756 FF (2.39 %), 10 DSP48E1, 49 IOB, 1 MMCM, 3 BUFG, 2 BSCANE2 | 310,510 std-cell instances (2.58 M incl. fill/tap), die 4180 × 4490 µm = 18.77 mm², utilization 50.40 % | §12.4 vs §13.7 |
-| Power (estimated) | 0.330 W (dynamic 0.167 + static 0.163), Vivado vector-less, `Confidence Level: Low` (§12.4) | 117.2 mW, no VCD (SRAM 63 %, clock 18 %, seq. 17 %) | §12.4 vs §13.7 / `asic/README.md` §9.10 |
-| **Timing status at the 50 MHz target** | **Verified**: WNS +2.433 ns / WHS +0.059 ns, 0 failing among 24,260 setup / 24,257 hold endpoints | **Target only**: setup closes in TT (+1.684 ns) and FF (+4.010 ns), not in SS (−10.537 ns, measured setup limit 28.6 MHz); hold negative in all three corners (−0.309 / −0.122 / −0.290 ns) → **no verified ASIC frequency** | `rtl/fpga/reports/impl_timing_summary.rpt` vs `asic/reports/timing/`, `asic/README.md` §9.1 |
-| Why the frequencies differ | one operating point, hold-safe fabric routing, BRAM primitives | three PVT signoff corners on sky130A; the SS corner's CPU ALU cone (§9.9/1) and the clock-tree skew to 27 macro clock pins (§9.9/2) are corner-physics and floorplan effects of the target technology, not RTL differences | `asic/README.md` §9.9 |
-| Signoff evidence | 0 failed routes (19,973 / 19,973), impl DRC 0 errors, live board 1000/1000 sweep and jury-tool 156/156 + 2000/2000 | routing DRC 0, KLayout DRC 0 (257 rules, GDS-based), LVS "Circuits match uniquely", XOR 0, antenna 0; Magic DRC reported on the abstract-view input (§13.7) | §12.4 / §12.6 vs §13.7 |
+| Resource / area | 13,772 LUT (6.76 %), 9,756 FF (2.39 %), 10 DSP48E1, 49 IOB, 1 MMCM, 3 BUFG, 2 BSCANE2 | 321,880 std-cell instances (2.56 M incl. fill/tap; 10,509 of them hold delay cells), die 4180 × 4490 µm = 18.77 mm², utilization 51.05 % | §12.4 vs §13.7 |
+| Power (estimated) | 0.330 W (dynamic 0.167 + static 0.163), Vivado vector-less, `Confidence Level: Low` (§12.4) | 64.0 mW at the verified 27.0 MHz, 117.5 mW at the 50 MHz target; no VCD (SRAM 63 %, clock 18 %, seq. 17 %) | §12.4 vs §13.7 / `asic/README.md` §9.10 |
+| **Timing status at the 50 MHz target** | **Verified**: WNS +2.433 ns / WHS +0.059 ns, 0 failing among 24,260 setup / 24,257 hold endpoints | **Target only at 50 MHz**: setup closes in TT (+1.218 ns) and FF (+3.685 ns), not in SS (−9.879 ns); hold closed in all three corners (+0.165 / +0.637 / +0.040 ns) → **verified ASIC frequency 27.0 MHz** at the 37 ns signoff period (setup and hold closed in every corner; setup-only closing point 36.6 ns = 27.3 MHz by period sweep) | `rtl/fpga/reports/impl_timing_summary.rpt` vs `asic/reports/timing/` (37 ns signoff) and `asic/reports/timing_target_20ns/` (20 ns target), `asic/README.md` §9.1 |
+| Why the frequencies differ | one operating point, hold-safe fabric routing, BRAM primitives | three PVT signoff corners on sky130A; the SS corner's CPU ALU cone at the 50 MHz target (§9.9/1), the half-cycle SRAM read path that sets the 27.3 MHz closing point (§9.1) and the clock-tree skew to 27 macro clock pins (1.79 ns at TT — repaired for hold with 10,509 delay cells at about 1.3 MHz of setup ceiling, §9.9/2) are corner-physics and floorplan effects of the target technology, not RTL differences | `asic/README.md` §9.9 |
+| Signoff evidence | 0 failed routes (19,973 / 19,973), impl DRC 0 errors, live board 1000/1000 sweep and jury-tool 156/156 + 2000/2000 | routing DRC 0, KLayout DRC 0 (257 rules, GDS-based), LVS "Circuits match uniquely", XOR 0, antenna 2 nets (declared, `asic/README.md` §9.9/13); Magic DRC reported on the abstract-view input (§13.7) | §12.4 / §12.6 vs §13.7 |
 
 **Per-implementation performance.** Cycles per inference are identical (459,016 in
 simulation, 459,065 measured on the board; 21.0 × over the software baseline, both
 frequency-independent). Data per second is therefore quoted per implementation at its
 own clock basis in §11.5: the FPGA at its verified 50 MHz (108 inference/s, 211.7 kB/s,
-9.18 ms), the ASIC only as target / setup-limit figures (50 MHz target: the same 108
-inference/s; measured SS setup limit 28.6 MHz: 62 inference/s, 121.5 kB/s, 16.05 ms), with no
-ASIC figure claimed as a verified-frequency result.
+9.18 ms), the ASIC at its verified 27.0 MHz (58 inference/s, 113.7 kB/s, 16.98 ms); the
+ASIC's 50 MHz row (the same 108 inference/s) is a target figure, not a verified one.
 
 ## 14. Software Test Suite
 

@@ -223,20 +223,44 @@ violation in one of them does not automatically invalidate the design, but
 it can affect that evaluation item and the overall quality assessment.)
 
 **Impact on our submission:** this is the decision that bears directly on
-our section 9.1 declaration. Our SDC target is 50 MHz (`design.sdc`
-`create_clock -period 20.000`; `config.yaml` CLOCK_PERIOD = 20). Setup
-closes in TT (+1.684 ns) and FF (+4.010 ns) but not in SS (WS -10.537 ns,
-2,219 paths); hold is negative in all three corners (TT -0.309 / SS -0.122 /
-FF -0.290 ns; 87 / 5 / 142 paths, classified in 9.9/2). Under this
-definition 50 MHz is our **targeted** frequency and, because hold does not
-close anywhere, **no verified ASIC operating frequency is declared**; the
-SS figure of 28.6 MHz (measured by period sweep, 9.1; the earlier
-extrapolated ~32.7 MHz is withdrawn) is reported only as that corner's
-setup-side limit.
-No measured number changed; what changed on 8 September is the wording of
-9.1, 9.11 and root README sections 11.5 / 13.7, which previously read
-"50 MHz target met" for the TT corner. The FPGA prototype is verified at
-50 MHz in the full sense (root README section 12.4).
+our section 9.1 declaration, and it is the reason the delivered run was
+replaced on 9 September. Our SDC target is 50 MHz (`design.sdc`
+`create_clock -period 20.000`; `config.yaml` CLOCK_PERIOD = 20) and is
+unchanged.
+
+*On 8 September* (run `RUN_final_2026-09-06`, since superseded) setup
+closed in TT (+1.684 ns) and FF (+4.010 ns) but not in SS (WS -10.537 ns,
+2,219 endpoints); hold was negative in all three corners (TT -0.309 /
+SS -0.122 / FF -0.290 ns; 87 / 5 / 142 endpoints, classified in 9.9/2).
+Under this definition 50 MHz was our **targeted** frequency and, because
+hold closed nowhere, **no verified ASIC operating frequency could be
+declared**; the 28.6 MHz SS figure of that netlist (35.0 ns, measured by
+period sweep; the earlier extrapolated ~32.7 MHz was withdrawn) was only
+that corner's setup-side limit. No measured number changed on 8 September;
+what changed that day was the wording of 9.1, 9.11 and root README sections
+11.5 / 13.7, which previously read "50 MHz target met" for the TT corner.
+That measurement is kept in 9.1 as the history that led to the new run.
+
+*On 9 September* the delivered run became `RUN_hold035_2026-09-09`: the
+hold repair (resizer hold margin 0.35 with `ALLOW_SETUP_VIOS`, 10,509 delay
+cells - 9.7, 9.9/2) closes hold in all three corners (+0.165 / +0.637 /
++0.040 ns TT / SS / FF, 0 endpoints), and the design is signed off with a
+second SDC (`constraints/design_signoff.sdc`,
+`create_clock -period 37.000`) at which setup also closes in every corner
+(+9.718 / +0.197 / +12.185 ns, 0 endpoints). We therefore **declare a verified operating
+frequency of 27.0 MHz** (37.000 ns), in exactly the sense of this ruling.
+The setup-only closing point of the delivered netlist was measured by
+period sweep at 36.6 ns = 27.3 MHz (slack recovers 0.5 ns per ns of period
+because the binding path is the half-cycle SRAM read path - 9.1), and
+37.000 ns was chosen to leave +0.197 ns of SS margin. At the 20 ns target
+(`reports/timing_target_20ns/`, same database and parasitics) setup closes
+in TT (+1.218 ns) and FF (+3.685 ns) but not in SS (-9.879 ns, 3,304
+endpoints), so **50 MHz remains the target** frequency, reported as such.
+Slack-derived "fmax" figures are not quoted (9.1). The one regression of
+the new run, 2 antenna violations, is declared under the "does not
+automatically invalidate the design" clause of this same ruling (9.9/13).
+The FPGA prototype is verified at 50 MHz in the full sense (root README
+section 12.4).
 
 ---
 
@@ -275,7 +299,10 @@ Magic DRC check; Magic DRC and KLayout DRC are evaluated as separate signoff
 outputs.)
 
 **Impact on our submission:** two wording corrections and one open item,
-all recorded in 9.9/4 and 9.11.
+all recorded in 9.9/4 and 9.11 (figures of the delivered run
+`RUN_hold035_2026-09-09`; for these checks they are identical to those of
+the superseded September 6 run - KLayout 0 / 257, Magic 9,201 `nwell.4`,
+LVS 0, XOR 0).
 - Our Magic DRC step ran with `MAGIC_DRC_USE_GDS: false`, i.e. on the DEF
   plus abstract cell views; the 9,201 `nwell.4` markers are that run's
   result. Under this decision it cannot be offered as the final DRC and is
@@ -326,14 +353,17 @@ must be explained briefly in the report.)
 **Impact on our submission:** both implementations target the same 50 MHz,
 but only the FPGA verifies it (Vivado post-implementation: WNS +2.433 ns /
 WHS +0.059 ns, 0 failing endpoints among 24,260 setup / 24,257 hold - root
-README section 12.4). On the ASIC the same 50 MHz is a target (item 8). The
-cycle count per inference (459,016; 459,065 measured on the board) is
-identical in both implementations because the RTL is the same; the
-inference/s figures are therefore given per implementation in root README
-section 11.5 (FPGA at the verified 50 MHz; ASIC rows explicitly marked as
-target / setup-limit figures, not verified-frequency figures), and the
-implementation differences with the reason for the frequency gap (target
-technology and PVT signoff, not design) are tabulated in root README
-section 13.8.
+README section 12.4). On the ASIC 50 MHz is the target; the verified
+operating frequency is 27.0 MHz (37.000 ns signoff SDC, setup and hold
+closed in all three corners - item 8, README 9.1). The cycle count per
+inference (459,016; 459,065 measured on the board) is identical in both
+implementations because the RTL is the same; the inference/s figures are
+therefore given per implementation in root README section 11.5 (FPGA at
+its verified 50 MHz; the ASIC "verified" row at 27.0 MHz - the
+data-per-second figure this ruling asks for - and a separate ASIC "target"
+row at 50 MHz, explicitly marked as a target figure, not a
+verified-frequency figure), and the implementation differences with the
+reason for the frequency gap (target technology and PVT signoff, not
+design) are tabulated in root README section 13.8.
 
-<!-- English translation of DDK_KARARLARI.md, 2026-09-08; numeric values converted from Turkish to English number format. -->
+<!-- English translation of DDK_KARARLARI.md, 2026-09-08; numeric values converted from Turkish to English number format. Impact paragraphs of items 8-10 refreshed 2026-09-09 for the delivered run RUN_hold035_2026-09-09 (verified 27.0 MHz). -->
