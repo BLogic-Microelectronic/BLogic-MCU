@@ -1097,7 +1097,41 @@ is named as such):
     the declared period are both stated wherever a frequency is quoted
     (9.1, 9.6, 9.11).
 
-13. **Antenna: 2 violating nets / 2 pins after 173 diode insertions -
+13. **Parasitic-corner sensitivity outside the mandatory set: measured and
+    declared.** The mandatory signoff corner set of this competition is the
+    three PVT corners at *nominal* parasitics (`nom_tt_025C_1v80`,
+    `nom_ss_100C_1v60`, `nom_ff_n40C_1v95`; deliverables document Table 4),
+    and the delivered run closes setup and hold in all three with zero
+    violating endpoints at 37 ns (9.11). Because LibreLane also extracts
+    *minimum* and *maximum* parasitic corners
+    (`results/spef/min/`, `results/spef/max/`), we re-ran the signoff STA
+    across all nine PVT x RC combinations on the same database, without
+    touching the design, to see how much margin the declaration actually has:
+
+    | Parasitic corner | tt | ss | ff |
+    |---|---|---|---|
+    | **min** (best-case RC) | setup +9.990 / hold +0.283 | setup +0.689 / hold +0.817 | setup +12.468 / hold +0.119 |
+    | **nom** (mandatory, delivered) | setup +9.718 / hold +0.165 | **setup +0.197** / hold +0.637 | setup +12.185 / **hold +0.040** |
+    | **max** (worst-case RC) | setup +9.539 / hold +0.039 | **setup -0.029 (1 path)** | setup +11.970 / **hold -0.054 (7 paths)** |
+
+    All nine corners are clean except two cells in the `max` row: one setup
+    path at **-0.029 ns** in `max_ss_100C_1v60` and seven hold paths at
+    **-0.054 ns** in `max_ff_n40C_1v95`. Both are tens of picoseconds, and
+    neither corner is in the mandatory set, so **the declared 27.0 MHz stands
+    as stated**. We report the measurement rather than omit it, because it
+    bounds the claim honestly: the delivered design has roughly 0.2 ns of
+    setup margin and 0.04 ns of hold margin at nominal parasitics, and that
+    margin is consumed by the pessimistic RC corner. Note also that the setup
+    side of this cannot be bought back with a slower clock in the usual way -
+    the binding path is the half-cycle SRAM read arc of 9.1, so a longer
+    period returns only 0.5 ns per ns - and the hold side is
+    period-independent by construction. Closing the `max` corners would need
+    another hold-repair pass at a higher margin, i.e. another full run and
+    another setup cost (9.9/12); that trade was not taken inside the freeze
+    window. Evidence: `reports/timing/` (mandatory three, delivered) and the
+    nine-corner re-run log kept with the run.
+
+14. **Antenna: 2 violating nets / 2 pins after 173 diode insertions -
     declared exception (the September 6 run had 0).** Both are met1
     side-area ratio violations at 1.6-1.7x the limit on nets created or
     lengthened by the hold-repair pass
@@ -1204,7 +1238,7 @@ the 20 ns target figures are in `reports/timing_target_20ns/` and in 9.1.
 | Magic DRC (DEF + abstract-view input, `MAGIC_DRC_USE_GDS: false`; the GDS-based signoff DRC is the KLayout row) | 9,201 - all from a single rule (`nwell.4`); root cause measured, accepted exception (9.9/4); identical to the September 6 run |
 | Netgen LVS (real GDS extraction) | **0 errors / 0 device differences** (103,699 devices / 92,242 nets per side, 9.9/5) |
 | XOR (Magic vs KLayout GDS; streamout consistency check, not a DRC) | **0** |
-| Antenna violations | **2 nets / 2 pins** (173 diodes inserted, `antenna_diodes_count`) - declared exception, 9.9/13 (September 6 run: 0 / 0 with 101 diodes) |
+| Antenna violations | **2 nets / 2 pins** (173 diodes inserted, `antenna_diodes_count`) - declared exception, 9.9/14 (September 6 run: 0 / 0 with 101 diodes) |
 | Disconnected pins | 880 (classification: note below the table) |
 | PDN grid errors (VPWR / VGND) | **0 / 0** (report files empty) |
 | **Verified operating frequency** (DDK definition of 8 Sep 2026: setup + hold closed in all mandatory corners) | **27.0 MHz (37.000 ns)** - all rows below at this period; target 50 MHz closes setup in TT (+1.218 ns) and FF (+3.685 ns), not in SS (-9.879 ns) - 9.1 |
@@ -1286,7 +1320,7 @@ column of the delivered run is `reports/timing_target_20ns/`.
 | Power TT / SS / FF (mW, estimated) | 112.1 / 104.4 / 118.3 | 117.2 / 108.5 / 124.2 | 117.5 / 108.8 / 124.6 | **64.0 / 59.6 / 67.9** |
 | IR-drop worst / average | 1.54 mV / 9.8 uV | 0.95 mV / 12.5 uV | 0.96 mV / 12.5 uV | same |
 | Routed wire length / vias | 6.135 m / 746,392 | 6.522 m / 812,086 | 6.667 m / 856,965 | same |
-| Antenna diodes inserted / antenna violations | 114 / 0 | 101 / 0 | 173 / **2** (9.9/13) | same |
+| Antenna diodes inserted / antenna violations | 114 / 0 | 101 / 0 | 173 / **2** (9.9/14) | same |
 | Route DRC / KLayout DRC / LVS / XOR | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 | same |
 | Magic DRC (`nwell.4`, abstract-view input) | 9,201 | 9,201 | 9,201 | same |
 | Transistors (delivered GDS) | - | 12,715,215 | 12,750,459 | same |
