@@ -3,12 +3,20 @@
 > **What these are.** Three full LibreLane runs made on the flow VM on 3-4
 > September 2026, while the JTAG debug subsystem was still a prototype on the
 > `deneme/jtag` branch. They are **exploration evidence, not the delivered
-> package.** The delivered chip is the official run **`RUN_final_2026-09-06`**
+> package.** The delivered chip is the run **`RUN_hold035_2026-09-09`**
 > ([`asic/README.md`](../../../asic/README.md); reports under `asic/reports/`,
-> outputs under `asic/results/`), which is the v3 configuration run from the
-> committed `asic/` tree: the same RTL, the same four CTS settings (now in
-> `asic/config.yaml`) and the same JTAG SDC block (now at the end of
-> `asic/constraints/design.sdc`). The "14 Aug" column in the tables below is
+> outputs under `asic/results/`). These three exploration runs fed the
+> **`RUN_final_2026-09-06`** run of 6 September, which was the v3 configuration
+> run from the committed `asic/` tree - the same RTL, the same four CTS settings
+> (now in `asic/config.yaml`) and the same JTAG SDC block (now at the end of
+> `asic/constraints/design.sdc`). That 6 September run was **superseded on
+> 9 September** by `RUN_hold035_2026-09-09`, which keeps those four CTS settings
+> and adds only the resizer hold-repair settings and the separate signoff SDC of
+> `asic/README.md` 9.7; it is the first run to close setup **and** hold in all
+> three corners, so it carries the declared verified frequency of 27.0 MHz.
+> Everything below therefore compares exploration runs against the 6 September
+> figures, which are themselves now historical (delta table: `asic/README.md`
+> 9.11.1). The "14 Aug" column in the tables below is
 > the **14 August 2026 signed run** of the JTAG-less RTL (commit `73d8dcd`),
 > kept as the historical reference; it is no longer the delivered chip. The
 > development log of the prototype phase is
@@ -51,13 +59,17 @@ the official run's `asic/results/metrics/metrics.json`.
 | Standard cells | 296,010 | 309,985 | 310,754 | 310,510 |
 | Worst IR drop (mV) | 1.54 | 2.35 | 2.92 | **0.95** |
 
-Official run facts (from `asic/README.md`): VM1, fresh clone of commit `248069b`,
-LibreLane 3.0.6 Classic, sky130A, 78/78 steps in 3 h 28 min, 12,715,215 transistors,
-power TT 117.2 mW / FF 124.2 mW.
+6 September run facts (`RUN_final_2026-09-06`, since superseded): VM1, fresh clone
+of commit `248069b`, LibreLane 3.0.6 Classic, sky130A, 78/78 steps in 3 h 28 min,
+12,715,215 transistors, power TT 117.2 mW / FF 124.2 mW. The delivered run
+`RUN_hold035_2026-09-09` is the same clone plus five configuration lines: 3 h 44 min,
+12,750,459 transistors, power TT 64.0 mW at its verified 27.0 MHz (117.5 mW at the
+50 MHz target), 321,880 standard cells, hold closed in all three corners
+(`asic/README.md` 9.11).
 
 SS does not close in **any** version, including the 14 August one (-9.083 ns);
 the limit there is the logic depth of the CPU's ALU cone, not the debug module.
-In v3 / the official run, 41 SS setup-violating paths *start* in the DM (all from
+In v3 / the 6 September run, 41 SS setup-violating paths *start* in the DM (all from
 the `ndmreset` register) and none *end* in JTAG/DM logic - declared in
 asic/README 9.9/9. Full per-corner tables, worst paths and the reasoning are in
 root README section 10.10 and in each run's own summary.

@@ -70,12 +70,15 @@ The two findings that do hold (and the goal of the next task):
 So the margin looks recoverable from the CTS/resizer settings rather than from
 the RTL; the variant sweep proved it (`../full_v3/`).
 
-NOTE (6 September 2026, Option B): the JTAG debug subsystem became part of the
-delivered chip; the four CTS settings of v3 and the JTAG SDC block were written
-into `asic/config.yaml` + `asic/constraints/design.sdc`, and the official run is
-`RUN_final_2026-09-06`. The "delivery" column in this file is the 14 August signed
-run (JTAG-less RTL, 73d8dcd) and is now a HISTORICAL REFERENCE; v1/v2 are
-exploration runs, not delivery figures.
+NOTE (6 September 2026, Option B; updated 9 September): the JTAG debug subsystem
+became part of the delivered chip; the four CTS settings of v3 and the JTAG SDC block
+were written into `asic/config.yaml` + `asic/constraints/design.sdc`. The run of that
+day, `RUN_final_2026-09-06`, was **superseded on 9 September** by the delivered
+`RUN_hold035_2026-09-09` (same clone, plus the resizer hold-repair settings and the
+separate 37 ns signoff SDC of `asic/README.md` 9.7; verified 27.0 MHz, hold closed in
+all three corners). The "delivery" column in this file is the 14 August signed run
+(JTAG-less RTL, 73d8dcd) and is a HISTORICAL REFERENCE; v1/v2 are exploration runs,
+not delivery figures.
 
 ## Area / power
 

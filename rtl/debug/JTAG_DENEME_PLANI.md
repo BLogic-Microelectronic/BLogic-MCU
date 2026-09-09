@@ -5,8 +5,11 @@
 > `asic/filelist.f` and `rtl/fpga/build_genesys2.tcl`; `design.sdc` carries
 > `jtag_tck` (100 ns) + the asynchronous clock group + the TAP pin budgets; the four
 > CTS settings of the 3-4 September sweep are in `config.yaml`; `asic_top` has
-> 21 ports. The official ASIC run is `RUN_final_2026-09-06` (VM1, commit 248069b);
-> the 14 August signed run (JTAG-less RTL, 73d8dcd) is the historical reference.
+> 21 ports. The delivered ASIC run is `RUN_hold035_2026-09-09` (VM1, commit 248069b
+> plus the five hold-repair / signoff-SDC lines of `asic/README.md` 9.7; verified
+> operating frequency 27.0 MHz). It supersedes `RUN_final_2026-09-06` of 6 September,
+> which together with the 14 August signed run (JTAG-less RTL, 73d8dcd) is now a
+> historical reference.
 > The earlier "Option A" framing (behind a define, off in the delivery, an optional
 > variant alongside it) was ABANDONED; the `ifdef`s remain only as the isolation
 > proof (`make jtag-equiv`). Known open finding: the DM region is unprotected

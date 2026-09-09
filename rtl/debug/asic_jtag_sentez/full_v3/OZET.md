@@ -73,9 +73,15 @@ trade looks acceptable, but it must not be hidden.
 
 ## Caveats
 
-* STATUS (6 September 2026, Option B): the JTAG debug subsystem is PART OF THE
-  DELIVERED CHIP. This run is the REHEARSAL of the official run (`make asic_run
-  TAG=RUN_final_2026-09-06`, VM1, commit 248069b): the same RTL (v2 = registered
+* STATUS (6 September 2026, Option B; updated 9 September 2026): the JTAG debug
+  subsystem is PART OF THE DELIVERED CHIP. This run is the REHEARSAL of the
+  6 September run (`make asic_run TAG=RUN_final_2026-09-06`, VM1, commit 248069b),
+  which was itself superseded on 9 September by the delivered
+  `RUN_hold035_2026-09-09` (same clone plus the hold-repair settings and the 37 ns
+  signoff SDC of `asic/README.md` 9.7; verified 27.0 MHz, hold closed in all three
+  corners - delta table 9.11.1). The figures below are therefore the exploration
+  record against the 6 September run, not the delivered numbers: the same RTL
+  (v2 = registered
   `axi_dm_slave`, JTAG_DEBUG + FC1_FIX + I2C_SDA_SYNC), the same settings. The only
   difference is that the four CTS settings came from the command line (`-c`) here
   and from `asic/config.yaml` in the official run, and that the JTAG SDC block sits
@@ -83,7 +89,7 @@ trade looks acceptable, but it must not be hidden.
   (semantically identical). The official figures are taken from the official run's
   reports (asic/README, root README 13.7); the v3 numbers in this file are the
   exploration record.
-* OFFICIAL RUN RESULT (`RUN_final_2026-09-06`, VM1, 248069b, 78/78 stages,
+* 6 SEPTEMBER RUN RESULT (`RUN_final_2026-09-06`, since superseded; VM1, 248069b, 78/78 stages,
   3 h 28 min, exit code 2 = the same deferred hold error; reports in
   `asic/reports`, `asic/results`): the v3 column is reproduced exactly - TT +1.684 /
   SS -10.537 / FF +4.010; hold -0.309 / -0.122 / -0.290; TT hold TNS -8.36;
