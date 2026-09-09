@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <report-database>
- <description>XOR /home/blogic2026/final_jtag/repo/asic/run/RUN_final_2026-09-06/59-magic-streamout/asic_top.magic.gds vs. /home/blogic2026/final_jtag/repo/asic/run/RUN_final_2026-09-06/60-klayout-streamout/asic_top.klayout.gds</description>
+ <description>XOR /home/blogic2026/run5/repo/asic/run/RUN_hold035_2026-09-09/59-magic-streamout/asic_top.magic.gds vs. /home/blogic2026/run5/repo/asic/run/RUN_hold035_2026-09-09/60-klayout-streamout/asic_top.klayout.gds</description>
  <original-file/>
  <generator>drc: script='/nix/store/5jsqcdxd774ydqqjk8zkw3zk47dxbryb-python3-3.13.9-env/lib/python3.13/site-packages/librelane/scripts/klayout/xor.drc'</generator>
  <top-cell>asic_top</top-cell>

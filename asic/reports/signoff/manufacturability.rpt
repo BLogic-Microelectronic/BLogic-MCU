@@ -1,5 +1,8 @@
 * Antenna
-Passed ✅
+Failed 𐄂
+Pin violations: 2
+Net violations: 2
+Check the report directory of OpenROAD.CheckAntennas.
 
 * LVS
 Passed ✅

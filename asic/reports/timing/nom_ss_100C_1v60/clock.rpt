@@ -3,14 +3,14 @@ Sources: clk_i
 Generated: no
 Virtual: yes
 Propagated: no
-Period: 20.000000
+Period: 37.000000
 
 ===========================================================================
 report_clock_properties
 ============================================================================
 Clock                   Period          Waveform
 ----------------------------------------------------
-clk                  20.000000    0.000000 10.000000
+clk                  37.000000    0.000000 18.500000
 
 ===========================================================================
 report_clock_latency
@@ -19,27 +19,27 @@ Clock clk
 rise -> rise
     min     max
 0.000000 0.000000 source latency
-5.760933         network latency i_soc.i_ai_accel._22878_/CLK
-        8.981012 network latency i_soc.i_data_sram.u_sram.gen_bank[0].gen_512.u_macro/clk0
+5.787824         network latency i_soc.i_ai_accel._22886_/CLK
+        8.857327 network latency i_soc.i_data_sram.u_sram.gen_bank[0].gen_512.u_macro/clk0
 ---------------
-5.760933 8.981012 latency
-        3.220079 skew
+5.787824 8.857327 latency
+        3.069503 skew
 
 fall -> fall
     min     max
 0.000000 0.000000 source latency
-5.728828         network latency i_soc.i_ai_accel._22878_/CLK
-        8.041810 network latency i_soc.i_data_sram.u_sram.gen_bank[0].gen_512.u_macro/clk0
+5.749043         network latency i_soc.i_ai_accel._22886_/CLK
+        7.956674 network latency i_soc.i_data_sram.u_sram.gen_bank[0].gen_512.u_macro/clk0
 ---------------
-5.728828 8.041810 latency
-        2.312982 skew
+5.749043 7.956674 latency
+        2.207632 skew
 
 
 
 ===========================================================================
 report_clock_min_period
 ============================================================================
-clk period_min = 30.54 fmax = 32.75
+clk period_min = 29.88 fmax = 33.47
 Clock: jtag_tck
 Sources: jtag_tck_i 
 Generated: no
@@ -61,42 +61,42 @@ Clock jtag_tck
 rise -> rise
     min     max
 0.000000 0.000000 source latency
-1.194668         network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._256_/CLK
-        1.786642 network latency i_soc.i_dmi_jtag._592_/CLK
+1.195597         network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._256_/CLK
+        1.816282 network latency i_soc.i_dmi_jtag._574_/CLK
 ---------------
-1.194668 1.786642 latency
-        0.591974 skew
+1.195597 1.816282 latency
+        0.620685 skew
 
 rise -> fall
     min     max
 0.000000 0.000000 source latency
-1.945211         network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK
-        1.945211 network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK
+1.989551         network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK
+        1.989551 network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK
 ---------------
-1.945211 1.945211 latency
+1.989551 1.989551 latency
         0.000000 skew
 
 fall -> rise
     min     max
 0.000000 0.000000 source latency
-1.633499         network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK
-        1.633499 network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK
+1.667964         network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK
+        1.667964 network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK
 ---------------
-1.633499 1.633499 latency
+1.667964 1.667964 latency
         0.000000 skew
 
 fall -> fall
     min     max
 0.000000 0.000000 source latency
-1.299519         network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._256_/CLK
-        1.807468 network latency i_soc.i_dmi_jtag.i_dmi_cdc.i_cdc_req.i_cdc_reset_ctrlr.i_cdc_reset_ctrlr_half_a._75_/CLK
+1.300222         network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._256_/CLK
+        1.826805 network latency i_soc.i_dmi_jtag._574_/CLK
 ---------------
-1.299519 1.807468 latency
-        0.507949 skew
+1.300222 1.826805 latency
+        0.526583 skew
 
 
 
 ===========================================================================
 report_clock_min_period
 ============================================================================
-jtag_tck period_min = 11.78 fmax = 84.87
+jtag_tck period_min = 13.89 fmax = 71.99

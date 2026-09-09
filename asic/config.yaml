@@ -2,6 +2,9 @@
 # DDK "2026 Final Ciktilar" Tablo 8 geregi: asic/config.yaml
 # Tum yollar depoya gore goreli (dir:: = bu dosyanin dizini). Mutlak yol yok (bolum 3).
 # Referans surum: LibreLane 3.0.6 (asic/environment/flake.lock ile sabit).
+# Teslim edilen kosu: RUN_hold035_2026-09-09 (README 9.7 / 9.11). Ayar satirlari o kosuda
+# kullanilan config.yaml ile birebir aynidir; 6 Eylul kosusuna (RUN_final_2026-09-06, superseded)
+# gore tek fark hold onarimi + signoff SDC satirlaridir (asagida "Saat ve zamanlama kisitlari").
 
 DESIGN_NAME: asic_top
 
@@ -119,15 +122,30 @@ SLANG_ARGUMENTS:
 SYNTH_HIERARCHY_MODE: deferred_flatten
 
 # --- Saat ve zamanlama kisitlari ---
-# 20 ns = 50 MHz hedef. PnR ve signoff AYNI SDC'yi kullanir (bolum 3.2/6.2);
-# design.sdc icinde olculmus SRAM derate (2,661x) ve IO butceleri tanimlidir.
-# design.sdc ayrica JTAG TAP saatini tanimlar (jtag_tck, 100 ns = OpenOCD adapter
-# tavani 10 MHz); clk <-> jtag_tck ASENKRON saat grubudur, gecisler riscv-dbg
-# dmi_cdc (2-faz el sikisma) ile korunur.
+# IKI SDC teslim edilir (LibreLane 3.0.6 PNR_SDC_FILE / SIGNOFF_SDC_FILE mekanizmasi,
+# librelane/steps/openroad.py:323 ve :970; bolum 6.2, README 9.1/9.6):
+#   PnR     : constraints/design.sdc         create_clock -period 20.000 -> 50 MHz HEDEF
+#             (CLOCK_PERIOD: 20 ile AYNI olmak zorunda, README 9.13 tutarlilik kurali).
+#   Signoff : constraints/design_signoff.sdc create_clock -period 37.000 -> 27,0 MHz DOGRULANMIS
+#             calisma frekansi (uc kosede setup VE hold kapali, SS setup +0,197 ns; olculen
+#             kapanis noktasi 36,6 ns = 27,3 MHz, periyot taramasi README 9.1).
+# Iki dosya clk periyodu disinda birebir aynidir: olculmus SRAM derate (2,661x), IO butceleri ve
+# JTAG TAP saati (jtag_tck, 100 ns = OpenOCD adapter tavani 10 MHz) her ikisinde de tanimlidir;
+# clk <-> jtag_tck ASENKRON saat grubudur, gecisler riscv-dbg dmi_cdc (2-faz el sikisma) ile korunur.
 CLOCK_PORT: clk_i
 CLOCK_PERIOD: 20
+# Hold onarimi ayarlari - teslim kosusu RUN_hold035_2026-09-09'un 6 Eylul kosusuna gore tek
+# yapilandirma farki (9 Eylul 2026; README 9.7). Varsayilan marj (0.10) + ALLOW_SETUP_VIOS kapali
+# iken resizer 50 MHz setup baskisi altinda hold onarimini erken birakiyordu (6 Eylul: tt 87 /
+# ss 5 / ff 142 ihlal). 0.35 marj + ALLOW_SETUP_VIOS ile hold uc kosede kapandi
+# (+0,165 / +0,637 / +0,040 ns TT/SS/FF, 0 uc nokta; 10.509 hold hucresi). Marj taramasi ve
+# setup bedeli: asagidaki "Zamanlama onarimi" blogu ve README 9.9/12.
+GRT_RESIZER_ALLOW_SETUP_VIOS: true
+PL_RESIZER_ALLOW_SETUP_VIOS: true
+GRT_RESIZER_HOLD_SLACK_MARGIN: 0.35
+PL_RESIZER_HOLD_SLACK_MARGIN: 0.35
 PNR_SDC_FILE: dir::constraints/design.sdc
-SIGNOFF_SDC_FILE: dir::constraints/design.sdc
+SIGNOFF_SDC_FILE: dir::constraints/design_signoff.sdc
 
 # --- SRAM makro gorunumleri (depo ici; Tablo 8 asic/macros yapisi) ---
 # Kaynak: referans PDK kurulumu (Open PDKs 8afc834), Tablo 5 onayli makrolar.
@@ -175,6 +193,8 @@ PDN_MACRO_CONNECTIONS:
 # cerrahi met5 + genis kanal, olcumle secilen cozumdur.
 GRT_ALLOW_CONGESTION: true
 GRT_OVERFLOW_ITERS: 25
+# Anten: teslim kosusunda 173 diyot eklendi (6 Eylul: 101); kalan 2 ag / 2 pin met1 oran ihlali
+# (hold onarimiyla olusan/uzayan agler) beyan edilen istisnadir, README 9.9/13.
 RUN_ANTENNA_REPAIR: true
 RUN_HEURISTIC_DIODE_INSERTION: true
 ROUTING_OBSTRUCTIONS:
@@ -265,10 +285,15 @@ ROUTING_OBSTRUCTIONS:
 # varyant_taramasi.txt ve OZET.md). JTAG DM eklenince CTS'in gecikme-dengeleme
 # zinciri (8x clkbuf_16) CPU dalindan komut-SRAM dalina kaymis, TT setup marji
 # +2,210 -> +1,060 ns'ye dusmustu. Makro saat alt-agaci kumelemesi + engel-farkindali
-# CTS + saat teli tavani ile TT +1,684 ns; hold TT'de JTAG'siz seviyeye dondu (-0,309 vs -0,323),
-# FF'te daha iyi (-0,290 vs -0,382); 14 Agustos kosusunda temiz olan SS'te 5 uc nokta -0,122 ns
-# kaldi (README 9.9/2); IR-drop 1,54 -> 0,95 mV. Etkisiz olculen anahtarlar (CTS_DELAY_BUFFER_DERATE_PCT,
-# CTS_MAX_CAP) ve zararli olan (resizer setup marji 0.15) bilerek YOK.
+# CTS + saat teli tavani ile TT +1,684 ns (6 Eylul kosusu RUN_final_2026-09-06 - TARIHSEL,
+# superseded). O kosuda hold TT'de JTAG'siz seviyeye donmus (-0,309 vs -0,323), FF'te daha iyi
+# cikmis (-0,290 vs -0,382), 14 Agustos kosusunda temiz olan SS'te 5 uc nokta -0,122 ns kalmisti;
+# IR-drop 1,54 -> 0,95 mV. Teslim kosusunda (RUN_hold035_2026-09-09, ayni CTS ayarlari) hold uc
+# kosede KAPALI: +0,165 / +0,637 / +0,040 ns (TT/SS/FF, 0 uc nokta; hold onarimi asagidaki
+# "Zamanlama onarimi" blogunda, README 9.7 ve 9.9/2); TT setup @ 20 ns +1,218 ns (hold
+# hucrelerinin setup bedeli), TT saat agaci skew'u 1,882 -> 1,793 ns, IR-drop 0,96 mV.
+# Etkisiz olculen anahtarlar (CTS_DELAY_BUFFER_DERATE_PCT, CTS_MAX_CAP) ve zararli olan
+# (resizer setup marji 0.15) bilerek YOK.
 CTS_MACRO_CLUSTERING_MAX_DIAMETER: 600
 CTS_MACRO_CLUSTERING_SIZE: 2
 CTS_OBSTRUCTION_AWARE: true
@@ -278,12 +303,26 @@ CTS_CLK_MAX_WIRE_LENGTH: 900
 DESIGN_REPAIR_MAX_SLEW_PCT: 10
 DESIGN_REPAIR_MAX_CAP_PCT: 10
 RUN_POST_GRT_RESIZER_TIMING: true   # PnR-ici hold onarimi (11 Agu, JTAG'siz RTL, PnR-ici tt kontrolu: 63 -> 10).
-                                    # Nihai signoff (RUN_final_2026-09-06): tt 87 / ss 5 / ff 142 hold ihlali,
-                                    # mekanizma README 9.9/2; netlistte 115 hold gecikme hucresi (hold9290..hold9404).
-# *_RESIZER_HOLD/SETUP_SLACK_MARGIN bilerek yazilmadi -> LibreLane 3.0.6 varsayilanlari gecerli
-# (results/config/resolved.json: PL hold 0.1 / setup 0.05; GRT hold 0.05 / setup 0.025). Marji buyutmek
-# OLCULDU ve reddedildi (3-11 Agu, JTAG'siz RTL, o tarihte SS setup tabani -9.08 ns): 0.3 -> hold degismedi,
-# SS setup -10.3'e coktu; 0.5 -> arac cokmesi (README 9.9/2).
+                                    # Tarihsel: 6 Eylul kosusu (RUN_final_2026-09-06, superseded) varsayilan
+                                    # marjla (0.10, ALLOW_SETUP_VIOS kapali) tt 87 / ss 5 / ff 142 hold ihlali
+                                    # ve netlistte yalnizca 115 hold gecikme hucresi (hold9290..hold9404) ile
+                                    # bitmisti (mekanizma README 9.9/2). Teslim kosusu RUN_hold035_2026-09-09:
+                                    # 0 / 0 / 0 hold ihlali (+0,165 / +0,637 / +0,040 ns TT/SS/FF), netlistte
+                                    # 10.509 hold hucresi (10.467 dlygate4sd3_1 + 42 tampon; README 9.9/2, 9.11).
+# *_RESIZER_HOLD_SLACK_MARGIN (0.35) ve *_RESIZER_ALLOW_SETUP_VIOS (true) 9 Eylul 2026'da YAZILDI
+# (yukarida "Saat ve zamanlama kisitlari" blogunda; README 9.7). Marj tepkisi ayni RTL/floorplan ile
+# RCX sonrasi hold uzerinden OLCULDU (README 9.9/12; hucre = eklenen hold gecikme hucresi):
+#   0.15 -> 201 hucre, PnR-ici +0,150 ama RCX sonrasi -0,159 ns (parazitik kaymasi ~0,31 ns);
+#   0.30 -> 9.677 hucre, FF'te 1 uc nokta -0,044 ns;
+#   0.35 -> 10.509 hucre, uc kosede temiz (+0,165 / +0,637 / +0,040)  <- TESLIM;
+#   0.40 -> 11.031 hucre, hedefe ulasamadi (-1,530; tepki monoton degil, calisan pencere ~0.30-0.35).
+# Setup bedeli: netlistin setup kapanis noktasi 35,0 ns = 28,6 MHz (6 Eylul) -> 36,6 ns = 27,3 MHz;
+# beyan 27,0 MHz @ 37,000 ns (SS +0,197 ns pay; README 9.1). Daha eski olcum (3-11 Agu, JTAG'siz
+# RTL, o tarihte SS setup tabani -9.08 ns): 0.3 -> hold degismedi, SS setup -10.3'e coktu;
+# 0.5 -> arac cokmesi.
+# *_RESIZER_SETUP_SLACK_MARGIN hala bilerek YOK -> LibreLane 3.0.6 varsayilanlari (PL 0.05 / GRT 0.025):
+# LibreLane ayni degiskeni hold onarimina da -setup_margin olarak gecirir (rsz_timing_postcts.tcl:45),
+# buyutmek hold onarimini kilitler (kaynak incelemesiyle reddedildi, README 9.9/12).
 RSZ_CORNERS:   # onarim 3 kosede — DDK bolum 1.2 kose seti
   - nom_tt_025C_1v80
   - nom_ss_100C_1v60
@@ -302,9 +341,11 @@ DEDUPLICATE_CORNERS: true
 # raporlar oldugu gibi teslim ediliyor (bolum 7 cercevesi, README 9.9 aciklamasi).
 RUN_MAGIC_WRITE_LEF: true
 MAGIC_DRC_USE_GDS: false
-# Gercek (GDS tabanli) LVS cikarimi — nihai kosuda 0 hata / 0 cihaz farki
-# (1.795.705 eleman; 197'lik eski farklar dar-kanal floorplanina aitti ve
-# genis kanalla kapandi). MAGIC_CAPTURE_ERRORS kapali cunku makro GDS'i
+# Gercek (GDS tabanli) LVS cikarimi — teslim kosusunda (RUN_hold035_2026-09-09)
+# 0 hata / 0 cihaz farki: ust seviye 103.699 cihaz / 92.242 ag (2.153.654 paralel
+# cihaz birlestirildikten sonra; README 9.9/5). 197'lik eski farklar dar-kanal
+# floorplanina aitti ve genis kanalla kapandi (11 Agu genis-kanal dondurma adayi:
+# 1.795.705 eleman). MAGIC_CAPTURE_ERRORS kapali cunku makro GDS'i
 # okunurken uretilen uyarilar LibreLane'in sezgisel yakalayicisini
 # tetikliyor (dokuman: "fatal olduklari garanti degildir"); Magic DRC'nin
 # tek kalan kural sinifi (nwell.4) icin olculmus degerlendirme README

@@ -9,8 +9,10 @@
 #             zorunda (README 9.13 tutarlilik kurali). SD2 karari
 #             frekansi degistirirse UC YERDE birden guncellenir:
 #             config.yaml + bu dosya + README 9.1.
-# Kullanim  : PNR_SDC_FILE ve SIGNOFF_SDC_FILE olarak ayni dosya
-#             (Bolum 6.2: ayni SDC -> tek dosya teslimi yeterli).
+# Kullanim  : PNR_SDC_FILE = bu dosya (PnR 20 ns HEDEFTE tam eforla calisir).
+#             SIGNOFF_SDC_FILE = design_signoff.sdc (birebir kopya, tek fark
+#             create_clock periyodu 37.000 ns = 27.0 MHz DOGRULANMIS frekans).
+#             Iki SDC teslim edilir (Bolum 6.2); gerekce README 9.1 / 9.6 / 9.9/12.
 # Birimler  : sky130_fd_sc_hd Liberty birimleri - ns / pF.
 # ============================================================
 

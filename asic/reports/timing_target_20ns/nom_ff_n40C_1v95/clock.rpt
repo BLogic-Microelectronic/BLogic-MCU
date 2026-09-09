@@ -1,0 +1,102 @@
+Clock: clk
+Sources: clk_i 
+Generated: no
+Virtual: yes
+Propagated: no
+Period: 20.000000
+
+===========================================================================
+report_clock_properties
+============================================================================
+Clock                   Period          Waveform
+----------------------------------------------------
+clk                  20.000000    0.000000 10.000000
+
+===========================================================================
+report_clock_latency
+============================================================================
+Clock clk
+rise -> rise
+    min     max
+0.000000 0.000000 source latency
+2.297986         network latency i_soc.i_ai_accel._22886_/CLK
+        3.525426 network latency i_soc.i_data_sram.u_sram.gen_bank[0].gen_512.u_macro/clk0
+---------------
+2.297986 3.525426 latency
+        1.227440 skew
+
+fall -> fall
+    min     max
+0.000000 0.000000 source latency
+2.312784         network latency i_soc.i_ai_accel._22886_/CLK
+        3.408569 network latency i_soc.i_data_sram.u_sram.gen_bank[0].gen_512.u_macro/clk0
+---------------
+2.312784 3.408569 latency
+        1.095785 skew
+
+
+
+===========================================================================
+report_clock_min_period
+============================================================================
+clk period_min = 9.83 fmax = 101.78
+Clock: jtag_tck
+Sources: jtag_tck_i 
+Generated: no
+Virtual: yes
+Propagated: no
+Period: 100.000000
+
+===========================================================================
+report_clock_properties
+============================================================================
+Clock                   Period          Waveform
+----------------------------------------------------
+jtag_tck            100.000000    0.000000 50.000000
+
+===========================================================================
+report_clock_latency
+============================================================================
+Clock jtag_tck
+rise -> rise
+    min     max
+0.000000 0.000000 source latency
+0.466814         network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._256_/CLK
+        0.714185 network latency i_soc.i_dmi_jtag._574_/CLK
+---------------
+0.466814 0.714185 latency
+        0.247371 skew
+
+rise -> fall
+    min     max
+0.000000 0.000000 source latency
+0.658950         network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK
+        0.658950 network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK
+---------------
+0.658950 0.658950 latency
+        0.000000 skew
+
+fall -> rise
+    min     max
+0.000000 0.000000 source latency
+0.641965         network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK
+        0.641965 network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._238_/CLK
+---------------
+0.641965 0.641965 latency
+        0.000000 skew
+
+fall -> fall
+    min     max
+0.000000 0.000000 source latency
+0.506468         network latency i_soc.i_dmi_jtag.i_dmi_jtag_tap._256_/CLK
+        0.700769 network latency i_soc.i_dmi_jtag._574_/CLK
+---------------
+0.506468 0.700769 latency
+        0.194301 skew
+
+
+
+===========================================================================
+report_clock_min_period
+============================================================================
+jtag_tck period_min = 4.39 fmax = 227.62

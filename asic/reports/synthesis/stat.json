@@ -1,6 +1,6 @@
 {
    "creator": "Yosys 0.62 (git sha1 7326bb7d6641500ecb285c291a54a662cb1e76cf, clang++ 21.1.2 -fPIC -O3)",
-   "invocation": "stat -json -liberty /home/blogic2026/final_jtag/repo/asic/run/RUN_final_2026-09-06/tmp/7215d551b00941b3a8ccadd3c558dcd4.lib ",
+   "invocation": "stat -json -liberty /home/blogic2026/run5/repo/asic/run/RUN_hold035_2026-09-09/tmp/6d7ff061598b4974ad24e6491908e9f0.lib ",
    "modules": {
       "\\asic_top": {
          "num_wires":         67726,
