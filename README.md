@@ -736,7 +736,8 @@ Before the JTAG bridge entered the denominator (1 September 2026, 14 files)
 the same 15 tests measured 91.1 % line / 91.3 % branch; the 22 idle-only
 lines of `axi_dm_slave.sv` account for the whole difference.
 
-<p align="center"><sub>🖼️ placeholder — add screenshot: <code>make coverage</code> summary block (90.7 % line / 88.6 % branch)</sub></p>
+<p align="center"><img src="images/coverage_terminal_20260909.png" width="760" alt="make coverage summary: line 90.7 %, branch 88.6 %, functional coverage 22/22"></p>
+<p align="center"><sub><code>make coverage</code>, run of 9 September 2026 — line <b>90.7 %</b> (359/396), branch <b>88.6 %</b> (819/924), annotation 90.0 % (1685/1856), functional coverage <b>22/22</b> (UART 7/7, QSPI 7/7, AI-CSR 5/5, IRQ 3/3) and the EK-2 v1.3 <code>CFG[0]</code> auto-clear proof (6,694 checks, 0 violations). Verbatim from <code>verif/coverage_summary.txt</code>.</sub></p>
 
 Every remaining uncovered line falls into one of three documented classes
 (`verif/coverage_siniflandirma.md`):
@@ -818,7 +819,8 @@ tests. Each block builds with its own `tb_*_top.sv` wrapper.
 **Regression result: 8 PASS, 0 FAIL** (`UVM_ERROR : 0`, `UVM_FATAL : 0` in every
 run; protocol monitor reports 0 violations in all 8).
 
-<p align="center"><sub>🖼️ placeholder — add screenshot: "UVM Regression: 8 PASS, 0 FAIL" terminal summary</sub></p>
+<p align="center"><img src="images/uvm_regression_terminal_20260909.png" width="780" alt="UVM Regression: 8 PASS, 0 FAIL"></p>
+<p align="center"><sub><code>make uvm</code>, run of 9 September 2026 — the four block environments, 8 tests, <b>8 PASS / 0 FAIL</b>; <code>UVM_ERROR : 0</code> and <code>UVM_FATAL : 0</code> in every run.</sub></p>
 
 The UVM library is vendored under `verif/uvm-lib` — no external clone is needed (see `verif/uvm-lib/KAYNAK.md`).
 
@@ -1226,6 +1228,9 @@ The custom AI Accelerator implements Google's **TensorFlow Lite Micro Speech "Ti
 | Live board sweep | `sw/ai_model/kart_sweep.py` (COM port) | **60 / 60 diversified UART vectors** match the SW argmax on Genesys 2 |
 | Scale rehearsal at the announced jury volume | `kart_sweep.py --n 1000` | **1000 / 1000** (jury criterion is >= 900/1000 argmax match) — 40 named families + 960 seeded-random vectors, zero timeouts, 260 s end-to-end (2026-09-03, `sw/ai_model/kart_sweep_raporu_n1000_2026-09-03.txt`) |
 | The same rehearsal from the jury panel, delivered bitstream (7 Sep 2026) | `juri_panel.py` → RANDOM SWEEP, N = 1000, seed 31082026 | **MATCHED 1000 / 1000**, 0 timeouts, 0 mismatches, 459,065 cycles every vector, 275.7 s — report `sw/ai_model/juri_panel_sweep_raporu_n1000_20260907.txt` |
+
+<p align="center"><img src="images/ai_accuracy_n1000_terminal_20260909.png" width="900" alt="N=1000 accuracy window: SW/RTL class match 1000/1000, EK-1 window satisfied"></p>
+<p align="center"><sub><code>make ai-batch1000</code>, run of 9 September 2026 — <b>SW/RTL class match 1000/1000</b> and <code>|acc_SW − acc_RTL| = 0.0</code> of the 10-point EK-1 window. The production block below the verdict names the reference (<i>the real TFLite interpreter</i> on <code>micro_speech_quantized.tflite</code>, FC logits compared pre-softmax) and reports the residual quantisation spread honestly: FC logits are <b>bit-exact on 981/1000</b> samples with a maximum difference of <b>1 LSB</b> and <b>argmax agreement 1000/1000</b>; 82/1000 samples have a tie between the top two logits, resolved by the "first maximum" rule in both paths. Verbatim from <code>sw/ai_model/accuracy_report_n1000.txt</code>.</sub></p>
 
 <p align="center"><img src="images/demo_boot_terminal_20260902.png" width="900" alt="boot terminal - power-on inference"></p>
 <p align="center"><sub>Live board, 2026-09-02 re-validation: QSPI boot banner and the power-on inference — <code>sinif = yes, HW cycle = 459062, ~21.0x</code> — byte-identical to the August delivery run.</sub></p>
