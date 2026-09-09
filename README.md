@@ -45,7 +45,7 @@
 
 **BLogic MCU** is a 32-bit RISC-V based System-on-Chip (SoC) developed by **BLogic Mikroelektronik (Ostim Technical University)** for the **TEKNOFEST 2026 Chip Design Competition, Microcontroller Design Category**. The system is built around the open-source **CV32E40P** processor core (RV32IMC, 4-stage in-order pipeline) and integrates an AXI4 / AXI4-Lite bus fabric, on-chip SRAMs, a Boot ROM with QSPI boot loader, a full set of peripherals (UART × 2, GPIO, Timer, I²C Master, QSPI Master), and a custom **TFLite Micro Speech** hardware AI accelerator.
 
-The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, a UVM environment covering **four peripheral blocks (8/8 tests passing)**, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite (46/46), and end-to-end AI accuracy regression (**1000/1000 samples bit-exact**; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). SoC-level line coverage is **90.7 %** (branch 88.6 %; the JTAG bridge reaches 100 % under its own testbench), with every remaining uncovered line classified and justified in `verif/coverage_siniflandirma.md`. The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +2.433 ns` / `WHS = +0.059 ns` (timing met, zero failing endpoints across 24,260 setup and 24,257 hold endpoints; `jtag_tck` domain WNS +94.976 ns) and `0.330 W` total estimated on-chip power. On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). The chip also carries the specification's optional JTAG debug interface — a PULP riscv-dbg debug module on an IEEE 1149.1 TAP, connected to the CV32E40P debug port — exercised with OpenOCD and gdb in simulation and, through the board's own USB-JTAG, on the Genesys 2 (§10.10). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
+The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, a UVM environment covering **four peripheral blocks (8/8 tests passing)**, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite (46/46), and end-to-end AI accuracy regression (**1000/1000 samples bit-exact**; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). SoC-level line coverage is **90.7 %** (branch 88.6 %; the JTAG bridge reaches 100 % under its own testbench), with every remaining uncovered line classified and justified in `verif/coverage_siniflandirma.md`. The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +2.433 ns` / `WHS = +0.059 ns` (timing met, zero failing endpoints across 24,260 setup and 24,257 hold endpoints; `jtag_tck` domain WNS +94.976 ns) and `0.330 W` total estimated on-chip power (Vivado vector-less estimate, the tool's own confidence rating is *Low* — §12.4). On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). The chip also carries the specification's optional JTAG debug interface — a PULP riscv-dbg debug module on an IEEE 1149.1 TAP, connected to the CV32E40P debug port — exercised with OpenOCD and gdb in simulation and, through the board's own USB-JTAG, on the Genesys 2 (§10.10). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
 
 ---
 
@@ -1393,10 +1393,46 @@ The SoC stays in reset until both the user reset button is released **and** the 
 | **BUFG** | 3 (50 MHz system clock, gated CV32E40P core clock, BSCANE2 TCK) | 3 | 32 | **9.4 %** |
 | **MMCM** | 1 | 1 | 10 | **10 %** |
 | **BSCANE2** | 2 (USER3 = DTMCS, USER4 = DMI) | 2 | 4 | **50 %** |
-| **Total estimated power** | — | — | — | **0.330 W** (dynamic 0.167 + static 0.163) |
+| **Total estimated power** | — | — | — | **0.330 W** (dynamic 0.167 + static 0.163) — vector-less Vivado estimate, `Confidence Level: Low`; see the note below |
 | **WNS / TNS / WHS / THS** | **+2.433 ns / 0 / +0.059 ns / 0** (timing met, positive slack) | | | |
 | **Failed routes** | **0** (19,973 / 19,973 routable nets fully routed) | | | |
 | **Implementation DRC** | **0 errors**, 80 warnings (see 12.4.1) | | | |
+
+**Note on the power figure — what it is and what it is not.** The 0.330 W is
+Vivado's **vector-less** `report_power` result, and the report rates its own
+overall confidence as **Low** (`rtl/fpga/reports/power.rpt`, section 1.3).
+The rating is broken down there and we repeat it rather than quoting only
+the headline number:
+
+| Input | Confidence | Reason given by the tool |
+|---|---|---|
+| Design implementation state | High | design is routed |
+| Clock nodes activity | High | more than 95 % of clocks user-specified |
+| Device models | High | production models |
+| Internal nodes activity | **Medium** | less than 25 % of internal nodes specified |
+| I/O nodes activity | **Low** | more than 75 % of inputs missing user specification |
+| **Overall** | **Low** | |
+
+The cause is that no switching activity was supplied: there is no SAIF or VCD
+from post-implementation simulation, so the tool applies default toggle rates
+to the unspecified nets. The number is therefore an order-of-magnitude
+estimate of on-chip power, **not a measurement**, and it is labelled as such
+everywhere it appears in this document.
+
+**No measured power figure is reported for either implementation.** For the
+ASIC there is no silicon, and the competition's own deliverables document
+(section 5.7) requires power results to be marked *estimated* — they are, in
+`asic/README.md` section 9.10. For the FPGA a measurement is physically
+possible but was not performed for this delivery: the Genesys 2 exposes no
+on-board current sense (its XADC provides voltage and temperature only, and
+no current-monitor pin appears in `rtl/fpga/genesys2.xdc`), so a real figure
+requires external instrumentation in series with the 12 V supply. The two
+ways to improve on the estimate are named here rather than left implicit:
+(a) feed a post-implementation SAIF back into `report_power`, which raises
+the confidence rating without any hardware; (b) measure the 12 V input
+current as a delta between the configured and unconfigured board, which
+isolates the design's own consumption from the board's. Both are recorded as
+future work.
 
 <p align="center"><img src="images/fpga_timing_summary.png" width="820" alt="Vivado Design Timing Summary of the delivered bitstream"></p>
 <p align="center"><sub>Vivado <code>report_timing_summary</code> of the delivered <code>fpga_top.bit</code> (6 September 2026, <code>rtl/fpga/reports/impl_timing_summary.rpt</code>): WNS +2.433 ns, WHS +0.059 ns, WPWS +1.100 ns, 0 failing among 24,260 setup / 24,257 hold / 9,796 pulse-width endpoints &mdash; "All user specified timing constraints are met".</sub></p>
@@ -1931,7 +1967,7 @@ implementation — `asic/DDK_KARARLARI.md` items 8 and 10).
 | JTAG TAP access | Xilinx `BSCANE2` USER3/USER4 through the board USB-JTAG — no extra pins | 5 dedicated pads (`jtag_tck_i`, `jtag_tms_i`, `jtag_tdi_i`, `jtag_trst_ni`, `jtag_tdo_o`) | §12.1, §10.10 |
 | JTAG clock domain | BSCANE2 `jtag_tck`, 100 ns, 320 endpoints, WNS +94.976 ns | `jtag_tck` 100 ns, asynchronous clock group, `jtag_trst_ni` false path | §12.4 vs `asic/README.md` §9.6 |
 | Resource / area | 13,772 LUT (6.76 %), 9,756 FF (2.39 %), 10 DSP48E1, 49 IOB, 1 MMCM, 3 BUFG, 2 BSCANE2 | 310,510 std-cell instances (2.58 M incl. fill/tap), die 4180 × 4490 µm = 18.77 mm², utilization 50.40 % | §12.4 vs §13.7 |
-| Power (estimated) | 0.330 W (dynamic 0.167 + static 0.163), Vivado | 117.2 mW, no VCD (SRAM 63 %, clock 18 %, seq. 17 %) | §12.4 vs §13.7 / `asic/README.md` §9.10 |
+| Power (estimated) | 0.330 W (dynamic 0.167 + static 0.163), Vivado vector-less, `Confidence Level: Low` (§12.4) | 117.2 mW, no VCD (SRAM 63 %, clock 18 %, seq. 17 %) | §12.4 vs §13.7 / `asic/README.md` §9.10 |
 | **Timing status at the 50 MHz target** | **Verified**: WNS +2.433 ns / WHS +0.059 ns, 0 failing among 24,260 setup / 24,257 hold endpoints | **Target only**: setup closes in TT (+1.684 ns) and FF (+4.010 ns), not in SS (−10.537 ns, measured setup limit 28.6 MHz); hold negative in all three corners (−0.309 / −0.122 / −0.290 ns) → **no verified ASIC frequency** | `rtl/fpga/reports/impl_timing_summary.rpt` vs `asic/reports/timing/`, `asic/README.md` §9.1 |
 | Why the frequencies differ | one operating point, hold-safe fabric routing, BRAM primitives | three PVT signoff corners on sky130A; the SS corner's CPU ALU cone (§9.9/1) and the clock-tree skew to 27 macro clock pins (§9.9/2) are corner-physics and floorplan effects of the target technology, not RTL differences | `asic/README.md` §9.9 |
 | Signoff evidence | 0 failed routes (19,973 / 19,973), impl DRC 0 errors, live board 1000/1000 sweep and jury-tool 156/156 + 2000/2000 | routing DRC 0, KLayout DRC 0 (257 rules, GDS-based), LVS "Circuits match uniquely", XOR 0, antenna 0; Magic DRC reported on the abstract-view input (§13.7) | §12.4 / §12.6 vs §13.7 |
