@@ -1256,7 +1256,7 @@ Throughput derived from the cycle counts:
 |---|---|---|---|---|---|---|
 | **FPGA — Genesys 2, delivered bitstream** | **50 MHz, verified** (WNS +2.433 / WHS +0.059 ns, §12.4; board-measured 459,065 cycles) | **108** | **211.7 kB/s** | **9.18 ms** | 5 | 9.8 kB/s |
 | ASIC — sky130, TT corner | 50 MHz **target** (setup +1.684 ns; hold not closed, §13.7) | 108 | 211.7 kB/s | 9.18 ms | 5 | 9.8 kB/s |
-| ASIC — sky130, SS corner | ~32.7 MHz **setup-side limit** (not a verified frequency, §13.7) | 71 | 139.2 kB/s | 14.04 ms | 3 | 5.9 kB/s |
+| ASIC — sky130, SS corner | **28.6 MHz setup-side limit**, measured by period sweep (not a verified frequency, §13.7) | 62 | 121.5 kB/s | 16.05 ms | 2 | 3.9 kB/s |
 | Scale reference (no implementation) | 100 MHz | 217 | 425.3 kB/s | 4.59 ms | 10 | 19.6 kB/s |
 
 The cycle count is the same in both implementations (same RTL); each row uses the clock
@@ -1881,9 +1881,9 @@ that the exploration tables of §10.10 compare against.
 | Routing | 6.52 m wire, 812,086 vias, **routing DRC = 0** |
 | **Setup (tt_025C_1v80)** | **+1.684 ns @ 50 MHz — setup closes in this corner** (fmax ≈ 54.6 MHz) |
 | Setup (ff_n40C_1v95) | +4.010 ns (setup closes) |
-| Setup (ss_100C_1v60) | −10.537 ns; the setup-side closing point of this corner is ≈32.7 MHz (worst path is a pure std-cell CPU path, `id_stage` → ALU/divider → `id_stage`; declared openly, see `asic/README.md` §9.9/1). **A setup-side figure, not a verified operating frequency** — see the row below |
+| Setup (ss_100C_1v60) | −10.537 ns; the setup-side closing point of this corner is **28.6 MHz (35.0 ns)**, obtained by re-running signoff STA on the unmodified routed database at a series of clock periods, not by extrapolation. Setup slack recovers only 0.5 ns per ns of period because the supplied SRAM macro's read-data arc is `falling_edge`, making the read path half-cycle; the earlier extrapolated ≈32.7 MHz is withdrawn (`asic/README.md` §9.1). At the 20 ns target the worst path is still a pure std-cell CPU path (`id_stage` → ALU/divider → `id_stage`, §9.9/1). **A setup-side figure, not a verified operating frequency** — see the row below |
 | Hold (all three corners) | **−0.309 / −0.122 / −0.290 ns**, TT 87 / SS 5 / FF 142 reg-to-reg violations — of the FF paths, 50 end at SRAM-macro address/chip-select/data-in pins, 78 are launched from the debug module into CPU registers, 14 are boot-ROM/bridge/CPU-internal; no violating path ends in JTAG/DM logic. Mechanism measured: clock-tree skew to the macro clock pins (1.88 ns at TT), not logic depth and not the SRAM Liberty substitution; 115 hold delay cells are in the netlist — `asic/README.md` §9.9/2. Hold is period-independent, so it is not removed by slowing the clock |
-| **Verified operating frequency** (DDK ruling of 8 September 2026: setup **and** hold closed in all mandatory corners) | **none declared for the ASIC** — 50 MHz is the target (setup closes in TT/FF, SS setup limit ≈32.7 MHz, hold negative in all three corners). The FPGA implementation of the same RTL is verified at 50 MHz (§12.4). Why they differ: target technology and PVT signoff, not design — §13.8 |
+| **Verified operating frequency** (DDK ruling of 8 September 2026: setup **and** hold closed in all mandatory corners) | **none declared for the ASIC** — 50 MHz is the target (setup closes in TT/FF, SS setup limit **28.6 MHz measured**, hold negative in all three corners). The FPGA implementation of the same RTL is verified at 50 MHz (§12.4). Why they differ: target technology and PVT signoff, not design — §13.8 |
 | **KLayout DRC** | **0** (257 rules) |
 | **LVS (Netgen, GDS extraction)** | **"Circuits match uniquely"** — 0 errors (top level 92,149 devices / 81,121 nets after parallel-device merge) |
 | XOR (Magic vs KLayout GDS; streamout consistency check, not a DRC) | **0** |
@@ -1932,7 +1932,7 @@ implementation — `asic/DDK_KARARLARI.md` items 8 and 10).
 | JTAG clock domain | BSCANE2 `jtag_tck`, 100 ns, 320 endpoints, WNS +94.976 ns | `jtag_tck` 100 ns, asynchronous clock group, `jtag_trst_ni` false path | §12.4 vs `asic/README.md` §9.6 |
 | Resource / area | 13,772 LUT (6.76 %), 9,756 FF (2.39 %), 10 DSP48E1, 49 IOB, 1 MMCM, 3 BUFG, 2 BSCANE2 | 310,510 std-cell instances (2.58 M incl. fill/tap), die 4180 × 4490 µm = 18.77 mm², utilization 50.40 % | §12.4 vs §13.7 |
 | Power (estimated) | 0.330 W (dynamic 0.167 + static 0.163), Vivado | 117.2 mW, no VCD (SRAM 63 %, clock 18 %, seq. 17 %) | §12.4 vs §13.7 / `asic/README.md` §9.10 |
-| **Timing status at the 50 MHz target** | **Verified**: WNS +2.433 ns / WHS +0.059 ns, 0 failing among 24,260 setup / 24,257 hold endpoints | **Target only**: setup closes in TT (+1.684 ns) and FF (+4.010 ns), not in SS (−10.537 ns, setup limit ≈32.7 MHz); hold negative in all three corners (−0.309 / −0.122 / −0.290 ns) → **no verified ASIC frequency** | `rtl/fpga/reports/impl_timing_summary.rpt` vs `asic/reports/timing/`, `asic/README.md` §9.1 |
+| **Timing status at the 50 MHz target** | **Verified**: WNS +2.433 ns / WHS +0.059 ns, 0 failing among 24,260 setup / 24,257 hold endpoints | **Target only**: setup closes in TT (+1.684 ns) and FF (+4.010 ns), not in SS (−10.537 ns, measured setup limit 28.6 MHz); hold negative in all three corners (−0.309 / −0.122 / −0.290 ns) → **no verified ASIC frequency** | `rtl/fpga/reports/impl_timing_summary.rpt` vs `asic/reports/timing/`, `asic/README.md` §9.1 |
 | Why the frequencies differ | one operating point, hold-safe fabric routing, BRAM primitives | three PVT signoff corners on sky130A; the SS corner's CPU ALU cone (§9.9/1) and the clock-tree skew to 27 macro clock pins (§9.9/2) are corner-physics and floorplan effects of the target technology, not RTL differences | `asic/README.md` §9.9 |
 | Signoff evidence | 0 failed routes (19,973 / 19,973), impl DRC 0 errors, live board 1000/1000 sweep and jury-tool 156/156 + 2000/2000 | routing DRC 0, KLayout DRC 0 (257 rules, GDS-based), LVS "Circuits match uniquely", XOR 0, antenna 0; Magic DRC reported on the abstract-view input (§13.7) | §12.4 / §12.6 vs §13.7 |
 
@@ -1941,7 +1941,7 @@ simulation, 459,065 measured on the board; 21.0 × over the software baseline, b
 frequency-independent). Data per second is therefore quoted per implementation at its
 own clock basis in §11.5: the FPGA at its verified 50 MHz (108 inference/s, 211.7 kB/s,
 9.18 ms), the ASIC only as target / setup-limit figures (50 MHz target: the same 108
-inference/s; SS setup limit ≈32.7 MHz: 71 inference/s, 139.2 kB/s, 14.04 ms), with no
+inference/s; measured SS setup limit 28.6 MHz: 62 inference/s, 121.5 kB/s, 16.05 ms), with no
 ASIC figure claimed as a verified-frequency result.
 
 ## 14. Software Test Suite

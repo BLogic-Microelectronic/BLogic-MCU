@@ -51,14 +51,77 @@ frequency (final delivery run `RUN_final_2026-09-06`):**
 | Corner | Setup WS | Setup viol. | Hold WS | Hold viol. | Setup-side closing point |
 |---|---|---|---|---|---|
 | tt_025C_1v80 | **+1.684 ns** | 0 | -0.309 ns | 87 | 50 MHz target closes on setup (fmax ~54.6 MHz) |
-| ss_100C_1v60 | -10.537 ns | 2,219 | -0.122 ns | 5 | ~32.7 MHz (period 30.54 ns) |
+| ss_100C_1v60 | -10.537 ns | 2,219 | -0.122 ns | 5 | **28.6 MHz (35.0 ns) - measured, see below** |
 | ff_n40C_1v95 | **+4.010 ns** | 0 | -0.290 ns | 142 | closes on setup (fmax ~62.5 MHz) |
 
-(fmax figures are slack-derived, 1 / (20 ns - WS), and therefore include
-the macro-launched paths; OpenSTA's `report_clock_min_period` in
-`reports/timing/<corner>/clock.rpt` gives 62.66 / 98.17 / 32.75 MHz for
-TT / FF / SS because it excludes paths launched from the SRAM macros - the
-slack-derived value is the conservative one and is the one quoted.)
+The TT and FF figures are slack-derived, 1 / (20 ns - WS). **The SS figure
+is not derived at all - it is measured**, and the correction matters:
+
+> **Withdrawn: the earlier "~32.7 MHz (30.54 ns)" claim.** Revisions of this
+> document up to 8 September 2026 quoted ~32.7 MHz for the SS corner. That
+> number came from two mutually reinforcing but equally invalid sources, and
+> it is withdrawn:
+>
+> 1. **Linear extrapolation** of the -10.537 ns slack at a 20 ns period
+>    (20 + 10.537 = 30.54 ns -> 32.7 MHz). This silently assumes 1 ns of
+>    slack recovered per 1 ns of period. That assumption is false for this
+>    design (see the measurement below).
+> 2. **OpenSTA `report_clock_min_period`**
+>    (`reports/timing/nom_ss_100C_1v60/clock.rpt`: `clk period_min = 30.54
+>    fmax = 32.75`). That command **excludes macro-launched paths**, and in
+>    this design the binding path at longer periods *is* macro-launched.
+>
+> Both routes landed on the same wrong number, which is why the error
+> survived review until it was measured directly.
+
+**Measurement method.** The signoff STA step (`OpenROAD.STAPostPNR`) was
+re-run on the **unmodified** placed-and-routed database of
+`RUN_final_2026-09-06` with nothing changed but the `create_clock` period in
+the signoff SDC (`--only OpenROAD.STAPostPNR -c SIGNOFF_SDC_FILE=...`). No
+re-synthesis, no re-placement, no re-routing: the same netlist and the same
+extracted parasitics, read at different periods. The delivered
+`asic/results` and `asic/reports` were not touched.
+
+| Signoff period | SS setup WS | SS hold WS |
+|---|---|---|
+| 30 ns | -2.502 ns | -0.123 ns |
+| 32 ns | -1.502 ns | -0.123 ns |
+| 34 ns | -0.502 ns | -0.123 ns |
+
+Setup slack improves by **0.5 ns for every 1 ns of period**, not 1.0 ns.
+From the measured slope the SS setup-side closing point is
+**35.0 ns = 28.6 MHz**, about 4 MHz below the withdrawn figure. Hold slack,
+as expected, is period-independent.
+
+**Root cause of the 0.5 ns/ns slope: the SRAM read path is half-cycle.**
+The Liberty model of the competition-supplied `sky130_sram_*_1rw1r_*` macros
+declares the read-data output arc as `timing_type : falling_edge` (related
+pin `clk0` / `clk1`). The macro latches the address on the **rising** edge
+and drives read data on the **falling** edge; the CPU captures it on the
+next rising edge. Everything after the SRAM therefore gets only **T/2**, so
+opening the period by 2 ns hands that path just 1 ns. Worst SS path measured
+at a 32 ns signoff, `i_instr_sram...u_macro` (falling edge) ->
+`if_stage_i._855_` (rising edge):
+
+| Component | SS delay |
+|---|---|
+| Clock tree to the SRAM clock pin | 7.94 ns (1.81 ns of it the `delaybuf_15..20` balancing chain) |
+| SRAM `clk1 -> dout1` arc | 4.06 ns |
+| Bank-select multiplexer (`mux4_2`) | 1.79 ns |
+| Two crossbar multiplexers (`mux2_1`) | 1.27 + 0.75 ns |
+| Hold-repair cell `hold9381` | 1.12 ns |
+| Remaining buffering / routing | ~8.8 ns |
+
+So the frequency ceiling of this delivery is set by the **timing model of
+the supplied memory macro**, not by the logic depth of our RTL. Note the
+consequence for the worst-path story: at the 20 ns target the binding SS
+path is still a pure standard-cell CPU path (`id_stage` -> `ex_stage.alu_i`
+/ `alu_div_i` -> `id_stage`, first path of
+`reports/timing/nom_ss_100C_1v60/max.rpt`), but as the period is opened the
+binding path migrates to the SRAM read path above. Registering the SRAM read
+data at the memory boundary would convert it to a full-cycle path; that is
+an RTL change with its own re-verification cost and is **out of scope for
+this delivery** - recorded as future work in 9.9/12.
 
 Declared statement - wording per the DDK ruling of 8 September 2026, which
 defines a *verified* operating frequency as one that closes **setup and
@@ -66,16 +129,17 @@ hold in every mandatory signoff corner** after post-PnR parasitic extraction
 (`DDK_KARARLARI.md` item 8): the **target** clock is **50 MHz** (`config.yaml`
 CLOCK_PERIOD = 20 ns, identical to `design.sdc` create_clock). Setup closes
 at 50 MHz in TT (+1.684 ns) and FF (+4.010 ns); in SS (1.6 V / 100 C) it does
-not - the setup-side closing point of that corner is **~32.7 MHz**, and the
-worst path is a pure standard-cell CPU path (`id_stage` -> `ex_stage.alu_i`
-/ `alu_div_i` -> `id_stage`, first path of
-`reports/timing/nom_ss_100C_1v60/max.rpt`; it is NOT SRAM/derate induced; it
-is a consequence of the corner physics). Hold does **not** close in any of
+not - the measured setup-side closing point of that corner is
+**28.6 MHz (35.0 ns)**, and at the 20 ns target the worst path is a pure
+standard-cell CPU path (`id_stage` -> `ex_stage.alu_i` / `alu_div_i` ->
+`id_stage`, first path of `reports/timing/nom_ss_100C_1v60/max.rpt`); at
+longer periods the binding path becomes the half-cycle SRAM read path
+described above. Hold does **not** close in any of
 the three corners (-0.309 / -0.122 / -0.290 ns; 87 / 5 / 142 reg-to-reg
 paths, mechanism measured and classified in 9.9/2); hold is
 period-independent, so slowing the clock does not remove those paths.
 Therefore **no verified ASIC operating frequency is declared**: 50 MHz is
-reported as the target, ~32.7 MHz only as the SS setup limit, and the hold
+reported as the target, 28.6 MHz only as the SS setup limit, and the hold
 exceptions stay declared beside both. The STA reports for all three corners
 are delivered in full (`reports/timing/`); details: sections 9.9 and 9.11.
 For reference, the August 14 signed run of the JTAG-less RTL gave setup
@@ -572,9 +636,18 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
    `alu_div_i` -> `id_stage`; NO SRAM/derate effect). This is a consequence of the corner physics -
    the logic depth of the core's ALU cone, which no constraint or
    clock-tree setting removes - so a dual declaration was made
-   (section 9.1): TT 50 MHz / SS ~32.7 MHz. The reports for all three
-   corners are complete. August 14 signed run: -9.083 ns / 2,521 endpoints
-   (setup-side ~34.4 MHz). Of the -1.454 ns change, -1.179 ns came with the
+   (section 9.1): TT 50 MHz / SS **28.6 MHz (measured, 35.0 ns)**. The
+   earlier ~32.7 MHz figure for this corner was a linear extrapolation and
+   is withdrawn; the measured slope is 0.5 ns of slack per ns of period
+   because the SRAM read path is half-cycle (derivation, method and the
+   per-component path breakdown are in 9.1). Note that the "no SRAM effect"
+   statement above holds *at the 20 ns target*, where the binding path is
+   the ALU cone; as the period is opened the binding path migrates to the
+   SRAM read path. The reports for all three corners are complete.
+   August 14 signed run: -9.083 ns / 2,521 endpoints (a linear
+   extrapolation of that slack gives ~34.4 MHz, quoted here only for
+   run-to-run comparison - it was not measured by period sweep and is
+   subject to the same 0.5 ns/ns correction). Of the -1.454 ns change, -1.179 ns came with the
    debug module (exploration run v2, same RTL, default CTS: -10.262 ns) and
    -0.275 ns with the CTS settings of 9.7 that recover TT margin (root README
    section 10.10); the endpoint count fell to 2,219 while WS/TNS worsened,
@@ -923,6 +996,73 @@ Known and accepted limits (final run `RUN_final_2026-09-06`):
     post-resizer margin improved, 9.7). Source:
     `reports/general/warning.log`.
 
+12. **The hold exceptions of 9.9/2 are a setup/hold trade, not a structural
+    defect - measured, with the frequency ceiling that follows.** The
+    hold violations in the delivered run raise a fair question: is the
+    design *capable* of closing hold at all? To answer it we built variants
+    of the same RTL and floorplan that differ only in the resizer's hold
+    margin, and measured each one after parasitic extraction. Hold does
+    close - in all three corners, with zero violations - but it is paid for
+    in setup, and the exchange rate is what sets our ceiling.
+
+    | Run | Hold margin | `ALLOW_SETUP_VIOS` | Hold cells | Hold after PnR | Hold after RCX (TT / SS / FF) | Hold violations | Setup-side closing point |
+    |---|---|---|---|---|---|---|---|
+    | `RUN_final_2026-09-06` (**delivered**) | 0.10 (default) | off | 115 | - | -0.309 / -0.122 / -0.290 | 87 / 5 / 142 | 28.6 MHz |
+    | A | 0.15 | on | 201 | +0.150 | -0.128 / +0.151 / -0.159 | yes | 27.1 MHz |
+    | B | 0.30 | on | 9,677 | +0.300 | +0.043 / +0.439 / **-0.044** | 0 / 0 / **1** | 28.0 MHz |
+    | C | 0.35 | on | 10,483 | +0.350 | **+0.165 / +0.637 / +0.040** | **0 / 0 / 0** | 27.3 MHz |
+    | D | 0.40 | on | 11,031 | **-1.530 (target not reached)** | - | - | - |
+
+    Four things this measures:
+
+    - **Hold is repairable.** Run C closes hold in every mandatory corner
+      after extraction. So the exceptions in 9.9/2 are the tool declining to
+      repair *under 50 MHz setup pressure*, not a path the design cannot fix.
+    - **Parasitic shift is about 0.31 ns.** Run A was repaired to +0.150 at
+      PnR and landed at -0.159 after extraction. Any usable margin must
+      exceed that shift, which is why 0.15 fails and 0.30 does not.
+    - **Over-repair is self-defeating.** At 0.40 the tool inserted 11,031
+      cells and still ended at -1.530 with `Unable to repair all hold checks
+      within margin`. The response is **not monotonic**; the working window
+      is roughly 0.30-0.35.
+    - **The price is setup, and it is steep.** Run C's 10,483 hold cells cost
+      1.3 MHz against the delivered run (28.6 -> 27.3 MHz). The mechanism was
+      measured, not assumed: hold cells land directly on the SS critical
+      path - `hold9381` alone contributes 1.12 ns to the worst path broken
+      down in 9.1.
+
+    **Consequence for the frequency ceiling.** The delivered run's
+    setup-only ceiling is 28.6 MHz *while still carrying hold violations*.
+    Every hold-clean variant is necessarily slower, because hold repair
+    spends setup. **No configuration of this netlist reaches 30 MHz with
+    hold closed**, and no synthesis or place-and-route setting changes that,
+    because the binding path at long periods is the half-cycle SRAM read arc
+    of 9.1, not our logic. Raising the ceiling requires the RTL change named
+    in 9.1 - registering the SRAM read data at the memory boundary to make
+    the path full-cycle - which would need its own functional
+    re-verification and is **future work, not part of this delivery**.
+
+    **Settings tried and rejected** (each measured, each recorded here so the
+    negative result is not repeated):
+
+    | Setting | Measured outcome |
+    |---|---|
+    | `SYNTH_STRATEGY: "DELAY 2"` + `SYNTH_SIZING: true` | Post-synthesis SS setup got **worse**, -101.96 -> -134.27 ns, and netlist area grew 795k -> 992k (+25 %). Delay-driven mapping back-fires on this design; the default `AREA 0` is kept. |
+    | `CLOCK_PERIOD: 32` (relaxing the PnR target) | The resizer meets the relaxed target on its internal estimate and stops early (170 resizes against 786 at 20 ns); after extraction SS lands at -4.438 ns. The PnR target must stay tight even when signoff is relaxed. |
+    | Enlarging `PL/GRT_RESIZER_SETUP_SLACK_MARGIN` | Rejected on source inspection, not run: LibreLane passes the same variable to the hold-repair call as `-setup_margin` (`rsz_timing_postcts.tcl:45`), so enlarging it would lock hold repair - the opposite of the intent. |
+    | `PL/GRT_RESIZER_HOLD_SLACK_MARGIN: 0.40` | Run D above: over-repair, target not reached. |
+
+    **Method note.** Runs A-D are exploratory builds of the *same* RTL,
+    floorplan and PDK, produced to characterise this trade; the delivered
+    signoff artefacts in `results/` and `reports/` are those of
+    `RUN_final_2026-09-06` unless section 9.1 says otherwise. They use
+    LibreLane's split-SDC capability - PnR steps read `PNR_SDC_FILE` and the
+    final STA reads `SIGNOFF_SDC_FILE` (`librelane/steps/openroad.py:323`
+    and `:970`) - so the design is built against a tight period and signed
+    off at a relaxed one. This is the standard overconstrained-PnR
+    technique; wherever it is used, the PnR target and the declared period
+    are both stated.
+
 ## 9.10 Power and IR-Drop Analysis
 
 Measurement source: **`RUN_final_2026-09-06`** (final delivery run).
@@ -1005,7 +1145,7 @@ Corner set: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 | Hold WS (tt / ss / ff) | -0.309 / -0.122 / -0.290 ns (section 9.9/2) |
 | Hold TNS (tt / ss / ff) | -8.36 / -0.40 / -13.16 ns |
 | Hold violation count (tt / ss / ff) | 87 / 5 / 142 |
-| **Verified operating frequency** (DDK definition of 8 Sep 2026: setup + hold closed in all mandatory corners) | **none declared** — target 50 MHz; setup closes in TT/FF only (SS setup limit ~32.7 MHz); hold negative in all three corners (9.1, 9.9/2) |
+| **Verified operating frequency** (DDK definition of 8 Sep 2026: setup + hold closed in all mandatory corners) | **none declared** — target 50 MHz; setup closes in TT/FF only (SS setup limit **28.6 MHz**, measured by period sweep, 9.1); hold negative in all three corners (9.1, 9.9/2) |
 | Max cap violation count (tt / ss / ff) | 224 / 647 / 194 |
 | Max slew violation count (tt / ss / ff) | 5,506 / 34,716 / 2,852 |
 | Power (total, estimated, tt corner) | **117.2 mW** |
@@ -1016,7 +1156,7 @@ Corner set: tt_025C_1v80 / ss_100C_1v60 / ff_n40C_1v95.
 | Utilization | 50.40% (std-cell 13.25%) |
 
 <p align="center"><img src="results/images/setup_slack_histogram.png" width="860" alt="setup slack histograms per corner"></p>
-<p align="center"><sub>Setup-slack distribution of the 2,310 reported paths per corner (<code>scripts/timing_histogram.py</code>). TT closes with margin; the negative ss population is the declared ~32.7 MHz limitation (9.9/1).</sub></p>
+<p align="center"><sub>Setup-slack distribution of the 2,310 reported paths per corner (<code>scripts/timing_histogram.py</code>). TT closes with margin; the negative ss population is the measured 28.6 MHz setup-side limit (9.1).</sub></p>
 
 **Table notes:**
 

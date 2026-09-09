@@ -230,7 +230,9 @@ closes in TT (+1.684 ns) and FF (+4.010 ns) but not in SS (WS -10.537 ns,
 FF -0.290 ns; 87 / 5 / 142 paths, classified in 9.9/2). Under this
 definition 50 MHz is our **targeted** frequency and, because hold does not
 close anywhere, **no verified ASIC operating frequency is declared**; the
-SS figure of ~32.7 MHz is reported only as that corner's setup-side limit.
+SS figure of 28.6 MHz (measured by period sweep, 9.1; the earlier
+extrapolated ~32.7 MHz is withdrawn) is reported only as that corner's
+setup-side limit.
 No measured number changed; what changed on 8 September is the wording of
 9.1, 9.11 and root README sections 11.5 / 13.7, which previously read
 "50 MHz target met" for the TT corner. The FPGA prototype is verified at

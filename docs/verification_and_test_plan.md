@@ -598,9 +598,10 @@ that the methodology works, not just that the design passes:
   access, OpenOCD `riscv set_mem_access progbuf`); CV32E40P has a single
   hardware trigger (no data watchpoints). Root README Section 10.10,
   `asic/README.md` 9.9/9.
-- **ASIC SS corner:** 50 MHz closes at TT with +1.684 ns margin; SS
-  closure is ~32.7 MHz - disclosed with rationale in `asic/README.md`
-  9.1/9.9 (the frequency target metric is defined as ~50 MHz on FPGA,
+- **ASIC SS corner:** 50 MHz closes at TT with +1.684 ns margin; the SS
+  setup-side closing point is 28.6 MHz, measured by period sweep (the
+  earlier extrapolated ~32.7 MHz is withdrawn) - disclosed with rationale
+  in `asic/README.md` 9.1/9.9 (the frequency target metric is defined as ~50 MHz on FPGA,
   which is met with +2.538 ns).
 
 <!-- Team decision (Berk approval): the paragraph below is the 30 KB
