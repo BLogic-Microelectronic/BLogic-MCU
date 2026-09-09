@@ -212,7 +212,13 @@ asic-sram-sim:
 	    && echo "[ASIC-SRAM-SIM] PASS - boot + Hello World, icerik teslim edilen OpenRAM modellerinden kostu" \
 	    || { echo "[ASIC-SRAM-SIM] FAIL"; exit 1; }
 
-# TAM-YIGIN GDS-esdegeri simulasyon: DUT olarak GDS'in gercek ust modulu
+# TAM-YIGIN ISLEVSEL SIMULASYON (ASIC ust modulu + teslim edilen SRAM makro
+# modelleri). DIKKAT - kapsam siniri: bu hedef RTL derler (soc_files.f +
+# rtl/asic/asic_top.sv) ve saticinin OpenRAM DAVRANISSAL Verilog modellerini
+# kullanir; yerlesim sonrasi netlist ya da SDF gecikmeli benzetim DEGILDIR
+# (depoda oyle bir hedef yok). Kanitladigi sey islevsellik ve makro okuma-yazma
+# sozlesmesidir, yerlesim sonrasi zamanlama degil - zamanlama kaniti STA'dir
+# (asic/reports/timing). DUT olarak GDS'in gercek ust modulu
 # asic_top (soc_top DEGIL) + ASIC_SRAM_MACRO + teslim edilen OpenRAM
 # modelleri; firmware flash'tan boot eder ve YZ CIKARIMI kosar. Boylece:
 #   1) asic_top port baglantilari YURUTULEREK dogrulanir (LVS baglantiyi

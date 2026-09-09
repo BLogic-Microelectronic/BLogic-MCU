@@ -505,7 +505,7 @@ make test-all
 | `make uart-stream` | UART_1 DMA → AI SRAM, 5 scenarios (A–E) |
 | `make boot` | Full QSPI boot flow (Boot ROM → flash → SRAM → user code) |
 | `make asic-sram-sim` | Same boot flow, but with the **delivered SRAM macro Verilog models** (`ASIC_SRAM_MACRO`) — DDK §1.3 functional-verification proof |
-| `make asic-top-sim` | Full-stack GDS-equivalent run on the **delivered RTL** (`soc_files.f` defines: `JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC`): DUT = `asic_top` + all **27 macro instances**; flash boot + conv layer bit-exact vs golden (FNV-1a checksum) **and** FC argmax == 2 ("yes") + result word (`+CHECK_ARGMAX`) — the proof that erratum FC-1 is fixed in the delivered RTL (negative control, 6 Sep 2026: the same run fails on RTL without `FC1_FIX`; `asic/README.md` §9.5) |
+| `make asic-top-sim` | Full-stack **functional** run of the ASIC top module on the **delivered RTL** (`soc_files.f` defines: `JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC`): DUT = `asic_top` + all **27 macro instances**; flash boot + conv layer bit-exact vs golden (FNV-1a checksum) **and** FC argmax == 2 ("yes") + result word (`+CHECK_ARGMAX`) — the proof that erratum FC-1 is fixed in the delivered RTL (negative control, 6 Sep 2026: the same run fails on RTL without `FC1_FIX`; `asic/README.md` §9.5) |
 | `make lint` | ASIC lint of the delivered configuration: `asic_top` on `asic/filelist.f` (its six defines included), MODDUP/PINMISSING deliberately enabled, any `%Error` fails |
 | `make lint-fpga` | `fpga_top` lint with the BSCANE2 TAP (`dmi_bscane_tap.sv` swapped in for `dmi_jtag_tap.sv`) and lint-only Xilinx primitive shells (`verif/tb/xilinx_prim_stubs.sv`) |
 | `make qspi-modes` | QSPI x1 / x2 / x4 data-phase + 3B/4B addressing |
@@ -1858,10 +1858,16 @@ Result (2026-09-01): `TEST SUCCESS` — "Hello World!" printed, all 10 protocol
 checkers clean, zero macro-model warnings. This closes the DDK §1.3
 requirement that the mandatory SRAM macro be used in functional verification.
 
-**`make asic-top-sim` goes one step further — a full-stack GDS-equivalent
-run:** the DUT is `asic_top` itself (the real top module of the GDS, which no
-other simulation exercised), with `ASIC_SRAM_MACRO` and the delivered OpenRAM
-models; it boots from QSPI flash and then runs the accelerator's convolution
+**`make asic-top-sim` goes one step further — a full-stack functional run of
+the ASIC top module:** the DUT is `asic_top` itself (the module that becomes the
+GDS, which no other simulation exercised), with `ASIC_SRAM_MACRO` and the
+delivered OpenRAM models. **Scope limit, stated plainly:** this target compiles
+**RTL** (`soc_files.f` + `rtl/asic/asic_top.sv`) against the vendor's
+*behavioural* macro models — it is **not** a post-layout netlist or SDF
+back-annotated simulation, and no such target exists in this repository. What it
+proves is functional behaviour and the macro read/write contract at the ASIC top
+level; post-layout timing is proven by STA instead (`asic/reports/timing/`).
+It it boots from QSPI flash and then runs the accelerator's convolution
 layer, comparing the 1000-word `conv_out` region in AI SRAM **bit-exactly**
 (FNV-1a) against the committed golden vector. That region can only be produced
 through the accelerator's *internal* macros, so all **27 macro instances** are

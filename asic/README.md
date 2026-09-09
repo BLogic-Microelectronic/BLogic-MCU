@@ -317,11 +317,17 @@ AXI/AXI-Lite protocol checkers clean, zero model warnings). Verified
 address-at-T / data-at-T+1 contract) remains documented in
 `rtl/core/cv32e40p/rtl/axi_sram_wrapper.sv`.
 
-**Full-stack GDS-equivalent simulation (`make asic-top-sim`):** goes one
-step further than `asic-sram-sim` — the DUT is `asic_top` itself (the
-actual top module of the GDS, which no other run simulated), compiled
-with `ASIC_SRAM_MACRO` and the delivered OpenRAM models, booting from
-QSPI flash and then running the AI accelerator's convolution layer.
+**Full-stack functional simulation of the ASIC top module
+(`make asic-top-sim`):** goes one step further than `asic-sram-sim` — the
+DUT is `asic_top` itself (the module that becomes the GDS, which no other
+run simulated), compiled with `ASIC_SRAM_MACRO` and the delivered OpenRAM
+models, booting from QSPI flash and then running the AI accelerator's
+convolution layer. **Scope limit:** this is an **RTL** simulation
+(`soc_files.f` + `rtl/asic/asic_top.sv`) against the vendor's *behavioural*
+macro models; it is **not** a post-layout netlist or SDF back-annotated
+simulation, and this delivery contains no such run. It proves functional
+behaviour and the macro read/write contract at the ASIC top level — the
+post-layout timing evidence is the three-corner STA of 9.11, not this run.
 The firmware (`sw/tests/ai_boot_macro_test.c`) checks the 1000-word
 `conv_out` region in AI SRAM bit-exactly against the committed golden
 vector (FNV-1a checksum of `conv_out_yes_real.hex`). A single-word
@@ -352,7 +358,8 @@ the convolution layer itself (whose reads are re-issued every cycle, and
 whose `WCONV` drain consumes at exactly T+1) is bit-exact. The behavioural
 branch registers and *holds* read data, which is why 15/15 SoC tests,
 4/4 golden-model scenarios and the 60/60 board demo (FPGA = behavioural
-branch) all pass and masked this until the GDS-equivalent run. Isolation
+branch) all pass and masked this until the run with the delivered macro
+models. Isolation
 evidence: the identical firmware and flash image **pass** on the
 behavioural build and **fail identically** (same signature, same
 timestamp) on `soc_top`+macros and on `asic_top`+macros — i.e. the issue
