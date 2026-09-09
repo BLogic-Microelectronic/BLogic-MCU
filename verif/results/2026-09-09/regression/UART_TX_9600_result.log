@@ -1,0 +1,9 @@
+test_name=UART_TX_9600
+test_logdir=/home/potato/blogic-mcu/logs/sim/UART_TX_9600
+result=PASS
+cycles=1508343
+uart_bytes=29
+wall_time_s=14
+cpb=5208
+started_at=2026-09-08T23:37:39
+finished_at=2026-09-08T23:37:53

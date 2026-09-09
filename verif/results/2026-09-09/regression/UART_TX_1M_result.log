@@ -1,0 +1,9 @@
+test_name=UART_TX_1M
+test_logdir=/home/potato/blogic-mcu/logs/sim/UART_TX_1M
+result=PASS
+cycles=14571
+uart_bytes=29
+wall_time_s=0
+cpb=50
+started_at=2026-09-08T23:37:39
+finished_at=2026-09-08T23:37:39

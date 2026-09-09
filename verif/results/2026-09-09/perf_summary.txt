@@ -1,0 +1,30 @@
+BLogic MCU - YZ hizlandirici basarim olcumu (make soc-perf)
+tarih     : 2026-09-06
+verilator : Verilator 5.049 devel rev v5.048-135-g99a35fee8
+rv-gcc    : riscv32-unknown-elf-gcc (xPack GNU RISC-V Embedded GCC x86_64) 13.2.0
+            /usr/local/bin/riscv32-unknown-elf-gcc
+opt       : -O2   (yazilim referansi .text = 3058 B)
+NOT       : oran yazilim tabanina duyarlidir; taban derleyici ve
+            optimizasyon seviyesiyle degisir, donanim yolu degismez.
+olcum     : SoC seviyesi, mcycle CSR ile; ayni girdi once donanimda,
+            sonra ayni cekirdek uzerinde saf yazilim referansiyla kosulur.
+girdi     : yes_real (TFLite Micro Speech gercek ses ozniteligi)
+kaynak    : sw/tests/ai_sw_reference.c  ·  log: logs/sim/ai_sw_reference/uart.log
+------------------------------------------------------------
+
+  Donanim (YZ hizlandirici) :    459,016 cevrim   argmax=2 (yes)
+  Yazilim (CV32E40P)        :  9,684,726 cevrim   argmax=2 (yes)
+  HIZLANMA                  : 21.0x
+
+  Dogruluk: conv_out 1000/1000 word birebir esit (bit-exact)
+
+  Cikti hizi (sistem saatine gore):
+    Saat      HW inference/s      HW B/s      SW inference/s      SW B/s
+     50 MHz              108     211,680                5       9,800
+    100 MHz              217     425,320               10      19,600
+
+  Not: hedef sistem saati 50 MHz'dir; 100 MHz satiri olcek referansidir.
+       ASIC imzasindan farkli bir fmax cikarsa bu tablo yenilenmelidir.
+
+Kabul kriteri (EK-1): hizlanma > 1.0x ve sonuclar altin referansla birebir.
+Durum: PASS

@@ -1,0 +1,9 @@
+test_name=QSPI_Flash
+test_logdir=/home/potato/blogic-mcu/logs/sim/QSPI_Flash
+result=PASS
+cycles=125854
+uart_bytes=29
+wall_time_s=1
+cpb=434
+started_at=2026-09-08T23:40:52
+finished_at=2026-09-08T23:40:53

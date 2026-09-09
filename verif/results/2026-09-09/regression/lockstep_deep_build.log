@@ -1,0 +1,10 @@
+make[1]: Entering directory '/home/potato/blogic-mcu'
+[SW] gcc (lockstep_deep) -> build/test.elf
+[SRODATA] OK - toplanmamis kucuk bolum yok
+Girdi: build/instr.bin (410 bytes)
+Çıktı: build/instr_mem.hex (103 words)
+Tamamlandı!
+Girdi: build/data.bin (4 bytes)
+Çıktı: build/data_mem.hex (1 words)
+Tamamlandı!
+make[1]: Leaving directory '/home/potato/blogic-mcu'

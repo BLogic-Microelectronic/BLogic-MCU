@@ -1,0 +1,54 @@
+================================================================
+ BLogic MCU — Regression
+ Tarih  : Tue Sep  8 23:37:39 +03 2026
+ Cikti  : /home/potato/blogic-mcu/logs/regression/20260908_233739
+================================================================
+
+========================================================
+ TEST 1: UART_TX_115200
+========================================================
+ -> FONKSIYONEL: PASS  (cycles=125739 bytes=29)
+ -> PROTOKOL : UYUMLU (10 arayuz)
+
+========================================================
+ TEST 2: UART_TX_1M
+========================================================
+ -> FONKSIYONEL: PASS  (cycles=14571 bytes=29)
+ -> PROTOKOL : UYUMLU (10 arayuz)
+
+========================================================
+ TEST 3: UART_TX_9600
+========================================================
+ -> FONKSIYONEL: PASS  (cycles=1508343 bytes=29)
+ -> PROTOKOL : UYUMLU (10 arayuz)
+
+========================================================
+ TEST 4: Spike ISS Lockstep (lockstep_minimal)
+========================================================
+ -> LOCKSTEP: PASS  (bkz: /home/potato/blogic-mcu/logs/lockstep/lockstep_minimal.log)
+
+========================================================
+ TEST 5: Spike ISS Lockstep (lockstep_deep)
+========================================================
+ -> LOCKSTEP: PASS  (bkz: /home/potato/blogic-mcu/logs/lockstep/lockstep_deep.log)
+
+========================================================
+ TEST 6: QSPI_Flash
+========================================================
+ -> FONKSIYONEL: PASS  (cycles=125854 bytes=29)
+ -> PROTOKOL : UYUMLU (10 arayuz)
+
+======================================================
+ REGRESSION SONUCU
+------------------------------------------------------
+ Fonksiyonel : 6  / 6  PASS
+ Protokol    : 40 / 40 UYUMLU
+------------------------------------------------------
+ Toplam Test : 6  | PASS: 6  | FAIL: 0 
+======================================================
+ >>> TUM TESTLER PASS <<<
+======================================================
+
+ Detayli loglar : logs/sim/<test>/
+ Bu kosum       : /home/potato/blogic-mcu/logs/regression/20260908_233739/
+ En son kosum   : logs/latest/
