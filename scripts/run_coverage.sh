@@ -16,6 +16,12 @@ make -f Makefile.verilator verilate COVERAGE=1 >"$BLOG" 2>&1 \
     || { echo "    VERILATE FAIL - bkz: $BLOG"; exit 1; }
 
 DATS=""
+# Onceki kosulardan kalan test loglari fonksiyonel kapsama birlesimine
+# karismasin (10 Eylul 2026 denetimi: asagidaki Python blogu eskiden
+# logs/coverage/**/*.log'u ozyinelemeli topluyordu ve 'make coverage-tb'nin
+# yazdigi logs/coverage/tb/uart-stp.log blok-TB logu STP=11 binini SoC
+# kapsamasina ekliyordu - 9 Eylul'deki UART 7/7 / TOPLAM 22/22 bu yuzdendi).
+rm -f logs/coverage/*_sim.log
 for T in $TESTS; do
     EXTRA=()
     case $T in
@@ -71,15 +77,19 @@ verilator_coverage --annotate logs/coverage/annotate --annotate-min 1 --annotate
 # UART icin birlesim bin bazinda hesaplanir (CPB 434/50/5208 + STP 00/01/10/11
 # sayaclari test loglarindan toplanir); 6 Eylul 2026 oncesi "en iyi tek test"
 # (max) aliniyordu ve 5/7 basiliyordu - gercek birlesim 6/7'dir (STP=11
-# hicbir testte programlanmaz). Diger bloklar tek testte %100'e ulastigi icin
+# hicbir SoC testinde programlanmaz; RTL'de 1X = 2 stop, blok seviyesinde
+# uart_stp_tb olcer). Diger bloklar tek testte %100'e ulastigi icin
 # max = birlesim.
-python3 - <<'PYEOF' | tee -a logs/coverage/summary.txt
-import glob, re, collections
+# Yalniz BU kosunun TESTS listesindeki SoC test loglari okunur (glob yok):
+# blok-TB loglari (logs/coverage/tb/) ve bayat loglar birlesime giremez.
+TESTS="$TESTS" python3 - <<'PYEOF' | tee -a logs/coverage/summary.txt
+import os, re, collections
 PAY = {"UART": 7, "QSPI": 7, "AI-CSR": 5, "IRQ": 3}
 best, ac_k, ac_f = collections.defaultdict(int), 0, 0
 irq_u = set()
 uart_u = set()
-for f in glob.glob("logs/coverage/**/*.log", recursive=True):
+for T in os.environ["TESTS"].split():
+    f = "logs/coverage/%s_sim.log" % T
     t = open(f, errors="replace").read()
     for blok, hit in re.findall(r"\[FUNC-COV\] (\S+).*?bin kapsami\s*:\s*(\d+)/", t, re.S):
         if blok in PAY:

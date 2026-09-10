@@ -1,0 +1,131 @@
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test gpio_random_test...
+UVM_INFO @ 0: uvm_test_top.env [ENV] Build tamamlandi
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: uvm_test_top.env [ENV] Connect tamamlandi
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+UVM_INFO @ 95000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [1/50] RD addr=0x04 data=0x00000000
+UVM_INFO @ 135000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [2/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 175000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [3/50] WR addr=0x04 data=0xbdb746a9
+UVM_INFO @ 215000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [4/50] WR addr=0x04 data=0x1025c2e5
+UVM_INFO @ 255000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [5/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 295000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [6/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 335000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [7/50] RD addr=0x04 data=0x0000c2e5
+UVM_INFO @ 375000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [8/50] RD addr=0x04 data=0x0000c2e5
+UVM_INFO @ 415000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [9/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 455000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [10/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 495000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [11/50] WR addr=0x04 data=0x112f8df8
+UVM_INFO @ 535000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [12/50] WR addr=0x04 data=0x7f396c8a
+UVM_INFO @ 575000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [13/50] WR addr=0x04 data=0x67e71559
+UVM_INFO @ 615000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [14/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 655000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [15/50] WR addr=0x00 data=0xf99079d8
+UVM_INFO @ 695000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [16/50] WR addr=0x00 data=0x2e845299
+UVM_INFO @ 735000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [17/50] WR addr=0x00 data=0x7464002e
+UVM_INFO @ 775000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [18/50] WR addr=0x04 data=0x71fac187
+UVM_INFO @ 815000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [19/50] WR addr=0x00 data=0x0a858395
+UVM_INFO @ 855000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [20/50] WR addr=0x04 data=0xfb5b995a
+UVM_INFO @ 895000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [21/50] WR addr=0x00 data=0xd1bd171f
+UVM_INFO @ 935000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [22/50] WR addr=0x04 data=0x7b27db9d
+UVM_INFO @ 975000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [23/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1015000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [24/50] WR addr=0x04 data=0xd65f644b
+UVM_INFO @ 1055000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [25/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1095000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [26/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1135000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [27/50] RD addr=0x04 data=0x0000644b
+UVM_INFO @ 1175000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [28/50] WR addr=0x00 data=0xc6927bc4
+UVM_INFO @ 1215000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [29/50] RD addr=0x04 data=0x0000644b
+UVM_INFO @ 1255000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [30/50] WR addr=0x04 data=0x9879e852
+UVM_INFO @ 1295000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [31/50] RD addr=0x04 data=0x0000e852
+UVM_INFO @ 1335000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [32/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1375000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [33/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1415000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [34/50] WR addr=0x04 data=0x11a0b70b
+UVM_INFO @ 1455000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [35/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1495000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [36/50] WR addr=0x00 data=0x4de36bbd
+UVM_INFO @ 1535000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [37/50] WR addr=0x04 data=0x7bcab542
+UVM_INFO @ 1575000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [38/50] RD addr=0x04 data=0x0000b542
+UVM_INFO @ 1615000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [39/50] WR addr=0x04 data=0x5c3f7f33
+UVM_INFO @ 1655000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [40/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1695000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [41/50] RD addr=0x04 data=0x00007f33
+UVM_INFO @ 1735000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [42/50] WR addr=0x04 data=0x10200be2
+UVM_INFO @ 1775000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [43/50] WR addr=0x00 data=0x92d06a60
+UVM_INFO @ 1815000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [44/50] RD addr=0x04 data=0x00000be2
+UVM_INFO @ 1855000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [45/50] RD addr=0x04 data=0x00000be2
+UVM_INFO @ 1895000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [46/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1935000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [47/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1975000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [48/50] WR addr=0x00 data=0xbe08271f
+UVM_INFO @ 2015000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [49/50] WR addr=0x00 data=0x47371f1a
+UVM_INFO @ 2055000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [50/50] WR addr=0x04 data=0x03e79192
+UVM_INFO @ 2155000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 75 kontrol, 75 PASS, 0 FAIL
+UVM_INFO @ 2155000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 2155000: uvm_test_top.env.coverage [COV_RPT] Coverage: 25 WR, 25 RD, 2 benzersiz adres
+UVM_INFO @ 2155000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 50 islem, 50 esleme, 0 uyumsuzluk
+UVM_INFO @ 2155000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 2155000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :   63
+UVM_WARNING :   27
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[COV_RPT]     1
+[DRV]     1
+[ENV]     2
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[SEQ]    50
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 2us; walltime 0.497 s; speed 15.381 us/s
+- Verilator: cpu 0.140 s on 1 threads; allocated 47 MB

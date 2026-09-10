@@ -1,0 +1,7 @@
+================================================
+ riscv-arch-test ozeti — Thu Sep 10 19:37:48 +03 2026
+================================================
+  PASS:72   FAIL:0    SKIP:0    BILINEN_FARK:1    TOPLAM:73 
+  Bilinen fark (verif/arch_tests/known_diffs.txt):
+  cebreak-01
+================================================

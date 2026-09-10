@@ -1,0 +1,110 @@
+[AI-TB] on yukleme tamam: yes_real girdisi, beklenen argmax=2
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test ai_directed_test...
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+UVM_INFO @ 95000: uvm_test_top [ai_directed_test] CTRL reset OK (0x00000000)
+UVM_INFO @ 135000: uvm_test_top [ai_directed_test] STATUS reset OK (0x00000000)
+UVM_INFO @ 175000: uvm_test_top [ai_directed_test] DATA_ADDR reset OK (0x00030000)
+UVM_INFO @ 215000: uvm_test_top [ai_directed_test] OUT_ADDR reset OK (0x00035a58)
+UVM_INFO @ 295000: uvm_test_top [ai_directed_test] DATA_ADDR readback OK (0xa5a55a5c)
+UVM_INFO @ 375000: uvm_test_top [ai_directed_test] OUT_ADDR readback OK (0x12345678)
+UVM_INFO @ 455000: uvm_test_top [ai_directed_test] 0x10 haritasiz OK (0x00000000)
+UVM_INFO @ 535000: uvm_test_top [ai_directed_test] 0x1C haritasiz OK (0x00000000)
+UVM_INFO @ 575000: uvm_test_top [ai_directed_test] haritasiz yazma sonrasi STATUS OK (0x00000000)
+UVM_INFO @ 655000: uvm_test_top [ai_directed_test] bosta CLEAR_DONE sonrasi STATUS OK (0x00000000)
+UVM_INFO @ 655000: uvm_test_top [ai_directed_test] START oncesi irq_o OK (0x00000000)
+[AI-TB] DONE #1: conv_out farki 0/1000 sozcuk, son yazma 0x00035a58 <- 0x00000002
+UVM_INFO @ 4610785000: uvm_test_top [ai_directed_test] irq_o geldi (START'tan ~460993 cevrim)
+UVM_INFO @ 4610825000: uvm_test_top [ai_directed_test] STATUS.DONE/BUSY OK (0x00000002)
+UVM_INFO @ 4610825000: uvm_test_top [ai_directed_test] STATUS.RESULT (argmax, altin model) OK (0x00000002)
+UVM_INFO @ 4610825000: uvm_test_top [ai_directed_test] sonuc sozcugu adresi (AXI4 son yazma) OK (0x00035a58)
+UVM_INFO @ 4610825000: uvm_test_top [ai_directed_test] sonuc sozcugu verisi OK (0x00000002)
+UVM_INFO @ 4610825000: uvm_test_top [ai_directed_test] conv_out altin farki (1000 sozcuk) OK (0x00000000)
+UVM_INFO @ 4610825000: uvm_test_top [ai_directed_test] tamamlanan cikarim sayisi OK (0x00000001)
+UVM_INFO @ 4610945000: uvm_test_top [ai_directed_test] CLEAR_DONE sonrasi DONE OK (0x00000000)
+UVM_INFO @ 4610945000: uvm_test_top [ai_directed_test] CLEAR_DONE sonrasi irq_o OK (0x00000000)
+UVM_INFO @ 4611145000: uvm_test_top [ai_directed_test] CTRL okuma (mesgul) OK (0x00000000)
+[AI-TB] DONE #2: conv_out farki 0/1000 sozcuk, son yazma 0x00037f00 <- 0x00000002
+UVM_INFO @ 9221115000: uvm_test_top [ai_directed_test] cikarim #2 STATUS.RESULT OK (0x00000002)
+UVM_INFO @ 9221115000: uvm_test_top [ai_directed_test] cikarim #2 sonuc adresi OK (0x00037f00)
+UVM_INFO @ 9221115000: uvm_test_top [ai_directed_test] cikarim #2 conv_out farki OK (0x00000000)
+UVM_INFO @ 9221155000: uvm_test_top [ai_directed_test] mesgulken START denetimi: 691483 cevrim ek bekleme
+UVM_INFO @ 16135985000: uvm_test_top [ai_directed_test] mesgulken START yok sayildi (DONE sayisi) OK (0x00000002)
+UVM_INFO @ 16135985000: uvm_test_top [ai_directed_test] son durumda irq_o OK (0x00000000)
+UVM_INFO @ 16136085000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 43 kontrol, 43 PASS, 0 FAIL
+UVM_INFO @ 16136085000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 16136085000: uvm_test_top.env.coverage [COV_RPT] Coverage: 14 WR, 15 RD, 6 benzersiz adres
+UVM_INFO @ 16136085000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 29 islem, 29 esleme, 0 uyumsuzluk
+UVM_INFO @ 16136085000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 16136085000: uvm_test_top [AI_RPT] AXI4 master: 33324 okuma, 2002 yazma sozcugu; sozlesme ihlali 0, pencere disi 0
+UVM_INFO @ 16136085000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :   39
+UVM_WARNING :   27
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[AI_RPT]     1
+[COV_RPT]     1
+[DRV]     1
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+[ai_directed_test]    27
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 16ms; walltime 12.050 s; speed 1.307 ms/s
+- Verilator: cpu 12.343 s on 1 threads; allocated 43 MB

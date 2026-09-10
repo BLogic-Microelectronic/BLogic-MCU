@@ -1,0 +1,9 @@
+test_name=cebreak-01
+text_bytes=2464
+rtl_pc_lines=240
+tohost=0x00000001
+sig_words=8
+sig_diff=BILINEN_FARK(3 word)
+march=rv32imc_zicsr_zifencei
+gate=tohost_write
+result=KNOWN_DIFF

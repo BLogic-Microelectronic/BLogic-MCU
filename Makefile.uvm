@@ -2,10 +2,10 @@
 # Ostim BLogic Mikroelektronik
 # Makefile.uvm  -  UVM testbench derleme akisi
 #
-# 4 blok: GPIO + Timer + UART_0 + I2C
+# 5 blok: GPIO + Timer + UART_0 + I2C + YZ hizlandirici (AXI-Lite CSR + AXI4 master)
 # Her blok kendi tb ust modulu ve obj dizini ile derlenir;
 # agent/monitor/driver ortak (axi_lite_uvm_pkg),
-# blok-ozel scoreboard/test'ler periph_uvm_pkg'de.
+# blok-ozel scoreboard/test'ler periph_uvm_pkg'de (YZ: ai_uvm_pkg).
 # ============================================
 
 # deneme/uvm: UVM 2020-3.1 (verilator/uvm 656f20d) Verilator >= 5.052 ister.
@@ -43,6 +43,13 @@ I2C_SRCS   = $(COMMON_SV) \
              rtl/peripherals/i2c_master_axil.sv \
              verif/uvm/tb_i2c_top.sv
 
+# YZ hizlandirici: AXI-Lite CSR ortak agent ile, AXI4 master TB bellek modeliyle
+AI_SRCS    = $(COMMON_SV) \
+             verif/uvm/ai_side_if.sv \
+             verif/uvm/ai_uvm_pkg.sv \
+             rtl/ai_accelerator/ai_accelerator.sv \
+             verif/uvm/tb_ai_top.sv
+
 # Eski degisken adi (geri uyumluluk)
 SV_SOURCES = $(GPIO_SRCS)
 
@@ -51,6 +58,7 @@ OBJ_DIR       = obj_dir_uvm
 OBJ_DIR_TIMER = obj_dir_uvm_timer
 OBJ_DIR_UART  = obj_dir_uvm_uart
 OBJ_DIR_I2C   = obj_dir_uvm_i2c
+OBJ_DIR_AI    = obj_dir_uvm_ai
 LOG_DIR       = build/uvm_logs
 COV_DIR       = $(LOG_DIR)/coverage
 
@@ -59,6 +67,7 @@ GPIO_BIN   = $(OBJ_DIR)/V$(TOP_MODULE)
 TIMER_BIN  = $(OBJ_DIR_TIMER)/V$(TOP_MODULE)
 UART_BIN   = $(OBJ_DIR_UART)/V$(TOP_MODULE)
 I2C_BIN    = $(OBJ_DIR_I2C)/V$(TOP_MODULE)
+AI_BIN     = $(OBJ_DIR_AI)/V$(TOP_MODULE)
 
 # Test isimleri
 # Tohumlar: run_all rastgele testleri UVM_SEEDS'teki her tohumla kosar
@@ -70,7 +79,7 @@ UVM_TESTNAME  ?= gpio_directed_test
 UVM_BIN       ?= $(GPIO_BIN)
 ALL_TESTS      = gpio_directed_test gpio_random_test
 
-# run_all icin (binari:test) ciftleri — 4 blok x (directed+random)
+# run_all icin (binari:test) ciftleri — 5 blok x (directed+random)
 RUN_PAIRS = \
     $(GPIO_BIN):gpio_directed_test \
     $(GPIO_BIN):gpio_random_test \
@@ -79,14 +88,18 @@ RUN_PAIRS = \
     $(UART_BIN):uart_directed_test \
     $(UART_BIN):uart_random_test \
     $(I2C_BIN):i2c_directed_test \
-    $(I2C_BIN):i2c_random_test
+    $(I2C_BIN):i2c_random_test \
+    $(AI_BIN):ai_directed_test \
+    $(AI_BIN):ai_random_test
 
 # Verilator flags
-# COV_FLAG: tam kapsam (line+toggle), dort blokta da.
-# 5.049-devel I2C'de toggle enstrumantasyonunda Internal Error veriyordu
-# (i2c_master_axil.sv:191) ve I2C yalniz line coverage ile derleniyordu;
-# 5.052'de dort blok ayni bayrakla derlenir.
+# COV_FLAG: tam kapsam (line+toggle). 5.049-devel I2C'de toggle
+# enstrumantasyonunda Internal Error veriyordu (i2c_master_axil.sv:191);
+# 5.052'de GPIO/Timer/UART/I2C ayni bayrakla derlenir.
+# YZ hizlandirici: toggle enstrumantasyonu ~900 bin cevrimlik iki cikarimi
+# gereksiz yavaslatir; SoC seviyesi kapsama zaten make coverage'ta -> line.
 COV_FLAG = --coverage
+$(AI_BIN):  COV_FLAG = --coverage-line
 
 VERILATOR_FLAGS = \
     --main --binary --build --cc \
@@ -121,12 +134,12 @@ DEFINES     = +define+UVM_REPORT_DISABLE_FILE_LINE
 .PHONY: all directed random run_one run_all clean help \
         compile compile_timer compile_uart compile_i2c compile_all \
         timer_directed timer_random uart_directed uart_random \
-        i2c_directed i2c_random
+        i2c_directed i2c_random compile_ai ai_directed ai_random check_solver
 
 help:
 	@echo "============================================="
 	@echo " BLogic MCU — UVM Testbench (Verilator)"
-	@echo " 4 blok: GPIO + Timer + UART_0 + I2C"
+	@echo " 5 blok: GPIO + Timer + UART_0 + I2C + YZ hizlandirici"
 	@echo "============================================="
 	@echo "  make -f Makefile.uvm compile_all     Tum bloklari derle"
 	@echo "  make -f Makefile.uvm directed        GPIO directed"
@@ -137,7 +150,9 @@ help:
 	@echo "  make -f Makefile.uvm uart_random     UART_0 random"
 	@echo "  make -f Makefile.uvm i2c_directed    I2C directed"
 	@echo "  make -f Makefile.uvm i2c_random      I2C random"
-	@echo "  make -f Makefile.uvm all             Temiz derle + 8 test (rastgele: UVM_SEEDS tohumla)"
+	@echo "  make -f Makefile.uvm ai_directed     YZ hizlandirici directed (2 cikarim)"
+	@echo "  make -f Makefile.uvm ai_random       YZ hizlandirici random (z3) + cikarim"
+	@echo "  make -f Makefile.uvm all             Temiz derle + 10 test (rastgele: UVM_SEEDS tohumla)"
 	@echo "  make -f Makefile.uvm clean           Temizle"
 	@echo "============================================="
 
@@ -150,16 +165,15 @@ check_verilator:
 		echo "HATA: UVM 2020-3.1 icin Verilator >= $(VERILATOR_MIN) gerekli; bulunan $$v ($(VERILATOR))"; \
 		echo "      ~/tools/verilator-5.052 kurun ya da VERILATOR=<yol> verin."; exit 1; \
 	fi; \
-	command -v z3 >/dev/null 2>&1 || { \
-		echo "HATA: kisitli rastgele (randomize) icin z3 cozucusu gerekli: sudo apt install z3"; exit 1; }; \
-	echo ">>> Verilator $$v, cozucu: $$(z3 --version)"
+	echo ">>> Verilator $$v"
 
 # Derleme (blok basina ayri obj dizini)
 compile: $(GPIO_BIN)
 compile_timer: $(TIMER_BIN)
 compile_uart: $(UART_BIN)
 compile_i2c: $(I2C_BIN)
-compile_all: compile compile_timer compile_uart compile_i2c
+compile_ai: $(AI_BIN)
+compile_all: compile compile_timer compile_uart compile_i2c compile_ai
 
 $(GPIO_BIN): $(GPIO_SRCS) $(UVM_PKG) | check_verilator
 	@echo ""
@@ -201,6 +215,16 @@ $(I2C_BIN): $(I2C_SRCS) $(UVM_PKG) | check_verilator
 		2>&1 | tee $(LOG_DIR)/compile_i2c.log
 	@echo ">>> Derleme tamam: $(I2C_BIN)"
 
+$(AI_BIN): $(AI_SRCS) $(UVM_PKG) | check_verilator
+	@echo ""
+	@echo ">>> UVM Verilator derleme (YZ hizlandirici)..."
+	@mkdir -p $(LOG_DIR)
+	$(VERILATOR) $(VERILATOR_FLAGS) --Mdir $(OBJ_DIR_AI) $(DISABLED_WARNINGS) \
+		$(DEFINES) $(INCDIRS) \
+		$(UVM_PKG) $(AI_SRCS) $(UVM_DPI_SRC) \
+		2>&1 | tee $(LOG_DIR)/compile_ai.log
+	@echo ">>> Derleme tamam: $(AI_BIN)"
+
 # Tek test kos (UVM_BIN + UVM_TESTNAME ile parametrik)
 # Not: binari onkosulu kisayol hedeflerinde — hedefe-ozel degiskenler
 # onkosul listesinde genislemez (GNU make), recipe'de genisler.
@@ -220,11 +244,22 @@ run_one:
 		$(LOG_DIR)/$(UVM_TESTNAME).log || true
 	@echo ""
 
+# Constrained-random kapisi: Verilator randomize() kisitlarini calisma aninda
+# harici SMT cozucusuyle (varsayilan "z3 --in") cozer. z3 yoksa randomize()
+# basarisiz olur; bu UVM_ERROR (axi_lite_uvm_pkg.sv, periph_uvm_pkg.sv), ama
+# kosuya hic baslamadan net mesajla durmak daha iyi. Kurulum: README 8.2.
+check_solver:
+	@command -v z3 >/dev/null 2>&1 || { \
+		echo "HATA: z3 bulunamadi - constrained-random testler kosamaz."; \
+		echo "      sudo apt install z3   ya da   python3 -m venv ~/z3venv && ~/z3venv/bin/pip install z3-solver"; \
+		echo "      (venv icin: export PATH=~/z3venv/bin:\$$PATH)"; exit 1; }
+	@echo ">>> SMT cozucu: $$(z3 --version)"
+
 # Tum testleri kos: yonlendirilmis testler bir kez, rastgele testler
-# UVM_SEEDS'teki her tohumla. Varsayilan: 4 + 4 x 3 = 16 kosu.
-run_all: compile_all
+# UVM_SEEDS'teki her tohumla. Varsayilan: 5 + 5 x 3 = 20 kosu.
+run_all: check_solver compile_all
 	@echo ""
-	@echo ">>> Tum UVM testleri kosuluyor (4 blok, 8 test; rastgele testlerde tohumlar: $(UVM_SEEDS))..."
+	@echo ">>> Tum UVM testleri kosuluyor (5 blok, 10 test; rastgele testlerde tohumlar: $(UVM_SEEDS))..."
 	@mkdir -p $(COV_DIR)
 	@pass=0; fail=0; runs=0; \
 	for pair in $(RUN_PAIRS); do \
@@ -296,9 +331,18 @@ i2c_random: UVM_TESTNAME=i2c_random_test
 i2c_random: UVM_BIN=$(I2C_BIN)
 i2c_random: $(I2C_BIN) run_one
 
+# Kisa yollar — YZ hizlandirici (random da z3 ister)
+ai_directed: UVM_TESTNAME=ai_directed_test
+ai_directed: UVM_BIN=$(AI_BIN)
+ai_directed: $(AI_BIN) run_one
+
+ai_random: UVM_TESTNAME=ai_random_test
+ai_random: UVM_BIN=$(AI_BIN)
+ai_random: check_solver $(AI_BIN) run_one
+
 all: clean compile_all run_all
 
 # Temizlik
 clean:
-	rm -rf $(OBJ_DIR) $(OBJ_DIR_TIMER) $(OBJ_DIR_UART) $(OBJ_DIR_I2C) $(LOG_DIR)
+	rm -rf $(OBJ_DIR) $(OBJ_DIR_TIMER) $(OBJ_DIR_UART) $(OBJ_DIR_I2C) $(OBJ_DIR_AI) $(LOG_DIR)
 	@echo ">>> UVM temizlendi"

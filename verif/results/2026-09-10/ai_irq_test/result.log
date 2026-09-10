@@ -1,0 +1,9 @@
+test_name=ai_irq_test
+test_logdir=/mnt/c/Users/Lenovo/OneDrive/Masaüstü/2026_Cip-Tasarim-Yarismasi-2026_Ostim-BLogic-Mikroelektronik-2026_Ostim-Teknik-Universitesi-main/logs/sim/ai_irq_test
+result=PASS
+cycles=2035067
+uart_bytes=363
+wall_time_s=13
+cpb=434
+started_at=2026-09-10T19:16:25
+finished_at=2026-09-10T19:16:38

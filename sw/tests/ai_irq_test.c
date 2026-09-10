@@ -80,12 +80,22 @@ int main(void) {
     uart_puts(UART0, "[AI-IRQ] CTRL.START yazildi, cekirdek ISR bekliyor\n");
     AI_ACC->CTRL = CTRL_START;
 
-    // cihaz degil, ISR bayragi bekleniyor
-    uint32_t timeout = 2000000U;
+    // Bekleme hali: cekirdek wfi ile uyur, irq17 uyandirir. Cihaz degil,
+    // ISR bayragi bekleniyor. Yaris korumasi: bayrak kontrolu ile wfi arasinda
+    // ISR calisip kaynagi temizlerse wfi sonsuza uyur. Bu yuzden kontrol ve wfi
+    // mstatus.MIE=0 iken yapilir; wfi, mie[17] acik ve kesme bekliyorken
+    // MIE'den bagimsiz uyanir (priv spec 3.3.3), sonra MIE kisa acilip ISR alinir.
+    // Kesme hic gelmezse cekirdek uyur ve TB'nin MAX_CYCLES butcesi testi
+    // FAIL'e dusurur (golden yazilmaz).
+    uint32_t timeout = 2000000U;   // wfi uyanma sayisi siniri (sahte uyanmalara karsi)
+    __asm__ volatile(".option push\n.option arch, +zicsr\ncsrci mstatus, 8\n.option pop\n");
     while ((g_isr_fired == 0U) && (timeout != 0U)) {
         timeout--;
-        __asm__ volatile("nop");
+        __asm__ volatile("wfi");
+        __asm__ volatile(".option push\n.option arch, +zicsr\n"
+                         "csrsi mstatus, 8\nnop\ncsrci mstatus, 8\n.option pop\n");
     }
+    __asm__ volatile(".option push\n.option arch, +zicsr\ncsrsi mstatus, 8\n.option pop\n");
 
     uint32_t ok = 1U;
     if (g_isr_fired == 0U) {
