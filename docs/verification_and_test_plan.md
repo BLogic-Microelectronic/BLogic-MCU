@@ -355,7 +355,7 @@ All targets met. Reproduce with:
 
 **SoC-level line coverage (15 system tests, single build, fixed
 denominator; measured 2026-09-06 on the delivered configuration):** line
-**90.7%** (359/396 points), branch **88.6%** (819/924) - raised from
+**90.7%** (359/396 points), branch **88.6%** (819/924) on Verilator 5.049, **88.5%** (818/924) on the Verilator 5.052 re-run of `deneme/uvm` - raised from
 72.2%/84.2% on 2026-09-01 by four targeted tests (`i2c_soc_test`,
 `qspi_rdpath_test`, `csr_negatif_test`, `ai_sat_test`); the 1 September
 figure on the 14-file denominator was 91.1%/91.3%, and the difference is

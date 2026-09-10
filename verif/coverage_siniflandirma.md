@@ -93,7 +93,7 @@ sequence `WREN(0x06) -> PP(0x02, multi-byte) -> RDSR(0x05) WIP poll -> READ
 read-back`; it closes the "page write never verified" finding in the project
 notebook while opening lines 292-295, 303-307 and 384-412 in a single test.
 
-## 3. obi_to_axi.sv - 23 lines (A=23)
+## 3. obi_to_axi.sv - 23 lines (A=23; 24 on Verilator 5.052, section 11)
 
 **All of them are structurally unreachable.** The bridge carries code for the
 AW-only / W-only accept arms and for the WAIT_AW / WAIT_W states; but EVERY
@@ -103,6 +103,8 @@ peripherals with `awready<=1; wready<=1` in the same branch). Measured evidence:
 over 411k+ writes there were 49,740 stalls, and in none of them did the readies
 diverge. These arms can only come alive if a slave producing split readies is
 added -> **waiver candidate** (lines: 146-153, 179-186, 191-194, 199-202, 225).
+
+Verilator 5.052 (`deneme/uvm`, 10 September 2026) reports **24** lines here: 146-149, 151-153, 179-186, 191-194, 199-202 and 225. All of them lie inside the ranges above and belong to the same arms, so the class stays A. The number of covered branch points drops from 819 to 818 of an unchanged 924; no RTL changed between the two runs, so the difference comes from the simulator version.
 
 ## 4. ai_accelerator.sv - 11 lines (A=7, C=4)
 
@@ -286,3 +288,7 @@ Verdict: the delivered configuration keeps every classification of sections
 full by its own testbenches.
 
 <!-- English translation of coverage_siniflandirma.md, 2026-09-01; numeric values converted from Turkish to English number format. -->
+
+## 11. Re-measurement on Verilator 5.052 (`deneme/uvm`, 10 September 2026)
+
+Same 15 tests and the same RTL, with Verilator 5.052 instead of 5.049. Line coverage 90.7 % (359/396), the annotation figure 90.0 % (1685/1856) and functional coverage 21/22 are unchanged. Branch coverage is 88.5 % (818/924) instead of 88.6 % (819/924). The only file whose count changed is `obi_to_axi.sv`: 24 lines instead of 23, all class A (section 3).

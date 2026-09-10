@@ -1,6 +1,6 @@
 BLogic MCU - line coverage ozeti (make coverage)
 tarih     : 2026-09-10
-verilator : Verilator 5.049 devel rev v5.048-135-g99a35fee8
+verilator : Verilator 5.052 2026-09-05 rev v5.052
 testler   : uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test timer_irq_test uart_stp_reg_test uart1_strm_test qspi_fifo_err_test i2c_soc_test csr_negatif_test qspi_rdpath_test ai_sat_test
 olcum     : --coverage-line, SoC seviyesi (15 C testi, tek build, sabit payda)
 kapsam    : tasarim RTL'i (15 dosya; JTAG koprusu axi_dm_slave.sv dahil). Haric:
@@ -12,7 +12,7 @@ modul bazli TB kapsamasi: verif/coverage_tb_summary.txt (make coverage-tb)
 Coverage Summary:
   line      : 90.7% (359/396)
   toggle    : 0.0% (  0/  0)
-  branch    : 88.6% (819/924)
+  branch    : 88.5% (818/924)
   expr      : 0.0% (  0/  0)
   fsm_state : 0.0% (  0/  0)
   fsm_arc   : 0.0% (  0/  0)
@@ -36,7 +36,7 @@ See lines with '%00' in logs/coverage/annotate
   soc_axi_interconnect.sv      : 0
   periph_decoder.sv            : 0
   axi4_to_axilite_bridge.sv    : annotate yok (nokta uretilmedi: yapisal RTL / waiver / kullanilmiyor)
-  obi_to_axi.sv                : 23
+  obi_to_axi.sv                : 24
   axi_dm_slave.sv              : 22
   uart_axil.sv                 : 0
   uart_stream_axil.sv          : 1

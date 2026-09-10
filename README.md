@@ -45,7 +45,7 @@
 
 **BLogic MCU** is a 32-bit RISC-V based System-on-Chip (SoC) developed by **BLogic Mikroelektronik (Ostim Technical University)** for the **TEKNOFEST 2026 Chip Design Competition, Microcontroller Design Category**. The system is built around the open-source **CV32E40P** processor core (RV32IMC, 4-stage in-order pipeline) and integrates an AXI4 / AXI4-Lite bus fabric, on-chip SRAMs, a Boot ROM with QSPI boot loader, a full set of peripherals (UART × 2, GPIO, Timer, I²C Master, QSPI Master), and a custom **TFLite Micro Speech** hardware AI accelerator.
 
-The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, a UVM environment covering **five blocks — the four peripherals and the AI accelerator's CSR and AXI4 master ports (10 tests in 20 seeded runs passing on Verilator 5.052 with UVM 2020-3.1, constrained-random stimulus solved by the z3 SMT solver)**, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite (RV32I/M/C: **72/73 signatures identical to Spike**, the 73rd an analysed framework difference — §10.3), and end-to-end AI accuracy regression (**1000/1000 samples bit-exact**; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). SoC-level line coverage is **90.7 %** (branch 88.6 %; the JTAG bridge reaches 100 % under its own testbench), with every remaining uncovered line classified and justified in `verif/coverage_siniflandirma.md`. The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +2.433 ns` / `WHS = +0.059 ns` (timing met, zero failing endpoints across 24,260 setup and 24,257 hold endpoints; `jtag_tck` domain WNS +94.976 ns) and `0.330 W` total estimated on-chip power (Vivado vector-less estimate, the tool's own confidence rating is *Low* — §12.4). On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). The chip also carries the specification's optional JTAG debug interface — a PULP riscv-dbg debug module on an IEEE 1149.1 TAP, connected to the CV32E40P debug port — exercised with OpenOCD and gdb in simulation and, through the board's own USB-JTAG, on the Genesys 2 (§10.10). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
+The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, a UVM environment covering **five blocks — the four peripherals and the AI accelerator's CSR and AXI4 master ports (10 tests in 20 seeded runs passing on Verilator 5.052 with UVM 2020-3.1, constrained-random stimulus solved by the z3 SMT solver)**, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite (RV32I/M/C: **72/73 signatures identical to Spike**, the 73rd an analysed framework difference — §10.3), and end-to-end AI accuracy regression (**1000/1000 samples bit-exact**; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). SoC-level line coverage is **90.7 %** (branch 88.5 % on Verilator 5.052; the JTAG bridge reaches 100 % under its own testbench), with every remaining uncovered line classified and justified in `verif/coverage_siniflandirma.md`. The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +2.433 ns` / `WHS = +0.059 ns` (timing met, zero failing endpoints across 24,260 setup and 24,257 hold endpoints; `jtag_tck` domain WNS +94.976 ns) and `0.330 W` total estimated on-chip power (Vivado vector-less estimate, the tool's own confidence rating is *Low* — §12.4). On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). The chip also carries the specification's optional JTAG debug interface — a PULP riscv-dbg debug module on an IEEE 1149.1 TAP, connected to the CV32E40P debug port — exercised with OpenOCD and gdb in simulation and, through the board's own USB-JTAG, on the Genesys 2 (§10.10). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
 
 ---
 
@@ -305,7 +305,7 @@ numbers in §13.8. "Specification" is `docs/2026_Çip_Tasarım_Yarışması_Şar
 │   │   ├── spi_flash_model.sv            # QSPI flash device
 │   │   ├── i2c_slave_model.sv            # I²C echo slave
 │   │   └── xilinx_prims_stub.sv          # IBUFDS/MMCM stubs (Verilator)
-│   ├── coverage_summary.txt              # SoC line + branch coverage (15 tests, 90.7 % / 88.6 %; JTAG bridge 100 % via jtag-cov)
+│   ├── coverage_summary.txt              # SoC line + branch coverage (15 tests, 90.7 % / 88.5 % on Verilator 5.052; JTAG bridge 100 % via jtag-cov)
 │   ├── coverage_tb_summary.txt           # Per-module block-TB coverage
 │   ├── coverage_siniflandirma.md         # Uncovered-line classification (A/B/C, per-line evidence)
 │   ├── perf_summary.txt                  # HW vs SW speedup measurement (21.0x)
@@ -635,7 +635,7 @@ cd obj_dir && ./blogic_sim +CPB=434
 | **Bus protocol** | SystemVerilog Assertions (SVA) bound to 10 AXI / AXI-Lite interfaces | Protocol-level legality |
 | **UVM** | Vendored UVM (`verif/uvm-lib`) + block-agnostic AXI-Lite agent | 5 blocks (GPIO / Timer / UART_0 / I2C / AI accelerator CSR + AXI4 master), directed + constrained-random (z3), reference-model scoreboards |
 | **AI accuracy** | Python `run_accuracy_window.py` + RTL TB | 1000-sample bit-exact SW vs RTL match |
-| **Coverage** | Verilator `--coverage-line` + uncovered-line classification | SoC 90.7 % line / 88.6 % branch on the delivered configuration (JTAG bridge 100 % under `make jtag-cov`); every remaining line justified (`verif/coverage_siniflandirma.md`) |
+| **Coverage** | Verilator `--coverage-line` + uncovered-line classification | SoC 90.7 % line / 88.5 % branch on Verilator 5.052 (`main`, Verilator 5.049: 88.6 %) (JTAG bridge 100 % under `make jtag-cov`); every remaining line justified (`verif/coverage_siniflandirma.md`) |
 
 ### 10.2 Regression Test Suite
 
@@ -763,7 +763,7 @@ Block-TB verdict string: `*** TEST SUCCESS *** I2C SISTEM YOLU DOGRULANDI` (syst
 
 ### 10.8 Coverage Report
 
-All SoC-level numbers in this section are from the **2026-09-06** clean run on the delivered configuration (Verilator 5.049, Spike enabled); the module-level table is the 2026-09-01 run (`verif/coverage_tb_summary.txt`).
+All SoC-level numbers in this section are from the **2026-09-10** clean run of this branch on Verilator 5.052 (Spike enabled); the delivered `main` quotes the 2026-09-06 run on Verilator 5.049, identical except branch 88.6 % (819/924) and one more uncovered `obi_to_axi.sv` line here (`verif/coverage_siniflandirma.md`, section 11); the module-level table is the 2026-09-01 run (`verif/coverage_tb_summary.txt`).
 
 <p align="center"><img src="images/coverage_summary.png" width="860" alt="coverage summary chart"></p>
 <p align="center"><sub>Left: SoC-level coverage vs. the 90% mark. Right: uncovered point-lines per team-RTL module (A/B classification below). Rendered from <code>verif/coverage_summary.txt</code> by <code>scripts/coverage_chart.py</code>.</sub></p>
@@ -795,7 +795,7 @@ and is appended to the same summary.
 | Metric | Result (6 September 2026, delivered configuration) |
 |---|---|
 | **Line coverage** | **90.7 %** (359 / 396) |
-| **Branch coverage** | **88.6 %** (819 / 924) |
+| **Branch coverage** | **88.5 %** (818 / 924) |
 | Lines fully covered (annotation) | 90.0 % (1685 / 1856) |
 | JTAG bridge `axi_dm_slave.sv` via `make jtag-cov` | **100 %** (49 / 49); riscv-dbg `dmi_jtag_tap` 99.1 %, `dm_mem` 96.3 %, `dmi_jtag` 90.3 %, `dm_csrs` 81.3 % |
 
@@ -810,7 +810,7 @@ the same 15 tests measured 91.1 % line / 91.3 % branch; the 22 idle-only
 lines of `axi_dm_slave.sv` account for the whole difference.
 
 <p align="center"><img src="images/coverage_terminal_20260910.png" width="760" alt="make coverage summary: line 90.7 %, branch 88.6 %, functional coverage 21/22"></p>
-<p align="center"><sub><code>make coverage</code>, run of 10 September 2026 — line <b>90.7 %</b> (359/396), branch <b>88.6 %</b> (819/924), annotation 90.0 % (1685/1856), functional coverage <b>21/22</b> (UART 6/7, QSPI 7/7, AI-CSR 5/5, IRQ 3/3) and the EK-2 v1.3 <code>CFG[0]</code> auto-clear proof (6,374 checks, 0 violations). Text rendered verbatim from <code>verif/coverage_summary.txt</code>. The 9 September image showed 22/22 from a contaminated union — see the functional-coverage paragraph below.</sub></p>
+<p align="center"><sub><code>make coverage</code>, main-branch run of 10 September 2026 on Verilator 5.049 — line <b>90.7 %</b> (359/396), branch <b>88.6 %</b> (819/924), annotation 90.0 % (1685/1856), functional coverage <b>21/22</b> (UART 6/7, QSPI 7/7, AI-CSR 5/5, IRQ 3/3) and the EK-2 v1.3 <code>CFG[0]</code> auto-clear proof (6,374 checks, 0 violations). Text rendered verbatim from <code>verif/coverage_summary.txt</code>. The 9 September image showed 22/22 from a contaminated union — see the functional-coverage paragraph below.</sub></p>
 
 Every remaining uncovered line falls into one of three documented classes
 (`verif/coverage_siniflandirma.md`):
