@@ -232,6 +232,10 @@ package periph_uvm_pkg;
     // havuz boyutlarina kaydi (UART/I2C'de 3/9 ~ %37, Timer'da 6/14 ~ %45).
     // Yazma orani her kosuda raporlanir; hedeften 25 puandan fazla saparsa
     // test DUSER, boylece agirliklandirma sessizce bozulamaz.
+    //
+    // Testler diziyi kendi tip adiyla yaratir (ornek: uart_random_test_seq).
+    // UVM dizi tohumunu tip + tam ad + global tohumdan turettigi icin ortak
+    // "seq" adinda ayni tohumla timer/uart/i2c ayni akisi paylasiyordu.
     // --------------------------------------------
     class periph_random_seq extends axi_lite_base_seq;
         `uvm_object_utils(periph_random_seq)
@@ -514,7 +518,7 @@ package periph_uvm_pkg;
             sqr = env.agent.sequencer;
             phase.raise_objection(this, "timer_random_test");
 
-            seq = periph_random_seq::type_id::create("seq");
+            seq = periph_random_seq::type_id::create({get_type_name(), "_seq"});
             seq.wr_pool  = {32'h00, 32'h04, 32'h08, 32'h0C, 32'h10, 32'h1C};
             seq.rd_pool  = {32'h00, 32'h04, 32'h08, 32'h0C,
                             32'h10, 32'h14, 32'h18, 32'h1C};
@@ -613,7 +617,7 @@ package periph_uvm_pkg;
             sqr = env.agent.sequencer;
             phase.raise_objection(this, "uart_random_test");
 
-            seq = periph_random_seq::type_id::create("seq");
+            seq = periph_random_seq::type_id::create({get_type_name(), "_seq"});
             seq.wr_pool  = {32'h00, 32'h04, 32'h0C};
             seq.rd_pool  = {32'h00, 32'h04, 32'h08, 32'h0C, 32'h10, 32'h14};
             seq.num_txns = 60;
@@ -725,7 +729,7 @@ package periph_uvm_pkg;
             sqr = env.agent.sequencer;
             phase.raise_objection(this, "i2c_random_test");
 
-            seq = periph_random_seq::type_id::create("seq");
+            seq = periph_random_seq::type_id::create({get_type_name(), "_seq"});
             seq.wr_pool  = {32'h00, 32'h04, 32'h0C};
             seq.rd_pool  = {32'h00, 32'h04, 32'h08, 32'h0C, 32'h10, 32'h14};
             seq.num_txns = 60;
