@@ -23,10 +23,11 @@ if [ -x "$PREFIX/bin/verilator" ]; then
     exit 0
 fi
 
-for t in git autoconf flex bison help2man g++ make perl python3; do
+# z3: Verilator'in kisitli rastgele (randomize) cozucusu, calisma aninda gerekli
+for t in git autoconf flex bison help2man g++ make perl python3 z3; do
     command -v "$t" >/dev/null || {
         echo "Eksik arac: $t"
-        echo "  sudo apt install git autoconf flex bison help2man g++ make perl python3"
+        echo "  sudo apt install git autoconf flex bison help2man g++ make perl python3 z3"
         exit 1
     }
 done

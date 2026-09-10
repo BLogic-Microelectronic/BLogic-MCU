@@ -8,4 +8,4 @@ yerinde vendor edilmistir.
 - Onceki:   795b5f2 (Verilator gecici cozumlu eski catal; main dalinda duruyor)
 - Alinan icerik: src/, LICENSE.txt, NOTICE.txt, DEVIATIONS.md
 - Derleyici: Verilator >= 5.052 (Makefile.uvm `check_verilator` ile zorlanir)
-- Makefile.uvm: UVM_NO_DPI tanimli; src/dpi kaynaklari vendor edildi ama derlenmez
+- Makefile.uvm: UVM DPI acik; src/dpi/uvm_dpi.cc (uvm_hdl_verilator.c dahil) --vpi ile derlenir

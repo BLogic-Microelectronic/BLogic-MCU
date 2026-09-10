@@ -351,7 +351,7 @@ verilator --version              # -> Verilator 5.049 devel rev v5.048-135-g99a3
 > bash scripts/install_verilator.sh      # -> ~/tools/verilator-5.052 (about 15-25 min)
 > ```
 >
-> `Makefile.uvm` picks `~/tools/verilator-5.052/bin/verilator` automatically (override with `make uvm VERILATOR=<path>`); its `check_verilator` gate stops with a clear message when an older Verilator is found.
+> `Makefile.uvm` picks `~/tools/verilator-5.052/bin/verilator` automatically (override with `make uvm VERILATOR=<path>`); its `check_verilator` gate stops with a clear message when an older Verilator is found. Constrained randomization calls the **z3** SMT solver at run time (`sudo apt install z3`); the same gate stops when `z3` is not on `PATH`.
 
 ### 8.3 RISC-V GNU Toolchain (rv32imc / ilp32)
 
@@ -817,6 +817,8 @@ tests. Each block builds with its own `tb_*_top.sv` wrapper.
 
 One measured tool limit remains: **Verilator 5.052 does not apply `dist` weights.** A single-variable `dist {1 := 60, 0 := 40}` gave 52 % over 2,000 draws, and inside an implication the write ratio followed the pool sizes instead of the weights (3/9 for UART and I²C, 6/14 for the Timer). The read/write direction is therefore drawn procedurally with the intended 60 % write probability; the achieved ratio is reported on every run and a deviation of more than 25 points fails the test, so the weighting cannot silently break again. The I²C block now builds with full line + toggle coverage like the other three; the 5.049 toggle-instrumentation internal error is gone.
 
+**DPI and seeds.** The UVM DPI layer is enabled: `uvm_dpi.cc`, including the Verilator VPI back-end added in `656f20d`, is compiled with `--vpi`, so `+UVM_TESTNAME` is read through DPI and the component-name checks run; UVM 2020-3.1 had warned on every run that its `UVM_NO_DPI` mode may be removed. `make uvm` runs the four directed tests once and each of the four random tests with three seeds (`UVM_SEEDS ?= 1 2 3`, passed as `+verilator+seed+N`), 16 runs in total; `make uvm UVM_SEEDS="1 2 3 4 5"` widens the sweep.
+
 | Test | What it proves | Result |
 |---|---|---|
 | `gpio_directed_test` | IDR/ODR R/W, mask checks against reference model | **PASS** |
@@ -828,11 +830,11 @@ One measured tool limit remains: **Verilator 5.052 does not apply `dist` weights
 | `i2c_directed_test` | NBY clamping (0→1, 7→4), read-backs, **no-slave NACK path for both TX and RX** (`TX_DONE`/`RX_DONE` + `NACK_ERR`, RDR left clean) | **PASS** |
 | `i2c_random_test` | 60 constrained-random R/W against the I²C reference model | **PASS** |
 
-**Regression result: 8 PASS, 0 FAIL** (`UVM_ERROR : 0`, `UVM_FATAL : 0` in every
-run; protocol monitor reports 0 violations in all 8).
+**Regression result: 16 PASS, 0 FAIL**: 8 tests, the four random ones with three seeds each (`UVM_ERROR : 0`, `UVM_FATAL : 0` and `UVM_WARNING : 0` in every
+run; protocol monitor reports 0 violations in all 16).
 
 <p align="center"><img src="images/uvm_regression_terminal_20260909.png" width="780" alt="UVM Regression: 8 PASS, 0 FAIL"></p>
-<p align="center"><sub><code>make uvm</code>, run of 9 September 2026 — the four block environments, 8 tests, <b>8 PASS / 0 FAIL</b>; <code>UVM_ERROR : 0</code> and <code>UVM_FATAL : 0</code> in every run.</sub></p>
+<p align="center"><sub><code>make uvm</code>, main-branch run of 9 September 2026 on Verilator 5.049 — the four block environments, 8 tests, <b>8 PASS / 0 FAIL</b>; <code>UVM_ERROR : 0</code> and <code>UVM_FATAL : 0</code> in every run.</sub></p>
 
 The UVM library is vendored under `verif/uvm-lib` — no external clone is needed (see `verif/uvm-lib/KAYNAK.md`).
 
