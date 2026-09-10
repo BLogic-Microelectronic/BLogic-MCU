@@ -45,7 +45,7 @@
 
 **BLogic MCU** is a 32-bit RISC-V based System-on-Chip (SoC) developed by **BLogic Mikroelektronik (Ostim Technical University)** for the **TEKNOFEST 2026 Chip Design Competition, Microcontroller Design Category**. The system is built around the open-source **CV32E40P** processor core (RV32IMC, 4-stage in-order pipeline) and integrates an AXI4 / AXI4-Lite bus fabric, on-chip SRAMs, a Boot ROM with QSPI boot loader, a full set of peripherals (UART × 2, GPIO, Timer, I²C Master, QSPI Master), and a custom **TFLite Micro Speech** hardware AI accelerator.
 
-The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, a UVM environment covering **four peripheral blocks (8/8 tests passing)**, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite (46/46), and end-to-end AI accuracy regression (**1000/1000 samples bit-exact**; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). SoC-level line coverage is **90.7 %** (branch 88.6 %; the JTAG bridge reaches 100 % under its own testbench), with every remaining uncovered line classified and justified in `verif/coverage_siniflandirma.md`. The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +2.433 ns` / `WHS = +0.059 ns` (timing met, zero failing endpoints across 24,260 setup and 24,257 hold endpoints; `jtag_tck` domain WNS +94.976 ns) and `0.330 W` total estimated on-chip power (Vivado vector-less estimate, the tool's own confidence rating is *Low* — §12.4). On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). The chip also carries the specification's optional JTAG debug interface — a PULP riscv-dbg debug module on an IEEE 1149.1 TAP, connected to the CV32E40P debug port — exercised with OpenOCD and gdb in simulation and, through the board's own USB-JTAG, on the Genesys 2 (§10.10). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
+The design has been verified through Verilator-based directed and randomized simulation, SystemVerilog Assertions (SVA) protocol checking on every AXI / AXI-Lite interface, a UVM environment covering **five blocks — the four peripherals and the AI accelerator's CSR and AXI4 master ports (10/10 tests passing, constrained-random stimulus solved by the z3 SMT solver)**, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite (RV32I/M/C: **72/73 signatures identical to Spike**, the 73rd an analysed framework difference — §10.3), and end-to-end AI accuracy regression (**1000/1000 samples bit-exact**; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). SoC-level line coverage is **90.7 %** (branch 88.6 %; the JTAG bridge reaches 100 % under its own testbench), with every remaining uncovered line classified and justified in `verif/coverage_siniflandirma.md`. The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +2.433 ns` / `WHS = +0.059 ns` (timing met, zero failing endpoints across 24,260 setup and 24,257 hold endpoints; `jtag_tck` domain WNS +94.976 ns) and `0.330 W` total estimated on-chip power (Vivado vector-less estimate, the tool's own confidence rating is *Low* — §12.4). On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). The chip also carries the specification's optional JTAG debug interface — a PULP riscv-dbg debug module on an IEEE 1149.1 TAP, connected to the CV32E40P debug port — exercised with OpenOCD and gdb in simulation and, through the board's own USB-JTAG, on the Genesys 2 (§10.10). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
 
 ---
 
@@ -62,7 +62,7 @@ The design has been verified through Verilator-based directed and randomized sim
 | **Boot Flow** | Boot ROM → QSPI Flash loader → Instruction SRAM (M3 flash-boot mode active) |
 | **Interrupts** | CV32E40P CLINT-style vector: Timer (bit 16), AI Accelerator (bit 17), UART-stream DMA (bit 18) |
 | **Debug** | PULP riscv-dbg debug module (RISC-V Debug 0.13 DTM/DM) on an IEEE 1149.1 JTAG TAP — 5 pins (`jtag_tck_i`, `jtag_tms_i`, `jtag_tdi_i`, `jtag_trst_ni`, `jtag_tdo_o`), **part of the delivered chip** (`JTAG_DEBUG` on in `soc_files.f`, `asic/config.yaml` and the FPGA build); verified in simulation (17-stage TAP/DTM/DM testbench, OpenOCD, gdb), on the Genesys 2 (OpenOCD through the on-board USB-JTAG, hardware breakpoints, alongside the AI demo) and through the sky130 flow — the specification's optional "1x JTAG" item (EK-2, +3 bonus points), §10.10 |
-| **Target Frequency** | **50 MHz** (post-implementation, met) |
+| **Clock Frequency** | Target **50 MHz**. FPGA (Genesys 2): **50 MHz, met** (WNS +2.433 ns, §12.4). ASIC (sky130): built at the 50 MHz PnR target, **verified at 27.0 MHz** (37 ns signoff period; setup and hold closed in all three corners — 50 MHz closes in TT / FF but not in SS, §13.7). Peripheral bit rates follow the clock (§13.8) |
 | **FPGA Platform** | Digilent Genesys 2 — Xilinx Kintex-7 `XC7K325T-2FFG900C` |
 | **Source Lang.** | SystemVerilog (RTL) + C / RISC-V Assembly (firmware) + Python (golden vectors & AI model) |
 
@@ -104,6 +104,8 @@ The design has been verified through Verilator-based directed and randomized sim
 
 > The SoC top module accepts `INSTR_SRAM_BYTES` and `DATA_SRAM_BYTES` parameters; defaults are **8 KB / 8 KB** (the official competition configuration). For the `riscv-arch-test` ISA-compliance flow only, these can be expanded to 1 MB / 64 KB via `-G` overrides.
 
+> Address decoding is partial: some addresses outside these windows alias into a memory instead of returning an error, and bus error responses never reach the core — §5.7 item 11.
+
 ---
 
 ## 5. Peripheral Register Map
@@ -112,11 +114,11 @@ The design has been verified through Verilator-based directed and randomized sim
 
 | Offset | Name | Access | Description |
 |---|---|---|---|
-| `0x00` | `CPB` | RW | Clock-per-bit (50 MHz / baud); the UART core uses `CPB[18:3]` as its prescaler, so the value is rounded down to a multiple of 8: `434 → 432 → 115,741 baud` (+0.5 %), `217 → 216 → 231,481` (+0.5 %), `5208 → 9600`, `50 → 48 → 1,041,667` (+4.2 %, at the edge of the 8N1 tolerance — 115200 / 230400 are the rates used on the board) |
+| `0x00` | `CPB` | RW | Clock-per-bit = f_clk / baud; reset value 434 (115,200 baud at 50 MHz, `uart_axil.sv:92`). The UART core uses `CPB[18:3]` as its prescaler, so the bit time is rounded down to a multiple of 8 clocks (`uart_axil.sv:261`, `uart_tx.v:91`). At the 50 MHz FPGA clock: `434 → 432 → 115,741 baud` (+0.5 %), `217 → 216 → 231,481` (+0.5 %), `5208 → 9600`, `50 → 48 → 1,041,667` (+4.2 %, at the edge of the 8N1 tolerance — 115200 / 230400 are the rates used on the board). At the ASIC's verified 27.0 MHz the same rounding leaves no setting within tolerance of 1 Mbps — §13.8 |
 | `0x04` | `STP` | RW | Stop bit count: `0 = 1`, `1 = 1.5`, `2 = 2` |
 | `0x08` | `RDR` | RO | Received data register |
 | `0x0C` | `TDR` | RW | Transmit data register |
-| `0x10` | `CFG` | RW | bit 0 = TX_START, bit 1 = RX_READY, bit 2 = TX_DONE |
+| `0x10` | `CFG` | RW | bit 0 = TX enable flag: set by software, cleared by hardware when the frame ends (`uart_axil.sv:193`); it does **not** start a transmission — the `TDR` write does (`uart_axil.sv:250`), a deviation from EK-2, §5.7 item 1 (the driver macro keeps the old name `UART_CFG_TX_START`, `blogic_mcu.h:61`). bit 1 = RX_READY, bit 2 = TX_DONE: set by hardware, cleared by writing 0 to the bit (`uart_axil.sv:197-198`) |
 
 ### 5.2 GPIO (`0x4000_0100`)
 
@@ -129,7 +131,7 @@ The design has been verified through Verilator-based directed and randomized sim
 
 | Offset | Name | Access | Description |
 |---|---|---|---|
-| `0x00` | `PRE` | RW | Prescaler |
+| `0x00` | `PRE` | RW | Prescaler: the counter advances once every PRE + 1 clocks (`timer_axil.sv:82`), as in the specification's examples PRE = 0 → every clock, PRE = 1 → every second clock. 1 Hz needs PRE = f_clk − 1 (49,999,999 at 50 MHz); the specification's third example, "0xFFFFFFFF → once per second", cannot hold together with the first two — §5.7 item 4 |
 | `0x04` | `ARE` | RW | Auto-reload value |
 | `0x08` | `CLR` | RW | Clear |
 | `0x0C` | `ENA` | RW | Enable |
@@ -148,6 +150,8 @@ The design has been verified through Verilator-based directed and randomized sim
 | `0x0C` | `TDR` | RW | Transmit data |
 | `0x10` | `CFG` | RW | TXEN / TXDN / RXEN / RXDN / NACK |
 
+> **The SCL rate is fixed at synthesis, not programmable.** `QDIV = CLK_FREQ_HZ / (4 × 400 kHz)` = 31 with `CLK_FREQ_HZ` = 50 MHz in both top levels (`i2c_master_axil.sv:49`, `fpga_top.sv:177`, `asic_top.sv:52`), so one SCL period is 4 × 31 = 124 clocks at 50 % duty: **403.2 kHz** (tLOW 1.24 µs) on the 50 MHz FPGA and **≈218 kHz** (tLOW 2.29 µs) on the ASIC at its verified 27.0 MHz (37 ns). SCL is driven push-pull (`i2c_master_axil.sv:36`), only SDA is open-drain, and clock stretching is not supported — §5.7 item 3, §13.8.
+
 ### 5.5 AI Accelerator CSR (`0x4000_0600`)
 
 | Offset | Name | Description |
@@ -156,6 +160,41 @@ The design has been verified through Verilator-based directed and randomized sim
 | `0x04` | `STATUS` | bit 0 = BUSY, bit 1 = DONE, bits[7:4] = argmax class |
 | `0x08` | `DATA_ADDR` | Input feature vector base in AI SRAM |
 | `0x0C` | `OUT_ADDR` | Result word in AI SRAM: one INT32 holding the argmax (0..3); the four FC logits stay inside the accelerator (`STATUS[7:4]` carries the same argmax) |
+
+> **Software rule (not enforced in hardware):** write `CTRL.START` only while the UART_1 stream DMA is idle (`STRM_STAT` bit 0 = 0, UART_1 offset `0x20`, `uart_stream_axil.sv:217`), and do not rewrite `DATA_ADDR` / `OUT_ADDR` while `STATUS.BUSY` = 1 — the accelerator reads them live (`ai_accelerator.sv:634, 884`). Reason: §5.7 item 12.
+
+### 5.6 QSPI Master (`0x4000_0500`)
+
+| Offset | Name | Access | Description |
+|---|---|---|---|
+| `0x00` | `CCR` | RW | A write with bit 31 = 0 starts a transaction when the controller is idle (`qspi_master_axil.sv:518-520`). `[7:0]` instruction byte (any opcode, set by software), `[9:8]` data phase `00` none / `01` x1 / `10` x2 / `11` x4, `[10]` 0 = read, 1 = write, `[15:11]` dummy cycles, `[23:16]` data bytes − 1, `[24]` reserved, `[30:25]` prescaler: **SCLK = f_clk / (2 × (PRE + 1))** (reset value 1; §5.7 item 5), `[31]` = 1 clears `STA[0]` and `STA[11:8]` without starting a transaction |
+| `0x04` | `ADR` | RW | Flash address: `ADR[23:0]` is sent in 3-byte mode, `ADR[31:0]` in 4-byte mode (`FCR[2]`) |
+| `0x08` | `DR` | RW | Write: push into the 64 × 32-bit TX FIFO. Read: pop the 64 × 32-bit RX FIFO. Bytes are packed little-endian (first byte on the wire in `[7:0]`). Reading an empty RX FIFO returns 0 and sets no error (§5.7 item 6) |
+| `0x0C` | `STA` | RO | `[0]` done, `[1]` busy, `[4]` RX full, `[5]` RX empty, `[6]` TX full, `[7]` TX empty, `[11:8]` FIFO error: `0010` = write to a full TX FIFO (`0001` is never set); cleared by `CCR[31]` |
+| `0x10` | `FCR` | RW | `[0]` = 1 flushes the RX FIFO, `[1]` = 1 flushes the TX FIFO (self-clearing, as in EK-2). Team extensions: `[2]` 4-byte address phase; `[4:3]` address phase `00` / `11` automatic (sent when the data phase is not `00`), `01` forced (e.g. SE), `10` skipped (e.g. RDSR, RES) — `qspi_master_axil.sv:53-58, 531-535` |
+
+### 5.7 Deviations from the Specification and Known Limitations
+
+Every item below applies to the FPGA and the ASIC alike (same RTL). None can be changed
+without an RTL change and a full ASIC re-run, which was not done for this delivery: the
+signed-off run `RUN_hold035_2026-09-09` is final. The consequences of the ASIC's verified
+27.0 MHz clock for the I²C and UART rates and for the firmware constants are listed with
+numbers in §13.8. "Specification" is `docs/2026_Çip_Tasarım_Yarışması_Şartnamesi_v1_0_KFGLc.pdf`.
+
+| # | Item | Specification | Delivered behaviour (source) | Consequence / handling |
+|---|---|---|---|---|
+| 1 | UART transmit trigger (UART_0 and UART_1) | EK-2 `UART_TDR` / `UART_CFG[0]`: the `TDR` byte is sent while `CFG[0]` is 1 | A `TDR` write starts the frame (`uart_axil.sv:250`, `uart_stream_axil.sv:228`). `CFG[0]` is a flag — set by software, cleared by hardware at the end of the frame (`uart_axil.sv:193-196`) — that the transmitter never reads. A `TDR` write while a frame is still being shifted out is dropped (`s_axis_tready` unconnected, `uart_axil.sv:258`); during a 1.5 / 2 stop-bit extension it is queued (`uart_axil.sv:221`) | Writing `CFG[0]` = 1 alone sends nothing; since a `CFG` write with bit 2 = 0 also clears `TX_DONE`, a driver that expects `CFG[0]` = 1 to (re)send the byte already in `TDR` and then polls `TX_DONE` waits forever. Correct sequence: write `TDR`, write `CFG`, wait for `TX_DONE` before the next byte (`uart_putc`, `blogic_mcu.h:104-112`) |
+| 2 | UART bit-rate divider | EK-2 `UART_CPB`: baud = f_clk / `UART_CPB` | baud = f_clk / (8 × ⌊CPB / 8⌋) (`uart_axil.sv:261`, `uart_stream_axil.sv:392`, `uart_tx.v:91`) | 1 Mbps at +4.2 % on the 50 MHz FPGA (§5.1); not reachable at the ASIC's 27.0 MHz (§13.8). 115,200 and 9,600 baud stay within 1.1 % at both clocks with a firmware-chosen `CPB`, so "at least two rates" holds |
+| 3 | I²C SCL | EK-2 I2C Master: SCL at a fixed 400 kHz | Divider fixed at synthesis for 50 MHz (§5.4): 403.2 kHz at 50 MHz (+0.8 %; tLOW 1.24 µs, just under the 1.3 µs Fast-mode minimum of the I²C-bus specification, NXP UM10204), ≈218 kHz at the ASIC's 27.0 MHz. SCL push-pull, no clock stretching (`i2c_master_axil.sv:36`, `fpga_top.sv:135`) | The FPGA meets 400 kHz within 0.8 %; the ASIC at its verified clock does not (400 kHz would need a 49.6 MHz clock). A runtime divider, or the constant computed for the verified clock, is an RTL change |
+| 4 | Timer prescaler | EK-2 `TIM_PRE`: PRE = 0 → every clock, PRE = 1 → every 2nd clock, PRE = 0xFFFFFFFF → once per second | The counter advances every PRE + 1 clocks (`timer_axil.sv:82`), following the first two examples | The three examples cannot all hold at one clock: PRE = 0xFFFFFFFF gives 2³² clocks = 85.9 s at 50 MHz (158.9 s at 37 ns). 1 Hz is PRE = f_clk − 1 (49,999,999 at 50 MHz; 27,027,026 at 37 ns) |
+| 5 | QSPI SCLK prescaler | EK-2 `QSPI_CCR[30:25]`: PRE = 0 → SCLK = f_clk, PRE = 1 → f_clk / 2, i.e. f_clk / (PRE + 1) | SCLK = f_clk / (2 × (PRE + 1)) (`qspi_master_axil.sv:107, 246-248`): half the specified rate for every PRE | An SCLK equal to the system clock cannot come from this register-toggled output; for PRE ≥ 1 the halving is a design choice. The boot loader uses PRE = 4: 5 MHz at 50 MHz, 2.7 MHz at 27.0 MHz (`bootloader.S:32`) |
+| 6 | QSPI error code `0001` | EK-2 `QSPI_STA[11:8]`: `0001` = RX FIFO read while empty | Reading `DR` with the RX FIFO empty returns 0 and issues no pop (`qspi_master_axil.sv:576-577`), so the `0001` assignment (`:231`) is unreachable. `0010` (write to a full TX FIFO) is implemented and tested (`make qspi-err`, §10.6) | Software must check `STA[5]` (RX empty) before reading `DR`. `verif/coverage_siniflandirma.md` lists line 231 as class A (unreachable) |
+| 7 | QSPI flash part and command set | EK-2 QSPI: reference part MT25QL256ABA8E12 with 17 commands to support; any other part must be stated in the reports and the presentation | The board flash is a Spansion **S25FL256S** (`rtl/fpga/flash_firmware.tcl:29-30`, §12.3). The instruction byte is a software field (`CCR[7:0]`), so any command can be issued. Against a responding flash model (`verif/models/spi_flash_model.sv:57-66`) only READ 0x03, DOR 0x3B, QOR 0x6B and 4-byte READ 0x13 are verified, plus READ in the board boot. RDSR1 0x05, RES 0xAB, SE 0xD8, WRR 0x01, WREN 0x06 and an x2 write are issued in SoC tests against a constant-pattern stub (`verif/tb/sim_main.cpp:316-345`), i.e. controller-side sequencing only | Never issued by any test (S25FL256S opcodes): PP 0x02, QPP 0x32, READ_ID 0x90, RDID 0x9F, RDSR2 0x07, RDCR 0x35, WRDI 0x04, CLSR 0x30, RESET 0xF0. The x1 / x4 write data paths are exercised with other opcodes in `make qspi-err` |
+| 8 | Softmax layer | EK-1: a Softmax layer normalises the four FC scores into probabilities | Not implemented in hardware. The class is the argmax of the FC logits (`ai_accelerator.sv:872-877`); only that INT32 is written to `OUT_ADDR` (`:882-884`) and to `STATUS[7:4]`; the logits stay in `fc_out_mem` (`:218`) | Softmax is monotonic, so the class decision — the EK-1 accuracy criterion — equals TFLite's (argmax agreement 1000/1000, §11.4); rationale as in the DTR. No probability vector is produced, and software cannot compute one because the logits are not exposed |
+| 9 | Result printing in the AI ISR | §4.2.2.2 (example design flow): the ISR reads the result and prints it over UART before returning to normal operation | The delivered demo firmware's ISR only reads `STATUS` and clears `DONE` (`sw/demo/demo_main.c:117-122`); the main loop prints the result as soon as the ISR has run (`demo_main.c:329-339`) | Keeping the ISR short lets the main loop keep draining UART_1's single-byte receive register while it prints (§12.6). The interrupt path itself is tested by `make soc-ai-irq` (§11.4) |
+| 10 | UART receive path | — (not specified) | `uart_rxd_i` / `uart1_rxd_i` reach the receiver FSM through one flop (`rxd_reg`, `uart_rx.v:94`), which feeds the start-bit logic directly (`uart_rx.v:129-134`); GPIO inputs and I²C SDA have 2-FF synchronisers (`gpio_axil.sv:44-51`, `soc_top.sv:469-476`). The core's `frame_error` / `overrun_error` outputs are unconnected (`uart_axil.sv:272-273`, `uart_stream_axil.sv:403-404`) | A metastable sample is not filtered; no receive error was seen in the board runs (2,000 / 2,000 jury-tool vectors over UART_1, §12.6). A byte with a framing error is dropped without any flag (`uart_rx.v:117-125`); overrun cannot occur (the receiver is always ready), but a new byte overwrites `RDR` whether or not the previous one was read (`uart_axil.sv:186-188`, no FIFO by EK-2) |
+| 11 | Address decoding and bus errors | — | Data port: every address that is not a peripheral (`[31:28]` = 4), an ISRAM write, the AI SRAM or the DM window goes to the Data SRAM, indexed by `[12:2]` (`soc_axi_interconnect.sv:196-203, 304, 444`) — a store to `0x0000_0000` overwrites DSRAM word `0x0002_0000` with an OKAY response. Instruction port: `[19:16]` = 0 → boot ROM, anything else → ISRAM (`:43, 111`). Peripherals: only `[11:8]` is decoded (`periph_decoder.sv:80-81`), so `0x4000_1000` aliases UART_0; slots 7-F answer DECERR / `0xDEADBEEF` (`:195, 220, 228`). AI SRAM: `0x0003_7800`-`0x0003_7FFF` lies past the 30 KB array (reads undefined, writes dropped; `sram_macro_bank.sv:65-67, 84`), `0x0003_8000`-`0x0003_FFFF` aliases `0x0003_0000` | No error reaches the core: `obi_to_axi.sv:206-222` ignores `b_resp` / `r_resp`, and the CV32E40P's OBI ports have no bus-error input (the instruction-side one is tied off, `cv32e40p_core.sv:454`). A wild pointer corrupts memory silently instead of trapping. The DM-window aliases are in §10.10 |
+| 12 | AI SRAM ownership | — | The arbiter switches the owner combinationally on the accelerator and stream busy levels, with no lock for a transaction in flight (`ai_sram_arbiter.sv:74-76, 112-122`; `soc_top.sv:610-611`); `CTRL.START` is not gated by the stream (`ai_accelerator.sv:939`). The CPU's own AI SRAM accesses stall while either master owns it | If START is written while the stream DMA waits for a write response, that response goes to the accelerator, the SRAM wrapper refuses further writes (`rtl/core/cv32e40p/rtl/axi_sram_wrapper.sv:80`) and the accelerator stalls at its first write-back — recovery only by reset; stream bytes arriving meanwhile overwrite the DMA's one-word queue (`uart_stream_axil.sv:342-346`). Rule in §5.5. The delivered demo firmware never starts the stream DMA (it polls UART_1, §12.6) |
 
 ---
 
@@ -252,11 +291,12 @@ The design has been verified through Verilator-based directed and randomized sim
 │   │   ├── axi4_protocol_checker.sv
 │   │   ├── soc_protocol_bind.sv          # 10-interface protocol bind
 │   │   └── ai_accel_checker_bind.sv
-│   ├── uvm/                              # UVM — 4 blocks (GPIO / Timer / UART_0 / I2C), 8 tests
+│   ├── uvm/                              # UVM — 5 blocks (GPIO / Timer / UART_0 / I2C / AI accelerator), 10 tests
 │   │   ├── axi_lite_if.sv
 │   │   ├── axi_lite_uvm_pkg.sv           # block-agnostic agent + GPIO env/tests
 │   │   ├── periph_uvm_pkg.sv             # Timer/UART_0/I2C scoreboards + 6 tests
-│   │   └── tb_top.sv, tb_timer_top.sv, tb_uart_top.sv, tb_i2c_top.sv
+│   │   ├── ai_uvm_pkg.sv, ai_side_if.sv  # AI accelerator: CSR scoreboard, AXI4-side observations, 2 tests
+│   │   └── tb_top.sv, tb_timer_top.sv, tb_uart_top.sv, tb_i2c_top.sv, tb_ai_top.sv
 │   ├── uvm-lib/                          # Vendored UVM library (no clone needed)
 │   ├── spike/                            # Spike ISS lockstep trace compare
 │   │   └── compare_traces.py
@@ -343,6 +383,17 @@ autoconf
 make -j$(nproc)
 sudo make install
 verilator --version              # -> Verilator 5.049 devel rev v5.048-135-g99a35fee8
+```
+
+**Constraint solver for UVM (`make uvm`).** Verilator solves `randomize() with {...}`
+at run time with an external SMT solver, `z3 --in` by default. Without it the
+constrained-random tests fail by design (§10.9) and `Makefile.uvm` stops with an install
+hint. No root access is needed:
+
+```bash
+python3 -m venv ~/z3venv && ~/z3venv/bin/pip install z3-solver
+export PATH=~/z3venv/bin:$PATH   # add to ~/.bashrc
+z3 --version                     # results in this README: Z3 version 5.1.0
 ```
 
 ### 8.3 RISC-V GNU Toolchain (rv32imc / ilp32)
@@ -437,7 +488,8 @@ vivado -version
 
 ### 8.7 `riscv-arch-test` — vendored
 
-The RV32I + RV32M test sources (38 + 8 `.S` files), the `env/` headers and the
+The RV32I + RV32M + RV32C test sources (38 + 8 + 27 `.S` files; RV32C added on
+10 September 2026), the `env/` headers and the
 `target/blogic/` glue (`link.ld`, `htif.S`, `link_spike.ld`) are **committed
 under `verif/arch_tests/`** — no external clone is needed for `make arch-test`.
 Suite provenance is pinned in `asic/THIRD_PARTY.md` via a header fingerprint of
@@ -515,9 +567,9 @@ make test-all
 | `make soc-ai` | SoC-level AI inference C test (polling) |
 | `make soc-ai-irq` | SoC-level AI **interrupt** flow test (ISR) |
 | `make soc-perf` | HW vs SW speedup measurement (same SoC, same `mcycle`) |
-| `make arch-test` | Official `riscv-arch-test` ISA compliance (default `ARCH_EXT=I`) |
+| `make arch-test` | Official `riscv-arch-test` ISA compliance with Spike signature compare (default `ARCH_EXT="I M C"`, 73 tests, §10.3) |
 | `make qspi-err` | QSPI FIFO overflow / flush / status error paths (25 checks) |
-| `make uvm` | UVM — 4 blocks (GPIO + Timer + UART_0 + I2C), 8 tests, directed + constrained-random |
+| `make uvm` | UVM — 5 blocks (GPIO + Timer + UART_0 + I2C + AI accelerator), 10 tests, directed + constrained-random (needs `z3`, §10.9) |
 | `make jtag-sim` | riscv-dbg JTAG subsystem on the delivered build (`soc_files.f`): pure-SV TAP bit-bang, 17 stages (IDCODE → DMI → halt → abstract/progbuf → step/trigger → ndmreset, then DMI back-pressure, `cmderr` paths, SBA tie-off, TAP corner cases, ISRAM write + `ebreak`, DM region) — no external tool; component 17 of `make test-all` |
 | `make jtag-bridge-sim` | `axi_dm_slave` unit TB with the real `dm_top`: arbitration, R/B channel hold, `w_strb`, reset with a request in flight — 6 scenarios + timing-contract SVA; component 18 of `make test-all` |
 | `make jtag-openocd-build` | Builds the OpenOCD-driven simulation (`SimJTAG` + DPI `remote_bitbang` server on `localhost:9999`) |
@@ -579,10 +631,10 @@ cd obj_dir && ./blogic_sim +CPB=434
 |---|---|---|
 | **Unit RTL sim** | Verilator 5.049 devel, SystemVerilog | Per-module testbenches (`verif/tb/`) |
 | **SoC integration sim** | Verilator + `sim_main.cpp` | Full SoC, UART golden-string monitor |
-| **ISA compliance** | `riscv-arch-test` repo | RV32I / M extension self-tests |
+| **ISA compliance** | `riscv-arch-test` repo + Spike signature compare | RV32I / M / C self-tests (73) |
 | **Lockstep** | Spike ISS + Python diff (`verif/spike/compare_traces.py`) | Cycle-by-cycle PC + commit trace |
 | **Bus protocol** | SystemVerilog Assertions (SVA) bound to 10 AXI / AXI-Lite interfaces | Protocol-level legality |
-| **UVM** | Vendored UVM (`verif/uvm-lib`) + block-agnostic AXI-Lite agent | 4 blocks (GPIO / Timer / UART_0 / I2C), directed + constrained-random, reference-model scoreboards |
+| **UVM** | Vendored UVM (`verif/uvm-lib`) + block-agnostic AXI-Lite agent | 5 blocks (GPIO / Timer / UART_0 / I2C / AI accelerator CSR + AXI4 master), directed + constrained-random (z3), reference-model scoreboards |
 | **AI accuracy** | Python `run_accuracy_window.py` + RTL TB | 1000-sample bit-exact SW vs RTL match |
 | **Coverage** | Verilator `--coverage-line` + uncovered-line classification | SoC 90.7 % line / 88.6 % branch on the delivered configuration (JTAG bridge 100 % under `make jtag-cov`); every remaining line justified (`verif/coverage_siniflandirma.md`) |
 
@@ -624,7 +676,23 @@ The C-level smoke test (`sw/tests/isa_compliance_test.c`) covers the RV32IMC sub
 
 > **Result:** `31 / 31 PASS`, golden string `Hello World from BLogic MCU!` emitted.
 
-For the full official `riscv-arch-test` suite use `make arch-test ARCH_EXT=I` (then `M`).
+**Official suite — `make arch-test`** (default `ARCH_EXT="I M C"`, 73 tests: RV32I 38,
+RV32M 8, RV32C 27). Every test runs on the SoC model and on Spike; the gate is `tohost`
+written **and** the DUT signature identical to Spike's (`verif/arch_tests/run_arch_test.sh`).
+Result of 10 September 2026: **72 / 73 signatures identical** (RV32I/M 46/46, RV32C 26/27).
+The 73rd, `cebreak-01`, takes its trap correctly — mcause = 3 and the relative mepc in its
+signature are identical to Spike's — but the framework's trap routine then aborts the test on
+two properties of this target: the CV32E40P's `mtval` is read-only zero
+(`cv32e40p_cs_registers.sv:346, 516`; the privileged specification allows it, Spike writes the
+PC), and the Harvard data port cannot read the routine's dispatch table out of instruction
+memory (`soc_axi_interconnect.sv:194-203, 242-245`; §5.7 item 11). Three signature words
+therefore stay unwritten. The analysis is recorded in `verif/arch_tests/known_diffs.txt`; the
+runner accepts that one test only if its diff matches the recorded hash byte for byte and
+reports it in a separate `BILINEN_FARK` (known difference) column, never as PASS — any other
+difference fails. RV32C needed two runner changes: the vendor sources' `.org 0x80` is stripped
+(in this link map it would put zero padding at the entry point), and the
+`def rvtest_mtrap_routine=True` of `cebreak-01`'s `RVTEST_CASE` is passed as a define, as
+riscof does. Evidence: `verif/results/2026-09-10/arch_test/`.
 
 ### 10.4 AXI / AXI-Lite Protocol Checker (SVA)
 
@@ -651,7 +719,7 @@ In the AI integration test alone, `414027` AXI-Lite transactions were validated 
 
 | Test | What it proves | Verdict |
 |---|---|---|
-| `make uart-baud` | One firmware sweeps **115200 → 1 Mbps → 9600** with `CPB` switched at run time (EK-2 multi-baud requirement); baud error +0.47 % / +4.17 % / +0.01 %; 56,651 protocol checks clean | **3 / 3 phases PASS** |
+| `make uart-baud` | One firmware sweeps **115200 → 1 Mbps → 9600** with `CPB` switched at run time (EK-2 multi-baud requirement); baud error +0.47 % / +4.17 % / +0.01 % at the 50 MHz simulation clock (at the ASIC's 27.0 MHz 1 Mbps is not reachable, §13.8); 56,651 protocol checks clean | **3 / 3 phases PASS** |
 | `make uart-stp` | Stop-bit **1 / 1.5 / 2** selectability — 4 `STP` settings measured start-to-start (frame lengths 4336 / 4552 / 4768 cycles), hardware-guaranteed extension | **4 / 4 PASS** |
 | `make uart-stream` | UART_1 DMA → AI SRAM, scenarios **A–E**: basic 16 B · partial-word `wstrb` · busy `SADR` latch · mid-transfer ABORT + restart · DMA-off passthrough | **5 / 5 PASS** |
 
@@ -732,12 +800,18 @@ and is appended to the same summary.
 | Lines fully covered (annotation) | 90.0 % (1685 / 1856) |
 | JTAG bridge `axi_dm_slave.sv` via `make jtag-cov` | **100 %** (49 / 49); riscv-dbg `dmi_jtag_tap` 99.1 %, `dm_mem` 96.3 %, `dmi_jtag` 90.3 %, `dm_csrs` 81.3 % |
 
+Only line and branch coverage are measured at SoC level. `verif/coverage_summary.txt` and
+the terminal image below also print `toggle`, `expr`, `fsm_state` and `fsm_arc` as
+`0.0% (0/0)`: those rows mean **not instrumented**, not zero coverage — the SoC coverage
+build uses `--coverage-line` only (`Makefile.verilator:59`, `scripts/run_coverage.sh:15`),
+whose points give the line and branch figures above.
+
 Before the JTAG bridge entered the denominator (1 September 2026, 14 files)
 the same 15 tests measured 91.1 % line / 91.3 % branch; the 22 idle-only
 lines of `axi_dm_slave.sv` account for the whole difference.
 
-<p align="center"><img src="images/coverage_terminal_20260909.png" width="760" alt="make coverage summary: line 90.7 %, branch 88.6 %, functional coverage 22/22"></p>
-<p align="center"><sub><code>make coverage</code>, run of 9 September 2026 — line <b>90.7 %</b> (359/396), branch <b>88.6 %</b> (819/924), annotation 90.0 % (1685/1856), functional coverage <b>22/22</b> (UART 7/7, QSPI 7/7, AI-CSR 5/5, IRQ 3/3) and the EK-2 v1.3 <code>CFG[0]</code> auto-clear proof (6,694 checks, 0 violations). Verbatim from <code>verif/coverage_summary.txt</code>.</sub></p>
+<p align="center"><img src="images/coverage_terminal_20260910.png" width="760" alt="make coverage summary: line 90.7 %, branch 88.6 %, functional coverage 21/22"></p>
+<p align="center"><sub><code>make coverage</code>, run of 10 September 2026 — line <b>90.7 %</b> (359/396), branch <b>88.6 %</b> (819/924), annotation 90.0 % (1685/1856), functional coverage <b>21/22</b> (UART 6/7, QSPI 7/7, AI-CSR 5/5, IRQ 3/3) and the EK-2 v1.3 <code>CFG[0]</code> auto-clear proof (6,374 checks, 0 violations). Text rendered verbatim from <code>verif/coverage_summary.txt</code>. The 9 September image showed 22/22 from a contaminated union — see the functional-coverage paragraph below.</sub></p>
 
 Every remaining uncovered line falls into one of three documented classes
 (`verif/coverage_siniflandirma.md`):
@@ -783,44 +857,71 @@ Committed summary: `verif/coverage_tb_summary.txt`.
 SVA-based covergroups are bound to the UART, QSPI, AI-accelerator CSR and IRQ
 interfaces (`verif/sva/*_func_cov.sv`). Over a full `make coverage` run the merged
 covergroups reach **21 / 22 bins (95 %)**: UART 6 / 7 (CPB 434 / 50 / 5208 and
-stop-bit codes 00 / 01 / 10; the reserved code 11 is programmed by no test),
-QSPI 7 / 7, AI-CSR 5 / 5, IRQ 3 / 3 (timer irq16, AI irq17, stream irq18). The
-UART auto-clear checker (EK-2 v1.3) logs **6432 checks, 0 violations**. (Until
-6 September the summary script took the best single test instead of the union
-over tests and reported UART 5 / 7 — the union is what the script has always
-documented as the meaningful figure.)
+stop-bit codes 00 / 01 / 10; the reserved code 11 is programmed by no SoC test —
+the block testbench `uart_stp_tb` measures it), QSPI 7 / 7, AI-CSR 5 / 5, IRQ 3 / 3
+(timer irq16, AI irq17, stream irq18). The UART auto-clear checker (EK-2 v1.3) logs
+**6,374 checks, 0 violations** (10 September 2026). Two flaws of the summary script
+were found and fixed along the way. Until 6 September it took the best single test
+instead of the union over tests and reported UART 5 / 7. Until 10 September it took
+the union over *every* log under `logs/coverage/`, including the block-testbench log
+written by `make coverage-tb` and logs of earlier runs — that is how the 9 September
+summary came to show UART 7 / 7, 22 / 22 and 6,694 checks. The script now reads only
+the logs of the 15 tests of the current run (`scripts/run_coverage.sh`); an errata
+note sits next to the 9 September snapshot in `verif/results/2026-09-09/`.
 
-### 10.9 UVM Testbench — 4 Blocks, 8 Tests
+### 10.9 UVM Testbench — 5 Blocks, 10 Tests
 
 ```bash
-make uvm                             # clean build + all 8 tests (also part of make test-all)
+make uvm                             # clean build + all 10 tests (also part of make test-all); needs z3
 make -f Makefile.uvm directed        # GPIO directed only
 make -f Makefile.uvm timer_directed  # Timer directed only
 make -f Makefile.uvm uart_directed   # UART_0 directed only
-make -f Makefile.uvm i2c_directed    # I2C directed only  (plus *_random variants)
+make -f Makefile.uvm i2c_directed    # I2C directed only
+make -f Makefile.uvm ai_directed     # AI accelerator directed only  (plus *_random variants)
 ```
 
 One block-agnostic AXI-Lite agent (driver, monitor with procedural protocol
-checks, sequencer — `verif/uvm/axi_lite_uvm_pkg.sv`) drives four different DUTs;
+checks, sequencer — `verif/uvm/axi_lite_uvm_pkg.sv`) drives five different DUTs;
 `verif/uvm/periph_uvm_pkg.sv` adds reference-model scoreboards and per-block
 tests. Each block builds with its own `tb_*_top.sv` wrapper.
+
+**AI accelerator (added 10 September 2026 — the specification, §4.2.2.1, names
+the accelerator's AXI interfaces for UVM).** `verif/uvm/ai_uvm_pkg.sv` drives the
+CSR port through the same agent against a CSR reference-model scoreboard. The
+AXI4 master port is served by a slave memory model in `verif/uvm/tb_ai_top.sv`,
+preloaded with the golden weights and the `yes_real` input; the model checks the
+AXI4 contract (single beat, 4 bytes, INCR, WLAST) and the address window on every
+access and, on every DONE edge, compares the 1000-word conv_out tensor with the
+golden model. The observations reach the tests through `verif/uvm/ai_side_if.sv`.
+
+**Constrained randomization needs an SMT solver.** Verilator solves
+`randomize() with {...}` at run time with **z3** (`pip install z3-solver` in a
+virtual environment — no root needed). Without it `randomize()` fails. Until
+10 September that produced only a warning and a fixed fallback pattern, so
+`gpio_random_test` passed with no constrained randomization at all; it is now a
+`UVM_ERROR`, and `Makefile.uvm` stops before compiling when `z3` is not on `PATH`
+(`check_solver`). Negative control: `gpio_random_test` without z3 reports 50
+`UVM_ERROR`s; with z3 it reports 0 and the transaction data is random. The
+Timer, UART_0 and I2C random tests draw from safe address pools with `$urandom`.
 
 | Test | What it proves | Result |
 |---|---|---|
 | `gpio_directed_test` | IDR/ODR R/W, mask checks against reference model | **PASS** |
-| `gpio_random_test` | 50 constrained-random transactions, scoreboard | **PASS** |
+| `gpio_random_test` | 50 constrained-random transactions (z3), scoreboard | **PASS** |
 | `timer_directed_test` | reset values, read-backs, CLR, counting (CNT strictly increases), event accumulate + EVC clear | **PASS** |
 | `timer_random_test` | 60 random R/W over the full register map | **PASS** |
 | `uart_directed_test` | reset values (CPB = 434), 1 Mbps CPB read-back, STP modes, TDR flow and **CFG[0] hardware auto-clear after TX (EK-2 v1.3)** | **PASS** |
 | `uart_random_test` | 60 random R/W against the UART reference model | **PASS** |
 | `i2c_directed_test` | NBY clamping (0→1, 7→4), read-backs, **no-slave NACK path for both TX and RX** (`TX_DONE`/`RX_DONE` + `NACK_ERR`, RDR left clean) | **PASS** |
 | `i2c_random_test` | 60 random R/W against the I²C reference model | **PASS** |
+| `ai_directed_test` | reset values, `DATA_ADDR` / `OUT_ADDR` read-back, unmapped offsets; two end-to-end inferences — START → BUSY → `irq_o` (460,993 cycles with this memory model) → `STATUS.RESULT` = golden argmax 2, result word written at `OUT_ADDR` (default and `0x0003_7F00`), conv_out 0 / 1000 words different → CLEAR_DONE; a second START written while busy is ignored (DONE count stays 2). AXI4 master: 33,324 reads and 2,002 writes, 0 contract / window violations | **PASS** |
+| `ai_random_test` | 80 constrained-random CSR transactions (z3; START excluded by constraint; coverage gate: every offset visited, `CTRL` / `DATA_ADDR` / `OUT_ADDR` written, `STATUS` read), then an inference from the restored configuration with the same checks | **PASS** |
 
-**Regression result: 8 PASS, 0 FAIL** (`UVM_ERROR : 0`, `UVM_FATAL : 0` in every
-run; protocol monitor reports 0 violations in all 8).
+**Regression result: 10 PASS, 0 FAIL** (`UVM_ERROR : 0`, `UVM_FATAL : 0` in every
+run; protocol monitor reports 0 violations in all 10).
 
-<p align="center"><img src="images/uvm_regression_terminal_20260909.png" width="780" alt="UVM Regression: 8 PASS, 0 FAIL"></p>
-<p align="center"><sub><code>make uvm</code>, run of 9 September 2026 — the four block environments, 8 tests, <b>8 PASS / 0 FAIL</b>; <code>UVM_ERROR : 0</code> and <code>UVM_FATAL : 0</code> in every run.</sub></p>
+<p align="center"><img src="images/uvm_regression_terminal_20260910.png" width="780" alt="UVM Regression: 10 PASS, 0 FAIL"></p>
+<p align="center"><sub><code>make uvm</code>, clean run of 10 September 2026 — five block environments, 10 tests, <b>10 PASS / 0 FAIL</b>, z3 as the constraint solver; <code>UVM_ERROR : 0</code> and <code>UVM_FATAL : 0</code> in every run. Selected lines rendered verbatim from <code>verif/results/2026-09-10/uvm/uvm_run.log</code>.</sub></p>
 
 The UVM library is vendored under `verif/uvm-lib` — no external clone is needed (see `verif/uvm-lib/KAYNAK.md`).
 
@@ -994,7 +1095,7 @@ ended with the same deferred error as the 14 August run (hold violations, exit 2
 | Setup WNS TT / SS / FF (ns) | +2.210 / −9.083 / +4.375 | **+2.303 / −11.983 / +4.390** | +0.09 / **−2.90** / +0.02 |
 | Hold WNS TT / SS / FF (ns) | −0.323 / +0.227 / −0.382 | −0.611 / −0.381 / −0.539 | −0.29 / −0.61 / −0.16 |
 | Hold-violating endpoints TT / SS / FF | 48 / 0 / 112 (AI accel → SRAM, §9.9) | 136 / 13 / 207 — **0 in JTAG logic** | same family, more endpoints |
-| SS setup-side closing point (hold not closed in either of these exploration builds; the delivered run closes it, §13.7) | ≈34.4 MHz | ≈31.3 MHz | −3.1 MHz |
+| SS setup-side closing frequency (hold not closed in either of these exploration builds; the delivered run closes it, §13.7) — not derived here: the `1/(T − WS)` extrapolation printed in this row earlier is withdrawn, because at longer periods the half-cycle SRAM read path takes over (`asic/README.md` §9.1). The delivered netlist's value is measured by period sweep: setup-only 36.6 ns = 27.3 MHz, **verified 27.0 MHz** (§13.7) | not quoted | not quoted | — |
 | Std-cell instances / area | 296,010 / 1.249 mm² | 309,985 / 1.337 mm² | +4.7 % / +7.0 % |
 | Sequential cells | 8,920 | 10,094 | +1,174 |
 | Utilization (with macros / std-cell) | 49.9 % / 12.3 % | 50.4 % / 13.2 % | +0.5 / +0.9 pt |
@@ -1182,7 +1283,7 @@ The custom AI Accelerator implements Google's **TensorFlow Lite Micro Speech "Ti
 | Block | Description |
 |---|---|
 | **AXI4-Lite slave port** | CSR access from CPU (`CTRL`, `STATUS`, `DATA_ADDR`, `OUT_ADDR`) — `0x4000_0600` |
-| **AXI4 master port** | Read input + weights + bias, write Conv output + FC output to **AI SRAM** |
+| **AXI4 master port** | Read input + weights + bias from **AI SRAM**; write the Conv output and one INT32 argmax result word (`OUT_ADDR`) back to it — the four FC logits stay inside the accelerator (`fc_out_mem`, `ai_accelerator.sv:218, 882-884`) |
 | **Local RAMs** | `input_mem` (1960 B), `conv_w` (640 B), `conv_bias` (32 B), `conv_out` (4000 B), `fc_bias` (16 B), `fc_out` (4 B) |
 | **Datapath** | INT8 × INT8 → INT32 MAC, TFLite-faithful **Q31 requantize** (per-channel `M`/shift for Conv, per-tensor for FC), fused ReLU, saturation to INT8. Saturation limits are exercised and proven by `ai_sat_test` (2 × 1000 conv words bit-exact at the 0x7F / 0x80 rails) |
 | **Main FSM** | `IDLE → LOAD → CONV → WRITE_CONV → LOAD_FC → FC → ARGMAX → DONE` |
@@ -1197,6 +1298,7 @@ The custom AI Accelerator implements Google's **TensorFlow Lite Micro Speech "Ti
 | Bias + Q31 requantize + ReLU + sat | INT8 | Per-channel `M_q31`/shift, identical to the TFLite interpreter (verified 0 LSB over 1000 inputs) |
 | Fully Connected | `4000 → 4` + bias + per-tensor Q31 requantize + sat | INT8 logits |
 | Argmax | t class | `0 = silence`, `1 = unknown`, `2 = yes`, `3 = no` |
+| Softmax (EK-1) | — | **Not implemented in hardware**: softmax is monotonic, so taking the argmax directly on the FC logits gives the same class as the TFLite model (the DTR's rationale); no probability vector is produced — §5.7 item 8 |
 
 ### 11.3 AI SRAM Layout (`AI_SRAM_BASE = 0x0003_0000`, 30 KB)
 
@@ -1309,7 +1411,11 @@ and the full matrix is published rather than one favourable cell (same RTL, meas
 The hardware path is flag-independent (459,016 vs 459,014 — two cycles). `-O2` is the
 reported baseline because it is the toolchain's installed default and reproducible on a
 clean jury machine with plain `make soc-perf`; the `-O3` figure is published alongside it,
-and the EK-1 criterion (> 1.0 ×) is met by every cell.
+and the EK-1 criterion (> 1.0 ×) is met by every cell. The software baseline also depends on
+the CPU's memory latency on the delivered bus (one outstanding request per OBI port,
+`obi_to_axi.sv:126-222`; registered Data SRAM reads, `soc_top.sv:654-655`), so the
+implementation-level figure is the absolute inference time at each verified clock (9.18 ms
+FPGA, 16.98 ms ASIC, table above), not the ratio.
 
 > **EK-1 acceptance criteria:** speed-up > 1.0 × **and** results bit-identical to the
 > golden reference. Both are met. **Single source of truth for the cycle counts and the
@@ -1698,7 +1804,12 @@ Verilator are found by the non-interactive shell) and **Questa waves** (item 5).
    `CHECKSUM ERROR` and no class line within 3 s, (e) length 1961 —
    `invalid length`, (f) a frame cut after 1000 bytes — `RX timeout` after
    ~12 s, then a normal vector proves recovery, (g) 20 back-to-back vectors
-   with the mean ms/vector. *Stop* halts either run between samples/tests.
+   with the mean ms/vector. No run log of these seven panel checks is
+   committed; the committed board evidence for the same robustness classes
+   (truncated and oversized frames, back-to-back frames, determinism,
+   recovery after idle) is the jury tool's 11/11 robustness report of the
+   three 8 September runs (`sw/demo/harness_results/2026-09-08_*/robustness.csv`,
+   §12.6). *Stop* halts either run between samples/tests.
    `--selftest` exercises the same code paths without hardware against a
    built-in `FakeSerial` model of the firmware's UART state machine.
 5. **Questa waves** — the `verif/questa` flow from the panel. The 21 tests of
@@ -1963,7 +2074,7 @@ that the exploration tables of §10.10 compare against.
 | PDN | 0 grid errors; IR-drop **0.05 % VPWR / 0.06 % VGND** (0.96 mV drop / 1.04 mV rise) |
 | Magic DRC (DEF + abstract-view input, `MAGIC_DRC_USE_GDS: false`; the GDS-based signoff DRC is the KLayout row) | 9,201 markers, **all one rule (`nwell.4`)** — measured root-cause analysis (every marker ≤ 6.13 µm from a tap, 0 markers inside SRAM footprints) documents it as a Magic connectivity-resolution artefact; KLayout/LVS/XOR are clean on the same GDS (`asic/README.md` §9.9/4) |
 | Power (estimated, no VCD) | TT **64.0 mW at the verified 27.0 MHz** (SRAM 63 %, clock 18 %, seq. 17 %; SS 59.6 / FF 67.9 mW); at the 50 MHz target TT 117.5 mW (SS 108.8 / FF 124.6 mW, `asic/reports/timing_target_20ns/<corner>/power.rpt`) |
-| Lint | Verilator **0 errors** / 979 warnings, no waivers |
+| Lint | Verilator **0 errors** / 979 warnings in the flow's lint step (`asic/reports/lint/verilator_lint.log`), nothing suppressed, no waivers. By source: 446 `TIMESCALEMOD` in the LibreLane-generated macro black-box file, 326 in vendored code (CV32E40P, PULP libraries, riscv-dbg), 20 in the Forencich UART core, **187 in team RTL** (`UNUSEDSIGNAL` 107, `WIDTHEXPAND` 29, `PINCONNECTEMPTY` 21, `BLKSEQ` 13, `UNUSEDPARAM` 6, `UNDRIVEN` 4, `PINMISSING` 3, `WIDTHTRUNC` 3, `CASEINCOMPLETE` 1). Both `UNOPTFLAT` are in CV32E40P (`cv32e40p_id_stage.sv:293`, `cv32e40p_core.sv:275`). Most team `PINCONNECTEMPTY` are unused outputs, but on each UART the unconnected `s_axis_tready` and `frame_error` have consequences (`uart_axil.sv:258, 273`; `uart_stream_axil.sv:389, 404`), declared in §5.7 items 1 and 10. `make lint` suppresses six classes on the command line (`Makefile:437-438`), so its count is not comparable |
 | Transistors (MOS gates counted on the delivered GDS) | **12,750,459** (`asic/scripts/count_transistors.py`; 12,715,215 in the September 6 run) |
 
 <p align="center"><img src="asic/results/images/asic_top_render_hd.png" alt="asic_top - delivered GDS, power grid and fill cells hidden" width="820"></p>
@@ -1982,7 +2093,10 @@ that the exploration tables of §10.10 compare against.
 Both implementations are built from the **same RTL and the same `soc_files.f`
 design defines** (`JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC`, `BOOTROM_CONTENT`); the
 only functional switch that differs is `ASIC_SRAM_MACRO`. Everything else below is
-wrapper or technology, not behaviour — the isolation proof is `make jtag-equiv`
+wrapper or technology, not behaviour — except that every bit rate and wall-clock time
+derived from `clk_i` scales with the operating frequency, so at its verified 27.0 MHz the
+ASIC's I²C and UART rates differ from the FPGA's (*Clock-dependent behaviour*, after the
+table). The isolation proof is `make jtag-equiv`
 (§10.10), and `make asic-top-sim` runs `asic_top` itself with all 27 macros against
 the same golden vector the FPGA build matches on the board (§13.4). This section is
 the summary the DDK ruling of 8 September 2026 asks for (differences between the two
@@ -1998,7 +2112,7 @@ implementation — `asic/DDK_KARARLARI.md` items 8 and 10).
 | SRAM contents at power-up | `$readmemh` / BRAM INIT baked into the bitstream | no preload — boot ROM + QSPI bootloader load firmware, data and AI weights over the bus | `ifndef ASIC_SRAM_MACRO` block of the SRAM wrapper |
 | QSPI TX/RX FIFO depth | 64 words each | 64 words each — identical, no `ifdef` | `rtl/peripherals/qspi_master_axil.sv` (`FIFO_DEPTH = 64`) |
 | Boot ROM | synthesised `case` ROM, `BOOTROM_CONTENT` on | the same synthesised `case` ROM, `BOOTROM_CONTENT` on | no difference |
-| Clock source | 200 MHz LVDS → IBUFDS → MMCME2 → BUFG → 50 MHz | `clk_i` pad at 50 MHz; no PLL/MMCM on chip | §12.2 vs `asic/constraints/design.sdc` |
+| Clock source | 200 MHz LVDS → IBUFDS → MMCME2 → BUFG → 50 MHz | `clk_i` pad, no PLL/MMCM on chip; built at the 50 MHz PnR target (`design.sdc`, 20 ns), verified operating frequency **27.0 MHz** (`design_signoff.sdc`, 37 ns) | §12.2 vs `asic/constraints/design.sdc` / `design_signoff.sdc` |
 | Reset release | 2-FF release synchronizer in `fpga_top` (`rst_sync_n`) | `rst_ni` pad straight into `soc_top`; release synchronization is an integration requirement outside the macro | `asic/README.md` §9.6, §9.9/10 |
 | CPU clock gate | vendor `cv32e40p_sim_clock_gate.sv` (BUFGCE on the board) | `rtl/asic/cv32e40p_clock_gate_asic.sv` | §13.5 |
 | JTAG TAP access | Xilinx `BSCANE2` USER3/USER4 through the board USB-JTAG — no extra pins | 5 dedicated pads (`jtag_tck_i`, `jtag_tms_i`, `jtag_tdi_i`, `jtag_trst_ni`, `jtag_tdo_o`) | §12.1, §10.10 |
@@ -2008,6 +2122,33 @@ implementation — `asic/DDK_KARARLARI.md` items 8 and 10).
 | **Timing status at the 50 MHz target** | **Verified**: WNS +2.433 ns / WHS +0.059 ns, 0 failing among 24,260 setup / 24,257 hold endpoints | **Target only at 50 MHz**: setup closes in TT (+1.218 ns) and FF (+3.685 ns), not in SS (−9.879 ns); hold closed in all three corners (+0.165 / +0.637 / +0.040 ns) → **verified ASIC frequency 27.0 MHz** at the 37 ns signoff period (setup and hold closed in every corner; setup-only closing point 36.6 ns = 27.3 MHz by period sweep) | `rtl/fpga/reports/impl_timing_summary.rpt` vs `asic/reports/timing/` (37 ns signoff) and `asic/reports/timing_target_20ns/` (20 ns target), `asic/README.md` §9.1 |
 | Why the frequencies differ | one operating point, hold-safe fabric routing, BRAM primitives | three PVT signoff corners on sky130A; the SS corner's CPU ALU cone at the 50 MHz target (§9.9/1), the half-cycle SRAM read path that sets the 27.3 MHz closing point (§9.1) and the clock-tree skew to 27 macro clock pins (1.79 ns at TT — repaired for hold with 10,509 delay cells at about 1.3 MHz of setup ceiling, §9.9/2) are corner-physics and floorplan effects of the target technology, not RTL differences | `asic/README.md` §9.9 |
 | Signoff evidence | 0 failed routes (19,973 / 19,973), impl DRC 0 errors, live board 1000/1000 sweep and jury-tool 156/156 + 2000/2000 | routing DRC 0, KLayout DRC 0 (257 rules, GDS-based), LVS "Circuits match uniquely", XOR 0, antenna 2 nets (declared, `asic/README.md` §9.9/14); Magic DRC reported on the abstract-view input (§13.7) | §12.4 / §12.6 vs §13.7 |
+
+**Clock-dependent behaviour (same RTL, same register values).** The I²C divider is a
+synthesis constant computed for 50 MHz (`CLK_FREQ_HZ`, `fpga_top.sv:177`, `asic_top.sv:52`);
+the UART, QSPI and timer dividers are software registers, but the UART reset value and every
+constant in the delivered firmware assume 50 MHz. ASIC figures are computed at the 37.000 ns
+signoff period (27.03 MHz), not measured — there is no silicon.
+
+| Item | FPGA, 50 MHz | ASIC, verified 27.0 MHz (37 ns) | Source |
+|---|---|---|---|
+| I²C SCL (EK-2: fixed 400 kHz) | 403.2 kHz, tLOW 1.24 µs | **≈218 kHz**, tLOW 2.29 µs — 400 kHz not met | `i2c_master_axil.sv:49` (124 clocks per SCL period) |
+| UART 1 Mbps (EK-2) | `CPB` 50 → 48 clocks: 1,041,667 baud (+4.2 %) | **not reachable**: the nearest settings give 24 clocks = 1,126,126 baud (+12.6 %) or 32 clocks = 844,595 baud (−15.5 %), both outside 8N1 tolerance | `uart_axil.sv:261`, `uart_tx.v:91` (bit = 8 × ⌊CPB / 8⌋ clocks) |
+| UART 115,200 | `CPB` 434 → 115,741 baud (+0.5 %) | `CPB` 232 → 116,496 baud (+1.1 %) | same |
+| UART 230,400 / 9,600 | `CPB` 217 → +0.5 % / `CPB` 5208 → +0.01 % | `CPB` 120 → 225,225 baud (−2.2 %) / `CPB` 2816 → 9,598 baud (−0.02 %) | same |
+| UART after reset (`CPB` = 434) | 115,741 baud | ≈62.6 kbaud — firmware must write `CPB` first | `uart_axil.sv:92`, `uart_stream_axil.sv:139` |
+| QSPI SCLK, boot loader (PRE = 4) | 5.0 MHz | 2.7 MHz | `bootloader.S:32`, `qspi_master_axil.sv:107` |
+| Boot copy, AI inference | fixed cycle counts; 9.18 ms per inference | same cycle counts, wall-clock × 1.85; 16.98 ms per inference | §11.5 |
+| Timer, 1 Hz | `PRE` = 49,999,999 | `PRE` = 27,027,026 | `timer_axil.sv:82` |
+
+The delivered firmware images are built for 50 MHz: UART `CPB` constants (`sw/demo/demo_main.c:66-68`),
+cycle-count delays and time-outs (`demo_main.c:93, 185, 463`), and the drivers have no clock macro
+(`sw/drivers/blogic_mcu.h`). Run unchanged on a 27.0 MHz chip, the demo firmware would talk at
+≈62.6 kbaud; an ASIC image has to be rebuilt with 27.0 MHz constants. Of the specification's two
+absolute-rate requirements, the FPGA therefore meets both within its divider rounding (1 Mbps at
++4.2 %, SCL 403.2 kHz), and the ASIC at its verified frequency meets neither; it still offers two
+standard baud rates within 1.1 % (115,200 and 9,600). Reaching 400 kHz and 1 Mbps at 27.0 MHz needs
+RTL changes (an I²C divider for the actual clock, a full-resolution UART divider) and so a full ASIC
+re-run, which was not done (§5.7).
 
 **Per-implementation performance.** Cycles per inference are identical (459,016 in
 simulation, 459,065 measured on the board; 21.0 × over the software baseline, both
@@ -2066,7 +2207,7 @@ make sim FW_SRC=sw/tests/ai_irq_test.c TRACE=1
 |---|---|---|
 | **SystemVerilog** | IEEE 1800-2017 subset | RTL design |
 | **Verilator** | 5.049 devel | RTL simulation, line + branch coverage |
-| **UVM** | Vendored under `verif/uvm-lib` (no external dep.) | Constrained-random verification |
+| **UVM** | Vendored under `verif/uvm-lib`; constraint solver z3 (`pip install z3-solver`, §8.2) | Constrained-random verification |
 | **Spike ISS** | RV32IMC build | Processor lockstep co-simulation |
 | **`riscv-arch-test`** | upstream | Official ISA compliance |
 | **RISC-V GNU Toolchain** | GCC 13.2 / Newlib | Firmware compilation (rv32imc / ilp32) |

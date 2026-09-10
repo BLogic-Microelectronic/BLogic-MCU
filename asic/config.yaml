@@ -113,7 +113,7 @@ VERILOG_DEFINES:
   - ASIC_SRAM_MACRO   # SRAM makrolarini secer (ifndef korumali RTL dallari)
   - BOOTROM_CONTENT   # boot ROM icerigini gomer
   - JTAG_DEBUG        # JTAG TAP + riscv-dbg Debug Module (sartname "JTAG (Opsiyonel)"); 5 ek pin, jtag_tck saati
-  - FC1_FIX           # ai_accelerator FC-1 erratasinin duzeltmesi (README 9.9/8): co_re FC agirlik bekleme durumunda da surulur
+  - FC1_FIX           # ai_accelerator FC-1 erratasinin duzeltmesi (README 9.5): co_re FC agirlik bekleme durumunda da surulur
   - I2C_SDA_SYNC      # i2c_sda_i girisine 2FF senkronizator (README 9.9/3)
 
 USE_SLANG: true
@@ -193,8 +193,10 @@ PDN_MACRO_CONNECTIONS:
 # cerrahi met5 + genis kanal, olcumle secilen cozumdur.
 GRT_ALLOW_CONGESTION: true
 GRT_OVERFLOW_ITERS: 25
-# Anten: teslim kosusunda 173 diyot eklendi (6 Eylul: 101); kalan 2 ag / 2 pin met1 oran ihlali
-# (hold onarimiyla olusan/uzayan agler) beyan edilen istisnadir, README 9.9/13.
+# Anten: teslim kosusunda anten onarimi 173 diyot ekledi (antenna_diodes_count; 6 Eylul: 101);
+# sezgisel diyot yerlestirmeyle birlikte netlistte toplam 96.292 diode_2 hucresi var (README 9.11).
+# Kalan 2 ag / 2 pin met1 oran ihlali (hold onarimiyla olusan/uzayan agler) beyan edilen
+# istisnadir, README 9.9/14.
 RUN_ANTENNA_REPAIR: true
 RUN_HEURISTIC_DIODE_INSERTION: true
 ROUTING_OBSTRUCTIONS:

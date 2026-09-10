@@ -127,22 +127,64 @@ worst TT and FF path as well:
 20 ns is bound by a different path - the pure standard-cell CPU path
 `id_stage` -> `ex_stage.alu_i` / `alu_div_i` -> `id_stage` (first path of
 `reports/timing_target_20ns/nom_ss_100C_1v60/max.rpt.gz`). Measured
-composition of the SRAM path in SS (32 ns signoff of the same netlist):
+composition of the SRAM path in SS, read from the delivered 37 ns signoff
+report (`reports/timing/nom_ss_100C_1v60/max.rpt`, path 1, lines 7-213;
+wire delays are folded into the stage they feed):
 
-| Component | SS delay |
+| Segment (report lines) | SS delay |
 |---|---|
-| Clock tree to the SRAM clock pin | 7.94 ns (1.81 ns of it the `delaybuf_15..20` balancing chain) |
-| SRAM `clk1 -> dout1` arc | 4.06 ns |
-| Bank-select multiplexer (`mux4_2`) | 1.79 ns |
-| Two crossbar multiplexers (`mux2_1`) | 1.27 + 0.75 ns |
-| Hold-repair cell `hold9381` | 1.12 ns |
-| Remaining buffering / routing | ~8.8 ns |
+| Clock tree to the SRAM clock pin, from the falling edge at 18.5 ns (:16-83) | 7.944 ns (1.81 ns of it the `delaybuf_15..20` balancing chain) |
+| SRAM `clk1 -> dout1` arc, TT Liberty x 2.661 SS derate (:84) | 4.257 ns - extrapolated beyond the Liberty table, see the note below |
+| Buffer `wire5167` (:86-87) | 0.404 ns |
+| Bank-select multiplexer, `mux4_2` (:90) | 1.861 ns |
+| Crossbar multiplexers, `mux2_4` + `mux2_1` (:93, :96) | 1.615 ns (0.937 + 0.653 + wires) |
+| Hold-repair cell `hold10455`, `dlygate4sd3_1` (:99) | 1.124 ns |
+| Bridge / OBI buffers, `i_obi_axi_instr._444_`, `instruction_obi_i._324_` (:102-105) | 0.484 ns |
+| CV32E40P prefetch-buffer multiplexer, `prefetch_buffer_i._063_` (:108) | 0.886 ns |
+| CV32E40P instruction aligner, `aligner_i` incl. the resizer buffer `max_cap745` (:111-120) | 1.966 ns |
+| CV32E40P RV32C compressed-instruction decoder, `compressed_decoder_i`, 5 cells (:123-135) | 4.731 ns |
+| CV32E40P multiplexer into the endpoint register `if_stage_i._855_`, `_788_` (:138) | 0.665 ns |
+| **Data arrival, measured from the launch edge** | **25.938 ns** |
 
-So the frequency ceiling of this delivery is set by the **timing model of
-the supplied memory macro**, not by the logic depth of our RTL. Registering
-the SRAM read data at the memory boundary would convert it to a full-cycle
-path; that is an RTL change with its own re-verification cost and is **out
-of scope for this delivery** - recorded as future work in 9.9/12.
+The capture side allows 18.500 ns (T/2) + 8.411 ns capture clock latency -
+0.500 ns uncertainty - 0.276 ns setup = 26.135 ns, which leaves the
++0.197 ns of the declaration.
+
+**Note - the 4.257 ns macro arc lies outside the macro's Liberty table.**
+The read arc is characterised for output loads of 1.72-27.56 fF and input
+transitions up to 0.04 ns
+(`macros/sky130_sram_2kbyte_1rw1r_32x512_8/lib/sky130_sram_2kbyte_1rw1r_32x512_8_TT_1p8V_25C.lib:41-46`;
+`dout1` `max_capacitance` 0.02756 pF at :389). Its delay rows are identical
+for every input transition (:399-408), so the 0.249 ns slew at `clk1` does
+not change the value; but on this path `dout1[17]` drives 216.7 fF (:84 of
+the report), 7.9x the largest characterised load. OpenSTA extrapolates
+linearly from the last two table points (0.412 / 0.529 ns at 6.89 /
+27.56 fF): 0.529 ns + 189.2 fF x 5.660 ns/pF = 1.600 ns in TT, x 2.661 (the
+pessimistic SS proxy of 9.5) = 4.257 ns, the reported value. Of that,
+0.529 x 2.661 = 1.408 ns is inside the table and **2.849 ns is
+extrapolation - about 14x the +0.197 ns SS margin**; the output transition
+is extrapolated the same way (0.016 -> 0.117 ns). Linear extrapolation is
+the STA tool's standard behaviour and it has not been checked against a
+SPICE simulation of the macro's output driver, so we claim no direction for
+the error: the SS margin holds for the delivered models and is only as
+accurate as this extrapolation. The same mechanism produces the
+167 / 167 / 166 `dout1` max-capacitance entries of 9.11.
+
+So the **half-cycle window** that caps this delivery is imposed by the
+timing model of the supplied memory macro (falling-edge read arc); what
+fills it is the clock insertion delay to the macro (7.94 ns), the macro arc
+(4.26 ns), the bank and crossbar multiplexing of our memory system
+(3.48 ns), one hold-repair cell (1.12 ns), 0.89 ns of buffers and
+**8.25 ns of CV32E40P instruction-fetch logic** (prefetch multiplexer,
+aligner, RV32C decoder). Removing the half cycle means registering the read
+data at the memory boundary. That mechanism is already in the RTL
+(`axi_sram_wrapper` parameter `REG_RDATA`,
+`rtl/core/cv32e40p/rtl/axi_sram_wrapper.sv:11`) and enabled on the data and
+AI SRAMs (`rtl/soc_top.sv:655`, `:665`); it is **deliberately off on the
+instruction SRAM** (`rtl/soc_top.sv:645`), because there it adds a cycle to
+every instruction fetch - measured: +49.9 % CPU cycles, a net slowdown at
+any clock the rest of this netlist can reach (9.9/12). A pipelined fetch
+path that avoids that cost is future work, not part of this delivery.
 
 **Slack-derived "fmax" figures are deliberately not quoted.** OpenSTA's
 `report_clock_min_period` (`reports/timing/<corner>/clock.rpt`) and the
@@ -151,7 +193,10 @@ with a half-cycle binding path they overstate the ceiling. The previous
 revision of this document quoted "~32.7 MHz" for the SS corner of the
 September 6 run from exactly those two sources; the period sweep measured
 28.6 MHz (35.0 ns) for that run, and the claim was withdrawn on
-9 September (9.11.1 keeps the corrected figure).
+9 September (9.11.1 keeps the corrected figure). The one projection this
+document does make - the ceiling without the half-cycle path, 9.9/12 -
+rests on a path whose slope was measured at two periods (1.000 ns of slack
+per ns) and is labelled as a projection.
 
 **History of the frequency declaration.** The August 14, 2026 signed run of
 the JTAG-less RTL gave setup +2.210 / -9.083 / +4.375 ns and hold
@@ -430,12 +475,15 @@ constraint below is present, unchanged, in both files. `results/sdc/`
 carries the SDC as written back by OpenROAD at the end of the flow (the
 PnR view).
 
-- **Primary clock:** `clk` = `clk_i` port, period 20.000 ns (50 MHz).
+- **Primary clock:** `clk` = `clk_i` port, period 20.000 ns (50 MHz
+  target) in `design.sdc`, 37.000 ns (verified 27.0 MHz) in
+  `design_signoff.sdc`.
 - **Primary clock (JTAG):** `jtag_tck` = `jtag_tck_i` port, period
   100.000 ns (OpenOCD adapter speed <= 10 MHz); uncertainty setup 0.500 /
   hold 0.100 ns, transition 0.150 ns (JTAG block at the end of `design.sdc`).
 - **Generated clock:** NONE. QSPI SCLK is generated from `clk` via a
-  register output (at most clk/2 = 25 MHz), is not used as an internal
+  register output (at most clk/2: 25 MHz at the 50 MHz target, 13.5 MHz
+  at the verified 27.0 MHz), is not used as an internal
   clock, and its data paths stay in the `clk` domain; therefore no
   generated clock definition is required.
 - **Clock domain relations / asynchronous clock groups:** TWO clock
@@ -524,8 +572,8 @@ the official run; this table is documentation consolidation only.
 | `set_clock_transition` (line 29) | 0.150 ns | Clock input transition time assumption (typical value in the absence of a pad model). |
 | `set_false_path -from rst_ni` (line 43) | - | One of the two reset false paths (the other is `jtag_trst_ni`, JTAG block). `rst_ni` is a primary asynchronous input with no launching clock (release synchronization is expected from the integrating pad ring / reset controller); the reset network is timed from the `dm_ndmreset` startpoint (asynchronous path group, 0 violations, worst removal +0.755 ns FF at the 37 ns signoff (+0.199 ns in the superseded September 6 run)). Carries no real data timing; the Section 3.2 rule "gercekte zamanlanan yol false path yapilamaz" (EN: a genuinely timed path must not be made a false path) is not violated. |
 | `set_false_path -from` asynchronous inputs (lines 60-61) | `gpio_in_i*`, `uart_rxd_i`, `uart1_rxd_i` | 2FF synchronizer (`gpio_axil.sv:44-50`) and asynchronous serial lines; no meaningful arrival window relative to `clk`. A synchronous input_delay produces spurious violations (measured: the TT worst hold path had come out as `gpio_in_i[0]`). |
-| `set_input_delay` (lines 69-70) | max 6.000 / min 0.500 ns | ~30% input budget for the inputs that remain synchronous (`i2c_sda_i`, `qspi_io_i*`); ports are given as an explicit list for tool portability. |
-| `set_output_delay` (lines 71-72) | max 6.000 / min 0.500 ns | ~30% output budget for ALL outputs; sufficient margin for the low-speed peripherals (UART/I2C/QSPI/GPIO). |
+| `set_input_delay` (lines 69-70) | max 6.000 / min 0.500 ns | ~30% input budget of the 20 ns PnR period (16% of the 37 ns signoff period) for the inputs that remain synchronous (`i2c_sda_i`, `qspi_io_i*`); ports are given as an explicit list for tool portability. |
+| `set_output_delay` (lines 71-72) | max 6.000 / min 0.500 ns | ~30% output budget (16% at the 37 ns signoff) for ALL outputs; sufficient margin for the low-speed peripherals (UART/I2C/QSPI/GPIO). |
 | `set_load` (line 76) | 5.0 pF | Pessimistic load for pad + external trace; to be refined once the pad model is finalized. |
 | `set_max_transition` (line 81) | 1.000 ns | Design-wide signal integrity rule (Section 3.2). |
 | `set_max_fanout` (line 82) | 32 | Design-wide fanout limit; synthesis/PnR buffer accordingly. |
@@ -619,8 +667,10 @@ Measurement source: **`RUN_hold035_2026-09-09`** (delivery run).
   endpoint at -0.044 ns, 0.35 closes every corner, 0.40 over-repairs and
   fails to converge. The resizer inserted 10,509 hold cells (10,467
   `sky130_fd_sc_hd__dlygate4sd3_1`; netlist census of
-  `results/netlist/asic_top_pnr.v.gz`) and 173 antenna diodes (101 on
-  September 6). `RUN_POST_GRT_RESIZER_TIMING: true` as before (63 -> 10
+  `results/netlist/asic_top_pnr.v.gz`); the antenna-repair pass added 173
+  diodes (`antenna_diodes_count`; 101 on September 6) on top of the
+  heuristic diode insertion, for 96,292 `diode_2` cells in total (9.11).
+  `RUN_POST_GRT_RESIZER_TIMING: true` as before (63 -> 10
   measurement, Aug 11 configuration experiment on the JTAG-less RTL).
 - **Area/frequency trade-off (DDK Aug 17 decision):** die/core area
   carries no separate scoring weight; timing and signoff cleanliness are
@@ -678,7 +728,9 @@ Xilinx primitive shells.
     `PINMISSING` 3, `UNOPTFLAT` 2): style/informational level; functional
     correctness was demonstrated with the `make test-all` package (16 SoC
     components 16/16 on two machines + `jtag-sim` 17/17 and
-    `jtag-bridge-sim` 6/6) and 46/46 arch-test signature equality.
+    `jtag-bridge-sim` 6/6) and riscv-arch-test signature equality with
+    Spike (RV32I/M 46/46; with RV32C added on 10 September, 72/73 - the 73rd,
+    `cebreak-01`, is an analysed framework difference, root README 8.7).
 
 ## 9.9 Known Issues and Accepted Exceptions
 
@@ -748,7 +800,7 @@ is named as such):
    does not remove the skew. The price is setup: the closing period of
    the netlist moved from 35.0 ns (28.6 MHz, September 6 netlist) to
    36.6 ns (27.3 MHz), because the delay cells sit on the half-cycle SRAM
-   read path (`hold9381` alone adds 1.12 ns to it, 9.1). The margin
+   read path (`hold10455` alone adds 1.12 ns to its worst path, 9.1). The margin
    response is non-monotonic and was mapped before choosing 0.35 (9.9/12).
    *Conclusion:* hold is a closed item of this delivery; the September 6
    exceptions were a clock-tree / floorplan integration effect of a
@@ -759,7 +811,8 @@ is named as such):
 3. **`i2c_sda_i` 2FF synchronizer - APPLIED.** The RTL review of the
    August 14 run noted that `i2c_sda_i` was sampled without a synchronizer;
    a 2FF synchronizer (`rtl/soc_top.sv`, `I2C_SDA_SYNC`; reset value 1 =
-   idle SDA, +2 cycles = 40 ns, negligible against the I2C bit time) is
+   idle SDA, +2 cycles = 74 ns at the verified 27.0 MHz (40 ns at the
+   50 MHz target), negligible against the I2C bit time) is
    enabled in the delivered configuration. The port is kept synchronously
    constrained in the SDC (6.000 / 0.500 ns budget). `gpio_in_i` (2FF
    synchronizer) and `uart*_rxd_i` are false paths as asynchronous inputs
@@ -796,7 +849,8 @@ is named as such):
      evidence only; XOR does not replace a DRC - `DDK_KARARLARI.md` item 9)
      the GDS-based signoff DRC of this delivery is the KLayout result, and
      that check covers the full geometry including the 27 pre-approved SRAM
-     macros - no blackboxing: the delivered GDS carries the full OpenRAM
+     macros - no blackboxing in this DRC (the Netgen LVS, by contrast,
+     compares the two SRAM types as black boxes, 9.9/5): the delivered GDS carries the full OpenRAM
      cell hierarchy (`sky130_fd_bd_sram__openram_dp_cell` instances are present
      by the tens of thousands in `results/gds/asic_top_klayout.gds`),
      `resolved.json` sets no
@@ -849,10 +903,25 @@ is named as such):
 5. LVS = 0 (real GDS extraction; `reports/lvs/lvs.netgen.rpt`: "Circuits
    match uniquely" - the top-level `asic_top` comparison is 103,699
    devices / 92,242 nets per side after netgen merged 2,153,654 parallel
-   devices (September 6 run: 92,149 / 81,121 after 2,185,771 - the
-   difference is the 10,509 hold cells and 72 extra diodes);
+   devices (September 6 run: 92,149 / 81,121 after 2,185,771; the +11,550
+   devices follow the hold repair's +11,370 standard cells, 10,509 of them
+   delay cells, and the changed diode set, +249 `diode_2` cells - netgen
+   counts after parallel merging, so this is not a one-to-one cell census);
    `metrics.json` `design__lvs_error__count` = 0, device / net /
-   pin / property differences all 0). The previous 197/205 differences
+   pin / property differences all 0). **Scope:** Netgen compares the two
+   SRAM macro types as **black boxes** (`lvs.netgen.rpt:3113` and `:5116`,
+   "is a black box; will not flatten") - the macro instances and their pin
+   connections are checked, the macro internals are not. The DDK ruling of
+   8 September does not require the team to redo the LVS of a pre-approved
+   macro (`DDK_KARARLARI.md` item 9), and the macro geometry is inside the
+   GDS-based KLayout DRC (9.9/4). The 18 "Error" lines of
+   `reports/general/error.log` belong to this check: Magic's SPICE
+   extraction for LVS (step 70, `magic-spiceextraction`) does not recognise
+   five layer/datatype pairs (33/42, 33/43, 22/21, 22/22, 235/0) in the
+   OpenRAM bit-cell views (`sky130_fd_bd_sram__openram_dp_cell` and its
+   `_dummy`, `_replica`, `_cap_row` variants). Those cells lie inside the
+   black-boxed macros, so the comparison is unaffected; the flow counts no
+   error (`flow__errors__count` = 0). The previous 197/205 differences
    came from the diode placement of the old narrow-channel floorplan;
    they are fully closed in the wide-channel final floorplan.
 6. Some timing fields of `metrics.json` may not match the corner report
@@ -999,8 +1068,9 @@ is named as such):
     recovery/removal checks are timed from the `dm_ndmreset` startpoint and
     close at all three corners (9.6).
 
-11. **Flow warnings new in `RUN_final_2026-09-06` (absent from the August 14
-    run's `warning.log`), declared, none affects signoff:** `[CTS-0128]
+11. **Flow warnings: declared and inventoried; none affects signoff.** New
+    in `RUN_final_2026-09-06` (absent from the August 14 run's
+    `warning.log`): `[CTS-0128]
     -obstruction_aware is obsolete` (OpenROAD of this LibreLane build treats
     `CTS_OBSTRUCTION_AWARE` as a no-op; the setting is kept as documented in
     9.7, the measured gain of that sweep arm is therefore attributable to the
@@ -1013,11 +1083,37 @@ is named as such):
     post-resizer margin improved, 9.7). Source:
     `reports/general/warning.log`. The delivered run's `warning.log`
     (3,124 lines against 3,117) contains **no warning class that the
-    September 6 run did not have** (path-normalised diff of the two files:
-    the only differences are the instance names in the OpenSTA
-    "`ANTENNA_*` not found in SPEF" notices, which follow the resizer's
-    diode placement, and the absence of the `[EST-N] Missing route to
-    pin` notices of the September 6 run).
+    September 6 run did not have**. Path-normalised diff of the two files:
+    the same seven `[DRT-0120]` large-net notices are printed four times
+    instead of three (+7 lines, the whole line-count difference); 45 of the
+    1,000 `[EST-0026] Missing route to pin` notices (present in both runs)
+    name different pins; and the `[STA-1648]` / `[STA-1650]` "`ANTENNA_*`
+    not found" notices name different diode instances, following the
+    resizer's diode placement.
+
+    **Inventory** (`warning.log` codes with the flow step that emits them,
+    from `reports/general/flow.log`, plus the warnings of the signoff STA in
+    `reports/timing/<corner>/checks.rpt` and `clock.rpt`):
+
+    | Warning | Count | Step | Cause | Impact on signoff |
+    |---|---|---|---|---|
+    | `check_setup`: input ports without `set_input_delay` | 36 per corner | signoff STA | `gpio_in_i[31:0]`, `uart_rxd_i`, `uart1_rxd_i`, `rst_ni`, `jtag_trst_ni` - false paths (`design_signoff.sdc:38`, `:56`, `:171`; 9.6) | none: asynchronous inputs without a launching clock |
+    | `check_setup`: unconstrained endpoints | 16 per corner | signoff STA | `i_soc.i_gpio._208_` ... `_223_/D`, the first synchronizer stage (`gpio_in_sync1[15:0]`) behind the false-path `gpio_in_i` | none: synchronizer inputs; the same check reports no loops and no unclocked or multi-clock endpoints |
+    | `[STA-0469]` derating factor greater than 2.0 | 26 | every step that loads the SDC | the 2.661x SS late derate on the SRAM macros (9.5) | intended |
+    | `[STA-1140]` library already exists | 16 | 32, 35, 37, 44 | the two SRAM Liberty files are loaded twice in those steps | none |
+    | `[PDN-0110]` no via inserted | 14 | 21 | 8 met4-met5 crossings (VGND) and 6 met1-met4 crossings (3 VPWR, 3 VGND) where the PDN generator placed no via | none measured: `reports/pdn/*-grid-errors.rpt` empty, PSM "All shapes ... connected", IR-drop 0.96 / 1.04 mV (9.10) |
+    | `[GRT-0281]` large fanout | 3 | 28 | `clk_i` (7,530 terminals), `i_cpu.core_i.clk` (2,345) and `i_ai_accel.rst_ni` (4,236) before CTS / buffering | informational |
+    | `[RSZ-0020]` found 2 floating nets | 1 | 32 | not named in the delivered reports (`metrics.json` `timing__drv__floating__nets` = 2, `timing__drv__floating__pins` = 0) | not traced to a net; LVS 0 |
+    | `[RSZ-0062]` unable to repair all setup violations | 2 | 37, 44 | the PnR resizer works against the 20 ns target, which SS does not meet (9.1, 9.9/1) | expected with the split-SDC method (9.9/12); setup closes at the 37 ns signoff |
+    | `[CTS-0128]`, `[CTS-0041]`, `[RSZ-0065]` | 1 each | 35 | above | none |
+    | `[EST-0026]` missing route to pin | 1,000 + limit notice | 44 | the post-GRT resizer's parasitic estimate meets pins without a global route (e.g. the first `clk_i` buffer and antenna-diode pins) | step-internal estimate; the signoff STA uses the extracted SPEF |
+    | `[DRT-0120]` large net | 28 (7 nets x 4) | 46 | `id_stage_i.regfile_addr_rc_id[0..3]`, `register_file_i._1001_` / `_1002_`, `id_stage_i._1663_` (106-518 pins); the two 518-pin nets are constant 0 (9.11.1) | router performance notice; route DRC 0 |
+    | `[DRT-0349]` LEF58_ENCLOSURE with no CUTCLASS | 10 | 46 | a PDK tech-LEF rule on `mcon` that the router skips | none found: route DRC 0, KLayout DRC 0 on the GDS |
+    | `[STA-1648]` / `[STA-1650]` `ANTENNA_*` not found in SPEF | 1,001 each | 58 (IR drop) | that step's SPEF read does not match antenna-diode instance / net names | confined to the IR-drop step (9.10); not raised by the signoff STA |
+    | `VSRC_LOC_FILES` not given | 1 | 58 | no pad / bump source locations (`resolved.json:1131`) | IR-drop caveat, 9.10 |
+    | `[IFP-0028]` core area snapped; `MACRO_PLACEMENT_CFG` deprecated | 1 + 1 | 13; config | row snapping (60, 60) -> (60.26, 62.56); LibreLane 3 prefers `MACROS` | none (17.72 mm2 after snapping, 9.7) |
+    | `reports/general/error.log`: "Unknown layer/datatype" | 18 | 70 | OpenRAM bit-cell layers unknown to Magic's SPICE extraction | none: inside the black-boxed macros (9.9/5) |
+    | `clock.rpt` header `Virtual: yes` / `Propagated: no` | both clocks, every corner | signoff STA report | printed by the report script | none: the analysis is propagated - the same file lists network latencies of 5.79-8.86 ns, every path in `max.rpt` / `min.rpt` carries the clock-tree cells (9.1 path: 7.944 ns to the macro) and `unpropagated.rpt` is empty (0 bytes) in all three corners |
 
 12. **The hold exceptions of the September 6 run were a setup/hold trade,
     not a structural defect - measured, and the delivered run is the
@@ -1053,7 +1149,7 @@ is named as such):
     - **The price is setup, and it is steep.** Run C's 10,509 hold cells cost
       1.3 MHz against the September 6 netlist (28.6 -> 27.3 MHz). The
       mechanism was measured, not assumed: hold cells land directly on the
-      SS critical path - `hold9381` alone contributes 1.12 ns to the worst
+      SS critical path - `hold10455` alone contributes 1.12 ns to the worst
       path broken down in 9.1. Run C still closes the 50 MHz target in TT
       (+1.218 ns) and FF (+3.685 ns), and its SS slack at 20 ns (-9.879 ns)
       is 0.658 ns better than the September 6 run's, because
@@ -1069,12 +1165,48 @@ is named as such):
     Every hold-clean variant is necessarily slower, because hold repair
     spends setup; the delivered run declares 27.0 MHz. **No configuration
     of this netlist reaches 30 MHz with hold closed**, and no synthesis or
-    place-and-route setting changes that,
-    because the binding path at long periods is the half-cycle SRAM read arc
-    of 9.1, not our logic. Raising the ceiling requires the RTL change named
-    in 9.1 - registering the SRAM read data at the memory boundary to make
-    the path full-cycle - which would need its own functional
-    re-verification and is **future work, not part of this delivery**.
+    place-and-route setting changes that, because the binding path at long
+    periods is the half-cycle SRAM read path of 9.1, whose window is fixed
+    by the macro's falling-edge read arc.
+
+    **Why the read register stays off on the instruction SRAM - measured
+    trade-off.** Registering the macro read data (`REG_RDATA=1`,
+    `rtl/core/cv32e40p/rtl/axi_sram_wrapper.sv:169-194`) is how the data and
+    AI SRAMs already avoid the half cycle (`rtl/soc_top.sv:655`, `:665`). On
+    the instruction SRAM it adds a cycle to every fetch: the wrapper delays
+    `r_valid` by one cycle and holds `ar_ready` low meanwhile
+    (`axi_sram_wrapper.sv:190-194`), and the OBI-to-AXI bridge keeps one read
+    outstanding - it issues AR only from `IDLE` and returns there after each
+    R beat (`rtl/bus/obi_to_axi.sv:158-165`, `:215-222`). Measured on
+    10 September 2026 with `make soc-perf` (Verilator 5.049) on the delivered
+    RTL with only `rtl/soc_top.sv:645` changed to `.REG_RDATA(1'b1)`:
+
+    | Workload | Delivered RTL (`verif/perf_summary.txt`) | `REG_RDATA=1` on the instruction SRAM |
+    |---|---|---|
+    | Software reference inference on the CV32E40P, cycles | 9,684,726 | 14,516,918 (**+49.9 %**) |
+    | AI accelerator inference, cycles | 459,016 | 459,019 (+3) |
+    | Result | PASS, `conv_out` 1000/1000 bit-exact | PASS, 1000/1000 bit-exact |
+
+    The variant's log is not part of the delivered set; the one-line change
+    reproduces it. With the half cycle gone, the next binding path of this
+    netlist is the ALU cone of 9.9/1 (`id_stage_i._3802_` -> `_3715_`): SS
+    slack -9.879 ns at 20 ns (`reports/timing_target_20ns/nom_ss_100C_1v60/max.rpt.gz`,
+    path 1) and +7.121 ns at 37 ns (`reports/timing/nom_ss_100C_1v60/max.rpt`),
+    i.e. 1.000 ns of slack per ns of period, closing near 29.9 ns
+    (33.5 MHz). This is a **projection from the delivered netlist, not a
+    verified frequency**: on the same slope the cone of the three signed
+    netlists closes at 29.1-30.5 ns (9.9/1), and a new netlist needs its own
+    period sweep and hold repair, so the realistic ceiling of such a re-run
+    is about 32-33 MHz. Even at 29.88 ns the CPU would be slower than it is
+    today - 14,516,918 x 29.88 ns = 433.8 ms against
+    9,684,726 x 37 ns = 358.3 ms, **21 % longer**; break-even would need
+    37 ns / 1.499 = 24.7 ns (40.5 MHz), which the ALU cone does not reach.
+    Only the accelerator, whose cycle count does not change, would gain
+    (16.98 -> 13.72 ms). The register therefore stays off on the instruction
+    SRAM. Raising the ceiling without that CPU loss needs a pipelined fetch
+    path (a bridge that issues the next AR while waiting for R, and a
+    two-entry read buffer in the wrapper) - an RTL change with its own
+    re-verification, **future work, not part of this delivery**.
 
     **Settings tried and rejected** (each measured, each recorded here so the
     negative result is not repeated):
@@ -1131,8 +1263,10 @@ is named as such):
     window. Evidence: `reports/timing/` (mandatory three, delivered) and the
     nine-corner re-run log kept with the run.
 
-14. **Antenna: 2 violating nets / 2 pins after 173 diode insertions -
-    declared exception (the September 6 run had 0).** Both are met1
+14. **Antenna: 2 violating nets / 2 pins after antenna repair (173 repair
+    diodes, `antenna_diodes_count`, besides the heuristically inserted
+    ones - 96,292 diode cells in total, 9.11) - declared exception (the
+    September 6 run had 0).** Both are met1
     side-area ratio violations at 1.6-1.7x the limit on nets created or
     lengthened by the hold-repair pass
     (`reports/antenna/antenna_summary.rpt`, `antenna.rpt`):
@@ -1196,6 +1330,20 @@ Measurement source: **`RUN_hold035_2026-09-09`** (delivery run).
   (average 12.5 uV; far below the typical 5% limit; September 6 run
   0.95 / 1.00 mV). PSM verification for both nets: "All shapes
   connected". Report: `reports/power/irdrop.rpt`.
+  **Conditions of this result:** PSM runs inside the flow (step 58,
+  `58-openroad-irdropreport`) with the activity of the 50 MHz target -
+  `irdrop.rpt` reports "Total power: 1.17e-01 W" for both nets, the
+  117.5 mW TT figure at 20 ns above and about 1.8x the 64.0 mW at the
+  verified clock, so in power terms the figure is conservative. No voltage
+  source location file was given (`VSRC_LOC_FILES` null,
+  `results/config/resolved.json:1131`), and the tool warns that this "may
+  make the results of IR drop analysis inaccurate" (`warning.log:1109`);
+  PSM then uses its default source model instead of real pad or bump
+  positions, so the result reads as the health of the macro's own grid -
+  the drop in a chip with real pad locations may differ and is not claimed
+  here. The 1,001 + 1,001 `[STA-1648]` / `[STA-1650]` "`ANTENNA_*` not
+  found" notices of `warning.log` come from this step's SPEF read, not from
+  the signoff STA (inventory in 9.9/11).
 - **Node-level voltage dump (5.7):** `reports/power/net-VPWR.csv` and
   `net-VGND.csv` are ~144 MB (137 MiB) each in raw form, so per GitHub's 100 MB
   single-file limit they are stored in the repository **gzipped**
@@ -1220,8 +1368,9 @@ Measurement source: **`RUN_hold035_2026-09-09`** (delivery run).
 <p align="center"><img src="results/images/irdrop_heatmap.png" width="820" alt="IR-drop heatmap VPWR/VGND"></p>
 <p align="center"><sub>Worst-case IR-drop per 20 um bin, tt corner - VPWR drop (left) and VGND rise (right); the full color scale is 1.1 mV, i.e. 0.06% of the 1.80 V supply.</sub></p>
 
-- **No custom voltage source location file was used** (default pad/strap
-  supply).
+- **No custom voltage source location file was used** (`VSRC_LOC_FILES`
+  unset; PSM's default source model - see the conditions under the
+  IR-drop bullet above).
 
 ## 9.11 Signoff Results Summary
 
@@ -1238,7 +1387,7 @@ the 20 ns target figures are in `reports/timing_target_20ns/` and in 9.1.
 | Magic DRC (DEF + abstract-view input, `MAGIC_DRC_USE_GDS: false`; the GDS-based signoff DRC is the KLayout row) | 9,201 - all from a single rule (`nwell.4`); root cause measured, accepted exception (9.9/4); identical to the September 6 run |
 | Netgen LVS (real GDS extraction) | **0 errors / 0 device differences** (103,699 devices / 92,242 nets per side, 9.9/5) |
 | XOR (Magic vs KLayout GDS; streamout consistency check, not a DRC) | **0** |
-| Antenna violations | **2 nets / 2 pins** (173 diodes inserted, `antenna_diodes_count`) - declared exception, 9.9/14 (September 6 run: 0 / 0 with 101 diodes) |
+| Antenna violations | **2 nets / 2 pins** - declared exception, 9.9/14 (September 6 run: 0 / 0). Diodes: 173 from the antenna-repair pass (`antenna_diodes_count`; 101 on September 6) on top of the heuristic insertion (`RUN_HEURISTIC_DIODE_INSERTION`, threshold 90 um, `resolved.json:160`, `:1092`); 96,292 `diode_2` cells in the netlist in total (`design__instance__count__class:antenna_cell`) |
 | Disconnected pins | 880 (classification: note below the table) |
 | PDN grid errors (VPWR / VGND) | **0 / 0** (report files empty) |
 | **Verified operating frequency** (DDK definition of 8 Sep 2026: setup + hold closed in all mandatory corners) | **27.0 MHz (37.000 ns)** - all rows below at this period; target 50 MHz closes setup in TT (+1.218 ns) and FF (+3.685 ns), not in SS (-9.879 ns) - 9.1 |
@@ -1250,10 +1399,11 @@ the 20 ns target figures are in `reports/timing_target_20ns/` and in 9.1.
 | Hold violation count (tt / ss / ff) | **0 / 0 / 0** |
 | `jtag_tck` group setup / hold WS (tt / ss / ff) | +24.319 / +21.252 / +25.605 ; +0.615 / +1.340 / +0.354 ns |
 | Recovery / removal WS (tt / ss / ff) | +28.562 / +21.635 / +31.314 ; +1.225 / +2.708 / +0.755 ns (9.6) |
-| Max cap violation count (tt / ss / ff) | 235 / 646 / 197 |
-| Max slew violation count (tt / ss / ff) | 5,681 / 33,927 / 2,883 |
+| Max cap violation count (tt / ss / ff) | 235 / 646 / 197 - design-rule counts, classified in the note below |
+| Max slew violation count (tt / ss / ff) | 5,681 / 33,927 / 2,883 - classified in the note below |
+| Max fanout violation count (tt / ss / ff) | 837 / 837 / 837 - antenna-diode pins only: without them no net exceeds 32 loads (note below) |
 | Power (total, estimated, tt corner, verified clock) | **64.0 mW** (117.5 mW at the 50 MHz target, 9.10) |
-| IR-drop (tt) | 0.05% VPWR / 0.06% VGND (worst 0.96 mV / 1.04 mV) |
+| IR-drop (tt) | 0.05% VPWR / 0.06% VGND (worst 0.96 mV / 1.04 mV) - computed with the 117 mW activity of the 50 MHz target and PSM's default source model (9.10) |
 | Die area | 18.77 mm2 (4180 x 4490 um) |
 | Instance count / std cells | 2,561,057 / 321,880 (10,509 of them hold cells, 9.9/2) |
 | Transistor count (MOS gates, measured on the delivered GDS) | **12,750,459** (`scripts/count_transistors.py`: flat poly-over-diffusion count, SRAM bitcells and decap devices included; 12,715,215 on September 6) |
@@ -1276,13 +1426,37 @@ the 20 ns target figures are in `reports/timing_target_20ns/` and in 9.1.
   (`gpio_in_i[31:16]`) carries no load -> 16 pins. Total 864 + 16 = 880.
   There is no discontinuity on the power pins (consistent with LVS = 0
   and XOR = 0).
-- **Max cap / max slew violation counts:** these are columns of
-  `reports/timing/summary.rpt`; they count the endpoints exceeding the
-  library characterization limits (max cap / max slew). The violations
-  are concentrated predominantly in the SS (1.6 V / 100 C) corner; they
-  stem from the same corner conditions as the SS statement in 9.1 and
-  are unaffected by the clock period. Setup and hold closure is achieved
-  in every corner at the signoff period (WS +0.197 ns in SS, TNS 0).
+- **Max slew / max cap / max fanout counts - what they are.** These are
+  design-rule (DRV) counts of `reports/timing/summary.rpt` and
+  `metrics.json`, listed per pin in `reports/timing/<corner>/checks.rpt`
+  (`report_check_types`); they are not timing violations - setup and hold
+  close in every corner at the signoff period (WS +0.197 ns in SS, TNS 0),
+  computed with the actual slews and loads. Most limits come from the
+  SDC, not the library: `set_max_transition 1.000` and `set_max_fanout 32`
+  (`design_signoff.sdc:76-77`); the others are Liberty limits (SRAM input
+  pins 0.04 ns, SRAM `dout1` 27.56 fF, standard-cell `max_capacitance` of
+  each corner library). Classified from `checks.rpt`:
+
+  | Class | TT | SS | FF | Reading |
+  |---|---|---|---|---|
+  | **Max slew, total** | 5,681 | 33,927 | 2,883 | |
+  | antenna-diode pins (`ANTENNA_*/DIODE`) | 2,455 | 16,616 | 1,043 | the slew of a net is listed again at every diode pin on it |
+  | output ports with the SDC's 5 pF `set_load` (`design_signoff.sdc:71`, rationale 9.6.1) | 31 | 31 | 31 | worst 5.31 / 7.69 / 4.25 ns; set by the pessimistic pad budget |
+  | SRAM `addr0` / `addr1` / `wmask0` pins, Liberty limit 0.04 ns | 584 | 584 | 584 | outside the macro's characterised input range (worst 0.32 / 0.50 / 0.25 ns); its setup/hold tables are flat in slew (0.103 / -0.056 ns, `...32x512_8_TT_1p8V_25C.lib:191-213`, `:228-250`, `:430-452`), so the constraint values do not change, but they are used outside their characterisation |
+  | other pins over 1.000 ns, incl. the 31 buffers driving those ports (up to 7.64 ns in SS) | 2,611 | 16,696 | 1,225 | worst after the port buffers: SRAM `din0` pins, 2.34 / 3.53 / 1.88 ns |
+  | clock pins | 0 | 0 | 0 | |
+  | **Max cap, total** | 235 | 646 | 197 | |
+  | SRAM `dout1`, limit 27.56 fF | 167 | 167 | 166 | up to 7.9x - the load extrapolation of 9.1 |
+  | the 31 buffers driving the 5 pF ports | 31 | 31 | 31 | ~5.01 pF each |
+  | other cells over their corner library's `max_capacitance` | 37 | 448 | 0 | median 1.03x (TT) / 1.15x (SS), worst 1.89x (SS); the SS library's limits are lower |
+  | **Max fanout, total** | 837 | 837 | 837 | every violating net carries antenna diodes; counted without them no net exceeds 32 loads (worst `fanout1483`: 32 loads + 34 diodes; census of `results/netlist/asic_top_pnr.v.gz`) |
+
+  The counts are identical at the 20 ns target
+  (`reports/timing_target_20ns/summary.rpt`), i.e. independent of the clock
+  period. The flow did not repair them to zero and they are reported
+  unmodified: the 5 pF port load is an assumption of the pad budget
+  (9.6.1), and the SRAM entries follow from using the macro's single TT
+  characterisation outside its table range (9.1, 9.5).
 
 ### 9.11.1 Delta against the two earlier signed runs
 
@@ -1308,7 +1482,7 @@ column of the delivered run is `reports/timing_target_20ns/`.
 | Verified operating frequency (DDK 8 Sep definition) | - | none | - | **27.0 MHz** |
 | Setup-only closing period of the netlist (period sweep) | (not measured) | 35.0 ns = 28.6 MHz | 36.6 ns = 27.3 MHz | same netlist |
 | Hold cells in the netlist | - | 115 | 10,509 | same |
-| Max slew / max cap / max fanout violations (worst corner) | 30,668 / 662 / 786 | 34,716 / 647 / 865 | 33,927 / 646 / 837 | same |
+| Max slew / max cap / max fanout violations (worst corner; classified in the 9.11 note) | 30,668 / 662 / 786 | 34,716 / 647 / 865 | 33,927 / 646 / 837 | same |
 | Worst hold clock skew TT / SS / FF (ns, `skew.min.rpt`) | -2.076 / -3.182 / -1.545 | -1.780 / -2.979 / -1.246 | -1.703 / -2.852 / -1.195 | same |
 | `jtag_tck` path group (setup / hold worst slack) | - (single clock domain) | +21.29 / +0.124 ns, closed | closed | +21.25 / +0.354 ns, closed |
 | Instances total / standard cells | 2,588,379 / 296,010 | 2,578,862 / 310,510 | 2,561,057 / 321,880 | same |
@@ -1320,12 +1494,35 @@ column of the delivered run is `reports/timing_target_20ns/`.
 | Power TT / SS / FF (mW, estimated) | 112.1 / 104.4 / 118.3 | 117.2 / 108.5 / 124.2 | 117.5 / 108.8 / 124.6 | **64.0 / 59.6 / 67.9** |
 | IR-drop worst / average | 1.54 mV / 9.8 uV | 0.95 mV / 12.5 uV | 0.96 mV / 12.5 uV | same |
 | Routed wire length / vias | 6.135 m / 746,392 | 6.522 m / 812,086 | 6.667 m / 856,965 | same |
-| Antenna diodes inserted / antenna violations | 114 / 0 | 101 / 0 | 173 / **2** (9.9/14) | same |
+| Antenna-repair diodes (`antenna_diodes_count`) / all diode cells (`antenna_cell`) / antenna violations | 114 / 87,022 / 0 | 101 / 96,043 / 0 | 173 / 96,292 / **2** (9.9/14) | same |
 | Route DRC / KLayout DRC / LVS / XOR | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 | same |
 | Magic DRC (`nwell.4`, abstract-view input) | 9,201 | 9,201 | 9,201 | same |
 | Transistors (delivered GDS) | - | 12,715,215 | 12,750,459 | same |
-| Unannotated nets (SPEF) | 2,438 | 2,734 | 2,734 | same |
+| Unannotated drivers (SPEF; all without a load, note below) | 2,438 | 2,734 | 2,734 | same |
 | New flow warnings | - | CTS-0128, CTS-0041, RSZ-0065 (9.9/11) | none new (9.9/11) | - |
+
+Notes on the delivered column:
+
+- **Unannotated drivers (2,734, the same list in all three corners,
+  `checks.rpt` `report_parasitic_annotation`):** every one is a driver
+  without a load - 864 unused SRAM `dout0` pins (the disconnected pins of
+  9.11), 1,002 CTS dummy-load outputs (`clkload*`, 692 X + 310 Y), 852
+  unused tie-cell outputs (777 HI + 75 LO) and the 16 unused
+  `gpio_in_i[31:16]` ports. `metrics.json`
+  `timing__unannotated_net_filtered__count` is 0 in every corner, so no
+  loaded net lacks parasitics.
+- **Longest net:** `id_stage_i.regfile_addr_rc_id[1]` (7.905 mm; `[0]`
+  6.897 mm, `reports/routing/wire_lengths.csv:2-3`; 518 pins each, the
+  `[DRT-0120]` notices of 9.9/11) is a constant 0. Its driver
+  `id_stage_i._1943_` (`inv_2`) is fed by an `o2bb2a` whose output is
+  forced to 1 through tie-HI cells (input `B2` directly, input `A2_N` via
+  an `and2b` whose two inputs are both tied); `[0]` is built the same way
+  (`_1939_`). The net never switches; its cost is routing (258 loads +
+  259 antenna diodes). The same 518-pin nets are reported in the
+  September 6 run. Why synthesis did not propagate the constant through
+  the CV32E40P register-file read-port select was not established (the
+  flow synthesises with `SYNTH_HIERARCHY_MODE: deferred_flatten`,
+  `resolved.json:323`).
 
 ## 9.12 Report and Output Locations
 
@@ -1358,7 +1555,7 @@ column of the delivered run is `reports/timing_target_20ns/`.
 
   | DDK 5.x | Location |
   |---|---|
-  | 5.1 General (log/metrics/versions) | `reports/general/` (`flow.log`, `metrics.json`, `versions.txt`, `resolved.json`) |
+  | 5.1 General (log/metrics/versions) | `reports/general/` (`flow.log`, `warning.log` - inventory in 9.9/11, `error.log` - the 18 Magic extraction lines of 9.9/5, `metrics.json`, `versions.txt`, `resolved.json`) |
   | 5.2 Lint | `reports/lint/verilator_lint.log` (no waivers, 9.8) |
   | 5.3 Synthesis | `reports/synthesis/` (`stat.rpt`, `chk.rpt`, `latch.rpt`) |
   | 5.4 STA (three corners) | `reports/timing/nom_<corner>/` (wns/tns/ws, min/max, `checks.rpt`, `skew.*`, `violator_list.rpt`) at the 37 ns signoff; `reports/timing_target_20ns/` the same database at the 20 ns target (`summary.rpt`; per corner `max.rpt.gz` + `.sha256`, wns/tns/ws, `clock.rpt`, `skew.*`, `checks.rpt`, `violator_list.rpt` and `power.rpt`; the hold reports `min.rpt` are byte-identical to `reports/timing/` and are not duplicated; see its `README.md`) |

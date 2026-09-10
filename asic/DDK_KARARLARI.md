@@ -258,7 +258,7 @@ in TT (+1.218 ns) and FF (+3.685 ns) but not in SS (-9.879 ns, 3,304
 endpoints), so **50 MHz remains the target** frequency, reported as such.
 Slack-derived "fmax" figures are not quoted (9.1). The one regression of
 the new run, 2 antenna violations, is declared under the "does not
-automatically invalidate the design" clause of this same ruling (9.9/13).
+automatically invalidate the design" clause of this same ruling (9.9/14).
 The FPGA prototype is verified at 50 MHz in the full sense (root README
 section 12.4).
 
@@ -314,7 +314,9 @@ LVS 0, XOR 0).
   exclusion; the KLayout step log is not in the delivered set). The KLayout
   deck does not implement `nwell.4`, so its 0 is independent evidence for
   the other rules, not a verdict on the Magic markers (9.9/4). Netgen LVS is
-  a real GDS extraction with 0 errors. The XOR row is kept but relabelled as
+  a real GDS extraction with 0 errors; it compares the two SRAM macro types
+  as black boxes, which this ruling permits for pre-approved macros (README
+  9.9/5). The XOR row is kept but relabelled as
   a streamout consistency check.
 - Open item, declared: a GDS-based Magic DRC of the same GDSII was not
   re-run before the freeze; the Final Deliverables rule that files come from

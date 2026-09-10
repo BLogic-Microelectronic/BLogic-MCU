@@ -13,7 +13,8 @@
 
 # ------------------------------------------------------------
 # Birincil saat (Bolum 3.2 ZORUNLU: tanim + periyot)
-# 50 MHz. FPGA'da MMCM uretiyordu; ASIC'te pad'den gelir
+# 37.000 ns = 27.0 MHz dogrulanmis calisma frekansi (50 MHz PnR hedefi design.sdc'de).
+# FPGA'da MMCM uretiyordu; ASIC'te pad'den gelir
 # (PLL entegrasyonu ust seviye karari, tasarim kapsami disi).
 # ------------------------------------------------------------
 create_clock -name clk -period 37.000 [get_ports clk_i]
@@ -55,8 +56,9 @@ set_false_path -from [get_ports rst_ni]
 set ASYNC_IN [get_ports {gpio_in_i* uart_rxd_i uart1_rxd_i}]
 set_false_path -from $ASYNC_IN
 
-# Senkron kalan girisler: i2c_sda_i (senkronizatorsuz orneklenir - kisit korunur,
-# gozden gecirme notu README 9.9'da), qspi_io_i* (kaynagi bizim urettigimiz SCLK).
+# Senkron kalan girisler: i2c_sda_i (teslim yapilandirmasinda I2C_SDA_SYNC acik,
+# 2FF senkronizatorden gecer - senkron kisit kotumser olarak korunur, README 9.9/3),
+# qspi_io_i* (kaynagi bizim urettigimiz SCLK).
 set ALL_IN  [get_ports {i2c_sda_i qspi_io_i*}]
 set ALL_OUT [get_ports {uart_txd_o uart1_txd_o gpio_out_o* qspi_sclk_o \
                         qspi_cs_no qspi_io_o* qspi_io_oe* i2c_scl_o i2c_sda_oe_o}]
