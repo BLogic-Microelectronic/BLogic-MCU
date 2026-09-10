@@ -10,7 +10,9 @@ PASSTHROUGH = $(if $(TRACE),TRACE=1) $(if $(COVERAGE),COVERAGE=1)
 
 BOOT_DIR  = obj_dir_boot
 AI_DIR    = obj_dir_ai
-ARCH_EXT ?= I M
+# RV32C 10 Eylul 2026'da eklendi (27 test; cebreak-01 bilinen fark, bkz.
+# verif/arch_tests/known_diffs.txt)
+ARCH_EXT ?= I M C
 
 # Ayri TB'leri coverage kosumuna dahil etmek icin: TBCOV=--coverage-line
 TBCOV ?=
@@ -650,7 +652,8 @@ i2c-sys:
 	@grep -aq "TEST SUCCESS" $(I2C_DIR)/i2c_run.log \
 	    && echo "[I2C-SYS] PASS" || { echo "[I2C-SYS] FAIL"; exit 1; }
 
-# UVM GPIO testleri
+# UVM testleri: GPIO + Timer + UART_0 + I2C + YZ hizlandirici (10 test).
+# Kisitli rastgele testler z3 ister (Makefile.uvm check_solver kapisi).
 uvm:
 	$(MAKE) -f Makefile.uvm all
 
@@ -694,7 +697,7 @@ test-all:
 	echo "  soc-timer  (Timer cevre birimi)   : $$st"; \
 	echo "  soc-strm   (UART_1 stream SoC yolu): $$ss"; \
 	echo "  arch-test  (riscv-arch-test $(ARCH_EXT))   : $$c"; \
-	echo "  uvm        (4 blok, 8 test: GPIO+Timer+UART_0+I2C): $$u"; \
+	echo "  uvm        (5 blok, 10 test: GPIO+Timer+UART_0+I2C+YZ): $$u"; \
 	echo "  jtag-sim   (riscv-dbg JTAG 17 asama)  : $$js"; \
 	echo "  jtag-bridge-sim (axi_dm_slave 6 senaryo): $$jb"; \
 	echo "  (OpenOCD/gdb demolari ve lint kapilari: make jtag-gates, make lint, make lint-fpga)"; \
@@ -811,8 +814,8 @@ help:
 	@echo "  make soc-ai      - SoC seviyesi AI C testi"
 	@echo "  make soc-perf    - HW vs SW hizlanma olcumu (verif/perf_summary.txt)"
 	@echo "  make soc-ai-irq  - AI kesme (ISR) akisi testi"
-	@echo "  make arch-test   - riscv-arch-test (varsayilan ARCH_EXT=\"I M\", spike imzasi)"
-	@echo "  make uvm         - UVM testleri: GPIO+Timer+UART_0+I2C (directed + random, 8 test)"
+	@echo "  make arch-test   - riscv-arch-test (varsayilan ARCH_EXT=\"I M C\", spike imzasi)"
+	@echo "  make uvm         - UVM testleri: GPIO+Timer+UART_0+I2C+YZ hizlandirici (directed + random, 10 test; z3 gerekir)"
 	@echo "  make spike       - etkilesimli spike; HTIF yok -> KENDI KENDINE CIKMAZ (Ctrl+C)"
 	@echo "  make coverage    - line coverage raporu (logs/coverage/)"
 	@echo "  make coverage-tb - modul kapsama kosusu (satir/dal)"

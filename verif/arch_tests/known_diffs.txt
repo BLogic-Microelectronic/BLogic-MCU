@@ -1,0 +1,31 @@
+# ============================================
+# Ostim BLogic Mikroelektronik
+# known_diffs.txt  -  analiz edilmis riscv-arch-test imza farklari
+# ============================================
+# Bicim: <test> <md5(diff ref.sig dut.sig)>
+# run_arch_test.sh bir imza farkini yalniz test adi VE diff ciktisinin birebir
+# ozeti bu dosyadaki satirla eslesirse BILINEN_FARK sayar (FAIL degil, PASS de
+# degil; ozette ayri sutun). Farkin tek bir sozcugu degisirse ozet tutmaz ve
+# test FAIL olur - yani bu dosya yeni bir regresyonu ortemez.
+#
+# cebreak-01 (RV32C, 10 Eylul 2026 analizi)
+#   diff (spike | DUT), 8 sozcukluk imzada 3 sozcuk:
+#     [1] 00000000 | deadbeef   tuzak sonrasi 'sw zero,0(ra)' kosmadi
+#     [2] 11111111 | deadbeef   tuzak sonrasi 'sw sp,4(ra)'   kosmadi
+#     [6] 0000003c | deadbeef   goreli mtval imzasi yazilmadi
+#   Esit olanlar: [3] 0x8d3, [4] mcause = 3 (breakpoint), [5] goreli mepc = 0x3c -
+#   yani c.ebreak dogru cozuluyor, dogru nedenle ve dogru adresten tuzaklaniyor.
+#   Kok neden DUT'ta ISA hatasi degil, cercevenin tuzak rutininin iki varsayimi:
+#   (a) mtval'i kod/veri bolgesine gore konumlandiriyor, bolge disindaysa testi
+#       cleanup_epilogs ile durduruyor (arch_test.h:1495-1507). CV32E40P'de mtval
+#       salt-okunur 0 (rtl/core/cv32e40p/rtl/cv32e40p_cs_registers.sv:346,516);
+#       priv spec breakpoint'te mtval=0'a izin veriyor, spike ise mtval=PC yaziyor.
+#   (b) -DSKIP_MTVAL ile (a) atlansa bile rutin ozel isleyici tablosunu kod
+#       bellegindeki bir tablodan VERI yuklemesiyle okuyor (arch_test.h:1578-1592).
+#       SoC Harvard: veri portu 0x0001_xxxx buyruk SRAM'ini okuyamaz, yalniz yazar
+#       (rtl/bus/soc_axi_interconnect.sv:194-203, 242-245; okuma Data SRAM'e duser),
+#       tablo girisi 0 okunur ve rutin abort_tests'e gider. Olculdu: bu durumda da
+#       [1][2] yazilmiyor, [6] 0xffffffc4 (spike 0x0001024c).
+#   Iki varsayim da yalniz bu cercevenin tuzak rutininde; 72 test tuzak almadan
+#   biter ve imzalari spike ile birebir esittir.
+cebreak-01 0a62969473d51750408081102e846392

@@ -401,7 +401,11 @@ package axi_lite_uvm_pkg;
                 if (!txn.randomize() with {
                     addr inside {32'h00, 32'h04};
                 }) begin
-                    `uvm_warning("SEQ", "Randomization basarisiz, varsayilan degerler kullaniliyor")
+                    // Kisitli randomize() calisma aninda SMT cozucuyle (z3) cozulur; cozucu PATH'te
+                    // yoksa randomize() 0 doner. Eskiden burada uyari basilip sabit
+                    // desene dusuluyordu ve test yine PASS veriyordu - "constrained-random"
+                    // iddiasi sessizce yonlu teste donusuyordu. Artik hata: test FAIL olur.
+                    `uvm_error("SEQ", "Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi")
                     txn.addr = (i % 2 == 0) ? 32'h04 : 32'h00;
                     txn.data = i * 32'hDEAD;
                     txn.rw   = (i % 3 != 0) ? 1 : 0;

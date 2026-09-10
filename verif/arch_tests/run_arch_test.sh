@@ -9,6 +9,7 @@ PROJ="$(cd "$(dirname "$0")/../.." && pwd)"
 REPO="${PROJ}/verif/arch_tests/suite"   # vendor alt kume: env + rv32i_m/I,M
 TGT="${PROJ}/verif/arch_tests/target/blogic"
 LOG_ROOT="${PROJ}/logs/arch_test"
+KNOWN="${PROJ}/verif/arch_tests/known_diffs.txt"   # analiz edilmis imza farklari
 GCC=riscv32-unknown-elf-gcc
 OBJCOPY=riscv32-unknown-elf-objcopy
 NM=riscv32-unknown-elf-nm
@@ -53,7 +54,7 @@ echo 00000000 > "${PROJ}/obj_dir_arch/bootrom.hex"   # zero-ROM: PC=0 illegal ->
 [ -f "${PROJ}/obj_dir_arch/ai_sram_init.hex" ] || echo 00000000 > "${PROJ}/obj_dir_arch/ai_sram_init.hex"
 
 if [[ "${FILT}" == *"-"* ]]; then TFILT="${FILT}"; FILT="I"; fi
-P=0; F=0; S=0; T=0; FL=""
+P=0; F=0; S=0; T=0; K=0; FL=""; KL=""
 
 for EXT in ${FILT}; do
     SD="${REPO}/rv32i_m/${EXT}/src"
@@ -66,9 +67,35 @@ for EXT in ${FILT}; do
         TW="${LOG_ROOT}/${TN}"
         mkdir -p "${TW}"
 
+        # Kaynak hazirligi (RV32C icin gerekli; I/M testlerinde ikisi de etkisiz,
+        # I/M kaynaklarinda .org yok ve 'def' tanimi yalniz cebreak-01'de var):
+        # (1) RV32C vendor testleri .text.init basina '.org 0x80' koyuyor. link.ld'de
+        #     .text.init 0x10000'dan basliyor ve cekirdek oraya tuzakla giriyor; 0x80
+        #     baytlik sifir dolgu c.unimp olarak tuzaklanip yine mtvec=0x10000'a doner,
+        #     test hic baslamaz. .org yalniz giris noktasini kaydirir; imza
+        #     begin_signature etiketinden okundugu icin satiri silmek imzayi degistirmez.
+        # (2) RVTEST_CASE icindeki 'def X=True' tanimlari riscof'un -D ile verdigi
+        #     makrolardir; bu kosturucu onlari okumuyordu. cebreak-01
+        #     'def rvtest_mtrap_routine=True' istiyor (c.ebreak tuzagini imzaya yazan
+        #     tuzak rutini) - kaynaktan okunup DUT ve spike derlemesine ayni verilir.
+        # (3) cebreak-01 bu hedefte imza esitligine ULASAMAZ; fark analiz edilip
+        #     known_diffs.txt'e yazildi (bkz. o dosya). Ozet: c.ebreak dogru tuzaklaniyor
+        #     (mcause=3 ve goreli mepc imzada spike ile esit), ama cercevenin tuzak rutini
+        #     (a) mtval'i kod/veri bolgesine gore konumlandirip bolge disindaysa testi
+        #     durduruyor - CV32E40P'de mtval salt-okunur 0 (priv spec izin veriyor),
+        #     spike ebreak'te mtval=PC yaziyor; (b) SKIP_MTVAL ile bu atlansa bile ozel
+        #     isleyici tablosunu KOD bellegindeki bir tablodan veri yuklemesiyle okuyor;
+        #     SoC Harvard: veri portu 0x0001_xxxx'i OKUYAMAZ (soc_axi_interconnect.sv
+        #     :194-203,242-245, buyruk SRAM'i veri tarafindan yalniz yazilir), tablo 0
+        #     okunur ve rutin abort_tests'e gider. Iki durumda da tuzak sonrasi 2 sw kosmaz.
+        SRC_S="${TW}/src.S"
+        sed '/^[[:space:]]*\.org[[:space:]]/d' "${TS}" > "${SRC_S}"
+        XDEF=""
+        if grep -q 'def rvtest_mtrap_routine=True' "${TS}"; then XDEF="-Drvtest_mtrap_routine=True"; fi
+
         if ! ${GCC} -march=${MARCH} -mabi=ilp32 -nostdlib -nostartfiles \
-                    -DTEST_FLEN=0 -DXLEN=32 -DUDB_MXLEN=32 -DTEST_CASE_1=True -static -Wl,--no-check-sections \
-                    -T "${TGT}/link.ld" ${INC} "${TS}" "${TGT}/htif.S" -o "${TW}/test.elf" \
+                    -DTEST_FLEN=0 -DXLEN=32 -DUDB_MXLEN=32 -DTEST_CASE_1=True ${XDEF} -static -Wl,--no-check-sections \
+                    -T "${TGT}/link.ld" ${INC} "${SRC_S}" "${TGT}/htif.S" -o "${TW}/test.elf" \
                     2>"${TW}/compile.log"; then
             echo -e "  [${RED}FAIL${NC}] ${TN} — derleme hatasi"
             head -2 "${TW}/compile.log" | sed 's/^/    /'
@@ -135,9 +162,9 @@ for EXT in ${FILT}; do
             # mtvec=0 -> 0x0'da sonsuz tuzak. Olculdu: bltu-01'de spike 5421 buyrukta
             # takiliyor, DUT 6860'ta bitiriyor. Veri bolgesi 0x400000'e tasindi.
             ${GCC} -march=${MARCH} -mabi=ilp32 -nostdlib -nostartfiles \
-                   -DTEST_FLEN=0 -DXLEN=32 -DUDB_MXLEN=32 -DTEST_CASE_1=True \
+                   -DTEST_FLEN=0 -DXLEN=32 -DUDB_MXLEN=32 -DTEST_CASE_1=True ${XDEF} \
                    -static -Wl,--no-check-sections \
-                   -T "${TGT}/link_spike.ld" ${INC} "${TS}" "${TGT}/htif.S" \
+                   -T "${TGT}/link_spike.ld" ${INC} "${SRC_S}" "${TGT}/htif.S" \
                    -o "${TW}/spike.elf" 2>"${TW}/spike_cc.log" || true
             spike --isa=rv32imc_zicsr_zifencei -m0x10000:0x800000 \
                   --instructions=5000000 \
@@ -149,6 +176,14 @@ for EXT in ${FILT}; do
                 else
                     ND=$(diff "${TW}/ref.sig" "${TW}/dut.sig" 2>/dev/null | grep -c '^<' || true)
                     SIGDIFF="FARKLI(${ND:-0} word)"
+                    # Bilinen fark yalniz test adi VE diff ciktisinin birebir ozeti
+                    # known_diffs.txt ile eslesirse kabul edilir: farkin tek bir sozcugu
+                    # degisse ozet tutmaz ve test yine FAIL olur.
+                    DH=$( { diff "${TW}/ref.sig" "${TW}/dut.sig" 2>/dev/null || true; } | md5sum | cut -c1-32)
+                    echo "${DH}" > "${TW}/sig_diff.md5"
+                    if grep -q "^${TN} ${DH}" "${KNOWN}" 2>/dev/null; then
+                        SIGDIFF="BILINEN_FARK(${ND:-0} word)"
+                    fi
                 fi
             else
                 SIGDIFF="ref_yok"
@@ -167,6 +202,11 @@ for EXT in ${FILT}; do
             echo -e "  [${GRN}PASS${NC}] ${TN}  (${PC} instr, imza ${SIGW} word, ${SIGDIFF})"
             echo "result=PASS" >> "${TW}/result.log"
             P=$((P+1))
+        elif [ -n "${TOH_V}" ] && [ "${TOH_V}" != "0x00000000" ] \
+             && [[ "${SIGDIFF}" == BILINEN_FARK* ]]; then
+            echo -e "  [${YLW}BILINEN${NC}] ${TN}  (${SIGDIFF}; aciklama: verif/arch_tests/known_diffs.txt)"
+            echo "result=KNOWN_DIFF" >> "${TW}/result.log"
+            K=$((K+1)); KL="${KL}\n  ${TN}"
         elif [ -n "${TOH_V}" ] && [ "${TOH_V}" != "0x00000000" ]; then
             echo -e "  [${RED}FAIL${NC}] ${TN} — imza uyusmuyor (${SIGDIFF})"
             echo "result=FAIL_SIGNATURE" >> "${TW}/result.log"
@@ -184,8 +224,9 @@ SUMMARY="${LOG_ROOT}/summary.txt"
     echo "================================================"
     echo " riscv-arch-test ozeti — $(date)"
     echo "================================================"
-    printf "  PASS:%-3d  FAIL:%-3d  SKIP:%-3d  TOPLAM:%-3d\n" "$P" "$F" "$S" "$T"
+    printf "  PASS:%-3d  FAIL:%-3d  SKIP:%-3d  BILINEN_FARK:%-3d  TOPLAM:%-3d\n" "$P" "$F" "$S" "$K" "$T"
     [ "${F}" -gt 0 ] && echo -e "  Basarisiz:${FL}"
+    [ "${K}" -gt 0 ] && echo -e "  Bilinen fark (verif/arch_tests/known_diffs.txt):${KL}"
     echo "================================================"
 } | tee "${SUMMARY}"
 
