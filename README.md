@@ -345,6 +345,14 @@ sudo make install
 verilator --version              # -> Verilator 5.049 devel rev v5.048-135-g99a35fee8
 ```
 
+> **`deneme/uvm` branch — UVM 2020-3.1 on Verilator ≥ 5.052.** On this trial branch the UVM flow (`make uvm`, `Makefile.uvm`) uses the vendored **Accellera UVM 2020-3.1** (`verilator/uvm` commit `656f20d`) and therefore needs **Verilator 5.052 or newer**; everything else in the repository still builds with the 5.049 revision above. Install it side by side, without touching `/usr/local`:
+>
+> ```bash
+> bash scripts/install_verilator.sh      # -> ~/tools/verilator-5.052 (about 15-25 min)
+> ```
+>
+> `Makefile.uvm` picks `~/tools/verilator-5.052/bin/verilator` automatically (override with `make uvm VERILATOR=<path>`); its `check_verilator` gate stops with a clear message when an older Verilator is found.
+
 ### 8.3 RISC-V GNU Toolchain (rv32imc / ilp32)
 
 Two installation options. Pre-built (fastest) is recommended:
@@ -805,16 +813,20 @@ checks, sequencer — `verif/uvm/axi_lite_uvm_pkg.sv`) drives four different DUT
 `verif/uvm/periph_uvm_pkg.sv` adds reference-model scoreboards and per-block
 tests. Each block builds with its own `tb_*_top.sv` wrapper.
 
+**Toolchain on this branch (`deneme/uvm`).** The environment runs on **Accellera UVM 2020-3.1** (IEEE 1800.2-2020, `verilator/uvm` commit `656f20d`; provenance in `verif/uvm-lib/KAYNAK.md`) compiled by **Verilator 5.052**. The earlier `795b5f2` fork carried Verilator-specific workarounds and the build suppressed `CONSTRAINTIGN`, so the random sequences bypassed the solver with `$urandom`. With 5.052 they use the real constraint solver: every address and data word comes from `randomize()`, the address is bound to the block's register pool with an `inside` constraint, and a failed or out-of-pool solution is a `uvm_error`, not a silent fallback.
+
+One measured tool limit remains: **Verilator 5.052 does not apply `dist` weights.** A single-variable `dist {1 := 60, 0 := 40}` gave 52 % over 2,000 draws, and inside an implication the write ratio followed the pool sizes instead of the weights (3/9 for UART and I²C, 6/14 for the Timer). The read/write direction is therefore drawn procedurally with the intended 60 % write probability; the achieved ratio is reported on every run and a deviation of more than 25 points fails the test, so the weighting cannot silently break again. The I²C block now builds with full line + toggle coverage like the other three; the 5.049 toggle-instrumentation internal error is gone.
+
 | Test | What it proves | Result |
 |---|---|---|
 | `gpio_directed_test` | IDR/ODR R/W, mask checks against reference model | **PASS** |
 | `gpio_random_test` | 50 constrained-random transactions, scoreboard | **PASS** |
 | `timer_directed_test` | reset values, read-backs, CLR, counting (CNT strictly increases), event accumulate + EVC clear | **PASS** |
-| `timer_random_test` | 60 random R/W over the full register map | **PASS** |
+| `timer_random_test` | 60 constrained-random R/W over the full register map (solver-chosen addresses, 60 % writes) | **PASS** |
 | `uart_directed_test` | reset values (CPB = 434), 1 Mbps CPB read-back, STP modes, TDR flow and **CFG[0] hardware auto-clear after TX (EK-2 v1.3)** | **PASS** |
-| `uart_random_test` | 60 random R/W against the UART reference model | **PASS** |
+| `uart_random_test` | 60 constrained-random R/W against the UART reference model | **PASS** |
 | `i2c_directed_test` | NBY clamping (0→1, 7→4), read-backs, **no-slave NACK path for both TX and RX** (`TX_DONE`/`RX_DONE` + `NACK_ERR`, RDR left clean) | **PASS** |
-| `i2c_random_test` | 60 random R/W against the I²C reference model | **PASS** |
+| `i2c_random_test` | 60 constrained-random R/W against the I²C reference model | **PASS** |
 
 **Regression result: 8 PASS, 0 FAIL** (`UVM_ERROR : 0`, `UVM_FATAL : 0` in every
 run; protocol monitor reports 0 violations in all 8).

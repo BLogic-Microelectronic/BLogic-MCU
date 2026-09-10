@@ -400,13 +400,8 @@ package axi_lite_uvm_pkg;
                 start_item(txn);
                 if (!txn.randomize() with {
                     addr inside {32'h00, 32'h04};
-                }) begin
-                    `uvm_warning("SEQ", "Randomization basarisiz, varsayilan degerler kullaniliyor")
-                    txn.addr = (i % 2 == 0) ? 32'h04 : 32'h00;
-                    txn.data = i * 32'hDEAD;
-                    txn.rw   = (i % 3 != 0) ? 1 : 0;
-                    txn.strb = 4'b1111;
-                end
+                })
+                    `uvm_error("SEQ", $sformatf("randomize() basarisiz: txn %0d (kisit cozucu)", i))
                 finish_item(txn);
                 `uvm_info("SEQ", $sformatf("[%0d/%0d] %s addr=0x%02h data=0x%08h",
                     i+1, num_txns, txn.rw ? "WR" : "RD", txn.addr, txn.rw ? txn.data : txn.rdata), UVM_MEDIUM)

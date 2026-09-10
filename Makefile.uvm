@@ -8,7 +8,10 @@
 # blok-ozel scoreboard/test'ler periph_uvm_pkg'de.
 # ============================================
 
-VERILATOR  = verilator
+# deneme/uvm: UVM 2020-3.1 (verilator/uvm 656f20d) Verilator >= 5.052 ister.
+# Oncelik: komut satiri / ortam VERILATOR, sonra ~/tools/verilator-5.052, sonra PATH.
+VERILATOR_MIN ?= 5.052
+VERILATOR     ?= $(firstword $(wildcard $(HOME)/tools/verilator-5.052/bin/verilator) verilator)
 UVM_JOBS  ?= 2   # WSL'de fazla paralellik OOM yapiyor
 TOP_MODULE = uvm_pkg
 
@@ -74,12 +77,11 @@ RUN_PAIRS = \
     $(I2C_BIN):i2c_random_test
 
 # Verilator flags
-# COV_FLAG: varsayilan tam kapsam (line+toggle). I2C derlemesinde
-# Verilator 5.049-devel'in toggle-coverage enstrumantasyonu
-# i2c_master_axil.sv:191'deki ifadede Internal Error uretiyor
-# (arac hatasi, RTL hatasi degil) -> I2C icin yalniz line coverage.
+# COV_FLAG: tam kapsam (line+toggle), dort blokta da.
+# 5.049-devel I2C'de toggle enstrumantasyonunda Internal Error veriyordu
+# (i2c_master_axil.sv:191) ve I2C yalniz line coverage ile derleniyordu;
+# 5.052'de dort blok ayni bayrakla derlenir.
 COV_FLAG = --coverage
-$(I2C_BIN): COV_FLAG = --coverage-line
 
 VERILATOR_FLAGS = \
     --main --binary --build --cc \
@@ -90,7 +92,7 @@ VERILATOR_FLAGS = \
 
 # UVM kutuphanesinin uyarilarini sustur
 DISABLED_WARNINGS = \
-    -Wno-DECLFILENAME -Wno-CONSTRAINTIGN -Wno-MISINDENT \
+    -Wno-DECLFILENAME -Wno-MISINDENT \
     -Wno-VARHIDDEN -Wno-WIDTHTRUNC -Wno-CASTCONST \
     -Wno-WIDTHEXPAND -Wno-UNDRIVEN -Wno-UNUSEDSIGNAL \
     -Wno-UNUSEDPARAM -Wno-SYMRSVDWORD -Wno-ZERODLY \
@@ -129,6 +131,17 @@ help:
 	@echo "  make -f Makefile.uvm clean           Temizle"
 	@echo "============================================="
 
+# Verilator surum kapisi: UVM 2020-3.1 eski surumle derlenmez
+.PHONY: check_verilator
+check_verilator:
+	@v=$$($(VERILATOR) --version | awk '{print $$2}'); \
+	low=$$(printf '%s\n%s\n' "$(VERILATOR_MIN)" "$$v" | sort -V | head -1); \
+	if [ "$$low" != "$(VERILATOR_MIN)" ]; then \
+		echo "HATA: UVM 2020-3.1 icin Verilator >= $(VERILATOR_MIN) gerekli; bulunan $$v ($(VERILATOR))"; \
+		echo "      ~/tools/verilator-5.052 kurun ya da VERILATOR=<yol> verin."; exit 1; \
+	fi; \
+	echo ">>> Verilator $$v ($(VERILATOR))"
+
 # Derleme (blok basina ayri obj dizini)
 compile: $(GPIO_BIN)
 compile_timer: $(TIMER_BIN)
@@ -136,7 +149,7 @@ compile_uart: $(UART_BIN)
 compile_i2c: $(I2C_BIN)
 compile_all: compile compile_timer compile_uart compile_i2c
 
-$(GPIO_BIN): $(GPIO_SRCS)
+$(GPIO_BIN): $(GPIO_SRCS) $(UVM_PKG) | check_verilator
 	@echo ""
 	@echo ">>> UVM Verilator derleme (GPIO)..."
 	@mkdir -p $(LOG_DIR)
@@ -146,7 +159,7 @@ $(GPIO_BIN): $(GPIO_SRCS)
 		2>&1 | tee $(LOG_DIR)/compile.log
 	@echo ">>> Derleme tamam: $(GPIO_BIN)"
 
-$(TIMER_BIN): $(TIMER_SRCS)
+$(TIMER_BIN): $(TIMER_SRCS) $(UVM_PKG) | check_verilator
 	@echo ""
 	@echo ">>> UVM Verilator derleme (Timer)..."
 	@mkdir -p $(LOG_DIR)
@@ -156,7 +169,7 @@ $(TIMER_BIN): $(TIMER_SRCS)
 		2>&1 | tee $(LOG_DIR)/compile_timer.log
 	@echo ">>> Derleme tamam: $(TIMER_BIN)"
 
-$(UART_BIN): $(UART_SRCS)
+$(UART_BIN): $(UART_SRCS) $(UVM_PKG) | check_verilator
 	@echo ""
 	@echo ">>> UVM Verilator derleme (UART_0)..."
 	@mkdir -p $(LOG_DIR)
@@ -166,7 +179,7 @@ $(UART_BIN): $(UART_SRCS)
 		2>&1 | tee $(LOG_DIR)/compile_uart.log
 	@echo ">>> Derleme tamam: $(UART_BIN)"
 
-$(I2C_BIN): $(I2C_SRCS)
+$(I2C_BIN): $(I2C_SRCS) $(UVM_PKG) | check_verilator
 	@echo ""
 	@echo ">>> UVM Verilator derleme (I2C)..."
 	@mkdir -p $(LOG_DIR)
