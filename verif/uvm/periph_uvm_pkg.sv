@@ -219,6 +219,13 @@ package periph_uvm_pkg;
 
     endclass
 
+    // Yon zari: okuma/yazma kararini dizinin kendi RNG'sinden ceker.
+    // Tek degiskenli duz aralik; dist kullanilmaz (5.052 agirligi uygulamiyor).
+    class yon_zari;
+        rand int unsigned v;
+        constraint v_c { v < 100; }
+    endclass
+
     // --------------------------------------------
     // Havuzdan rastgele R/W sequence - kisitli rastgele (Verilator >= 5.052)
     //
@@ -236,6 +243,11 @@ package periph_uvm_pkg;
     // Testler diziyi kendi tip adiyla yaratir (ornek: uart_random_test_seq).
     // UVM dizi tohumunu tip + tam ad + global tohumdan turettigi icin ortak
     // "seq" adinda ayni tohumla timer/uart/i2c ayni akisi paylasiyordu.
+    //
+    // Yon karari ayri bir zar nesnesinden (yon_zari) gelir ve nesne dizinin
+    // tam adiyla tohumlanir. $urandom Verilator'da surec tohumunu kullandigi
+    // icin UVM'in ad tabanli tohumlamasi ona yansimiyordu: dizi adi farkli
+    // olsa da ayni tohumda testler ayni okuma/yazma sirasini paylasiyordu.
     // --------------------------------------------
     class periph_random_seq extends axi_lite_base_seq;
         `uvm_object_utils(periph_random_seq)
@@ -254,10 +266,14 @@ package periph_uvm_pkg;
             bit do_wr;
             int n_wr = 0;
             int oran;
+            yon_zari zar = new();
+            zar.srandom(uvm_create_random_seed(get_type_name(), get_full_name()));
             for (int i = 0; i < num_txns; i++) begin
                 txn = axi_lite_seq_item::type_id::create($sformatf("txn_%0d", i));
                 start_item(txn);
-                do_wr = (wr_pool.size() > 0) && (int'($urandom_range(0, 99)) < wr_pct);
+                if (!zar.randomize())
+                    `uvm_error("SEQ", $sformatf("yon zari randomize() basarisiz: txn %0d", i))
+                do_wr = (wr_pool.size() > 0) && (zar.v < wr_pct);
                 if (!txn.randomize() with {
                         rw == do_wr;
                         (rw == 1'b1) -> (addr inside {wr_pool});
