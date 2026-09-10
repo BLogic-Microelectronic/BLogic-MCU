@@ -1,0 +1,10 @@
+
+[AI-IRQ] BLogic MCU - Micro Speech (kesme/ISR akisi)
+[AI-IRQ] Senaryo: yes_real; DONE -> irq17 -> ISR -> UART
+[AI-IRQ] CTRL.START yazildi, cekirdek ISR bekliyor
+[ISR] ai_irq alindi, STATUS=0x00000022 argmax=2
+[AI-IRQ] ISR calisma sayisi = 1
+[AI-IRQ] argmax = 2 (yes) - dogru
+[AI-IRQ] DONE temizlendi, STATUS=0x00000020
+[AI-IRQ] PASS
+Hello World from BLogic MCU!

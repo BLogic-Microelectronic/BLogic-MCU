@@ -1,0 +1,174 @@
+[AI-TB] on yukleme tamam: yes_real girdisi, beklenen argmax=2
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test ai_random_test...
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+UVM_INFO @ 95000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [1/80] WR addr=0x18 data=0x27fffebb
+UVM_INFO @ 135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [2/80] RD addr=0x00 data=0x00000000
+UVM_INFO @ 175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [3/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [4/80] WR addr=0x10 data=0xfffa376a
+UVM_INFO @ 255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [5/80] RD addr=0x14 data=0x00000000
+UVM_INFO @ 295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [6/80] RD addr=0x0c data=0x00035a58
+UVM_INFO @ 335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [7/80] RD addr=0x08 data=0x00030000
+UVM_INFO @ 375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [8/80] RD addr=0x1c data=0x00000000
+UVM_INFO @ 415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [9/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [10/80] WR addr=0x0c data=0xfbb9fbf5
+UVM_INFO @ 495000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [11/80] WR addr=0x08 data=0x35b1b3b2
+UVM_INFO @ 535000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [12/80] RD addr=0x18 data=0x00000000
+UVM_INFO @ 575000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [13/80] WR addr=0x10 data=0x07ffeb7d
+UVM_INFO @ 615000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [14/80] WR addr=0x00 data=0xffff75fe
+UVM_INFO @ 655000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [15/80] RD addr=0x1c data=0x00000000
+UVM_INFO @ 695000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [16/80] WR addr=0x14 data=0x47fbc1b7
+UVM_INFO @ 735000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [17/80] RD addr=0x18 data=0x00000000
+UVM_INFO @ 775000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [18/80] RD addr=0x08 data=0x35b1b3b2
+UVM_INFO @ 815000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [19/80] WR addr=0x0c data=0x5f36ffcf
+UVM_INFO @ 855000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [20/80] WR addr=0x1c data=0xc3feb7f6
+UVM_INFO @ 895000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [21/80] WR addr=0x10 data=0x3ffff8f3
+UVM_INFO @ 935000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [22/80] WR addr=0x14 data=0x6bcdfa2a
+UVM_INFO @ 975000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [23/80] WR addr=0x00 data=0xf9afdafa
+UVM_INFO @ 1015000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [24/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 1055000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [25/80] WR addr=0x08 data=0x37fdffec
+UVM_INFO @ 1095000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [26/80] RD addr=0x18 data=0x00000000
+UVM_INFO @ 1135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [27/80] WR addr=0x14 data=0xcffbff5d
+UVM_INFO @ 1175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [28/80] WR addr=0x1c data=0x277bdeef
+UVM_INFO @ 1215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [29/80] RD addr=0x0c data=0x5f36ffcf
+UVM_INFO @ 1255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [30/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 1295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [31/80] WR addr=0x10 data=0xfbff9f6f
+UVM_INFO @ 1335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [32/80] RD addr=0x00 data=0x00000000
+UVM_INFO @ 1375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [33/80] WR addr=0x00 data=0xff7ff9ae
+UVM_INFO @ 1415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [34/80] WR addr=0x18 data=0xfffffffd
+UVM_INFO @ 1455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [35/80] RD addr=0x08 data=0x37fdffec
+UVM_INFO @ 1495000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [36/80] RD addr=0x1c data=0x00000000
+UVM_INFO @ 1535000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [37/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 1575000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [38/80] WR addr=0x10 data=0x2e13fff1
+UVM_INFO @ 1615000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [39/80] RD addr=0x14 data=0x00000000
+UVM_INFO @ 1655000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [40/80] RD addr=0x0c data=0x5f36ffcf
+UVM_INFO @ 1695000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [41/80] WR addr=0x10 data=0xdfb7cbed
+UVM_INFO @ 1735000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [42/80] RD addr=0x1c data=0x00000000
+UVM_INFO @ 1775000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [43/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 1815000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [44/80] RD addr=0x18 data=0x00000000
+UVM_INFO @ 1855000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [45/80] WR addr=0x0c data=0xdfeffffc
+UVM_INFO @ 1895000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [46/80] WR addr=0x00 data=0xcf7fafa0
+UVM_INFO @ 1935000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [47/80] RD addr=0x14 data=0x00000000
+UVM_INFO @ 1975000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [48/80] WR addr=0x08 data=0x5e3df7cc
+UVM_INFO @ 2015000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [49/80] WR addr=0x14 data=0x9dfbffff
+UVM_INFO @ 2055000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [50/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 2095000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [51/80] RD addr=0x00 data=0x00000000
+UVM_INFO @ 2135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [52/80] WR addr=0x0c data=0x0fffddd0
+UVM_INFO @ 2175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [53/80] RD addr=0x1c data=0x00000000
+UVM_INFO @ 2215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [54/80] RD addr=0x08 data=0x5e3df7cc
+UVM_INFO @ 2255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [55/80] RD addr=0x18 data=0x00000000
+UVM_INFO @ 2295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [56/80] RD addr=0x10 data=0x00000000
+UVM_INFO @ 2335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [57/80] WR addr=0x00 data=0x7fff7dfc
+UVM_INFO @ 2375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [58/80] RD addr=0x10 data=0x00000000
+UVM_INFO @ 2415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [59/80] RD addr=0x14 data=0x00000000
+UVM_INFO @ 2455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [60/80] WR addr=0x08 data=0x3ffeb390
+UVM_INFO @ 2495000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [61/80] WR addr=0x0c data=0x1c7dfbf3
+UVM_INFO @ 2535000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [62/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 2575000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [63/80] WR addr=0x1c data=0xfdbffbfb
+UVM_INFO @ 2615000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [64/80] WR addr=0x18 data=0xffee6b63
+UVM_INFO @ 2655000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [65/80] WR addr=0x1c data=0xeffff63b
+UVM_INFO @ 2695000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [66/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 2735000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [67/80] RD addr=0x18 data=0x00000000
+UVM_INFO @ 2775000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [68/80] RD addr=0x00 data=0x00000000
+UVM_INFO @ 2815000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [69/80] RD addr=0x08 data=0x3ffeb390
+UVM_INFO @ 2855000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [70/80] WR addr=0x14 data=0xfbfff7bf
+UVM_INFO @ 2895000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [71/80] WR addr=0x10 data=0x837ffbff
+UVM_INFO @ 2935000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [72/80] WR addr=0x0c data=0xcff9fbba
+UVM_INFO @ 2975000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [73/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 3015000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [74/80] WR addr=0x18 data=0xfef7fcfd
+UVM_INFO @ 3055000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [75/80] RD addr=0x10 data=0x00000000
+UVM_INFO @ 3095000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [76/80] WR addr=0x08 data=0xdeffe3f6
+UVM_INFO @ 3135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [77/80] RD addr=0x00 data=0x00000000
+UVM_INFO @ 3175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [78/80] RD addr=0x14 data=0x00000000
+UVM_INFO @ 3215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [79/80] WR addr=0x1c data=0xeffb7bee
+UVM_INFO @ 3255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [80/80] RD addr=0x0c data=0xcff9fbba
+UVM_INFO @ 3255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] rastgele CSR trafigi: 37 WR, 43 RD | ofset W/R: 00=5/5 04=0/10 08=5/5 0C=6/4 10=7/3 14=5/5 18=4/6 1C=5/5
+UVM_INFO @ 3255000: uvm_test_top [ai_random_test] rastgele trafik START uretmedi (DONE sayisi) OK (0x00000000)
+[AI-TB] DONE #1: conv_out farki 0/1000 sozcuk, son yazma 0x00035a58 <- 0x00000002
+UVM_INFO @ 4613385000: uvm_test_top [ai_random_test] irq_o geldi (START'tan ~460993 cevrim)
+UVM_INFO @ 4613425000: uvm_test_top [ai_random_test] STATUS.DONE/BUSY OK (0x00000002)
+UVM_INFO @ 4613425000: uvm_test_top [ai_random_test] STATUS.RESULT (argmax, altin model) OK (0x00000002)
+UVM_INFO @ 4613425000: uvm_test_top [ai_random_test] sonuc sozcugu adresi (AXI4 son yazma) OK (0x00035a58)
+UVM_INFO @ 4613425000: uvm_test_top [ai_random_test] sonuc sozcugu verisi OK (0x00000002)
+UVM_INFO @ 4613425000: uvm_test_top [ai_random_test] conv_out altin farki (1000 sozcuk) OK (0x00000000)
+UVM_INFO @ 4613425000: uvm_test_top [ai_random_test] tamamlanan cikarim sayisi OK (0x00000001)
+UVM_INFO @ 4613545000: uvm_test_top [ai_random_test] CLEAR_DONE sonrasi DONE OK (0x00000000)
+UVM_INFO @ 4613545000: uvm_test_top [ai_random_test] CLEAR_DONE sonrasi irq_o OK (0x00000000)
+UVM_INFO @ 4613645000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 128 kontrol, 128 PASS, 0 FAIL
+UVM_INFO @ 4613645000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 4613645000: uvm_test_top.env.coverage [COV_RPT] Coverage: 41 WR, 46 RD, 8 benzersiz adres
+UVM_INFO @ 4613645000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 87 islem, 87 esleme, 0 uyumsuzluk
+UVM_INFO @ 4613645000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 4613645000: uvm_test_top [AI_RPT] AXI4 master: 16662 okuma, 1001 yazma sozcugu; sozlesme ihlali 0, pencere disi 0
+UVM_INFO @ 4613645000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :  103
+UVM_WARNING :   27
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[AI_RPT]     1
+[COV_RPT]     1
+[DRV]     1
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[SEQ]    81
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+[ai_random_test]    10
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 5ms; walltime 3.712 s; speed 1.369 ms/s
+- Verilator: cpu 3.371 s on 1 threads; allocated 43 MB

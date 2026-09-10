@@ -1,0 +1,1358 @@
+rm -rf obj_dir_uvm obj_dir_uvm_timer obj_dir_uvm_uart obj_dir_uvm_i2c obj_dir_uvm_ai logs/uvm_final
+>>> UVM temizlendi
+
+>>> UVM Verilator derleme (GPIO)...
+verilator --main --binary --build --cc --timing --coverage -j 2    --timescale 1ns/1ns --Mdir obj_dir_uvm -Wno-DECLFILENAME -Wno-CONSTRAINTIGN -Wno-MISINDENT -Wno-VARHIDDEN -Wno-WIDTHTRUNC -Wno-CASTCONST -Wno-WIDTHEXPAND -Wno-UNDRIVEN -Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-SYMRSVDWORD -Wno-ZERODLY -Wno-CASEINCOMPLETE -Wno-SIDEEFFECT -Wno-fatal -Wno-REALCVT -Wno-MODDUP -Wno-TIMESCALEMOD -Wno-UNSIGNED \
+	+define+UVM_NO_DPI +define+UVM_REPORT_DISABLE_FILE_LINE +incdir+"verif/uvm-lib/src" +incdir+verif/uvm +incdir+rtl/peripherals \
+	verif/uvm-lib/src/uvm_pkg.sv verif/uvm/axi_lite_if.sv verif/uvm/axi_lite_uvm_pkg.sv verif/uvm/periph_uvm_pkg.sv rtl/peripherals/gpio_axil.sv verif/uvm/tb_top.sv \
+	2>&1 | tee logs/uvm_final/compile.log
+make[1]: Entering directory '/mnt/c/Users/Lenovo/OneDrive/Masaüstü/2026_Cip-Tasarim-Yarismasi-2026_Ostim-BLogic-Mikroelektronik-2026_Ostim-Teknik-Universitesi-main/obj_dir_uvm'
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated.o /home/berkk/.local/share/verilator/include/verilated.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_dpi.o /home/berkk/.local/share/verilator/include/verilated_dpi.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_cov.o /home/berkk/.local/share/verilator/include/verilated_cov.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_timing.o /home/berkk/.local/share/verilator/include/verilated_timing.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_random.o /home/berkk/.local/share/verilator/include/verilated_random.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_threads.o /home/berkk/.local/share/verilator/include/verilated_threads.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -x c++-header Vuvm_pkg__pch.h -o Vuvm_pkg__pch.h.fast.gch
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -x c++-header Vuvm_pkg__pch.h -o Vuvm_pkg__pch.h.slow.gch
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg_vm_classes_0.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg_vm_classes_1.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg__Dpi.cpp
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg_vm_classes_Slow_0.cpp
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg_vm_classes_Slow_1.cpp
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg__Syms__Slow.cpp
+g++    verilated.o verilated_dpi.o verilated_cov.o verilated_timing.o verilated_random.o verilated_threads.o Vuvm_pkg__ALL.a    -pthread -lpthread -latomic   -o Vuvm_pkg
+rm Vuvm_pkg__ALL.verilator_deplist.tmp
+make[1]: Leaving directory '/mnt/c/Users/Lenovo/OneDrive/Masaüstü/2026_Cip-Tasarim-Yarismasi-2026_Ostim-BLogic-Mikroelektronik-2026_Ostim-Teknik-Universitesi-main/obj_dir_uvm'
+- V e r i l a t i o n   R e p o r t: Verilator 5.049 devel rev v5.048-135-g99a35fee8
+- Verilator: Built from 15.996 MB sources in 371 modules, into 28.544 MB in 2190 C++ files needing 108.641 MB
+- Verilator: Walltime 38.529 s (elab=0.947, cvt=5.776, bld=20.863); cpu 11.253 s on 2 threads; allocated 473.172 MB
+>>> Derleme tamam: obj_dir_uvm/Vuvm_pkg
+
+>>> UVM Verilator derleme (Timer)...
+verilator --main --binary --build --cc --timing --coverage -j 2    --timescale 1ns/1ns --Mdir obj_dir_uvm_timer -Wno-DECLFILENAME -Wno-CONSTRAINTIGN -Wno-MISINDENT -Wno-VARHIDDEN -Wno-WIDTHTRUNC -Wno-CASTCONST -Wno-WIDTHEXPAND -Wno-UNDRIVEN -Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-SYMRSVDWORD -Wno-ZERODLY -Wno-CASEINCOMPLETE -Wno-SIDEEFFECT -Wno-fatal -Wno-REALCVT -Wno-MODDUP -Wno-TIMESCALEMOD -Wno-UNSIGNED \
+	+define+UVM_NO_DPI +define+UVM_REPORT_DISABLE_FILE_LINE +incdir+"verif/uvm-lib/src" +incdir+verif/uvm +incdir+rtl/peripherals \
+	verif/uvm-lib/src/uvm_pkg.sv verif/uvm/axi_lite_if.sv verif/uvm/axi_lite_uvm_pkg.sv verif/uvm/periph_uvm_pkg.sv rtl/peripherals/timer_axil.sv verif/uvm/tb_timer_top.sv \
+	2>&1 | tee logs/uvm_final/compile_timer.log
+make[1]: Entering directory '/mnt/c/Users/Lenovo/OneDrive/Masaüstü/2026_Cip-Tasarim-Yarismasi-2026_Ostim-BLogic-Mikroelektronik-2026_Ostim-Teknik-Universitesi-main/obj_dir_uvm_timer'
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated.o /home/berkk/.local/share/verilator/include/verilated.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_dpi.o /home/berkk/.local/share/verilator/include/verilated_dpi.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_cov.o /home/berkk/.local/share/verilator/include/verilated_cov.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_timing.o /home/berkk/.local/share/verilator/include/verilated_timing.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_random.o /home/berkk/.local/share/verilator/include/verilated_random.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_threads.o /home/berkk/.local/share/verilator/include/verilated_threads.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -x c++-header Vuvm_pkg__pch.h -o Vuvm_pkg__pch.h.fast.gch
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -x c++-header Vuvm_pkg__pch.h -o Vuvm_pkg__pch.h.slow.gch
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg_vm_classes_0.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg_vm_classes_1.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg__Dpi.cpp
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg_vm_classes_Slow_0.cpp
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg_vm_classes_Slow_1.cpp
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg__Syms__Slow.cpp
+g++    verilated.o verilated_dpi.o verilated_cov.o verilated_timing.o verilated_random.o verilated_threads.o Vuvm_pkg__ALL.a    -pthread -lpthread -latomic   -o Vuvm_pkg
+rm Vuvm_pkg__ALL.verilator_deplist.tmp
+make[1]: Leaving directory '/mnt/c/Users/Lenovo/OneDrive/Masaüstü/2026_Cip-Tasarim-Yarismasi-2026_Ostim-BLogic-Mikroelektronik-2026_Ostim-Teknik-Universitesi-main/obj_dir_uvm_timer'
+- V e r i l a t i o n   R e p o r t: Verilator 5.049 devel rev v5.048-135-g99a35fee8
+- Verilator: Built from 16.000 MB sources in 371 modules, into 28.573 MB in 2190 C++ files needing 108.641 MB
+- Verilator: Walltime 39.958 s (elab=0.808, cvt=5.842, bld=22.931); cpu 10.723 s on 2 threads; allocated 537.336 MB
+>>> Derleme tamam: obj_dir_uvm_timer/Vuvm_pkg
+
+>>> UVM Verilator derleme (UART_0)...
+verilator --main --binary --build --cc --timing --coverage -j 2    --timescale 1ns/1ns --Mdir obj_dir_uvm_uart -Wno-DECLFILENAME -Wno-CONSTRAINTIGN -Wno-MISINDENT -Wno-VARHIDDEN -Wno-WIDTHTRUNC -Wno-CASTCONST -Wno-WIDTHEXPAND -Wno-UNDRIVEN -Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-SYMRSVDWORD -Wno-ZERODLY -Wno-CASEINCOMPLETE -Wno-SIDEEFFECT -Wno-fatal -Wno-REALCVT -Wno-MODDUP -Wno-TIMESCALEMOD -Wno-UNSIGNED \
+	+define+UVM_NO_DPI +define+UVM_REPORT_DISABLE_FILE_LINE +incdir+"verif/uvm-lib/src" +incdir+verif/uvm +incdir+rtl/peripherals \
+	verif/uvm-lib/src/uvm_pkg.sv verif/uvm/axi_lite_if.sv verif/uvm/axi_lite_uvm_pkg.sv verif/uvm/periph_uvm_pkg.sv rtl/peripherals/uart_axil.sv rtl/peripherals/verilog-uart/rtl/uart_tx.v rtl/peripherals/verilog-uart/rtl/uart_rx.v verif/uvm/tb_uart_top.sv \
+	2>&1 | tee logs/uvm_final/compile_uart.log
+make[1]: Entering directory '/mnt/c/Users/Lenovo/OneDrive/Masaüstü/2026_Cip-Tasarim-Yarismasi-2026_Ostim-BLogic-Mikroelektronik-2026_Ostim-Teknik-Universitesi-main/obj_dir_uvm_uart'
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated.o /home/berkk/.local/share/verilator/include/verilated.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_dpi.o /home/berkk/.local/share/verilator/include/verilated_dpi.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_cov.o /home/berkk/.local/share/verilator/include/verilated_cov.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_timing.o /home/berkk/.local/share/verilator/include/verilated_timing.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_random.o /home/berkk/.local/share/verilator/include/verilated_random.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_threads.o /home/berkk/.local/share/verilator/include/verilated_threads.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -x c++-header Vuvm_pkg__pch.h -o Vuvm_pkg__pch.h.fast.gch
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -x c++-header Vuvm_pkg__pch.h -o Vuvm_pkg__pch.h.slow.gch
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg_vm_classes_0.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg_vm_classes_1.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg__Dpi.cpp
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg_vm_classes_Slow_0.cpp
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg_vm_classes_Slow_1.cpp
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg__Syms__Slow.cpp
+g++    verilated.o verilated_dpi.o verilated_cov.o verilated_timing.o verilated_random.o verilated_threads.o Vuvm_pkg__ALL.a    -pthread -lpthread -latomic   -o Vuvm_pkg
+rm Vuvm_pkg__ALL.verilator_deplist.tmp
+make[1]: Leaving directory '/mnt/c/Users/Lenovo/OneDrive/Masaüstü/2026_Cip-Tasarim-Yarismasi-2026_Ostim-BLogic-Mikroelektronik-2026_Ostim-Teknik-Universitesi-main/obj_dir_uvm_uart'
+- V e r i l a t i o n   R e p o r t: Verilator 5.049 devel rev v5.048-135-g99a35fee8
+- Verilator: Built from 21.505 MB sources in 373 modules, into 28.710 MB in 2190 C++ files needing 108.641 MB
+- Verilator: Walltime 38.905 s (elab=0.840, cvt=5.539, bld=22.465); cpu 11.134 s on 2 threads; allocated 537.773 MB
+>>> Derleme tamam: obj_dir_uvm_uart/Vuvm_pkg
+
+>>> UVM Verilator derleme (I2C)...
+verilator --main --binary --build --cc --timing --coverage-line -j 2    --timescale 1ns/1ns --Mdir obj_dir_uvm_i2c -Wno-DECLFILENAME -Wno-CONSTRAINTIGN -Wno-MISINDENT -Wno-VARHIDDEN -Wno-WIDTHTRUNC -Wno-CASTCONST -Wno-WIDTHEXPAND -Wno-UNDRIVEN -Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-SYMRSVDWORD -Wno-ZERODLY -Wno-CASEINCOMPLETE -Wno-SIDEEFFECT -Wno-fatal -Wno-REALCVT -Wno-MODDUP -Wno-TIMESCALEMOD -Wno-UNSIGNED \
+	+define+UVM_NO_DPI +define+UVM_REPORT_DISABLE_FILE_LINE +incdir+"verif/uvm-lib/src" +incdir+verif/uvm +incdir+rtl/peripherals \
+	verif/uvm-lib/src/uvm_pkg.sv verif/uvm/axi_lite_if.sv verif/uvm/axi_lite_uvm_pkg.sv verif/uvm/periph_uvm_pkg.sv rtl/peripherals/i2c_master_axil.sv verif/uvm/tb_i2c_top.sv \
+	2>&1 | tee logs/uvm_final/compile_i2c.log
+make[1]: Entering directory '/mnt/c/Users/Lenovo/OneDrive/Masaüstü/2026_Cip-Tasarim-Yarismasi-2026_Ostim-BLogic-Mikroelektronik-2026_Ostim-Teknik-Universitesi-main/obj_dir_uvm_i2c'
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated.o /home/berkk/.local/share/verilator/include/verilated.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_dpi.o /home/berkk/.local/share/verilator/include/verilated_dpi.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_cov.o /home/berkk/.local/share/verilator/include/verilated_cov.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_timing.o /home/berkk/.local/share/verilator/include/verilated_timing.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_random.o /home/berkk/.local/share/verilator/include/verilated_random.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_threads.o /home/berkk/.local/share/verilator/include/verilated_threads.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -x c++-header Vuvm_pkg__pch.h -o Vuvm_pkg__pch.h.fast.gch
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -x c++-header Vuvm_pkg__pch.h -o Vuvm_pkg__pch.h.slow.gch
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg_vm_classes_Slow_0.cpp
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg_vm_classes_Slow_1.cpp
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg__Syms__Slow.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg_vm_classes_0.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg_vm_classes_1.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg__Dpi.cpp
+g++    verilated.o verilated_dpi.o verilated_cov.o verilated_timing.o verilated_random.o verilated_threads.o Vuvm_pkg__ALL.a    -pthread -lpthread -latomic   -o Vuvm_pkg
+rm Vuvm_pkg__ALL.verilator_deplist.tmp
+make[1]: Leaving directory '/mnt/c/Users/Lenovo/OneDrive/Masaüstü/2026_Cip-Tasarim-Yarismasi-2026_Ostim-BLogic-Mikroelektronik-2026_Ostim-Teknik-Universitesi-main/obj_dir_uvm_i2c'
+- V e r i l a t i o n   R e p o r t: Verilator 5.049 devel rev v5.048-135-g99a35fee8
+- Verilator: Built from 16.016 MB sources in 371 modules, into 26.363 MB in 2190 C++ files needing 108.306 MB
+- Verilator: Walltime 38.960 s (elab=0.822, cvt=5.408, bld=21.597); cpu 11.331 s on 2 threads; allocated 522.648 MB
+>>> Derleme tamam: obj_dir_uvm_i2c/Vuvm_pkg
+
+>>> UVM Verilator derleme (YZ hizlandirici)...
+verilator --main --binary --build --cc --timing --coverage-line -j 2    --timescale 1ns/1ns --Mdir obj_dir_uvm_ai -Wno-DECLFILENAME -Wno-CONSTRAINTIGN -Wno-MISINDENT -Wno-VARHIDDEN -Wno-WIDTHTRUNC -Wno-CASTCONST -Wno-WIDTHEXPAND -Wno-UNDRIVEN -Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-SYMRSVDWORD -Wno-ZERODLY -Wno-CASEINCOMPLETE -Wno-SIDEEFFECT -Wno-fatal -Wno-REALCVT -Wno-MODDUP -Wno-TIMESCALEMOD -Wno-UNSIGNED \
+	+define+UVM_NO_DPI +define+UVM_REPORT_DISABLE_FILE_LINE +incdir+"verif/uvm-lib/src" +incdir+verif/uvm +incdir+rtl/peripherals \
+	verif/uvm-lib/src/uvm_pkg.sv verif/uvm/axi_lite_if.sv verif/uvm/axi_lite_uvm_pkg.sv verif/uvm/periph_uvm_pkg.sv verif/uvm/ai_side_if.sv verif/uvm/ai_uvm_pkg.sv rtl/ai_accelerator/ai_accelerator.sv verif/uvm/tb_ai_top.sv \
+	2>&1 | tee logs/uvm_final/compile_ai.log
+make[1]: Entering directory '/mnt/c/Users/Lenovo/OneDrive/Masaüstü/2026_Cip-Tasarim-Yarismasi-2026_Ostim-BLogic-Mikroelektronik-2026_Ostim-Teknik-Universitesi-main/obj_dir_uvm_ai'
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated.o /home/berkk/.local/share/verilator/include/verilated.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_dpi.o /home/berkk/.local/share/verilator/include/verilated_dpi.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_cov.o /home/berkk/.local/share/verilator/include/verilated_cov.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_timing.o /home/berkk/.local/share/verilator/include/verilated_timing.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_random.o /home/berkk/.local/share/verilator/include/verilated_random.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -c -o verilated_threads.o /home/berkk/.local/share/verilator/include/verilated_threads.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -x c++-header Vuvm_pkg__pch.h -o Vuvm_pkg__pch.h.fast.gch
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -x c++-header Vuvm_pkg__pch.h -o Vuvm_pkg__pch.h.slow.gch
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg_vm_classes_Slow_0.cpp
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg_vm_classes_Slow_1.cpp
+ccache g++   -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.slow -c Vuvm_pkg__Syms__Slow.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg_vm_classes_0.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg_vm_classes_1.cpp
+ccache g++ -Os  -I.  -MMD -I/home/berkk/.local/share/verilator/include -I/home/berkk/.local/share/verilator/include/vltstd -DVERILATOR=1 -DVM_COVERAGE=1 -DVM_SC=0 -DVM_TIMING=1 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -DVM_TRACE_SAIF=0 -faligned-new -fcf-protection=none -Wno-bool-operation -Wno-int-in-bool-context -Wno-shadow -Wno-sign-compare -Wno-subobject-linkage -Wno-tautological-compare -Wno-uninitialized -Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable    -DVL_TIME_CONTEXT   -fcoroutines -include Vuvm_pkg__pch.h.fast -c Vuvm_pkg__Dpi.cpp
+g++    verilated.o verilated_dpi.o verilated_cov.o verilated_timing.o verilated_random.o verilated_threads.o Vuvm_pkg__ALL.a    -pthread -lpthread -latomic   -o Vuvm_pkg
+rm Vuvm_pkg__ALL.verilator_deplist.tmp
+make[1]: Leaving directory '/mnt/c/Users/Lenovo/OneDrive/Masaüstü/2026_Cip-Tasarim-Yarismasi-2026_Ostim-BLogic-Mikroelektronik-2026_Ostim-Teknik-Universitesi-main/obj_dir_uvm_ai'
+- V e r i l a t i o n   R e p o r t: Verilator 5.049 devel rev v5.048-135-g99a35fee8
+- Verilator: Built from 21.600 MB sources in 379 modules, into 27.267 MB in 2273 C++ files needing 116.099 MB
+- Verilator: Walltime 40.084 s (elab=1.020, cvt=5.436, bld=23.150); cpu 11.466 s on 2 threads; allocated 473.453 MB
+>>> Derleme tamam: obj_dir_uvm_ai/Vuvm_pkg
+>>> SMT cozucu: /home/berkk/z3venv/bin/z3 (Z3 version 5.1.0 - 64 bit)
+
+>>> Tum UVM testleri kosuluyor (5 blok, 10 test)...
+
+=== UVM Test: gpio_directed_test (obj_dir_uvm/Vuvm_pkg) ===
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test gpio_directed_test...
+UVM_INFO @ 0: uvm_test_top.env [ENV] Build tamamlandi
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: uvm_test_top.env [ENV] Connect tamamlandi
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+UVM_INFO @ 355000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 7 kontrol, 7 PASS, 0 FAIL
+UVM_INFO @ 355000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 355000: uvm_test_top.env.coverage [COV_RPT] Coverage: 2 WR, 3 RD, 2 benzersiz adres
+UVM_INFO @ 355000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 5 islem, 5 esleme, 0 uyumsuzluk
+UVM_INFO @ 355000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 355000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :   13
+UVM_WARNING :   27
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[COV_RPT]     1
+[DRV]     1
+[ENV]     2
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 355ns; walltime 0.234 s; speed 2.913 us/s
+- Verilator: cpu 0.122 s on 1 threads; allocated 47 MB
+>>> gpio_directed_test: PASS
+
+=== UVM Test: gpio_random_test (obj_dir_uvm/Vuvm_pkg) ===
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test gpio_random_test...
+UVM_INFO @ 0: uvm_test_top.env [ENV] Build tamamlandi
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: uvm_test_top.env [ENV] Connect tamamlandi
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+UVM_INFO @ 95000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [1/50] RD addr=0x04 data=0x00000000
+UVM_INFO @ 135000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [2/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 175000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [3/50] WR addr=0x04 data=0xbdb746a9
+UVM_INFO @ 215000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [4/50] WR addr=0x04 data=0x1025c2e5
+UVM_INFO @ 255000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [5/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 295000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [6/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 335000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [7/50] RD addr=0x04 data=0x0000c2e5
+UVM_INFO @ 375000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [8/50] RD addr=0x04 data=0x0000c2e5
+UVM_INFO @ 415000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [9/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 455000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [10/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 495000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [11/50] WR addr=0x04 data=0x112f8df8
+UVM_INFO @ 535000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [12/50] WR addr=0x04 data=0x7f396c8a
+UVM_INFO @ 575000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [13/50] WR addr=0x04 data=0x67e71559
+UVM_INFO @ 615000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [14/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 655000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [15/50] WR addr=0x00 data=0xf99079d8
+UVM_INFO @ 695000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [16/50] WR addr=0x00 data=0x2e845299
+UVM_INFO @ 735000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [17/50] WR addr=0x00 data=0x7464002e
+UVM_INFO @ 775000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [18/50] WR addr=0x04 data=0x71fac187
+UVM_INFO @ 815000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [19/50] WR addr=0x00 data=0x0a858395
+UVM_INFO @ 855000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [20/50] WR addr=0x04 data=0xfb5b995a
+UVM_INFO @ 895000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [21/50] WR addr=0x00 data=0xd1bd171f
+UVM_INFO @ 935000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [22/50] WR addr=0x04 data=0x7b27db9d
+UVM_INFO @ 975000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [23/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1015000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [24/50] WR addr=0x04 data=0xd65f644b
+UVM_INFO @ 1055000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [25/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1095000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [26/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1135000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [27/50] RD addr=0x04 data=0x0000644b
+UVM_INFO @ 1175000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [28/50] WR addr=0x00 data=0xc6927bc4
+UVM_INFO @ 1215000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [29/50] RD addr=0x04 data=0x0000644b
+UVM_INFO @ 1255000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [30/50] WR addr=0x04 data=0x9879e852
+UVM_INFO @ 1295000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [31/50] RD addr=0x04 data=0x0000e852
+UVM_INFO @ 1335000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [32/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1375000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [33/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1415000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [34/50] WR addr=0x04 data=0x11a0b70b
+UVM_INFO @ 1455000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [35/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1495000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [36/50] WR addr=0x00 data=0x4de36bbd
+UVM_INFO @ 1535000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [37/50] WR addr=0x04 data=0x7bcab542
+UVM_INFO @ 1575000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [38/50] RD addr=0x04 data=0x0000b542
+UVM_INFO @ 1615000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [39/50] WR addr=0x04 data=0x5c3f7f33
+UVM_INFO @ 1655000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [40/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1695000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [41/50] RD addr=0x04 data=0x00007f33
+UVM_INFO @ 1735000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [42/50] WR addr=0x04 data=0x10200be2
+UVM_INFO @ 1775000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [43/50] WR addr=0x00 data=0x92d06a60
+UVM_INFO @ 1815000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [44/50] RD addr=0x04 data=0x00000be2
+UVM_INFO @ 1855000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [45/50] RD addr=0x04 data=0x00000be2
+UVM_INFO @ 1895000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [46/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1935000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [47/50] RD addr=0x00 data=0x0000a5a5
+UVM_INFO @ 1975000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [48/50] WR addr=0x00 data=0xbe08271f
+UVM_INFO @ 2015000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [49/50] WR addr=0x00 data=0x47371f1a
+UVM_INFO @ 2055000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [50/50] WR addr=0x04 data=0x03e79192
+UVM_INFO @ 2155000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 75 kontrol, 75 PASS, 0 FAIL
+UVM_INFO @ 2155000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 2155000: uvm_test_top.env.coverage [COV_RPT] Coverage: 25 WR, 25 RD, 2 benzersiz adres
+UVM_INFO @ 2155000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 50 islem, 50 esleme, 0 uyumsuzluk
+UVM_INFO @ 2155000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 2155000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :   63
+UVM_WARNING :   27
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[COV_RPT]     1
+[DRV]     1
+[ENV]     2
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[SEQ]    50
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 2us; walltime 0.497 s; speed 15.381 us/s
+- Verilator: cpu 0.140 s on 1 threads; allocated 47 MB
+>>> gpio_random_test: PASS
+
+=== UVM Test: timer_directed_test (obj_dir_uvm_timer/Vuvm_pkg) ===
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test timer_directed_test...
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+UVM_INFO @ 95000: uvm_test_top [timer_directed_test] PRE reset OK (0x00000000)
+UVM_INFO @ 135000: uvm_test_top [timer_directed_test] ARE reset OK (0xffffffff)
+UVM_INFO @ 175000: uvm_test_top [timer_directed_test] ENA reset OK (0x00000000)
+UVM_INFO @ 215000: uvm_test_top [timer_directed_test] MOD reset OK (0x00000001)
+UVM_INFO @ 295000: uvm_test_top [timer_directed_test] PRE readback OK (0x12345678)
+UVM_INFO @ 375000: uvm_test_top [timer_directed_test] ARE readback OK (0x000000ff)
+UVM_INFO @ 455000: uvm_test_top [timer_directed_test] MOD=asagi readback OK (0x00000000)
+UVM_INFO @ 615000: uvm_test_top [timer_directed_test] CLR sonrasi CNT (ENA=0) OK (0x00000000)
+UVM_INFO @ 815000: uvm_test_top [timer_directed_test] CNT artiyor: 0x00000003 -> 0x00000007
+UVM_INFO @ 1515000: uvm_test_top [timer_directed_test] EVN birikti: 10 event
+UVM_INFO @ 1635000: uvm_test_top [timer_directed_test] EVC sonrasi EVN OK (0x00000000)
+UVM_INFO @ 1735000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 42 kontrol, 42 PASS, 0 FAIL
+UVM_INFO @ 1735000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 1735000: uvm_test_top.env.coverage [COV_RPT] Coverage: 15 WR, 12 RD, 8 benzersiz adres
+UVM_INFO @ 1735000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 27 islem, 27 esleme, 0 uyumsuzluk
+UVM_INFO @ 1735000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 1735000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :   22
+UVM_WARNING :   27
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[COV_RPT]     1
+[DRV]     1
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+[timer_directed_test]    11
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 2us; walltime 0.187 s; speed 16.516 us/s
+- Verilator: cpu 0.105 s on 1 threads; allocated 47 MB
+>>> timer_directed_test: PASS
+
+=== UVM Test: timer_random_test (obj_dir_uvm_timer/Vuvm_pkg) ===
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test timer_random_test...
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+UVM_INFO @ 95000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [1/60] RD addr=0x18 data=0x00000000
+UVM_INFO @ 135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [2/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [3/60] WR addr=0x00 data=0x17685ad8
+UVM_INFO @ 215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [4/60] RD addr=0x00 data=0x17685ad8
+UVM_INFO @ 255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [5/60] WR addr=0x08 data=0xb6d61d11
+UVM_INFO @ 295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [6/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [7/60] WR addr=0x08 data=0x5d95e1ce
+UVM_INFO @ 375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [8/60] WR addr=0x1c data=0xcec15451
+UVM_INFO @ 415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [9/60] WR addr=0x0c data=0xb23e6a60
+UVM_INFO @ 455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [10/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 495000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [11/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 535000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [12/60] WR addr=0x00 data=0x7c9216e4
+UVM_INFO @ 575000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [13/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 615000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [14/60] WR addr=0x00 data=0x809998bf
+UVM_INFO @ 655000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [15/60] RD addr=0x1c data=0x00000000
+UVM_INFO @ 695000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [16/60] WR addr=0x04 data=0x04c6d6b0
+UVM_INFO @ 735000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [17/60] RD addr=0x18 data=0x00000000
+UVM_INFO @ 775000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [18/60] WR addr=0x1c data=0x75385fb0
+UVM_INFO @ 815000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [19/60] WR addr=0x1c data=0xbc6b5e19
+UVM_INFO @ 855000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [20/60] RD addr=0x0c data=0x00000000
+UVM_INFO @ 895000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [21/60] RD addr=0x18 data=0x00000000
+UVM_INFO @ 935000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [22/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 975000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [23/60] RD addr=0x1c data=0x00000000
+UVM_INFO @ 1015000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [24/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 1055000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [25/60] WR addr=0x1c data=0x612c9bf6
+UVM_INFO @ 1095000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [26/60] WR addr=0x1c data=0xb948d1b4
+UVM_INFO @ 1135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [27/60] WR addr=0x10 data=0xf612442a
+UVM_INFO @ 1175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [28/60] RD addr=0x18 data=0x00000000
+UVM_INFO @ 1215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [29/60] WR addr=0x1c data=0x78d9df23
+UVM_INFO @ 1255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [30/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 1295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [31/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 1335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [32/60] WR addr=0x1c data=0x26f8475b
+UVM_INFO @ 1375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [33/60] WR addr=0x08 data=0x699dbdd0
+UVM_INFO @ 1415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [34/60] WR addr=0x10 data=0xc83d5176
+UVM_INFO @ 1455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [35/60] WR addr=0x08 data=0x5d1cb5fb
+UVM_INFO @ 1495000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [36/60] RD addr=0x18 data=0x00000000
+UVM_INFO @ 1535000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [37/60] RD addr=0x18 data=0x00000000
+UVM_INFO @ 1575000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [38/60] WR addr=0x10 data=0x3a64d857
+UVM_INFO @ 1615000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [39/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 1655000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [40/60] RD addr=0x1c data=0x00000000
+UVM_INFO @ 1695000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [41/60] WR addr=0x10 data=0x2164c51e
+UVM_INFO @ 1735000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [42/60] RD addr=0x18 data=0x00000000
+UVM_INFO @ 1775000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [43/60] RD addr=0x00 data=0x809998bf
+UVM_INFO @ 1815000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [44/60] RD addr=0x04 data=0x04c6d6b0
+UVM_INFO @ 1855000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [45/60] WR addr=0x1c data=0xe2a16f9b
+UVM_INFO @ 1895000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [46/60] RD addr=0x18 data=0x00000000
+UVM_INFO @ 1935000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [47/60] RD addr=0x1c data=0x00000000
+UVM_INFO @ 1975000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [48/60] RD addr=0x1c data=0x00000000
+UVM_INFO @ 2015000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [49/60] WR addr=0x08 data=0x22d72ecd
+UVM_INFO @ 2055000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [50/60] WR addr=0x10 data=0x05860941
+UVM_INFO @ 2095000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [51/60] RD addr=0x1c data=0x00000000
+UVM_INFO @ 2135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [52/60] WR addr=0x04 data=0xef61acea
+UVM_INFO @ 2175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [53/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 2215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [54/60] RD addr=0x00 data=0x809998bf
+UVM_INFO @ 2255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [55/60] WR addr=0x08 data=0x4beb6381
+UVM_INFO @ 2295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [56/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 2335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [57/60] WR addr=0x0c data=0x05adc4ce
+UVM_INFO @ 2375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [58/60] RD addr=0x10 data=0x00000001
+UVM_INFO @ 2415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [59/60] WR addr=0x0c data=0x7d4cd349
+UVM_INFO @ 2455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [60/60] WR addr=0x04 data=0xbab92ebd
+UVM_INFO @ 2555000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 88 kontrol, 88 PASS, 0 FAIL
+UVM_INFO @ 2555000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 2555000: uvm_test_top.env.coverage [COV_RPT] Coverage: 28 WR, 32 RD, 8 benzersiz adres
+UVM_INFO @ 2555000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 60 islem, 60 esleme, 0 uyumsuzluk
+UVM_INFO @ 2555000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 2555000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :   71
+UVM_WARNING :   27
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[COV_RPT]     1
+[DRV]     1
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[SEQ]    60
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 3us; walltime 0.188 s; speed 24.451 us/s
+- Verilator: cpu 0.104 s on 1 threads; allocated 47 MB
+>>> timer_random_test: PASS
+
+=== UVM Test: uart_directed_test (obj_dir_uvm_uart/Vuvm_pkg) ===
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test uart_directed_test...
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+UVM_INFO @ 95000: uvm_test_top [uart_directed_test] CPB reset (115200@50MHz) OK (0x000001b2)
+UVM_INFO @ 135000: uvm_test_top [uart_directed_test] STP reset OK (0x00000000)
+UVM_INFO @ 175000: uvm_test_top [uart_directed_test] RDR reset OK (0x00000000)
+UVM_INFO @ 215000: uvm_test_top [uart_directed_test] CFG reset OK (0x00000000)
+UVM_INFO @ 295000: uvm_test_top [uart_directed_test] CPB=50 (1 Mbps) readback OK (0x00000032)
+UVM_INFO @ 375000: uvm_test_top [uart_directed_test] STP=1.5 readback OK (0x00000001)
+UVM_INFO @ 455000: uvm_test_top [uart_directed_test] STP=2 readback OK (0x00000002)
+UVM_INFO @ 655000: uvm_test_top [uart_directed_test] TDR readback OK (0x000000a5)
+UVM_INFO @ 2315000: uvm_test_top [uart_directed_test] CFG[0] auto-clear dogrulandi (CFG=0x00000004)
+UVM_INFO @ 2395000: uvm_test_top [uart_directed_test] CFG temizleme OK (0x00000000)
+UVM_INFO @ 2435000: uvm_test_top [uart_directed_test] RDR (RX trafigi yok) OK (0x00000000)
+UVM_INFO @ 2535000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 45 kontrol, 45 PASS, 0 FAIL
+UVM_INFO @ 2535000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 2535000: uvm_test_top.env.coverage [COV_RPT] Coverage: 8 WR, 29 RD, 5 benzersiz adres
+UVM_INFO @ 2535000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 37 islem, 37 esleme, 0 uyumsuzluk
+UVM_INFO @ 2535000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 2535000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :   22
+UVM_WARNING :   27
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[COV_RPT]     1
+[DRV]     1
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+[uart_directed_test]    11
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 3us; walltime 0.195 s; speed 23.715 us/s
+- Verilator: cpu 0.107 s on 1 threads; allocated 47 MB
+>>> uart_directed_test: PASS
+
+=== UVM Test: uart_random_test (obj_dir_uvm_uart/Vuvm_pkg) ===
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test uart_random_test...
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+UVM_INFO @ 95000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [1/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [2/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [3/60] WR addr=0x00 data=0x17685ad8
+UVM_INFO @ 215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [4/60] RD addr=0x00 data=0x17685ad8
+UVM_INFO @ 255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [5/60] WR addr=0x0c data=0xb6d61d11
+UVM_INFO @ 295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [6/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [7/60] WR addr=0x0c data=0x5d95e1ce
+UVM_INFO @ 375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [8/60] WR addr=0x0c data=0xcec15451
+UVM_INFO @ 415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [9/60] WR addr=0x00 data=0xb23e6a60
+UVM_INFO @ 455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [10/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 495000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [11/60] RD addr=0x0c data=0x00000051
+UVM_INFO @ 535000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [12/60] WR addr=0x00 data=0x7c9216e4
+UVM_INFO @ 575000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [13/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 615000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [14/60] WR addr=0x00 data=0x809998bf
+UVM_INFO @ 655000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [15/60] RD addr=0x04 data=0x00000000
+UVM_INFO @ 695000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [16/60] WR addr=0x04 data=0x04c6d6b0
+UVM_INFO @ 735000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [17/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 775000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [18/60] WR addr=0x0c data=0x75385fb0
+UVM_INFO @ 815000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [19/60] WR addr=0x0c data=0xbc6b5e19
+UVM_INFO @ 855000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [20/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 895000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [21/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 935000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [22/60] RD addr=0x00 data=0x809998bf
+UVM_INFO @ 975000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [23/60] RD addr=0x04 data=0x00000000
+UVM_INFO @ 1015000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [24/60] RD addr=0x00 data=0x809998bf
+UVM_INFO @ 1055000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [25/60] WR addr=0x0c data=0x612c9bf6
+UVM_INFO @ 1095000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [26/60] WR addr=0x0c data=0xb948d1b4
+UVM_INFO @ 1135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [27/60] WR addr=0x04 data=0xf612442a
+UVM_INFO @ 1175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [28/60] RD addr=0x00 data=0x809998bf
+UVM_INFO @ 1215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [29/60] WR addr=0x0c data=0x78d9df23
+UVM_INFO @ 1255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [30/60] RD addr=0x04 data=0x00000002
+UVM_INFO @ 1295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [31/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 1335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [32/60] WR addr=0x0c data=0x26f8475b
+UVM_INFO @ 1375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [33/60] WR addr=0x0c data=0x699dbdd0
+UVM_INFO @ 1415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [34/60] WR addr=0x04 data=0xc83d5176
+UVM_INFO @ 1455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [35/60] WR addr=0x0c data=0x5d1cb5fb
+UVM_INFO @ 1495000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [36/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 1535000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [37/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 1575000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [38/60] WR addr=0x04 data=0x3a64d857
+UVM_INFO @ 1615000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [39/60] RD addr=0x00 data=0x809998bf
+UVM_INFO @ 1655000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [40/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 1695000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [41/60] WR addr=0x04 data=0x2164c51e
+UVM_INFO @ 1735000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [42/60] RD addr=0x00 data=0x809998bf
+UVM_INFO @ 1775000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [43/60] RD addr=0x00 data=0x809998bf
+UVM_INFO @ 1815000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [44/60] RD addr=0x04 data=0x00000002
+UVM_INFO @ 1855000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [45/60] WR addr=0x0c data=0xe2a16f9b
+UVM_INFO @ 1895000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [46/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 1935000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [47/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 1975000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [48/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 2015000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [49/60] WR addr=0x0c data=0x22d72ecd
+UVM_INFO @ 2055000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [50/60] WR addr=0x04 data=0x05860941
+UVM_INFO @ 2095000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [51/60] RD addr=0x04 data=0x00000001
+UVM_INFO @ 2135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [52/60] WR addr=0x04 data=0xef61acea
+UVM_INFO @ 2175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [53/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 2215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [54/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 2255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [55/60] WR addr=0x0c data=0x4beb6381
+UVM_INFO @ 2295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [56/60] RD addr=0x04 data=0x00000002
+UVM_INFO @ 2335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [57/60] WR addr=0x00 data=0x05adc4ce
+UVM_INFO @ 2375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [58/60] RD addr=0x00 data=0x05adc4ce
+UVM_INFO @ 2415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [59/60] WR addr=0x00 data=0x7d4cd349
+UVM_INFO @ 2455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [60/60] WR addr=0x04 data=0xbab92ebd
+UVM_INFO @ 2555000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 88 kontrol, 88 PASS, 0 FAIL
+UVM_INFO @ 2555000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 2555000: uvm_test_top.env.coverage [COV_RPT] Coverage: 28 WR, 32 RD, 6 benzersiz adres
+UVM_INFO @ 2555000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 60 islem, 60 esleme, 0 uyumsuzluk
+UVM_INFO @ 2555000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 2555000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :   71
+UVM_WARNING :   27
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[COV_RPT]     1
+[DRV]     1
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[SEQ]    60
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 3us; walltime 0.212 s; speed 22.511 us/s
+- Verilator: cpu 0.113 s on 1 threads; allocated 47 MB
+>>> uart_random_test: PASS
+
+=== UVM Test: i2c_directed_test (obj_dir_uvm_i2c/Vuvm_pkg) ===
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test i2c_directed_test...
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+UVM_INFO @ 95000: uvm_test_top [i2c_directed_test] NBY reset OK (0x00000001)
+UVM_INFO @ 135000: uvm_test_top [i2c_directed_test] ADR reset OK (0x00000000)
+UVM_INFO @ 175000: uvm_test_top [i2c_directed_test] RDR reset OK (0x00000000)
+UVM_INFO @ 215000: uvm_test_top [i2c_directed_test] CFG reset OK (0x00000000)
+UVM_INFO @ 295000: uvm_test_top [i2c_directed_test] NBY=0 kiskac OK (0x00000001)
+UVM_INFO @ 375000: uvm_test_top [i2c_directed_test] NBY=7 kiskac OK (0x00000004)
+UVM_INFO @ 455000: uvm_test_top [i2c_directed_test] NBY=3 OK (0x00000003)
+UVM_INFO @ 535000: uvm_test_top [i2c_directed_test] ADR readback OK (0x00000050)
+UVM_INFO @ 615000: uvm_test_top [i2c_directed_test] TDR readback OK (0xdeadbeef)
+UVM_INFO @ 14495000: uvm_test_top [i2c_directed_test] TX NACK yolu dogrulandi (CFG=0x00000013)
+UVM_INFO @ 14575000: uvm_test_top [i2c_directed_test] CFG temizleme (TX sonrasi) OK (0x00000000)
+UVM_INFO @ 28335000: uvm_test_top [i2c_directed_test] RX NACK yolu dogrulandi (CFG=0x0000001c)
+UVM_INFO @ 28375000: uvm_test_top [i2c_directed_test] NACK'li RX sonrasi RDR OK (0x00000000)
+UVM_INFO @ 28455000: uvm_test_top [i2c_directed_test] CFG temizleme (RX sonrasi) OK (0x00000000)
+UVM_INFO @ 28555000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 342 kontrol, 342 PASS, 0 FAIL
+UVM_INFO @ 28555000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 28555000: uvm_test_top.env.coverage [COV_RPT] Coverage: 12 WR, 318 RD, 5 benzersiz adres
+UVM_INFO @ 28555000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 330 islem, 330 esleme, 0 uyumsuzluk
+UVM_INFO @ 28555000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 28555000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :   25
+UVM_WARNING :   27
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[COV_RPT]     1
+[DRV]     1
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+[i2c_directed_test]    14
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 29us; walltime 0.201 s; speed 225.838 us/s
+- Verilator: cpu 0.126 s on 1 threads; allocated 42 MB
+>>> i2c_directed_test: PASS
+
+=== UVM Test: i2c_random_test (obj_dir_uvm_i2c/Vuvm_pkg) ===
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test i2c_random_test...
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+UVM_INFO @ 95000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [1/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [2/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [3/60] WR addr=0x00 data=0x17685ad8
+UVM_INFO @ 215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [4/60] RD addr=0x00 data=0x00000004
+UVM_INFO @ 255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [5/60] WR addr=0x0c data=0xb6d61d11
+UVM_INFO @ 295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [6/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [7/60] WR addr=0x0c data=0x5d95e1ce
+UVM_INFO @ 375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [8/60] WR addr=0x0c data=0xcec15451
+UVM_INFO @ 415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [9/60] WR addr=0x00 data=0xb23e6a60
+UVM_INFO @ 455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [10/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 495000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [11/60] RD addr=0x0c data=0xcec15451
+UVM_INFO @ 535000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [12/60] WR addr=0x00 data=0x7c9216e4
+UVM_INFO @ 575000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [13/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 615000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [14/60] WR addr=0x00 data=0x809998bf
+UVM_INFO @ 655000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [15/60] RD addr=0x04 data=0x00000000
+UVM_INFO @ 695000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [16/60] WR addr=0x04 data=0x04c6d6b0
+UVM_INFO @ 735000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [17/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 775000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [18/60] WR addr=0x0c data=0x75385fb0
+UVM_INFO @ 815000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [19/60] WR addr=0x0c data=0xbc6b5e19
+UVM_INFO @ 855000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [20/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 895000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [21/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 935000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [22/60] RD addr=0x00 data=0x00000004
+UVM_INFO @ 975000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [23/60] RD addr=0x04 data=0x00000030
+UVM_INFO @ 1015000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [24/60] RD addr=0x00 data=0x00000004
+UVM_INFO @ 1055000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [25/60] WR addr=0x0c data=0x612c9bf6
+UVM_INFO @ 1095000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [26/60] WR addr=0x0c data=0xb948d1b4
+UVM_INFO @ 1135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [27/60] WR addr=0x04 data=0xf612442a
+UVM_INFO @ 1175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [28/60] RD addr=0x00 data=0x00000004
+UVM_INFO @ 1215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [29/60] WR addr=0x0c data=0x78d9df23
+UVM_INFO @ 1255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [30/60] RD addr=0x04 data=0x0000002a
+UVM_INFO @ 1295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [31/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 1335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [32/60] WR addr=0x0c data=0x26f8475b
+UVM_INFO @ 1375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [33/60] WR addr=0x0c data=0x699dbdd0
+UVM_INFO @ 1415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [34/60] WR addr=0x04 data=0xc83d5176
+UVM_INFO @ 1455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [35/60] WR addr=0x0c data=0x5d1cb5fb
+UVM_INFO @ 1495000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [36/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 1535000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [37/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 1575000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [38/60] WR addr=0x04 data=0x3a64d857
+UVM_INFO @ 1615000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [39/60] RD addr=0x00 data=0x00000004
+UVM_INFO @ 1655000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [40/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 1695000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [41/60] WR addr=0x04 data=0x2164c51e
+UVM_INFO @ 1735000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [42/60] RD addr=0x00 data=0x00000004
+UVM_INFO @ 1775000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [43/60] RD addr=0x00 data=0x00000004
+UVM_INFO @ 1815000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [44/60] RD addr=0x04 data=0x0000001e
+UVM_INFO @ 1855000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [45/60] WR addr=0x0c data=0xe2a16f9b
+UVM_INFO @ 1895000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [46/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 1935000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [47/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 1975000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [48/60] RD addr=0x14 data=0x00000000
+UVM_INFO @ 2015000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [49/60] WR addr=0x0c data=0x22d72ecd
+UVM_INFO @ 2055000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [50/60] WR addr=0x04 data=0x05860941
+UVM_INFO @ 2095000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [51/60] RD addr=0x04 data=0x00000041
+UVM_INFO @ 2135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [52/60] WR addr=0x04 data=0xef61acea
+UVM_INFO @ 2175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [53/60] RD addr=0x10 data=0x00000000
+UVM_INFO @ 2215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [54/60] RD addr=0x08 data=0x00000000
+UVM_INFO @ 2255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [55/60] WR addr=0x0c data=0x4beb6381
+UVM_INFO @ 2295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [56/60] RD addr=0x04 data=0x0000006a
+UVM_INFO @ 2335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [57/60] WR addr=0x00 data=0x05adc4ce
+UVM_INFO @ 2375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [58/60] RD addr=0x00 data=0x00000004
+UVM_INFO @ 2415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [59/60] WR addr=0x00 data=0x7d4cd349
+UVM_INFO @ 2455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [60/60] WR addr=0x04 data=0xbab92ebd
+UVM_INFO @ 2555000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 88 kontrol, 88 PASS, 0 FAIL
+UVM_INFO @ 2555000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 2555000: uvm_test_top.env.coverage [COV_RPT] Coverage: 28 WR, 32 RD, 6 benzersiz adres
+UVM_INFO @ 2555000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 60 islem, 60 esleme, 0 uyumsuzluk
+UVM_INFO @ 2555000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 2555000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :   71
+UVM_WARNING :   27
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[COV_RPT]     1
+[DRV]     1
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[SEQ]    60
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 3us; walltime 0.160 s; speed 27.667 us/s
+- Verilator: cpu 0.092 s on 1 threads; allocated 42 MB
+>>> i2c_random_test: PASS
+
+=== UVM Test: ai_directed_test (obj_dir_uvm_ai/Vuvm_pkg) ===
+[AI-TB] on yukleme tamam: yes_real girdisi, beklenen argmax=2
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test ai_directed_test...
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+UVM_INFO @ 95000: uvm_test_top [ai_directed_test] CTRL reset OK (0x00000000)
+UVM_INFO @ 135000: uvm_test_top [ai_directed_test] STATUS reset OK (0x00000000)
+UVM_INFO @ 175000: uvm_test_top [ai_directed_test] DATA_ADDR reset OK (0x00030000)
+UVM_INFO @ 215000: uvm_test_top [ai_directed_test] OUT_ADDR reset OK (0x00035a58)
+UVM_INFO @ 295000: uvm_test_top [ai_directed_test] DATA_ADDR readback OK (0xa5a55a5c)
+UVM_INFO @ 375000: uvm_test_top [ai_directed_test] OUT_ADDR readback OK (0x12345678)
+UVM_INFO @ 455000: uvm_test_top [ai_directed_test] 0x10 haritasiz OK (0x00000000)
+UVM_INFO @ 535000: uvm_test_top [ai_directed_test] 0x1C haritasiz OK (0x00000000)
+UVM_INFO @ 575000: uvm_test_top [ai_directed_test] haritasiz yazma sonrasi STATUS OK (0x00000000)
+UVM_INFO @ 655000: uvm_test_top [ai_directed_test] bosta CLEAR_DONE sonrasi STATUS OK (0x00000000)
+UVM_INFO @ 655000: uvm_test_top [ai_directed_test] START oncesi irq_o OK (0x00000000)
+[AI-TB] DONE #1: conv_out farki 0/1000 sozcuk, son yazma 0x00035a58 <- 0x00000002
+UVM_INFO @ 4610785000: uvm_test_top [ai_directed_test] irq_o geldi (START'tan ~460993 cevrim)
+UVM_INFO @ 4610825000: uvm_test_top [ai_directed_test] STATUS.DONE/BUSY OK (0x00000002)
+UVM_INFO @ 4610825000: uvm_test_top [ai_directed_test] STATUS.RESULT (argmax, altin model) OK (0x00000002)
+UVM_INFO @ 4610825000: uvm_test_top [ai_directed_test] sonuc sozcugu adresi (AXI4 son yazma) OK (0x00035a58)
+UVM_INFO @ 4610825000: uvm_test_top [ai_directed_test] sonuc sozcugu verisi OK (0x00000002)
+UVM_INFO @ 4610825000: uvm_test_top [ai_directed_test] conv_out altin farki (1000 sozcuk) OK (0x00000000)
+UVM_INFO @ 4610825000: uvm_test_top [ai_directed_test] tamamlanan cikarim sayisi OK (0x00000001)
+UVM_INFO @ 4610945000: uvm_test_top [ai_directed_test] CLEAR_DONE sonrasi DONE OK (0x00000000)
+UVM_INFO @ 4610945000: uvm_test_top [ai_directed_test] CLEAR_DONE sonrasi irq_o OK (0x00000000)
+UVM_INFO @ 4611145000: uvm_test_top [ai_directed_test] CTRL okuma (mesgul) OK (0x00000000)
+[AI-TB] DONE #2: conv_out farki 0/1000 sozcuk, son yazma 0x00037f00 <- 0x00000002
+UVM_INFO @ 9221115000: uvm_test_top [ai_directed_test] cikarim #2 STATUS.RESULT OK (0x00000002)
+UVM_INFO @ 9221115000: uvm_test_top [ai_directed_test] cikarim #2 sonuc adresi OK (0x00037f00)
+UVM_INFO @ 9221115000: uvm_test_top [ai_directed_test] cikarim #2 conv_out farki OK (0x00000000)
+UVM_INFO @ 9221155000: uvm_test_top [ai_directed_test] mesgulken START denetimi: 691483 cevrim ek bekleme
+UVM_INFO @ 16135985000: uvm_test_top [ai_directed_test] mesgulken START yok sayildi (DONE sayisi) OK (0x00000002)
+UVM_INFO @ 16135985000: uvm_test_top [ai_directed_test] son durumda irq_o OK (0x00000000)
+UVM_INFO @ 16136085000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 43 kontrol, 43 PASS, 0 FAIL
+UVM_INFO @ 16136085000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 16136085000: uvm_test_top.env.coverage [COV_RPT] Coverage: 14 WR, 15 RD, 6 benzersiz adres
+UVM_INFO @ 16136085000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 29 islem, 29 esleme, 0 uyumsuzluk
+UVM_INFO @ 16136085000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 16136085000: uvm_test_top [AI_RPT] AXI4 master: 33324 okuma, 2002 yazma sozcugu; sozlesme ihlali 0, pencere disi 0
+UVM_INFO @ 16136085000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :   39
+UVM_WARNING :   27
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[AI_RPT]     1
+[COV_RPT]     1
+[DRV]     1
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+[ai_directed_test]    27
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 16ms; walltime 12.050 s; speed 1.307 ms/s
+- Verilator: cpu 12.343 s on 1 threads; allocated 43 MB
+>>> ai_directed_test: PASS
+
+=== UVM Test: ai_random_test (obj_dir_uvm_ai/Vuvm_pkg) ===
+[AI-TB] on yukleme tamam: yes_real girdisi, beklenen argmax=2
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test ai_random_test...
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+UVM_INFO @ 95000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [1/80] WR addr=0x18 data=0x27fffebb
+UVM_INFO @ 135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [2/80] RD addr=0x00 data=0x00000000
+UVM_INFO @ 175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [3/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [4/80] WR addr=0x10 data=0xfffa376a
+UVM_INFO @ 255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [5/80] RD addr=0x14 data=0x00000000
+UVM_INFO @ 295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [6/80] RD addr=0x0c data=0x00035a58
+UVM_INFO @ 335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [7/80] RD addr=0x08 data=0x00030000
+UVM_INFO @ 375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [8/80] RD addr=0x1c data=0x00000000
+UVM_INFO @ 415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [9/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [10/80] WR addr=0x0c data=0xfbb9fbf5
+UVM_INFO @ 495000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [11/80] WR addr=0x08 data=0x35b1b3b2
+UVM_INFO @ 535000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [12/80] RD addr=0x18 data=0x00000000
+UVM_INFO @ 575000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [13/80] WR addr=0x10 data=0x07ffeb7d
+UVM_INFO @ 615000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [14/80] WR addr=0x00 data=0xffff75fe
+UVM_INFO @ 655000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [15/80] RD addr=0x1c data=0x00000000
+UVM_INFO @ 695000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [16/80] WR addr=0x14 data=0x47fbc1b7
+UVM_INFO @ 735000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [17/80] RD addr=0x18 data=0x00000000
+UVM_INFO @ 775000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [18/80] RD addr=0x08 data=0x35b1b3b2
+UVM_INFO @ 815000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [19/80] WR addr=0x0c data=0x5f36ffcf
+UVM_INFO @ 855000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [20/80] WR addr=0x1c data=0xc3feb7f6
+UVM_INFO @ 895000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [21/80] WR addr=0x10 data=0x3ffff8f3
+UVM_INFO @ 935000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [22/80] WR addr=0x14 data=0x6bcdfa2a
+UVM_INFO @ 975000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [23/80] WR addr=0x00 data=0xf9afdafa
+UVM_INFO @ 1015000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [24/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 1055000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [25/80] WR addr=0x08 data=0x37fdffec
+UVM_INFO @ 1095000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [26/80] RD addr=0x18 data=0x00000000
+UVM_INFO @ 1135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [27/80] WR addr=0x14 data=0xcffbff5d
+UVM_INFO @ 1175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [28/80] WR addr=0x1c data=0x277bdeef
+UVM_INFO @ 1215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [29/80] RD addr=0x0c data=0x5f36ffcf
+UVM_INFO @ 1255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [30/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 1295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [31/80] WR addr=0x10 data=0xfbff9f6f
+UVM_INFO @ 1335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [32/80] RD addr=0x00 data=0x00000000
+UVM_INFO @ 1375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [33/80] WR addr=0x00 data=0xff7ff9ae
+UVM_INFO @ 1415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [34/80] WR addr=0x18 data=0xfffffffd
+UVM_INFO @ 1455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [35/80] RD addr=0x08 data=0x37fdffec
+UVM_INFO @ 1495000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [36/80] RD addr=0x1c data=0x00000000
+UVM_INFO @ 1535000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [37/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 1575000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [38/80] WR addr=0x10 data=0x2e13fff1
+UVM_INFO @ 1615000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [39/80] RD addr=0x14 data=0x00000000
+UVM_INFO @ 1655000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [40/80] RD addr=0x0c data=0x5f36ffcf
+UVM_INFO @ 1695000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [41/80] WR addr=0x10 data=0xdfb7cbed
+UVM_INFO @ 1735000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [42/80] RD addr=0x1c data=0x00000000
+UVM_INFO @ 1775000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [43/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 1815000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [44/80] RD addr=0x18 data=0x00000000
+UVM_INFO @ 1855000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [45/80] WR addr=0x0c data=0xdfeffffc
+UVM_INFO @ 1895000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [46/80] WR addr=0x00 data=0xcf7fafa0
+UVM_INFO @ 1935000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [47/80] RD addr=0x14 data=0x00000000
+UVM_INFO @ 1975000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [48/80] WR addr=0x08 data=0x5e3df7cc
+UVM_INFO @ 2015000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [49/80] WR addr=0x14 data=0x9dfbffff
+UVM_INFO @ 2055000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [50/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 2095000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [51/80] RD addr=0x00 data=0x00000000
+UVM_INFO @ 2135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [52/80] WR addr=0x0c data=0x0fffddd0
+UVM_INFO @ 2175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [53/80] RD addr=0x1c data=0x00000000
+UVM_INFO @ 2215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [54/80] RD addr=0x08 data=0x5e3df7cc
+UVM_INFO @ 2255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [55/80] RD addr=0x18 data=0x00000000
+UVM_INFO @ 2295000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [56/80] RD addr=0x10 data=0x00000000
+UVM_INFO @ 2335000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [57/80] WR addr=0x00 data=0x7fff7dfc
+UVM_INFO @ 2375000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [58/80] RD addr=0x10 data=0x00000000
+UVM_INFO @ 2415000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [59/80] RD addr=0x14 data=0x00000000
+UVM_INFO @ 2455000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [60/80] WR addr=0x08 data=0x3ffeb390
+UVM_INFO @ 2495000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [61/80] WR addr=0x0c data=0x1c7dfbf3
+UVM_INFO @ 2535000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [62/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 2575000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [63/80] WR addr=0x1c data=0xfdbffbfb
+UVM_INFO @ 2615000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [64/80] WR addr=0x18 data=0xffee6b63
+UVM_INFO @ 2655000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [65/80] WR addr=0x1c data=0xeffff63b
+UVM_INFO @ 2695000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [66/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 2735000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [67/80] RD addr=0x18 data=0x00000000
+UVM_INFO @ 2775000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [68/80] RD addr=0x00 data=0x00000000
+UVM_INFO @ 2815000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [69/80] RD addr=0x08 data=0x3ffeb390
+UVM_INFO @ 2855000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [70/80] WR addr=0x14 data=0xfbfff7bf
+UVM_INFO @ 2895000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [71/80] WR addr=0x10 data=0x837ffbff
+UVM_INFO @ 2935000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [72/80] WR addr=0x0c data=0xcff9fbba
+UVM_INFO @ 2975000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [73/80] RD addr=0x04 data=0x00000000
+UVM_INFO @ 3015000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [74/80] WR addr=0x18 data=0xfef7fcfd
+UVM_INFO @ 3055000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [75/80] RD addr=0x10 data=0x00000000
+UVM_INFO @ 3095000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [76/80] WR addr=0x08 data=0xdeffe3f6
+UVM_INFO @ 3135000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [77/80] RD addr=0x00 data=0x00000000
+UVM_INFO @ 3175000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [78/80] RD addr=0x14 data=0x00000000
+UVM_INFO @ 3215000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [79/80] WR addr=0x1c data=0xeffb7bee
+UVM_INFO @ 3255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] [80/80] RD addr=0x0c data=0xcff9fbba
+UVM_INFO @ 3255000: uvm_test_top.env.agent.sequencer@@seq [SEQ] rastgele CSR trafigi: 37 WR, 43 RD | ofset W/R: 00=5/5 04=0/10 08=5/5 0C=6/4 10=7/3 14=5/5 18=4/6 1C=5/5
+UVM_INFO @ 3255000: uvm_test_top [ai_random_test] rastgele trafik START uretmedi (DONE sayisi) OK (0x00000000)
+[AI-TB] DONE #1: conv_out farki 0/1000 sozcuk, son yazma 0x00035a58 <- 0x00000002
+UVM_INFO @ 4613385000: uvm_test_top [ai_random_test] irq_o geldi (START'tan ~460993 cevrim)
+UVM_INFO @ 4613425000: uvm_test_top [ai_random_test] STATUS.DONE/BUSY OK (0x00000002)
+UVM_INFO @ 4613425000: uvm_test_top [ai_random_test] STATUS.RESULT (argmax, altin model) OK (0x00000002)
+UVM_INFO @ 4613425000: uvm_test_top [ai_random_test] sonuc sozcugu adresi (AXI4 son yazma) OK (0x00035a58)
+UVM_INFO @ 4613425000: uvm_test_top [ai_random_test] sonuc sozcugu verisi OK (0x00000002)
+UVM_INFO @ 4613425000: uvm_test_top [ai_random_test] conv_out altin farki (1000 sozcuk) OK (0x00000000)
+UVM_INFO @ 4613425000: uvm_test_top [ai_random_test] tamamlanan cikarim sayisi OK (0x00000001)
+UVM_INFO @ 4613545000: uvm_test_top [ai_random_test] CLEAR_DONE sonrasi DONE OK (0x00000000)
+UVM_INFO @ 4613545000: uvm_test_top [ai_random_test] CLEAR_DONE sonrasi irq_o OK (0x00000000)
+UVM_INFO @ 4613645000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 128 kontrol, 128 PASS, 0 FAIL
+UVM_INFO @ 4613645000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 4613645000: uvm_test_top.env.coverage [COV_RPT] Coverage: 41 WR, 46 RD, 8 benzersiz adres
+UVM_INFO @ 4613645000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 87 islem, 87 esleme, 0 uyumsuzluk
+UVM_INFO @ 4613645000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 4613645000: uvm_test_top [AI_RPT] AXI4 master: 16662 okuma, 1001 yazma sozcugu; sozlesme ihlali 0, pencere disi 0
+UVM_INFO @ 4613645000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :  103
+UVM_WARNING :   27
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[AI_RPT]     1
+[COV_RPT]     1
+[DRV]     1
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[SEQ]    81
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+[ai_random_test]    10
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 5ms; walltime 3.712 s; speed 1.369 ms/s
+- Verilator: cpu 3.371 s on 1 threads; allocated 43 MB
+>>> ai_random_test: PASS
+
+============================================
+ UVM Regression: 10 PASS, 0 FAIL
+============================================

@@ -1,0 +1,186 @@
+UVM_INFO @ 0: reporter [UVM/RELNOTES] 
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  This implementation of the UVM Library deviates from the 1800.2-2017
+  standard.  See the DEVIATIONS.md file contained in the release
+  for more details.
+
+----------------------------------------------------------------
+Accellera:1800.2-2017:UVM:1.0
+
+All copyright owners for this kit are listed in NOTICE.txt
+All Rights Reserved Worldwide
+----------------------------------------------------------------
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test gpio_random_test...
+UVM_INFO @ 0: uvm_test_top.env [ENV] Build tamamlandi
+UVM_INFO @ 0: uvm_test_top.env.agent [AGT] ACTIVE mod — driver + sequencer olusturuldu
+UVM_INFO @ 0: uvm_test_top.env [ENV] Connect tamamlandi
+UVM_INFO @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "uvm_test_top" of the component "uvm_test_top" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "env" of the component "uvm_test_top.env" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "agent" of the component "uvm_test_top.env.agent" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "ap" of the component "uvm_test_top.env.agent.ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "driver" of the component "uvm_test_top.env.agent.driver" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_port" of the component "uvm_test_top.env.agent.driver.rsp_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_port" of the component "uvm_test_top.env.agent.driver.seq_item_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "monitor" of the component "uvm_test_top.env.agent.monitor" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "item_collected_port" of the component "uvm_test_top.env.agent.monitor.item_collected_port" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sequencer" of the component "uvm_test_top.env.agent.sequencer" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "req_fifo" of the component "uvm_test_top.env.agent.sequencer.req_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.req_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "rsp_export" of the component "uvm_test_top.env.agent.sequencer.rsp_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "seq_item_export" of the component "uvm_test_top.env.agent.sequencer.seq_item_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "sqr_rsp_analysis_fifo" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "VlRProcess::open: execvp(z3): No such file or directory
+analysis_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.analysis_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "get_peek_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.get_peek_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_ap" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_ap" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "put_export" of the component "uvm_test_top.env.agent.sequencer.sqr_rsp_analysis_fifo.put_export" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "coverage" of the component "uvm_test_top.env.coverage" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.coverage.analysis_imp" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "scoreboard" of the component "uvm_test_top.env.scoreboard" violates the uvm component name constraints
+UVM_WARNING @ 0: reporter [UVM/COMP/NAME] the name "analysis_imp" of the component "uvm_test_top.env.scoreboard.analysis_imp" violates the uvm component name constraints
+UVM_INFO @ 55000: uvm_test_top.env.agent.driver [DRV] Reset tamamlandi
+%Warning: Subprocess command `z3 --in' failed: exit status 127
+%Warning: Unable to communicate with SAT solver, please check its installation or specify a different one in VERILATOR_SOLVER environment variable.
+ ... Tried: $ z3 --in
+
+UVM_ERROR @ 55000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 95000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [1/50] RD addr=0x04 data=0x00000000
+UVM_ERROR @ 95000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 135000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [2/50] WR addr=0x00 data=0x0000dead
+UVM_ERROR @ 135000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 175000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [3/50] WR addr=0x04 data=0x0001bd5a
+UVM_ERROR @ 175000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 215000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [4/50] RD addr=0x00 data=0x0000a5a5
+UVM_ERROR @ 215000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 255000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [5/50] WR addr=0x04 data=0x00037ab4
+UVM_ERROR @ 255000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 295000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [6/50] WR addr=0x00 data=0x00045961
+UVM_ERROR @ 295000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 335000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [7/50] RD addr=0x04 data=0x00007ab4
+UVM_ERROR @ 335000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 375000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [8/50] WR addr=0x00 data=0x000616bb
+UVM_ERROR @ 375000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 415000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [9/50] WR addr=0x04 data=0x0006f568
+UVM_ERROR @ 415000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 455000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [10/50] RD addr=0x00 data=0x0000a5a5
+UVM_ERROR @ 455000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 495000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [11/50] WR addr=0x04 data=0x0008b2c2
+UVM_ERROR @ 495000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 535000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [12/50] WR addr=0x00 data=0x0009916f
+UVM_ERROR @ 535000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 575000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [13/50] RD addr=0x04 data=0x0000b2c2
+UVM_ERROR @ 575000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 615000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [14/50] WR addr=0x00 data=0x000b4ec9
+UVM_ERROR @ 615000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 655000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [15/50] WR addr=0x04 data=0x000c2d76
+UVM_ERROR @ 655000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 695000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [16/50] RD addr=0x00 data=0x0000a5a5
+UVM_ERROR @ 695000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 735000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [17/50] WR addr=0x04 data=0x000dead0
+UVM_ERROR @ 735000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 775000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [18/50] WR addr=0x00 data=0x000ec97d
+UVM_ERROR @ 775000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 815000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [19/50] RD addr=0x04 data=0x0000ead0
+UVM_ERROR @ 815000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 855000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [20/50] WR addr=0x00 data=0x001086d7
+UVM_ERROR @ 855000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 895000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [21/50] WR addr=0x04 data=0x00116584
+UVM_ERROR @ 895000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 935000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [22/50] RD addr=0x00 data=0x0000a5a5
+UVM_ERROR @ 935000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 975000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [23/50] WR addr=0x04 data=0x001322de
+UVM_ERROR @ 975000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1015000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [24/50] WR addr=0x00 data=0x0014018b
+UVM_ERROR @ 1015000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1055000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [25/50] RD addr=0x04 data=0x000022de
+UVM_ERROR @ 1055000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1095000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [26/50] WR addr=0x00 data=0x0015bee5
+UVM_ERROR @ 1095000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1135000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [27/50] WR addr=0x04 data=0x00169d92
+UVM_ERROR @ 1135000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1175000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [28/50] RD addr=0x00 data=0x0000a5a5
+UVM_ERROR @ 1175000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1215000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [29/50] WR addr=0x04 data=0x00185aec
+UVM_ERROR @ 1215000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1255000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [30/50] WR addr=0x00 data=0x00193999
+UVM_ERROR @ 1255000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1295000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [31/50] RD addr=0x04 data=0x00005aec
+UVM_ERROR @ 1295000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1335000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [32/50] WR addr=0x00 data=0x001af6f3
+UVM_ERROR @ 1335000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1375000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [33/50] WR addr=0x04 data=0x001bd5a0
+UVM_ERROR @ 1375000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1415000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [34/50] RD addr=0x00 data=0x0000a5a5
+UVM_ERROR @ 1415000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1455000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [35/50] WR addr=0x04 data=0x001d92fa
+UVM_ERROR @ 1455000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1495000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [36/50] WR addr=0x00 data=0x001e71a7
+UVM_ERROR @ 1495000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1535000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [37/50] RD addr=0x04 data=0x000092fa
+UVM_ERROR @ 1535000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1575000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [38/50] WR addr=0x00 data=0x00202f01
+UVM_ERROR @ 1575000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1615000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [39/50] WR addr=0x04 data=0x00210dae
+UVM_ERROR @ 1615000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1655000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [40/50] RD addr=0x00 data=0x0000a5a5
+UVM_ERROR @ 1655000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1695000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [41/50] WR addr=0x04 data=0x0022cb08
+UVM_ERROR @ 1695000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1735000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [42/50] WR addr=0x00 data=0x0023a9b5
+UVM_ERROR @ 1735000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1775000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [43/50] RD addr=0x04 data=0x0000cb08
+UVM_ERROR @ 1775000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1815000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [44/50] WR addr=0x00 data=0x0025670f
+UVM_ERROR @ 1815000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1855000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [45/50] WR addr=0x04 data=0x002645bc
+UVM_ERROR @ 1855000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1895000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [46/50] RD addr=0x00 data=0x0000a5a5
+UVM_ERROR @ 1895000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1935000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [47/50] WR addr=0x04 data=0x00280316
+UVM_ERROR @ 1935000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 1975000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [48/50] WR addr=0x00 data=0x0028e1c3
+UVM_ERROR @ 1975000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 2015000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [49/50] RD addr=0x04 data=0x00000316
+UVM_ERROR @ 2015000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi
+UVM_INFO @ 2055000: uvm_test_top.env.agent.sequencer@@rnd_seq [SEQ] [50/50] WR addr=0x00 data=0x002a9f1d
+UVM_INFO @ 2155000: uvm_test_top.env.agent.monitor [PROTO_RPT] Protocol Check: 83 kontrol, 83 PASS, 0 FAIL
+UVM_INFO @ 2155000: uvm_test_top.env.agent.monitor [PROTO_RPT] PROTOKOL UYUMLU
+UVM_INFO @ 2155000: uvm_test_top.env.coverage [COV_RPT] Coverage: 33 WR, 17 RD, 2 benzersiz adres
+UVM_INFO @ 2155000: uvm_test_top.env.scoreboard [SB_RPT] Scoreboard: 50 islem, 50 esleme, 0 uyumsuzluk
+UVM_INFO @ 2155000: uvm_test_top.env.scoreboard [SB_RPT] >>> SCOREBOARD BASARILI <<<
+UVM_INFO @ 2155000: reporter [UVM/REPORT/SERVER] 
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :   63
+UVM_WARNING :   27
+UVM_ERROR :   50
+UVM_FATAL :    0
+** Report counts by id
+[AGT]     1
+[COV_RPT]     1
+[DRV]     1
+[ENV]     2
+[NO_DPI_TSTNAME]     1
+[PROTO_RPT]     2
+[RNTST]     1
+[SB_RPT]     2
+[SEQ]   100
+[UVM/COMP/NAME]    27
+[UVM/COMP/NAMECHECK]     1
+[UVM/RELNOTES]     1
+
+- verif/uvm-lib/src/base/uvm_root.svh:585: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.049 devel
+- Verilator: $finish at 2us; walltime 0.301 s; speed 15.620 us/s
+- Verilator: cpu 0.138 s on 1 threads; allocated 47 MB
