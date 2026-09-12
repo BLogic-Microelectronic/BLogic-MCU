@@ -77,6 +77,8 @@ compgen -G "results/lef/*.lef" >/dev/null || MISSING+=("results/lef/*.lef")
 need_pkg "results/netlist/${DESIGN}_synth.v"
 need_pkg "results/netlist/${DESIGN}_pnr.v"
 need_pkg "results/netlist/${DESIGN}_powered.v"
+need results/sdc/pnr.sdc        # Bolum 6.2: PnR'de kullanilan SDC
+need results/sdc/signoff.sdc    # Bolum 6.2: post-PnR STA'da kullanilan SDC
 compgen -G "results/sdc/*"  >/dev/null || MISSING+=("results/sdc/*")
 compgen -G "results/spef/*" >/dev/null || MISSING+=("results/spef/*")
 { compgen -G "results/spice/*.spice" >/dev/null || compgen -G "results/spice/*.spice.gz*" >/dev/null; } || MISSING+=("results/spice/*.spice[.gz]")

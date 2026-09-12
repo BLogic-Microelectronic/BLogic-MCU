@@ -474,9 +474,14 @@ Constraint files: **two**, delivered side by side (Section 6.2).
 is the signoff SDC (`SIGNOFF_SDC_FILE`; identical in every constraint
 line - only the header comment and the `clk` period differ, 37.000 ns =
 the verified 27.0 MHz, 9.1). Every other
-constraint below is present, unchanged, in both files. `results/sdc/`
-carries the SDC as written back by OpenROAD at the end of the flow (the
-PnR view).
+constraint below is present, unchanged, in both files. Section 6.2 asks for
+the SDC used in PnR **and** the one used in the post-PnR signoff STA, and in
+this run they differ, so `results/sdc/` carries all three files:
+`pnr.sdc` and `signoff.sdc` are byte-identical copies of the two flow inputs
+(`constraints/design.sdc`, `constraints/design_signoff.sdc`; the run read them
+as `PNR_SDC_FILE` and `SIGNOFF_SDC_FILE`, `results/config/resolved.json`), and
+`asic_top.sdc` is the SDC as written back by OpenROAD at the end of the flow
+(the PnR view, 20 ns). All three are in `checksums/SHA256SUMS`.
 
 - **Primary clock:** `clk` = `clk_i` port, period 20.000 ns (50 MHz
   target) in `design.sdc`, 37.000 ns (verified 27.0 MHz) in
@@ -629,6 +634,20 @@ Measurement source: **`RUN_hold035_2026-09-09`** (delivery run).
   15 -> 0, 14 -> 0 and 10 -> 9 -> 0, `reports/general/flow.log`; the
   September 6 run needed 7 iterations from 170, the difference being the
   10,509 additional hold cells re-routed), total wire 6.67 m, 856,965 vias.
+  **Congestion / routing overflow (Section 5.4): no separate report exists for
+  this run, declared rather than omitted.** LibreLane Classic 3.0.6 in this
+  configuration writes no congestion or overflow metric - none of the 223 keys
+  of `results/metrics/metrics.json` carries one, `metrics.csv` has no such
+  column, and `reports/general/flow.log` prints no GRT congestion line (its
+  only global-route messages are the `[GRT-0281]` high-fanout notes). What the
+  delivered outputs do show about routability is the result rather than the
+  intermediate overflow: global route completed with `GRT_ALLOW_CONGESTION:
+  true` and `GRT_OVERFLOW_ITERS: 25` without a congestion abort, detailed
+  routing converged to **0 DRC violations** (`reports/routing/`,
+  `route__drc_errors = 0`) in 21 iterations, and the delivered DEF routes
+  19,973 of 19,973 nets. The `run/` directory that would hold the per-iteration
+  global-route logs is not part of the delivered package (Section 6 does not
+  ask for it) and the run was not repeated to regenerate it.
 - **CTS (configuration):** four explicit TritonCTS settings in
   `config.yaml` (added September 6, 2026): `CTS_MACRO_CLUSTERING_MAX_DIAMETER:
   600`, `CTS_MACRO_CLUSTERING_SIZE: 2`, `CTS_OBSTRUCTION_AWARE: true`,
@@ -691,9 +710,9 @@ Measurement source: **`RUN_hold035_2026-09-09`** (delivery run).
 <p align="center"><img src="results/images/asic_top_render_layers.jpg" width="820" alt="asic_top - every layer drawn, power grid visible"></p>
 <p align="center"><sub>The same GDS with every layer drawn (KLayout batch render of the delivered GDS, 9 September 2026): the met4 / met5 power grid and the fill cells cover the whole core, which is what the chip physically looks like &mdash; the render above hides exactly those to expose the logic underneath.</sub></p>
 <p align="center"><img src="results/images/zoom_80um_cells.png" width="360" alt="80 um zoom - standard cell rows">&nbsp;<img src="results/images/zoom_sram_edge.png" width="360" alt="SRAM edge zoom"></p>
-<p align="center"><sub>Left: 80 um window in the densest standard-cell region of the core (centre (1720, 3160) um, 4,249 cells in the window) — standard-cell rows with routing, fill / decap / tap cells and PDN layers hidden. Right: 120 um window on the right edge of AI SRAM bank 0 — bitcell array, periphery and the routing channel. Both rendered from the delivered GDS by <code>scripts/render_zoom.py</code> (KLayout batch), 9 September 2026.</sub></p>
+<p align="center"><sub>Left: 80 um window in the densest standard-cell region of the core (centre (1720, 3160) um, 4,249 cells in the window) — standard-cell rows with routing, fill / decap / tap cells and PDN layers hidden. Right: 120 um window on the right edge of AI SRAM bank 0 — bitcell array, periphery and the routing channel. Both rendered from the delivered GDS (`results/gds/asic_top_klayout.gds.gz`) with a KLayout batch script, 9 September 2026</sub></p>
 <p align="center"><img src="results/images/zoom_25um_transistors.png" width="560" alt="25 um zoom - individual devices"></p>
-<p align="center"><sub>25 um window (centre (1762.5, 3137.5) um) — individual devices of the delivered GDS (<code>scripts/render_zoom.py</code>, KLayout batch, 9 September 2026).</sub></p>
+<p align="center"><sub>25 um window (centre (1762.5, 3137.5) um) — individual devices of the delivered GDS `results/gds/asic_top_klayout.gds.gz` (KLayout batch render, 9 September 2026).</sub></p>
 
 ## 9.8 Lint Results and Exceptions
 
@@ -1279,6 +1298,16 @@ is named as such):
     | `net7416` (resizer-inserted buffer net) | `wire7415/A` | met1 | 685.56 | 400.00 | 1.71 |
     | `i_soc.i_periph_decoder.qspi_wdata[22]` | `i_soc.i_qspi._15086_/A1` | met1 | 645.11 | 400.00 | 1.61 |
 
+    **Scope of this check.** The antenna checker computes the ratio from the
+    gate area behind each pin, which it reads from the cell LEF. The two
+    competition-supplied OpenRAM SRAM LEFs declare no antenna model at all
+    (`ANTENNAGATEAREA` / `ANTENNADIFFAREA` appear 0 times in both
+    `macros/*/lef/*.lef`), so nets that end on an SRAM macro pin cannot be
+    evaluated by it: the "2 nets / 2 pins" result covers the standard-cell
+    pins of the design, not the macro pins. This is a property of the supplied
+    macro views, not something the run could change; the same limitation
+    applies to any flow using these macros.
+
     The standard remedy is one antenna diode per affected gate (or a
     layer hop on the net) as a routing ECO, not a design change. It was
     not applied in this delivery because a full re-run costs 3 h 44 min
@@ -1289,6 +1318,25 @@ is named as such):
     here with its numbers. Route DRC, KLayout DRC, LVS, XOR and PDN are
     clean on the same database (9.11); the two nets are not on the
     critical timing paths of 9.1.
+
+15. **Five `ERROR_ON_*` signoff gates were set to `false` - declared, and
+    the results they gate are reported anyway.** `config.yaml:359-363` turns
+    off `ERROR_ON_MAGIC_DRC`, `ERROR_ON_KLAYOUT_DRC`, `ERROR_ON_LVS_ERROR`,
+    `ERROR_ON_XOR_ERROR` and `ERROR_ON_TR_DRC`, whose LibreLane default is
+    `true`. The reason is that these flags abort the flow at the step that
+    finds a problem, which would have left the run without the later steps and
+    without the very reports Section 5 asks for; with them off the flow always
+    reaches the end and every check writes its report, which is then read and
+    declared here. What the flags gate is delivered and non-zero only where
+    this document says so: KLayout DRC 0 (257 rules, GDS-based), detailed
+    routing DRC 0, LVS "Circuits match uniquely" with 0 errors, XOR 0, and the
+    one non-zero result - Magic DRC's 9,201 `nwell.4` markers on the
+    abstract-view input - has its own item (9.9/4) and its own root-cause
+    measurement. Every other `ERROR_ON_*` in the run kept its default `true`
+    (`results/config/resolved.json`: unmapped cells, synthesis checks, netlist
+    assign statements, PDN violations, disconnected pins, long wires, illegal
+    overlaps, linter errors and timing constructs), so the gates that protect
+    correctness of the netlist itself were all armed.
 
 ## 9.10 Power and IR-Drop Analysis
 
@@ -1390,7 +1438,7 @@ the 20 ns target figures are in `reports/timing_target_20ns/` and in 9.1.
 | Magic DRC (DEF + abstract-view input, `MAGIC_DRC_USE_GDS: false`; the GDS-based signoff DRC is the KLayout row) | 9,201 - all from a single rule (`nwell.4`); root cause measured, accepted exception (9.9/4); identical to the September 6 run |
 | Netgen LVS (real GDS extraction) | **0 errors / 0 device differences** (103,699 devices / 92,242 nets per side, 9.9/5) |
 | XOR (Magic vs KLayout GDS; streamout consistency check, not a DRC) | **0** |
-| Antenna violations | **2 nets / 2 pins** - declared exception, 9.9/14 (September 6 run: 0 / 0). Diodes: 173 from the antenna-repair pass (`antenna_diodes_count`; 101 on September 6) on top of the heuristic insertion (`RUN_HEURISTIC_DIODE_INSERTION`, threshold 90 um, `resolved.json:160`, `:1092`); 96,292 `diode_2` cells in the netlist in total (`design__instance__count__class:antenna_cell`) |
+| Antenna violations | **2 nets / 2 pins** on standard-cell pins - the supplied SRAM LEFs carry no antenna model, so macro pins are outside this check (scope note in 9.9/14) - declared exception, 9.9/14 (September 6 run: 0 / 0). Diodes: 173 from the antenna-repair pass (`antenna_diodes_count`; 101 on September 6) on top of the heuristic insertion (`RUN_HEURISTIC_DIODE_INSERTION`, threshold 90 um, `resolved.json:160`, `:1092`); 96,292 `diode_2` cells in the netlist in total (`design__instance__count__class:antenna_cell`) |
 | Disconnected pins | 880 (classification: note below the table) |
 | PDN grid errors (VPWR / VGND) | **0 / 0** (report files empty) |
 | **Verified operating frequency** (DDK definition of 8 Sep 2026: setup + hold closed in all mandatory corners) | **27.0 MHz (37.000 ns)** - all rows below at this period; target 50 MHz closes setup in TT (+1.218 ns) and FF (+3.685 ns), not in SS (-9.879 ns) - 9.1 |
@@ -1572,8 +1620,8 @@ Notes on the delivered column:
 
 - **Section 6 outputs -> `asic/results/`:** `gds/` (primary +
   comparison), `def/`, `lef/`, `odb/`, `netlist/` (synthesis / PnR /
-  powered), `sdc/` (the PnR SDC as written back by OpenROAD; the two
-  source SDC files of 9.6 are in `asic/constraints/`), `sdf/`, `spef/`,
+  powered), `sdc/` (`pnr.sdc` + `signoff.sdc`, the two flow inputs of 9.6,
+  plus `asic_top.sdc` as written back by OpenROAD), `sdf/`, `spef/`,
   `lib/`, `mag/`, `spice/`, `config/resolved.json`, `metrics/`,
   `images/asic_top.png` (Table 8 layout).
 - The single source of the collection map is

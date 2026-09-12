@@ -185,8 +185,12 @@ if [[ -n "$SYN_DIR" ]]; then
 fi
 req_cp "$FINAL/nl/*.v"     results/netlist "${DESIGN}_pnr.v"
 req_cp "$FINAL/pnl/*.v"    results/netlist "${DESIGN}_powered.v"
-# PnR ve signoff ayni SDC'yi kullaniyor -> tek dosya yeterli (Bolum 6.2).
+# Bolum 6.2 IKI SDC istiyor: PnR'de kullanilan ve post-PnR STA'da kullanilan.
+# Bu kosuda ikisi FARKLI (PNR_SDC_FILE 20 ns, SIGNOFF_SDC_FILE 37 ns), bu yuzden
+# ucu birden teslim edilir: OpenROAD'in geri yazdigi asic_top.sdc + iki kaynak dosya.
 req_cp "$FINAL/sdc/*"      results/sdc
+cp "${ASIC_DIR}/constraints/design.sdc"          results/sdc/pnr.sdc
+cp "${ASIC_DIR}/constraints/design_signoff.sdc"  results/sdc/signoff.sdc
 if [[ -d "$FINAL/spef" ]]; then
     mkdir -p results/spef
     cp -r "$FINAL/spef/." results/spef/
