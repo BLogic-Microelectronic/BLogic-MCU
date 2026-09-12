@@ -6,7 +6,7 @@
 # riscv-arch-test runner — ciktilar logs/arch_test/ altinda
 set -euo pipefail
 PROJ="$(cd "$(dirname "$0")/../.." && pwd)"
-REPO="${PROJ}/verif/arch_tests/suite"   # vendor alt kume: env + rv32i_m/I,M
+REPO="${PROJ}/verif/arch_tests/suite"   # vendor alt kume: env + rv32i_m/I,M,C
 TGT="${PROJ}/verif/arch_tests/target/blogic"
 LOG_ROOT="${PROJ}/logs/arch_test"
 KNOWN="${PROJ}/verif/arch_tests/known_diffs.txt"   # analiz edilmis imza farklari
