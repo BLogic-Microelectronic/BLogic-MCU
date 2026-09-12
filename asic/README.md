@@ -572,7 +572,7 @@ subsystem entered the delivered configuration) are the block at the end of
 `design.sdc` and are listed without line numbers. The file is an input of
 the official run; this table is documentation consolidation only.
 
-| Constraint (`design.sdc` line; the signoff copy's header is 5 lines shorter) | Value | Rationale |
+| Constraint (`design.sdc` line; the signoff copy's header is 4 lines shorter) | Value | Rationale |
 |---|---|---|
 | `create_clock clk` (line 24) | 20.000 ns (50 MHz) in `design.sdc` (PnR); **37.000 ns (27.0 MHz) in `design_signoff.sdc`** (signoff) | Primary system clock (the second clock, `jtag_tck`, is below). The PnR value must equal config.yaml `CLOCK_PERIOD` (9.13 consistency rule); the signoff value is the verified operating frequency of 9.1. In the ASIC the clock comes from a pad; the FPGA's MMCM stays in `fpga_top`. |
 | `set_clock_uncertainty -setup` (line 27) | 0.500 ns | Jitter + skew budget (Section 3.2 "recommended" item); a pessimistic constant since the source is not finalized. |
@@ -580,12 +580,12 @@ the official run; this table is documentation consolidation only.
 | `set_clock_transition` (line 29) | 0.150 ns | Clock input transition time assumption (typical value in the absence of a pad model). |
 | `set_false_path -from rst_ni` (line 43) | - | One of the two reset false paths (the other is `jtag_trst_ni`, JTAG block). `rst_ni` is a primary asynchronous input with no launching clock (release synchronization is expected from the integrating pad ring / reset controller); the reset network is timed from the `dm_ndmreset` startpoint (asynchronous path group, 0 violations, worst removal +0.755 ns FF at the 37 ns signoff (+0.199 ns in the superseded September 6 run)). Carries no real data timing; the Section 3.2 rule "gercekte zamanlanan yol false path yapilamaz" (EN: a genuinely timed path must not be made a false path) is not violated. |
 | `set_false_path -from` asynchronous inputs (lines 60-61) | `gpio_in_i*`, `uart_rxd_i`, `uart1_rxd_i` | 2FF synchronizer (`gpio_axil.sv:44-50`) and asynchronous serial lines; no meaningful arrival window relative to `clk`. A synchronous input_delay produces spurious violations (measured: the TT worst hold path had come out as `gpio_in_i[0]`). |
-| `set_input_delay` (lines 69-70) | max 6.000 / min 0.500 ns | ~30% input budget of the 20 ns PnR period (16% of the 37 ns signoff period) for the inputs that remain synchronous (`i2c_sda_i`, `qspi_io_i*`); ports are given as an explicit list for tool portability. |
-| `set_output_delay` (lines 71-72) | max 6.000 / min 0.500 ns | ~30% output budget (16% at the 37 ns signoff) for ALL outputs; sufficient margin for the low-speed peripherals (UART/I2C/QSPI/GPIO). |
-| `set_load` (line 76) | 5.0 pF | Pessimistic load for pad + external trace; to be refined once the pad model is finalized. |
-| `set_max_transition` (line 81) | 1.000 ns | Design-wide signal integrity rule (Section 3.2). |
-| `set_max_fanout` (line 82) | 32 | Design-wide fanout limit; synthesis/PnR buffer accordingly. |
-| SRAM corner-conditional derate (lines 126-148) | SS: late 2.661 / FF: early 0.500 / TT: 1.0 | The macro Liberty is TT-only; for SS/FF analysis, a proxy coefficient MEASURED from the `dfxtp_1` clk->Q TT/SS ratio (not a waiver but a measurement correction; DDK decision 3 + section 9.5). 1.0 in TT: the TT lib is the exactly correct model. In the PnR context the unconditional pessimistic legacy behavior is retained (freeze discipline). |
+| `set_input_delay` (lines 70-71) | max 6.000 / min 0.500 ns | ~30% input budget of the 20 ns PnR period (16% of the 37 ns signoff period) for the inputs that remain synchronous (`i2c_sda_i`, `qspi_io_i*`); ports are given as an explicit list for tool portability. |
+| `set_output_delay` (lines 72-73) | max 6.000 / min 0.500 ns | ~30% output budget (16% at the 37 ns signoff) for ALL outputs; sufficient margin for the low-speed peripherals (UART/I2C/QSPI/GPIO). |
+| `set_load` (line 77) | 5.0 pF | Pessimistic load for pad + external trace; to be refined once the pad model is finalized. |
+| `set_max_transition` (line 82) | 1.000 ns | Design-wide signal integrity rule (Section 3.2). |
+| `set_max_fanout` (line 83) | 32 | Design-wide fanout limit; synthesis/PnR buffer accordingly. |
+| SRAM corner-conditional derate (lines 127-149) | SS: late 2.661 / FF: early 0.500 / TT: 1.0 | The macro Liberty is TT-only; for SS/FF analysis, a proxy coefficient MEASURED from the `dfxtp_1` clk->Q TT/SS ratio (not a waiver but a measurement correction; DDK decision 3 + section 9.5). 1.0 in TT: the TT lib is the exactly correct model. In the PnR context the unconditional pessimistic legacy behavior is retained (freeze discipline). |
 | Generated clock | NONE | QSPI SCLK is generated from `clk` via a register output (<= clk/2), not used as an internal clock; its data paths stay in the `clk` domain (the "ilgili yapi varsa zorunlu" (EN: mandatory only if the relevant structure exists) condition is not triggered). |
 | `create_clock jtag_tck` (JTAG block, end of design.sdc) | 100.000 ns | JTAG TAP clock on `jtag_tck_i`; OpenOCD adapter speed <= 10 MHz. Uncertainty setup 0.500 / hold 0.100 ns, transition 0.150 ns - same budget logic as `clk`. |
 | `set_clock_groups -asynchronous` clk / jtag_tck (JTAG block) | 2 groups | The two clocks have no phase relation; the only crossing is riscv-dbg's `dmi_cdc` two-phase handshake (2FF synchronizers), so no timing path between them is real. MMCM outside `asic_top`. |
@@ -593,6 +593,8 @@ the official run; this table is documentation consolidation only.
 | `set_input_delay -clock jtag_tck` on `jtag_tms_i`/`jtag_tdi_i` (JTAG block) | max 20.000 / min 2.000 ns | TMS/TDI are sampled on the rising TCK edge; 20% of the 100 ns period as external budget. |
 | `set_output_delay -clock jtag_tck` on `jtag_tdo_o` + `set_load` (JTAG block) | max 20.000 / min 2.000 ns, 5.0 pF | TDO is driven on the falling TCK edge (IEEE 1149.1); pad + probe-cable budget. |
 | Multicycle path | NONE | All paths are closed under the single-cycle rule; no exception is defined. |
+
+The comments in `design_signoff.sdc` that quote `max clk/2 = 25 MHz` (line 155) and a ~30 % I/O budget (line 44) are copied from `design.sdc` and describe its 20 ns PnR period; at the 37 ns signoff period the figures are 13.5 MHz and ~16 %. The file is an input of the delivered run, so its comments are left as they are.
 
 ## 9.7 Physical Design Configuration
 
@@ -1119,7 +1121,7 @@ is named as such):
 
     | Warning | Count | Step | Cause | Impact on signoff |
     |---|---|---|---|---|
-    | `check_setup`: input ports without `set_input_delay` | 36 per corner | signoff STA | `gpio_in_i[31:0]`, `uart_rxd_i`, `uart1_rxd_i`, `rst_ni`, `jtag_trst_ni` - false paths (`design_signoff.sdc:38`, `:56`, `:171`; 9.6) | none: asynchronous inputs without a launching clock |
+    | `check_setup`: input ports without `set_input_delay` | 36 per corner | signoff STA | `gpio_in_i[31:0]`, `uart_rxd_i`, `uart1_rxd_i`, `rst_ni`, `jtag_trst_ni` - false paths (`design_signoff.sdc:39`, `:57`, `:173`; 9.6) | none: asynchronous inputs without a launching clock |
     | `check_setup`: unconstrained endpoints | 16 per corner | signoff STA | `i_soc.i_gpio._208_` ... `_223_/D`, the first synchronizer stage (`gpio_in_sync1[15:0]`) behind the false-path `gpio_in_i` | none: synchronizer inputs; the same check reports no loops and no unclocked or multi-clock endpoints |
     | `[STA-0469]` derating factor greater than 2.0 | 26 | every step that loads the SDC | the 2.661x SS late derate on the SRAM macros (9.5) | intended |
     | `[STA-1140]` library already exists | 16 | 32, 35, 37, 44 | the two SRAM Liberty files are loaded twice in those steps | none |
@@ -1282,8 +1284,13 @@ is named as such):
     period-independent by construction. Closing the `max` corners would need
     another hold-repair pass at a higher margin, i.e. another full run and
     another setup cost (9.9/12); that trade was not taken inside the freeze
-    window. Evidence: `reports/timing/` (mandatory three, delivered) and the
-    nine-corner re-run log kept with the run.
+    window. Evidence: the `nom` row is `reports/timing/summary.rpt`
+    (mandatory three, delivered). The `min` and `max` rows come from an
+    additional signoff STA run with nine corners on the delivered database
+    and the committed `results/spef/min` / `results/spef/max` parasitics;
+    its reports are not part of the delivered set (`run/` is deleted at
+    delivery), so those six cells are quoted here and cannot be re-checked
+    from this repository alone.
 
 14. **Antenna: 2 violating nets / 2 pins after antenna repair (173 repair
     diodes, `antenna_diodes_count`, besides the heuristically inserted
@@ -1484,7 +1491,7 @@ the 20 ns target figures are in `reports/timing_target_20ns/` and in 9.1.
   close in every corner at the signoff period (WS +0.197 ns in SS, TNS 0),
   computed with the actual slews and loads. Most limits come from the
   SDC, not the library: `set_max_transition 1.000` and `set_max_fanout 32`
-  (`design_signoff.sdc:76-77`); the others are Liberty limits (SRAM input
+  (`design_signoff.sdc:78-79`); the others are Liberty limits (SRAM input
   pins 0.04 ns, SRAM `dout1` 27.56 fF, standard-cell `max_capacitance` of
   each corner library). Classified from `checks.rpt`:
 
@@ -1492,7 +1499,7 @@ the 20 ns target figures are in `reports/timing_target_20ns/` and in 9.1.
   |---|---|---|---|---|
   | **Max slew, total** | 5,681 | 33,927 | 2,883 | |
   | antenna-diode pins (`ANTENNA_*/DIODE`) | 2,455 | 16,616 | 1,043 | the slew of a net is listed again at every diode pin on it |
-  | output ports with the SDC's 5 pF `set_load` (`design_signoff.sdc:71`, rationale 9.6.1) | 31 | 31 | 31 | worst 5.31 / 7.69 / 4.25 ns; set by the pessimistic pad budget |
+  | output ports with the SDC's 5 pF `set_load` (`design_signoff.sdc:73`, rationale 9.6.1) | 31 | 31 | 31 | worst 5.31 / 7.69 / 4.25 ns; set by the pessimistic pad budget |
   | SRAM `addr0` / `addr1` / `wmask0` pins, Liberty limit 0.04 ns | 584 | 584 | 584 | outside the macro's characterised input range (worst 0.32 / 0.50 / 0.25 ns); its setup/hold tables are flat in slew (0.103 / -0.056 ns, `...32x512_8_TT_1p8V_25C.lib:191-213`, `:228-250`, `:430-452`), so the constraint values do not change, but they are used outside their characterisation |
   | other pins over 1.000 ns, incl. the 31 buffers driving those ports (up to 7.64 ns in SS) | 2,611 | 16,696 | 1,225 | worst after the port buffers: SRAM `din0` pins, 2.34 / 3.53 / 1.88 ns |
   | clock pins | 0 | 0 | 0 | |

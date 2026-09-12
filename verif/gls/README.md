@@ -35,14 +35,28 @@ powershell -ExecutionPolicy Bypass -File verif\gls\run_gls.ps1 -CellLibDir <dir>
 `run_gls.ps1` copies every input into an ASCII work directory (default
 `C:\gls_work`), compiles (`gls_compile.do`), runs (`gls_run.do`), counts
 timing-check violations and classifies the SDF annotation messages by cell
-type (`sdf_msg_census.py`). The long run uses `gls_full_ckpt.do`, which
-checkpoints every 15 ms of simulated time so an interrupted run can be
-restored instead of repeated. **Each archived log is committed next to the
+type (`sdf_msg_census.py`); with the default `-RunTime -all` it then prints
+`GLS PASS` or exits with code 1 (finite negative-control runs get no
+verdict). `run_gls.ps1` always runs `gls_run.do`, without checkpoints. The
+archived long run used `gls_full_ckpt.do` instead, which checkpoints every
+15 ms of simulated time so an interrupted run can be restored instead of
+repeated; `run_gls.ps1` neither copies nor calls it (copy it into the work
+directory after `run_gls.ps1` has compiled there and start it with
+`vsim -c -do gls_full_ckpt.do -l <log>`). With `run -all` the testbench's
+`$finish` ends `vsim` before the `GLS_BITTI` wall-clock line of the `.do`
+files, so that line appears only in finite-`RUNTIME` runs. **Each archived log is committed next to the
 `.do` file that produced it** (`verif/results/2026-09-10/gls/run_*.do` and
 `verif/results/2026-09-12/gls/run_37ns_full.do`, plus the compile log and
 `gls_compile.do`), so the evidence and the script that made it cannot drift
 apart. The archived logs are the raw Questa transcripts, gzipped and otherwise
-unedited.
+unedited. The run scripts were renamed when archived; the name each log prints
+on its first line maps as `neg5.do` -> `run_5ns.do`, `neg.do` ->
+`run_14ns_1ms.do`, `gls_speed_sdf.do` -> `run_37ns_1ms.do` and
+`gls_full_ckpt.do` -> `run_37ns_full.do`; the vsim command echoed on each
+log's second line carries the same arguments as the committed file.
+`verif/gls/gls_full_ckpt.do` itself now loops 21 x 15 ms instead of the
+archived 12 x 15 ms, so a hang reaches the testbench's 300 ms
+`FAIL: TIMEOUT` instead of ending silently at 180 ms.
 
 ## Annotation coverage (measured)
 
@@ -117,7 +131,8 @@ do fire, 553 times, and the chip stops working.
   The 2,959 suppressed errors are SDF annotation failures that `-sdfnoerror`
   downgrades; the census shows every unannotated SDF entry belongs to one of
   the 27 SRAM macros, and the count is identical in all four runs of this
-  package, including the two that never leave the boot ROM.
+  package, including the three that never leave the boot ROM (5 ns,
+  14 ns / 1 ms and 37 ns / 1 ms).
 - Cost: about 1 h 55 min of compute (47 s per simulated ms with a checkpoint
   every 15 ms; the wall-clock figure in the log is larger because the laptop
   slept during the run).

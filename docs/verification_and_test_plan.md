@@ -15,9 +15,11 @@ peripheral register definitions.
 
 This document answers three questions: **what** is verified (scope),
 **how** it is verified (methods), and **how complete** the effort is
-(exit criteria and status). Every result in this document is reproducible
-from a clean clone with the commands in Section 17; nothing requires
-manual inspection to decide pass/fail.
+(exit criteria and status). Every result in this document except the
+gate-level simulation of Section 4.8 (Questa on Windows plus the
+sky130_fd_sc_hd cell models) is reproducible from a clean clone with the
+commands in Section 17; nothing requires manual inspection to decide
+pass/fail.
 
 ---
 
@@ -149,8 +151,10 @@ zero violations**.
 
 ### 4.3 Reference-model comparison (EK-3: core tests)
 
-- **riscv-arch-test**: RV32I + RV32M suites compiled for the DUT,
-  signatures diffed against Spike ISS golden signatures.
+- **riscv-arch-test**: RV32I + RV32M + RV32C suites (73 tests; RV32C
+  added 10 September 2026) compiled for the DUT, signatures diffed against
+  Spike ISS golden signatures (72/73 identical, 1 analysed known
+  difference - Section 9).
 - **Spike lockstep**: the core trace interface is compared record-by-
   record against Spike; the deep run covers **319,995 PC records** with
   zero divergence.
@@ -179,12 +183,14 @@ block-agnostic AXI-Lite agent:
   compares the conv_out tensor (1000 words) with the golden model.
   `ai_directed_test`: reset values, read-back, unmapped offsets, two
   end-to-end inferences (START -> BUSY -> `irq_o` -> `STATUS.RESULT` =
-  golden argmax, result word at `OUT_ADDR`, conv_out 0/1000 mismatches
-  -> CLEAR_DONE) and a START written while busy that must be ignored.
+  golden argmax, result word at `OUT_ADDR`, conv_out 0/1000 mismatches,
+  exactly 1,001 AXI4 write beats per inference -> CLEAR_DONE) and a START
+  written while busy that must be ignored.
   `ai_random_test`: 80 constrained-random CSR transactions (START
-  excluded by constraint; a coverage gate requires every offset to be
-  visited, CTRL / DATA_ADDR / OUT_ADDR written and STATUS read), then a
-  correct inference from the restored configuration.
+  excluded by constraint; every offset is targeted 10 times by
+  construction and STATUS is read-only by constraint; a coverage gate
+  requires CTRL / DATA_ADDR / OUT_ADDR to be written at least once), then
+  a correct inference from the restored configuration.
 
 Directed tests check reset values, read-back semantics and block
 behavior beyond plain register access: Timer counting/CLR/event-clear,
@@ -736,6 +742,7 @@ riscv32, Spike ISS; FPGA side Vivado 2021.2):
     make lint-fpga                                # fpga_top with the BSCANE2 TAP
     make jtag-gates                               # + jtag-equiv isolation proof, OpenOCD/gdb demos if installed
     make asic-top-sim                             # asic_top + 27 macro models: boot + AI, argmax (FC-1 fix proof)
+    powershell -ExecutionPolicy Bypass -File verif\gls\run_gls.ps1 -CellLibDir <dir>   # Section 4.8: Windows + Questa + sky130 cell models, ~2 h
     make boot-real                                # real-flash timing boot
     python3 sw/ai_model/kart_sweep.py --n 60      # board (Genesys-2 attached)
     make jtag-board                               # board, OpenOCD through the on-board USB-JTAG (Section 12)

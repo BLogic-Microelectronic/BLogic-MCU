@@ -40,6 +40,19 @@ $log = "gls_run_${Tclk}ns.log"
 vsim -c -do "set TCLK $Tclk; set RUNTIME $RunTime; do gls_run.do" -l $log | Out-Null
 
 $viol = (Select-String -Path $log -Pattern '\$(setuphold|setup|hold|recrem|recovery|removal|width|period)\(').Count
-Select-String -Path $log -Pattern "TEST SUCCESS|FAIL|GLS_BITTI" | ForEach-Object { $_.Line }
+# -CaseSensitive: aksi halde "FAIL" binlerce "Failed to find matching specify" SDF uyarisina da uyar
+Select-String -CaseSensitive -Path $log -Pattern "TEST SUCCESS|FAIL:|GLS_BITTI" | ForEach-Object { $_.Line }
 "zamanlama denetimi ihlali: $viol"
 python "$repo\verif\gls\sdf_msg_census.py" $log asic_top_tt.sdf
+
+# Karar (yalniz -RunTime -all; sonlu negatif kontrol kosularinda karar yok):
+# TB kendi sonucunu basar - TEST SUCCESS olmali, FAIL: ve zamanlama ihlali olmamali.
+if ($RunTime -eq "-all") {
+    $pass = Select-String -CaseSensitive -Path $log -Pattern "TEST SUCCESS" -Quiet
+    $fail = Select-String -CaseSensitive -Path $log -Pattern "FAIL:" -Quiet
+    if ((-not $pass) -or $fail -or ($viol -ne 0)) {
+        Write-Host "GLS FAIL (log: $WorkDir\$log)"
+        exit 1
+    }
+    "GLS PASS"
+}

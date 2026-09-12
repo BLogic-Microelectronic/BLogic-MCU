@@ -95,8 +95,10 @@ package ai_uvm_pkg;
     // Hedef ofset her turda 8 ofsetin karistirilmis sirasindan gelir; yon (R/W)
     // ve veri cozucuden gelir. Olculdu (10 Eylul): adres de cozucuye birakilinca
     // dagilim 0x18/0x1C'ye yigiliyor, STATUS hic okunmuyor ve CTRL'e hic
-    // yazilmiyordu. Sonda kapsama kapisi: her ofsete erisildi mi, CTRL/DATA_ADDR/
-    // OUT_ADDR'a en az bir kez yazildi mi - degilse UVM_ERROR.
+    // yazilmiyordu. Her ofsete 10 erisim ve STATUS'un yalniz okunmasi yapi ve
+    // kisit geregi garanti (asagidaki ofset/STATUS denetimleri yalniz akil
+    // sagligi denetimi); asil kapsama kapisi: CTRL/DATA_ADDR/OUT_ADDR'a en az
+    // bir kez yazildi mi - degilse UVM_ERROR.
     // --------------------------------------------
     class ai_csr_random_seq extends axi_lite_base_seq;
         `uvm_object_utils(ai_csr_random_seq)
@@ -197,9 +199,11 @@ package ai_uvm_pkg;
             bit        seen;
             int        cyc;
             int unsigned res;
+            int unsigned wr0;
 
             wr(32'h08, AI_BASE);
             wr(32'h0C, out_addr);
+            wr0 = side.wr_beats;
             wr(32'h00, 32'h1);                       // START
             rd(32'h04, st);
             if (st[0] !== 1'b1 || side.busy !== 1'b1)
@@ -222,6 +226,9 @@ package ai_uvm_pkg;
             check_eq("sonuc sozcugu verisi", side.last_wr_data, res);
             check_eq("conv_out altin farki (1000 sozcuk)", side.conv_errors, 0);
             check_eq("tamamlanan cikarim sayisi", side.done_count, exp_done);
+            // conv_out penceresi cikarimlar arasinda silinmez: geri yazmayi atlayan bir
+            // cikarim onceki dogru sozcuklerle conv_out denetimini gecerdi. Sayim yakalar.
+            check_eq("cikarim AXI4 yazma sozcugu (1000 conv_out + 1 sonuc)", side.wr_beats - wr0, 32'd1001);
 
             wr(32'h00, 32'h2);                       // CLEAR_DONE
             settle();
@@ -251,6 +258,7 @@ package ai_uvm_pkg;
             bit [31:0] v;
             bit        seen;
             int        cyc;
+            int unsigned wr0;
 
             sqr = env.agent.sequencer;
             phase.raise_objection(this, "ai_directed_test");
@@ -279,6 +287,7 @@ package ai_uvm_pkg;
             // 5) Cikarim #2: farkli sonuc adresi + mesgulken ikinci START yok sayilmali
             wr(32'h08, AI_BASE);
             wr(32'h0C, 32'h0003_7F00);
+            wr0 = side.wr_beats;
             wr(32'h00, 32'h1);                       // START
             wr(32'h00, 32'h1);                       // mesgulken START: RTL !status_busy ile dislar
             rd(32'h00, v); check_eq("CTRL okuma (mesgul)", v, 32'h0);
@@ -288,6 +297,7 @@ package ai_uvm_pkg;
             check_eq("cikarim #2 STATUS.RESULT", v[7:4], side.expected_argmax);
             check_eq("cikarim #2 sonuc adresi", side.last_wr_addr, 32'h0003_7F00);
             check_eq("cikarim #2 conv_out farki", side.conv_errors, 0);
+            check_eq("cikarim #2 AXI4 yazma sozcugu (1000 conv_out + 1 sonuc)", side.wr_beats - wr0, 32'd1001);
             wr(32'h00, 32'h2);
             // mesgulken START ikinci bir cikarim baslatmis olsaydi bir cikarim
             // suresi icinde ucuncu DONE gelirdi: 1,5 cikarim suresi bekle

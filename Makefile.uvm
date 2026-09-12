@@ -271,7 +271,7 @@ directed: $(GPIO_BIN) run_one
 
 random: UVM_TESTNAME=gpio_random_test
 random: UVM_BIN=$(GPIO_BIN)
-random: $(GPIO_BIN) run_one
+random: check_solver $(GPIO_BIN) run_one
 
 # Kisa yollar — Timer
 timer_directed: UVM_TESTNAME=timer_directed_test
@@ -309,7 +309,8 @@ ai_random: UVM_TESTNAME=ai_random_test
 ai_random: UVM_BIN=$(AI_BIN)
 ai_random: check_solver $(AI_BIN) run_one
 
-all: clean compile_all run_all
+# check_solver en basta: z3 yoksa temizlik ve bes binarinin derlenmesinden once durur
+all: check_solver clean compile_all run_all
 
 # Temizlik
 clean:
