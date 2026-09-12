@@ -217,10 +217,11 @@ asic-sram-sim:
 # TAM-YIGIN ISLEVSEL SIMULASYON (ASIC ust modulu + teslim edilen SRAM makro
 # modelleri). DIKKAT - kapsam siniri: bu hedef RTL derler (soc_files.f +
 # rtl/asic/asic_top.sv) ve saticinin OpenRAM DAVRANISSAL Verilog modellerini
-# kullanir; yerlesim sonrasi netlist ya da SDF gecikmeli benzetim DEGILDIR
-# (depoda oyle bir hedef yok). Kanitladigi sey islevsellik ve makro okuma-yazma
-# sozlesmesidir, yerlesim sonrasi zamanlama degil - zamanlama kaniti STA'dir
-# (asic/reports/timing). DUT olarak GDS'in gercek ust modulu
+# kullanir; yerlesim sonrasi netlist ya da SDF gecikmeli benzetim DEGILDIR.
+# Kanitladigi sey islevsellik ve makro okuma-yazma sozlesmesidir, yerlesim
+# sonrasi zamanlama degil - onun kaniti STA (asic/reports/timing) ve teslim
+# netlistinin TT SDF'li kapi seviyesi benzetimidir (verif/gls, 12 Eylul 2026
+# PASS; Questa gerektirir, bu yuzden make hedefi degil). DUT olarak GDS'in gercek ust modulu
 # asic_top (soc_top DEGIL) + ASIC_SRAM_MACRO + teslim edilen OpenRAM
 # modelleri; firmware flash'tan boot eder ve YZ CIKARIMI kosar. Boylece:
 #   1) asic_top port baglantilari YURUTULEREK dogrulanir (LVS baglantiyi

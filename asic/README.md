@@ -370,9 +370,12 @@ models, booting from QSPI flash and then running the AI accelerator's
 convolution layer. **Scope limit:** this is an **RTL** simulation
 (`soc_files.f` + `rtl/asic/asic_top.sv`) against the vendor's *behavioural*
 macro models; it is **not** a post-layout netlist or SDF back-annotated
-simulation, and this delivery contains no such run. It proves functional
-behaviour and the macro read/write contract at the ASIC top level — the
-post-layout timing evidence is the three-corner STA of 9.11, not this run.
+simulation. It proves functional behaviour and the macro read/write contract at
+the ASIC top level. The post-layout evidence is the three-corner STA of 9.11
+plus the gate-level simulation of the delivered netlist with the TT SDF
+back-annotated (`verif/gls/`, PASS on 12 September 2026: boot + inference
+bit-exact at the 37.000 ns signoff period, 0 timing-check violations over
+3,898,641 cycles).
 The firmware (`sw/tests/ai_boot_macro_test.c`) checks the 1000-word
 `conv_out` region in AI SRAM bit-exactly against the committed golden
 vector (FNV-1a checksum of `conv_out_yes_real.hex`). A single-word

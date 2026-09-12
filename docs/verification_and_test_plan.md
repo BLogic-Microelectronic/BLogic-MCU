@@ -252,6 +252,23 @@ reset run) and `scripts/kart_jtag_entegrasyon.py` (a debug session
 interleaved with live inferences, hardware breakpoint before the
 accelerator starts) - Section 12.
 
+### 4.8 Gate-level simulation of the delivered netlist (SDF, TT)
+
+The third kind of dynamic evidence, added on 12 September 2026: the
+post-layout netlist of `RUN_hold035_2026-09-09` itself (not the RTL) is
+simulated in Questa with the delivered TT SDF back-annotated, at the verified
+37.000 ns period. The boot ROM inside the netlist loads the firmware from the
+QSPI flash model, the CPU then fetches from the instruction SRAM through the
+half-cycle read path that sets the frequency declaration, and the accelerator
+runs one inference; the greeting is printed only if the 1000-word `conv_out`
+checksum and the FC argmax match the golden model. Result: **PASS**, 0
+timing-check violations over 3,898,641 cycles. Negative control at a 5 ns
+period on the same netlist: 553 violations and no boot. Method, annotation
+census, negative controls and scope limits (TT corner only, behavioural SRAM
+models, X-start, dynamic not exhaustive): `verif/gls/README.md`; logs under
+`verif/results/2026-09-12/gls/` and `verif/results/2026-09-10/gls/`. Not part
+of `make test-all` - it needs Questa and about two hours of compute.
+
 ## 5. EK-3 Activity Classes - Traceability and Exit Criteria
 
 | EK-3 activity | Priority | Implementation | Exit criterion | Status |
@@ -667,6 +684,10 @@ that the methodology works, not just that the design passes:
   1.6-1.7x the limit, on nets re-routed by the hold-repair pass; 173 diodes
   inserted) - declared exception, `asic/README.md` 9.9/14; route DRC,
   KLayout DRC (257 rules), LVS, XOR and PDN are clean.
+- **Gate-level simulation scope:** the netlist+SDF run of 4.8 covers the TT
+  corner only, uses the vendor's behavioural SRAM models (their arcs are not
+  annotated) and is dynamic, so it proves the boot+inference sequence rather
+  than every path; SS setup and FF hold remain STA-only evidence.
 - **Specification deviations and clock-dependent rates:** declared in one
   place, root README 5.7 (UART_CFG[0] does not trigger transmission - a TDR
   write does; UART bit time = 8 x floor(CPB/8) clocks; I2C SCL divider
