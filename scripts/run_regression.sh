@@ -181,4 +181,5 @@ run_test "QSPI_Flash" 434 434 "sw/tests/qspi_test.c"
     echo " En son kosum   : logs/latest/"
 } | tee -a "$SUMMARY"
 
-exit "$FAIL"
+# Protokol ihlali de kosuyu dusurur (ozet bandi zaten FAIL diyordu)
+exit $((FAIL + PROTO_FAIL))
