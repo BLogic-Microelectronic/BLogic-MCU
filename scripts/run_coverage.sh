@@ -76,9 +76,10 @@ verilator_coverage --annotate logs/coverage/annotate --annotate-min 1 --annotate
 # Her test farkli bin alt kumesini uyarir; anlamli rakam BIRLESIM'dir.
 # UART icin birlesim bin bazinda hesaplanir (CPB 434/50/5208 + STP 00/01/10/11
 # sayaclari test loglarindan toplanir); 6 Eylul 2026 oncesi "en iyi tek test"
-# (max) aliniyordu ve 5/7 basiliyordu - gercek birlesim 6/7'dir (STP=11
-# hicbir SoC testinde programlanmaz; RTL'de 1X = 2 stop, blok seviyesinde
-# uart_stp_tb olcer). Diger bloklar tek testte %100'e ulastigi icin
+# (max) aliniyordu ve 5/7 basiliyordu - 6 Eylul'de gercek birlesim 6/7 idi (STP=11
+# hicbir SoC testinde programlanmiyordu). 12 Eylul'den beri uart_stp_reg_test
+# STP=3 ile 11 kodunu da programlar ve birlesim 7/7'dir (RTL'de 1X = 2 stop;
+# blok seviyesinde uart_stp_tb de olcer). Diger bloklar tek testte %100'e ulastigi icin
 # max = birlesim.
 # Yalniz BU kosunun TESTS listesindeki SoC test loglari okunur (glob yok):
 # blok-TB loglari (logs/coverage/tb/) ve bayat loglar birlesime giremez.

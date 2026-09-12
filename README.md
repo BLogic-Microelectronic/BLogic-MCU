@@ -810,7 +810,7 @@ the same 15 tests measured 91.1 % line / 91.3 % branch; the 22 idle-only
 lines of `axi_dm_slave.sv` account for the whole difference.
 
 <p align="center"><img src="images/coverage_terminal_20260910.png" width="760" alt="make coverage summary: line 90.7 %, branch 88.6 %, functional coverage 21/22"></p>
-<p align="center"><sub><code>make coverage</code>, main-branch run of 10 September 2026 on Verilator 5.049 — line <b>90.7 %</b> (359/396), branch <b>88.6 %</b> (819/924), annotation 90.0 % (1685/1856), functional coverage <b>21/22</b> (UART 6/7, QSPI 7/7, AI-CSR 5/5, IRQ 3/3) and the EK-2 v1.3 <code>CFG[0]</code> auto-clear proof (6,374 checks, 0 violations). Text rendered verbatim from <code>verif/coverage_summary.txt</code>. The 9 September image showed 22/22 from a contaminated union — see the functional-coverage paragraph below.</sub></p>
+<p align="center"><sub><code>make coverage</code>, main-branch run of 10 September 2026 on Verilator 5.049, before the <code>STP=3</code> phase of 12 September (the summary is now 22 / 22) — line <b>90.7 %</b> (359/396), branch <b>88.6 %</b> (819/924), annotation 90.0 % (1685/1856), functional coverage <b>21/22</b> (UART 6/7, QSPI 7/7, AI-CSR 5/5, IRQ 3/3) and the EK-2 v1.3 <code>CFG[0]</code> auto-clear proof (6,374 checks, 0 violations). Text rendered verbatim from <code>verif/coverage_summary.txt</code>. The 9 September image showed 22/22 from a contaminated union — see the functional-coverage paragraph below.</sub></p>
 
 Every remaining uncovered line falls into one of three documented classes
 (`verif/coverage_siniflandirma.md`):
@@ -853,13 +853,16 @@ Committed summary: `verif/coverage_tb_summary.txt`.
 
 #### Functional coverage
 
-SVA-based covergroups are bound to the UART, QSPI, AI-accelerator CSR and IRQ
-interfaces (`verif/sva/*_func_cov.sv`). Over a full `make coverage` run the merged
-covergroups reach **21 / 22 bins (95 %)**: UART 6 / 7 (CPB 434 / 50 / 5208 and
-stop-bit codes 00 / 01 / 10; the reserved code 11 is programmed by no SoC test —
-the block testbench `uart_stp_tb` measures it), QSPI 7 / 7, AI-CSR 5 / 5, IRQ 3 / 3
-(timer irq16, AI irq17, stream irq18). The UART auto-clear checker (EK-2 v1.3) logs
-**6,374 checks, 0 violations** (10 September 2026). Two flaws of the summary script
+Functional-coverage monitors (`verif/sva/*_func_cov.sv`) are bound to the UART, QSPI,
+AI-accelerator CSR and IRQ interfaces. Over a full `make coverage` run the merged bins
+reach **22 / 22 (100 %)**: UART 7 / 7 (CPB 434 / 50 / 5208 and stop-bit codes
+00 / 01 / 10 / 11), QSPI 7 / 7, AI-CSR 5 / 5, IRQ 3 / 3 (timer irq16, AI irq17, stream
+irq18). The UART auto-clear checker (EK-2 v1.3) logs **6,410 checks, 0 violations**
+(12 September 2026). Stop-bit code 11 is a valid encoding, not a reserved one: EK-2
+defines `1X` as two stop bits and `uart_axil.sv` looks only at `STP[1]`. Until
+12 September no SoC test programmed it (21 / 22, UART 6 / 7), although the block
+testbench `uart_stp_tb` already measured 11 against 10; `sw/tests/uart_stp_reg_test.c`
+now transmits a line with `STP=3` and reads the register back. Two flaws of the summary script
 were found and fixed along the way. Until 6 September it took the best single test
 instead of the union over tests and reported UART 5 / 7. Until 10 September it took
 the union over *every* log under `logs/coverage/`, including the block-testbench log

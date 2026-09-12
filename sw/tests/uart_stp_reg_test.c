@@ -1,7 +1,7 @@
 // ============================================
 // Ostim BLogic Mikroelektronik
 // uart_stp_reg_test.c  -  UART stop-bit uzatma + register okuma testi
-// STP=+1 bit, STP=+0.5 bit yollari ve CPB/STP/RDR/TDR readback'leri
+// STP=+1 bit (10 ve 11 kodlari), STP=+0.5 bit yollari ve CPB/STP/RDR/TDR readback'leri
 // ============================================
 #include "../drivers/blogic_mcu.h"
 
@@ -42,6 +42,15 @@ int main(void) {
     if (UART0->CPB != 434U) { ok = 0U; }
     (void)UART0->RDR;   // RO okuma kolu
     (void)UART0->TDR;   // son yazilan byte okunur
+
+    // Faz 3: STP=3 ("11"). Sartname EK-2: "1X" = 2 stop bit, yani 11 kodu
+    // da gecerli ve 10 ile ayni +1 bit uzatmayi uretmeli (RTL yalniz STP[1]'e
+    // bakar). Bu faz 11 kodunun gonderimde kullanildigini SoC seviyesinde
+    // kanitlar; blok seviyesinde sure olcumu verif/tb/uart_stp_tb.sv'de.
+    UART0->STP = 3U;
+    uart_puts(UART0, "[UART-STP] faz3: STP=3 (1X, +1 bit)\n");
+    tx_drain();
+    if (UART0->STP != 3U)   { ok = 0U; }
 
     // varsayilan moda don, sonucu bas
     UART0->STP = 0U;
