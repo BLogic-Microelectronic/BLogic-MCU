@@ -632,9 +632,9 @@ cd obj_dir && ./blogic_sim +CPB=434
 | **SoC integration sim** | Verilator + `sim_main.cpp` | Full SoC, UART golden-string monitor |
 | **ISA compliance** | `riscv-arch-test` repo + Spike signature compare | RV32I / M / C self-tests (73) |
 | **Lockstep** | Spike ISS + Python diff (`verif/spike/compare_traces.py`) | Cycle-by-cycle PC + commit trace |
-| **Bus protocol** | SystemVerilog Assertions (SVA) bound to 10 AXI / AXI-Lite interfaces | Protocol-level legality |
+| **Bus protocol** | Procedural protocol checkers (`verif/sva/`) bound to 10 AXI / AXI-Lite interfaces | Handshake and payload-stability rules, AXI4 burst rules |
 | **UVM** | Vendored UVM (`verif/uvm-lib`) + block-agnostic AXI-Lite agent | 5 blocks (GPIO / Timer / UART_0 / I2C / AI accelerator CSR + AXI4 master), directed + constrained-random (z3), reference-model scoreboards |
-| **AI accuracy** | Python `run_accuracy_window.py` + RTL TB | 1000-sample bit-exact SW vs RTL match |
+| **AI accuracy** | Python `run_accuracy_window.py` + RTL TB | 1000-sample SW (TFLite) vs RTL class match, 1000/1000 (FC logits bit-exact on 981/1000, max 1 LSB) |
 | **Coverage** | Verilator `--coverage-line` + uncovered-line classification | SoC 90.7 % line / 88.5 % branch on Verilator 5.052 (`main`, Verilator 5.049: 88.6 %) (JTAG bridge 100 % under `make jtag-cov`); every remaining line justified (`verif/coverage_siniflandirma.md`) |
 
 ### 10.2 Regression Test Suite
@@ -654,7 +654,7 @@ make regression
 | 4 | Spike ISS Lockstep (minimal) | `sw/tests/minimal_test.c` | **PASS** |
 | 5 | Spike ISS Lockstep (deep, 319,995 PC records) | `sw/tests/lockstep_deep.c` | **PASS** |
 | 6 | QSPI Flash addressing | `sw/tests/qspi_test.c` | **PASS** |
-| — | **AXI / AXI-Lite Protocol Compliance** | 10 interfaces, every cycle | **40 / 40 COMPLIANT** (40 = protocol-checker report blocks emitted across the six runs, all clean) |
+| — | **AXI / AXI-Lite Protocol Compliance** | 10 interfaces, every cycle | **40 / 40 COMPLIANT** (40 = 10 interface reports x the four functional runs, all clean; the two Spike lockstep runs carry no protocol report) |
 
 ### 10.3 ISA Compliance (RV32IMC: directed test 31/31 PASS, riscv-arch-test 72/73 + 1 analysed known difference)
 
@@ -678,6 +678,9 @@ The C-level smoke test (`sw/tests/isa_compliance_test.c`) covers the RV32IMC sub
 **Official suite — `make arch-test`** (default `ARCH_EXT="I M C"`, 73 tests: RV32I 38,
 RV32M 8, RV32C 27). Every test runs on the SoC model and on Spike; the gate is `tohost`
 written **and** the DUT signature identical to Spike's (`verif/arch_tests/run_arch_test.sh`).
+Without `spike` on `PATH`, or with an empty DUT signature, a test is never counted as PASS: it
+fails, or with `ARCH_ALLOW_NO_SPIKE=1` it is reported as SKIP (until 12 September such a run
+counted every test that wrote `tohost` as PASS).
 Result of 10 September 2026: **72 / 73 signatures identical** (RV32I/M 46/46, RV32C 26/27).
 The 73rd, `cebreak-01`, takes its trap correctly — mcause = 3 and the relative mepc in its
 signature are identical to Spike's — but the framework's trap routine then aborts the test on
@@ -693,11 +696,11 @@ difference fails. RV32C needed two runner changes: the vendor sources' `.org 0x8
 `def rvtest_mtrap_routine=True` of `cebreak-01`'s `RVTEST_CASE` is passed as a define, as
 riscof does. Evidence: `verif/results/2026-09-10/arch_test/`.
 
-### 10.4 AXI / AXI-Lite Protocol Checker (SVA)
+### 10.4 AXI / AXI-Lite Protocol Checkers
 
 ![AXI Protocol Checker](images/axi_protocol_checker.png)
 
-`verif/sva/soc_protocol_bind.sv` instantiates two checker modules (`axi_lite_protocol_checker.sv` and `axi4_protocol_checker.sv`) on **all 10** bus interfaces. Every clock cycle, the checkers validate VALID/READY handshakes, address alignment, byte-strobe legality, response codes, and outstanding-transaction bounds.
+`verif/sva/soc_protocol_bind.sv` instantiates two checker modules (`axi_lite_protocol_checker.sv` and `axi4_protocol_checker.sv`) on **10** bus interfaces: the peripheral bus, its seven AXI-Lite slaves and the two AXI4 masters into the AI SRAM (the CPU-side AXI4 ports have no bound checker). They are procedural `always_ff` monitors, not `assert property` SVA. Every clock cycle they verify that VALID stays asserted until READY and that address, data and strobe stay stable while a handshake is stalled; the two AXI4 checkers also verify WLAST/RLAST beat counts against AxLEN, flag reserved AxBURST and AxSIZE above the bus width, and log SLVERR/DECERR responses as warnings. Each run ends with a per-interface verdict (`PROTOKOL UYUMLU` / `IHLALI`); `make regression` fails on a violation.
 
 | # | Interface | Type | Address |
 |---|---|---|---|
@@ -812,7 +815,8 @@ lines of `axi_dm_slave.sv` account for the whole difference.
 <p align="center"><img src="images/coverage_terminal_20260910.png" width="760" alt="make coverage summary: line 90.7 %, branch 88.6 %, functional coverage 21/22"></p>
 <p align="center"><sub><code>make coverage</code>, main-branch run of 10 September 2026 on Verilator 5.049, before the <code>STP=3</code> phase of 12 September (the summary is now 22 / 22) — line <b>90.7 %</b> (359/396), branch <b>88.6 %</b> (819/924), annotation 90.0 % (1685/1856), functional coverage <b>21/22</b> (UART 6/7, QSPI 7/7, AI-CSR 5/5, IRQ 3/3) and the EK-2 v1.3 <code>CFG[0]</code> auto-clear proof (6,374 checks, 0 violations). Text rendered verbatim from <code>verif/coverage_summary.txt</code>. The 9 September image showed 22/22 from a contaminated union — see the functional-coverage paragraph below.</sub></p>
 
-Every remaining uncovered line falls into one of three documented classes
+Every remaining uncovered line of the team RTL (the idle-only JTAG bridge lines and the 5 lines
+of the vendor-derived `uart_rx.v` aside) falls into one of three documented classes
 (`verif/coverage_siniflandirma.md`):
 
 | Class | Lines | Meaning |
@@ -824,7 +828,9 @@ Every remaining uncovered line falls into one of three documented classes
 Per-file uncovered counts after the 15-test run: `obi_to_axi` 23 (A),
 `axi_dm_slave` 22 (TAP idle in the C tests; 0 under `make jtag-cov`),
 `ai_accelerator` 9 (A), `qspi_master_axil` 9 (4 A + 5 C), `boot_rom` 4 (A),
-`i2c_master_axil` 3 (2 B + 1 A), `uart_stream_axil` 1 (A) — **`uart_axil`,
+`i2c_master_axil` 3 (2 B + 1 A), `uart_stream_axil` 1 (A), `uart_rx` 5 (vendor-derived
+receiver, inside the 359/396 denominator, listed without a class in
+`verif/coverage_siniflandirma.md` section 9) — **`uart_axil`,
 `gpio_axil`, `timer_axil`, `ai_sram_arbiter`, `periph_decoder`,
 `soc_axi_interconnect`, `soc_top` and `axi_sram_wrapper` are all at 0**.
 
@@ -972,7 +978,7 @@ IDCODE `0x0B1061C1`.
 |---|---|---|
 | `make jtag-sim` | pure-SV TAP bit-bang | **17/17**: (1-9) UART, IDCODE, DTMCS, DMI→DM, halt (`debug_halted_o`), abstract-command GPR round-trip + progbuf `sw`/`lw` to DSRAM + `dpc`, resume, single-step (`dcsr.cause=4`) + hardware trigger breakpoint (`cause=2`), `ndmreset` → halt at `0x00010000` → firmware restarts (greeting printed twice); (10) DMI back-pressure: `op=3`, `dtmcs.dmistat=3`, `dmireset` **and** `dmihardreset`, DM `CmdErrBusy` + `abstractcs` W1C; (11) `cmderr=3` from a progbuf exception, an FPR access without an FPU and a non-existent CSR — with the `dm_exception_addr` (`0x0004_0810`) path proven white-box; (12) `cmderr=2` for `aarsize=3` / `AccessMemory` / reserved `regno`, `cmderr=4` for a command while running, `aarsize=0/1` byte/half stores through the bridge's `be` path; (13) SBA: `sbcs` discovery, the error-completing tie-off (`sberror=2`), `sbaccess=3` → `sberror=4`, W1C, no hang; (14) DM discovery: `dmcontrol` WARL, `hartinfo=0x00212380`, `abstractcs`, `haltsum0..3`, `nextdm`, `progbuf0..7`, `data1`, `tinfo`, `transfer+postexec`, `resumereq` auto-clear; (15) TAP corners: IR capture `0b00101`, BYPASS/undefined IR, Pause/Exit2 (DR **and** IR), back-to-back scans without Run-Test/Idle, TLR and TRST recovery mid-traffic; (16) writing the **instruction** SRAM from the debugger, proven by executing it, plus `dcsr.ebreakm` → debug entry (`cause=1`); (17) DM-region behaviour — see known limitations. Component 17 of `make test-all` |
 | `make jtag-bridge-sim` | Verilator, directed unit TB | **6/6** for `axi_dm_slave` (`verif/tb/axi_dm_slave_tb.sv` + real `dm_top`): arbitration (data read/write beats instruction fetch), R and B channel hold with `r_ready`/`b_ready` low — the `resp_pending` case that the end-to-end runs **never** reach — `w_strb` byte enables reaching `dm_be_o`, and reset with a request in flight. The old second SVA was a structural tautology and was replaced by a request/response timing contract (`req_q` one cycle, exactly one response channel at T+2). Component 18 of `make test-all` |
-| `make regression` / `make test-all` on the delivered build | Verilator + Spike | since 6 September every simulation target compiles the delivered configuration from `soc_files.f` (`JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC`); the six regression firmwares (`uart_hello`, `ai_micro_speech`, `ai_irq`, `timer_irq`, `uart1_strm`, `qspi`) were first shown to pass **6/6** on a `+define+JTAG_DEBUG` model on 3 September (then a separate `regression-jtag` target) — the debug hardware does not disturb normal firmware. `jtag-sim` and `jtag-bridge-sim` are components 17 and 18 of `make test-all`. The whole 18-component package plus `make jtag-gates` (6/6) was reproduced on a second machine on 6 September 2026 (commit `2f85f97`; WSL2 Ubuntu 24.04, Verilator 5.049, Spike 1.1.1-dev): **18/18**, `soc-perf` unchanged (459,016 cycles, 21.0x). `spike` must be on `PATH`, otherwise the two lockstep sub-tests fail with `Spike kayit: 0` |
+| `make regression` / `make test-all` on the delivered build | Verilator + Spike | since 6 September every simulation target compiles the delivered configuration from `soc_files.f` (`JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC`); the six regression firmwares (`uart_hello`, `ai_micro_speech`, `ai_irq`, `timer_irq`, `uart1_strm`, `qspi`) were first shown to pass **6/6** on a `+define+JTAG_DEBUG` model on 3 September (then a separate `regression-jtag` target) — the debug hardware does not disturb normal firmware. `jtag-sim` and `jtag-bridge-sim` are components 17 and 18 of `make test-all`. The whole 18-component package plus `make jtag-gates` (6/6) was reproduced on a second machine on 6 September 2026 (commit `2f85f97`; WSL2 Ubuntu 24.04, Verilator 5.049, Spike 1.1.1-dev): **18/18**, `soc-perf` unchanged (459,016 cycles, 21.0x). `spike` must be on `PATH`, otherwise the two lockstep sub-tests fail with `Spike kayit: 0` and `make arch-test` fails its signature gate (SKIP with `ARCH_ALLOW_NO_SPIKE=1`) |
 | `make lint` / `make lint-fpga` | Verilator lint | `asic_top` on the delivery file list (`asic/filelist.f`, its six defines included) and `fpga_top` (BSCANE2 TAP `dmi_bscane_tap.sv` swapped in for `dmi_jtag_tap.sv`, plus `verif/tb/xilinx_prim_stubs.sv` — lint-only BSCANE2/IBUFDS/BUFG/MMCME2_BASE/STARTUPE2 shells), **MODDUP/PINMISSING enabled**: 0 errors; the 3 `PINMISSING` are the unconnected CV32E40P `debug_*_o` status pins, present before the debug module too |
 | `make jtag-equiv` | `verilator -E -P` + `git show 73d8dcd:` | scripted **isolation proof** — with `JTAG_DEBUG`, `FC1_FIX` and `I2C_SDA_SYNC` all off, the preprocessed RTL equals the RTL of the 14 August signed run (`scripts/jtag_define_off_equiv.sh`), reference = commit `73d8dcd` (the last pre-merge `main` commit; `EQUIV_REF=` overrides): `asic_top` and `ai_accelerator` differ by **0 lines**; `soc_top` (51 raw) and the crossbar (20 raw) reduce to **0** after the documented constant-folding rules (`scripts/jtag_equiv_expected.sed`: tied-off DM signals, the `sys_rst_n` alias); `fpga_top` — the FPGA wrapper, not part of the chip — carries **12 lines**, the OLED pins and their `gpio_out` assigns added on 6 September for the demo firmware, stored as its expected diff (`scripts/jtag_equiv_expected_diffs/rtl_fpga_top.sv.diff`, rationale in `scripts/jtag_equiv_known_diffs.txt`). The four chip-RTL expected diffs are **empty** — the `i2c_sda_i` 2FF synchroniser and the FC-1 `co_re` fix sit behind `I2C_SDA_SYNC` / `FC1_FIX`, both **on** in the delivered configuration like `JTAG_DEBUG`; the gate turns all three off. So everything added to the chip RTL since the 14 August run lives inside the three `ifdef`s and nothing else changed. The gate is a **diff of diffs**: the remaining diff must match the stored expected diff in `scripts/jtag_equiv_expected_diffs/` byte for byte, so a new, changed or vanished difference all fail. (The first version matched line patterns instead, with entries as generic as `^ *end$`, which could have absorbed an unrelated real change; `scripts/jtag_equiv_known_diffs.txt` is now documentation only. Negative control: adding one wire to `asic_top.sv` outside the `ifdef` makes the gate exit 1 and print that line.) Updating the baseline needs an explicit `--kaydet` run |
 | `make jtag-openocd` | OpenOCD 0.12 via `remote_bitbang` | halt, `a0` write/read-back `0x12345678`, `mww`/`mdw 0x21000` → `cafef00d 11223344`, `bp <pc> 4 hw` hit, `reset halt` → `pc=0x00010000`, and since 3 September also `step` (hardware single-step, `pc` +2), explicit CSR reads (`mstatus`, `misa`), an 8-word block read (OpenOCD's `abstractauto` path), a peripheral MMIO write (`UART0.TDR` → an `A` in the sim log), the **negative** watchpoint case (CV32E40P has no data trigger) and `reset run` (ndmreset without `haltreq`, third greeting). Exit codes of OpenOCD and the sim are part of the verdict — `rtl/debug/openocd/demo_run_2026-09-02.log`, latest run `rtl/debug/openocd/demo_run_v4_openocd_2026-09-06.log` (+ `…_openocd_sim_…` for the UART side, `…_gdb_…` for `make jtag-gdb`; 6 September, after the runner learned to rebuild a stale simulation binary) |

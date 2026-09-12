@@ -593,6 +593,9 @@ ai-batch1000:
 	@python3 sw/ai_model/run_accuracy_window.py > /dev/null
 	@rm -rf obj_dir_ai && $(MAKE) ai > /dev/null 2>&1 || true
 	@echo "[TEMIZLIK] accuracy_report.txt 40 ornekli haline dondu"
+	@grep -q "^SW-RTL sinif eslesmesi : 1000/1000" sw/ai_model/accuracy_report_n1000.txt \
+	    || { echo "[AI-BATCH1000] FAIL: SW-RTL sinif uyumsuzlugu (sw/ai_model/accuracy_report_n1000.txt)"; exit 1; }
+	@echo "[AI-BATCH1000] PASS: SW-RTL sinif eslesmesi 1000/1000"
 
 # line coverage: test seti + rapor
 coverage:

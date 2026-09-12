@@ -83,6 +83,8 @@ verilator_coverage --annotate logs/coverage/annotate --annotate-min 1 --annotate
 # max = birlesim.
 # Yalniz BU kosunun TESTS listesindeki SoC test loglari okunur (glob yok):
 # blok-TB loglari (logs/coverage/tb/) ve bayat loglar birlesime giremez.
+# Boru hattinin cikis kodu tee'nindir (pipefail yok): python'un SystemExit'i
+# (auto-clear ihlali ya da eksik test logu) PYEOF'tan hemen sonra PIPESTATUS ile yakalanir.
 TESTS="$TESTS" python3 - <<'PYEOF' | tee -a logs/coverage/summary.txt
 import os, re, collections
 PAY = {"UART": 7, "QSPI": 7, "AI-CSR": 5, "IRQ": 3}
@@ -122,6 +124,7 @@ print("  UART auto-clear (EK-2 v1.3): %d kontrol, %d ihlal" % (ac_k, ac_f))
 if ac_f:
     raise SystemExit("[HATA] auto-clear ihlali: %d" % ac_f)
 PYEOF
+[ "${PIPESTATUS[0]}" -eq 0 ] || { echo "    FONKSIYONEL KAPSAMA FAIL (auto-clear ihlali ya da eksik test logu; bkz. logs/coverage/summary.txt)"; exit 1; }
 
 echo "" | tee -a logs/coverage/summary.txt
 echo "--- Ekip RTL: kapsanmamis nokta-satir sayilari ---" | tee -a logs/coverage/summary.txt

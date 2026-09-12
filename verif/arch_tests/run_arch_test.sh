@@ -197,8 +197,11 @@ for EXT in ${FILT}; do
             echo "gate=tohost_write" >> "${TW}/result.log"
         fi
 
+        # PASS yalniz imza Spike'inkiyle ESIT ise. Eskiden "atlandi" (spike yok ya da
+        # dut.sig bos) da PASS sayiliyordu: spike'siz makinede tohost yazan her test,
+        # bilinen farki olan cebreak-01 dahil, PASS gorunuyordu.
         if [ -n "${TOH_V}" ] && [ "${TOH_V}" != "0x00000000" ] \
-           && { [ "${SIGDIFF}" = "ESIT" ] || [ "${SIGDIFF}" = "atlandi" ]; }; then
+           && [ "${SIGDIFF}" = "ESIT" ]; then
             echo -e "  [${GRN}PASS${NC}] ${TN}  (${PC} instr, imza ${SIGW} word, ${SIGDIFF})"
             echo "result=PASS" >> "${TW}/result.log"
             P=$((P+1))
@@ -207,6 +210,17 @@ for EXT in ${FILT}; do
             echo -e "  [${YLW}BILINEN${NC}] ${TN}  (${SIGDIFF}; aciklama: verif/arch_tests/known_diffs.txt)"
             echo "result=KNOWN_DIFF" >> "${TW}/result.log"
             K=$((K+1)); KL="${KL}\n  ${TN}"
+        elif [ -n "${TOH_V}" ] && [ "${TOH_V}" != "0x00000000" ] \
+             && [ "${SIGDIFF}" = "atlandi" ]; then
+            if [ "${ARCH_ALLOW_NO_SPIKE:-0}" = "1" ]; then
+                echo -e "  [${YLW}SKIP${NC}] ${TN} — imza karsilastirilmadi (spike yok ya da dut.sig bos; ARCH_ALLOW_NO_SPIKE=1)"
+                echo "result=SKIP_NO_SIGNATURE" >> "${TW}/result.log"
+                S=$((S+1))
+            else
+                echo -e "  [${RED}FAIL${NC}] ${TN} — imza karsilastirilamadi (spike PATH'te yok ya da dut.sig bos; yalniz tohost ile SKIP icin ARCH_ALLOW_NO_SPIKE=1)"
+                echo "result=FAIL_NO_SIGNATURE" >> "${TW}/result.log"
+                F=$((F+1)); FL="${FL}\n  ${TN}(imza yok)"
+            fi
         elif [ -n "${TOH_V}" ] && [ "${TOH_V}" != "0x00000000" ]; then
             echo -e "  [${RED}FAIL${NC}] ${TN} — imza uyusmuyor (${SIGDIFF})"
             echo "result=FAIL_SIGNATURE" >> "${TW}/result.log"
