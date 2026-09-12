@@ -385,8 +385,10 @@ fault-injection-only (B, covered at block level) or a single
 rationalized exception, with per-line evidence in
 `verif/coverage_siniflandirma.md` - knowing what is uncovered and why
 is treated as part of the coverage result itself. Functional coverage
-(union over the run): 21/22 bins (95%) - UART 6/7 (reserved stop-bit
-code 11 is programmed by no test), QSPI 7/7, AI-CSR 5/5, IRQ 3/3.
+(union over the run): 22/22 bins (100%) - UART 7/7 (stop-bit codes
+00/01/10/11; EK-2 defines 1X as two stop bits, so 11 is a valid code,
+exercised by uart_stp_reg_test since 12 September), QSPI 7/7, AI-CSR 5/5,
+IRQ 3/3.
 
 Functional coverage points (Section 4.5) are collected in the same runs.
 Exclusions and rationale are listed in Section 4.5.

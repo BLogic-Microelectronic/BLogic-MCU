@@ -8,7 +8,7 @@ Result summary: line 72.2% (275/381 points), branch 84.2% (717/852)
 > **Update (September 6, 2026):** the measurement was repeated on the **delivered
 > configuration** (`soc_files.f` with `JTAG_DEBUG`, `FC1_FIX`, `I2C_SDA_SYNC`; the
 > JTAG bridge `rtl/debug/axi_dm_slave.sv` joins the measured set): line **90.7 %**
-> (359/396), branch **88.6 %** (819/924), functional coverage 21/22. What changed
+> (359/396), branch **88.6 %** (819/924), functional coverage 21/22 (22/22 since 12 September, see the addendum at the end). What changed
 > against the September 1 run, and why, is in section 10; sections 0-9 are the
 > September 1 record and are unchanged.
 
@@ -284,5 +284,9 @@ programs (documented in `scripts/run_coverage.sh`).
 Verdict: the delivered configuration keeps every classification of sections
 0-9; the only new uncovered lines belong to the debug bridge and are covered in
 full by its own testbenches.
+
+## Addendum (12 September 2026): functional coverage 21/22 -> 22/22
+
+The remaining UART bin, stop-bit code 11, was a test gap and not unreachable code. EK-2 defines `1X` as two stop bits and `uart_axil.sv` looks only at `STP[1]`, so 11 is a valid code that behaves like 10; the block testbench `uart_stp_tb` already measured the STP=11 start-to-start interval equal to STP=10. `sw/tests/uart_stp_reg_test.c` gained a phase that transmits with `STP=3` and reads the register back, and the union is now UART 7/7, 22/22. Line 90.7 % (359/396) and branch 88.6 % (819/924) are unchanged.
 
 <!-- English translation of coverage_siniflandirma.md, 2026-09-01; numeric values converted from Turkish to English number format. -->
