@@ -1,5 +1,5 @@
 BLogic MCU - line coverage ozeti (make coverage)
-tarih     : 2026-09-10
+tarih     : 2026-09-13
 verilator : Verilator 5.052 2026-09-05 rev v5.052
 testler   : uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep ai_irq_test isa_compliance_test timer_irq_test uart_stp_reg_test uart1_strm_test qspi_fifo_err_test i2c_soc_test csr_negatif_test qspi_rdpath_test ai_sat_test
 olcum     : --coverage-line, SoC seviyesi (15 C testi, tek build, sabit payda)
@@ -21,12 +21,12 @@ Annotation Summary:
 See lines with '%00' in logs/coverage/annotate
 
 --- Fonksiyonel kapsama (birlesim, verif/sva/*_func_cov.sv) ---
-  UART     : 6/7  (86%)
+  UART     : 7/7  (100%)
   QSPI     : 7/7  (100%)
   AI-CSR   : 5/5  (100%)
   IRQ      : 3/3  (100%)
-  TOPLAM   : 21/22  (95%)
-  UART auto-clear (EK-2 v1.3): 6374 kontrol, 0 ihlal
+  TOPLAM   : 22/22  (100%)
+  UART auto-clear (EK-2 v1.3): 6410 kontrol, 0 ihlal
 
 --- Ekip RTL: kapsanmamis nokta-satir sayilari ---
     (satir bazli sayim; ayni satirdaki branch-yarisi kayiplari icin annotate'e bakin)

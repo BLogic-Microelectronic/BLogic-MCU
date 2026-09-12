@@ -289,10 +289,10 @@ full by its own testbenches.
 
 ## Addendum (12 September 2026): functional coverage 21/22 -> 22/22
 
-The remaining UART bin, stop-bit code 11, was a test gap and not unreachable code. EK-2 defines `1X` as two stop bits and `uart_axil.sv` looks only at `STP[1]`, so 11 is a valid code that behaves like 10; the block testbench `uart_stp_tb` already measured the STP=11 start-to-start interval equal to STP=10. `sw/tests/uart_stp_reg_test.c` gained a phase that transmits with `STP=3` and reads the register back, and the union is now UART 7/7, 22/22. Line 90.7 % (359/396) and branch 88.6 % (819/924) are unchanged.
+The remaining UART bin, stop-bit code 11, was a test gap and not unreachable code. EK-2 defines `1X` as two stop bits and `uart_axil.sv` looks only at `STP[1]`, so 11 is a valid code that behaves like 10; the block testbench `uart_stp_tb` already measured the STP=11 start-to-start interval equal to STP=10. `sw/tests/uart_stp_reg_test.c` gained a phase that transmits with `STP=3` and reads the register back, and the union is now UART 7/7, 22/22. Line 90.7 % (359/396) and branch 88.6 % (819/924) are unchanged on Verilator 5.049 (`main`); for this branch's Verilator 5.052 figures see section 11.
 
 <!-- English translation of coverage_siniflandirma.md, 2026-09-01; numeric values converted from Turkish to English number format. -->
 
 ## 11. Re-measurement on Verilator 5.052 (`deneme/uvm`, 10 September 2026)
 
-Same 15 tests and the same RTL, with Verilator 5.052 instead of 5.049. Line coverage 90.7 % (359/396), the annotation figure 90.0 % (1685/1856) and functional coverage 21/22 are unchanged. Branch coverage is 88.5 % (818/924) instead of 88.6 % (819/924). The only file whose count changed is `obi_to_axi.sv`: 24 lines instead of 23, all class A (section 3).
+Same 15 tests and the same RTL, with Verilator 5.052 instead of 5.049. Line coverage 90.7 % (359/396) and the annotation figure 90.0 % (1685/1856) are unchanged, and functional coverage matches `main` (21/22 on 10 September; 22/22 in the 13 September rerun with the `STP=3` phase of the addendum above). Branch coverage is 88.5 % (818/924) instead of 88.6 % (819/924). The only file whose count changed is `obi_to_axi.sv`: 24 lines instead of 23, all class A (section 3).

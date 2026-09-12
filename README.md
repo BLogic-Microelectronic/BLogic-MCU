@@ -766,7 +766,7 @@ Block-TB verdict string: `*** TEST SUCCESS *** I2C SISTEM YOLU DOGRULANDI` (syst
 
 ### 10.8 Coverage Report
 
-All SoC-level numbers in this section are from the **2026-09-10** clean run of this branch on Verilator 5.052 (Spike enabled); the delivered `main` quotes the 2026-09-06 run on Verilator 5.049, identical except branch 88.6 % (819/924) and one more uncovered `obi_to_axi.sv` line here (`verif/coverage_siniflandirma.md`, section 11); the module-level table is the 2026-09-01 run (`verif/coverage_tb_summary.txt`).
+Line, branch and annotation figures in this section are from the **2026-09-10** clean run of this branch on Verilator 5.052 (Spike enabled) and are unchanged in the 2026-09-13 rerun; functional coverage (22/22) and the auto-clear count come from that 2026-09-13 rerun (`verif/coverage_summary.txt`); the delivered `main` quotes the 2026-09-06 run on Verilator 5.049, identical except branch 88.6 % (819/924) and one more uncovered `obi_to_axi.sv` line here (`verif/coverage_siniflandirma.md`, section 11); the module-level table is the 2026-09-01 run (`verif/coverage_tb_summary.txt`).
 
 <p align="center"><img src="images/coverage_summary.png" width="860" alt="coverage summary chart"></p>
 <p align="center"><sub>Left: SoC-level coverage vs. the 90% mark. Right: uncovered point-lines per team-RTL module (A/B classification below). Rendered from <code>verif/coverage_summary.txt</code> by <code>scripts/coverage_chart.py</code>.</sub></p>
