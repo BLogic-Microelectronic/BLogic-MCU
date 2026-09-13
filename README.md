@@ -45,7 +45,7 @@
 
 **BLogic MCU** is a 32-bit RISC-V based System-on-Chip (SoC) developed by **BLogic Mikroelektronik (Ostim Technical University)** for the **TEKNOFEST 2026 Chip Design Competition, Microcontroller Design Category**. The system is built around the open-source **CV32E40P** processor core (RV32IMC, 4-stage in-order pipeline) and integrates an AXI4 / AXI4-Lite bus fabric, on-chip SRAMs, a Boot ROM with QSPI boot loader, a full set of peripherals (UART × 2, GPIO, Timer, I²C Master, QSPI Master), and a custom **TFLite Micro Speech** hardware AI accelerator.
 
-The design has been verified through Verilator-based directed and randomized simulation, always-on AXI / AXI-Lite protocol checkers on ten bus interfaces (procedural monitors on the peripheral bus, its seven AXI-Lite slaves and the two AXI4 masters into the AI SRAM; §10.4), a UVM environment covering **five blocks — the four peripherals and the AI accelerator's CSR and AXI4 master ports (10/10 tests passing, constrained-random stimulus solved by the z3 SMT solver)**, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite (RV32I/M/C: **72/73 signatures identical to Spike**, the 73rd an analysed framework difference — §10.3), and end-to-end AI accuracy regression (**SW/RTL class match 1000/1000** against the TFLite interpreter, FC logits bit-exact on 981/1000 and at most 1 LSB apart; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). SoC-level line coverage is **90.7 %** (branch 88.6 %; the JTAG bridge reaches 100 % under its own testbench), with every remaining uncovered line of the team RTL classified and justified in `verif/coverage_siniflandirma.md` (the 5 lines of the vendor-derived `uart_rx.v` are listed there without a class). The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +2.433 ns` / `WHS = +0.059 ns` (timing met, zero failing endpoints across 24,260 setup and 24,257 hold endpoints; `jtag_tck` domain WNS +94.976 ns) and `0.330 W` total estimated on-chip power (Vivado vector-less estimate, the tool's own confidence rating is *Low* — §12.4). On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). The chip also carries the specification's optional JTAG debug interface — a PULP riscv-dbg debug module on an IEEE 1149.1 TAP, connected to the CV32E40P debug port — exercised with OpenOCD and gdb in simulation and, through the board's own USB-JTAG, on the Genesys 2 (§10.10). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
+The design has been verified through Verilator-based directed and randomized simulation, always-on AXI / AXI-Lite protocol checkers on ten bus interfaces (procedural monitors on the peripheral bus, its seven AXI-Lite slaves and the two AXI4 masters into the AI SRAM; §10.4), a UVM environment covering **five blocks — the four peripherals and the AI accelerator's CSR and AXI4 master ports (10 tests in 20 seeded runs passing on Verilator 5.052 with UVM 2020-3.1, constrained-random stimulus solved by the z3 SMT solver)**, Spike ISS lockstep co-simulation, the official `riscv-arch-test` suite (RV32I/M/C: **72/73 signatures identical to Spike**, the 73rd an analysed framework difference — §10.3), and end-to-end AI accuracy regression (**SW/RTL class match 1000/1000** against the TFLite interpreter, FC logits bit-exact on 981/1000 and at most 1 LSB apart; **|acc<sub>SW</sub> − acc<sub>RTL</sub>| = 0**). SoC-level line coverage is **90.7 %** (branch 88.5 % on Verilator 5.052; the JTAG bridge reaches 100 % under its own testbench), with every remaining uncovered line of the team RTL classified and justified in `verif/coverage_siniflandirma.md` (the 5 lines of the vendor-derived `uart_rx.v` are listed there without a class). The design has been physically validated on a **Digilent Genesys 2** FPGA board (Xilinx Kintex-7 `XC7K325T-2FFG900C`) at **50 MHz** with `WNS = +2.433 ns` / `WHS = +0.059 ns` (timing met, zero failing endpoints across 24,260 setup and 24,257 hold endpoints; `jtag_tck` domain WNS +94.976 ns) and `0.330 W` total estimated on-chip power (Vivado vector-less estimate, the tool's own confidence rating is *Low* — §12.4). On the board the firmware boots from QSPI flash and the accelerator classifies live UART-supplied feature vectors: 60 out of 60 randomized vectors matched the bit-exact software reference (`sw/ai_model/kart_sweep_raporu_n60.txt`). The chip also carries the specification's optional JTAG debug interface — a PULP riscv-dbg debug module on an IEEE 1149.1 TAP, connected to the CV32E40P debug port — exercised with OpenOCD and gdb in simulation and, through the board's own USB-JTAG, on the Genesys 2 (§10.10). All figures are taken verbatim from the committed reports under `rtl/fpga/reports/`.
 
 ---
 
@@ -305,7 +305,7 @@ numbers in §13.8. "Specification" is `docs/2026_Çip_Tasarım_Yarışması_Şar
 │   │   ├── spi_flash_model.sv            # QSPI flash device
 │   │   ├── i2c_slave_model.sv            # I²C echo slave
 │   │   └── xilinx_prims_stub.sv          # IBUFDS/MMCM stubs (Verilator)
-│   ├── coverage_summary.txt              # SoC line + branch coverage (15 tests, 90.7 % / 88.6 %; JTAG bridge 100 % via jtag-cov)
+│   ├── coverage_summary.txt              # SoC line + branch coverage (15 tests, 90.7 % / 88.5 % on Verilator 5.052; JTAG bridge 100 % via jtag-cov)
 │   ├── coverage_tb_summary.txt           # Per-module block-TB coverage
 │   ├── coverage_siniflandirma.md         # Uncovered-line classification (A/B/C, per-line evidence)
 │   ├── perf_summary.txt                  # HW vs SW speedup measurement (21.0x)
@@ -372,28 +372,27 @@ sudo apt-get install -y \
 
 ### 8.2 Verilator (≥ 5.0)
 
-The repository is verified with **Verilator 5.049 devel (rev `v5.048-135-g99a35fee8`)**. UVM and `--timing` require a 5.x build, so packaged Ubuntu 24.04 versions (4.x) are **not sufficient**. Releases **older than v5.048 will not build the CV32E40P core**: `cv32e40p_cs_registers.sv` triggers `%Error-BLKANDNBLK` (blocking + non-blocking assignment to `mhpmcounter_q`). Check out the exact commit below so that coverage figures match the ones reported in this README.
+The repository is verified with **Verilator 5.052** (tag `v5.052`): `make test-full` (which includes `make test-all`), `make coverage` and the UVM flow (§10.9) run on it. The 5.052 flow was developed on the `deneme/uvm` branch and merged into `main` on 13 September 2026; until then `main` used Verilator 5.049 devel (rev `v5.048-135-g99a35fee8`). Results dated before 13 September that name 5.049 come from that toolchain; the only measured difference is branch coverage, 88.6 % on 5.049 and 88.5 % on 5.052 (§10.8). UVM and `--timing` require a 5.x build, so packaged Ubuntu 24.04 versions (4.x) are **not sufficient**, and releases older than v5.048 do not build the CV32E40P core (`%Error-BLKANDNBLK` in `cv32e40p_cs_registers.sv`).
 
 ```bash
 git clone https://github.com/verilator/verilator.git
 cd verilator
-git checkout 99a35fee8           # v5.049 devel - exact revision used for all reported results
+git checkout v5.052
 autoconf
 ./configure --prefix=/usr/local
 make -j$(nproc)
 sudo make install
-verilator --version              # -> Verilator 5.049 devel rev v5.048-135-g99a35fee8
+verilator --version              # -> Verilator 5.052 2026-09-05 rev v5.052
 ```
 
-**Constraint solver for UVM (`make uvm`).** Verilator solves `randomize() with {...}`
-at run time with an external SMT solver, `z3 --in` by default. Without it the
-constrained-random tests fail by design (§10.9) and `Makefile.uvm` stops with an install
-hint. No root access is needed:
+Without root access, `bash scripts/install_verilator.sh` builds the same tag into `~/tools/verilator-5.052`. `Makefile.uvm` finds it there automatically; for the other targets put it first on `PATH` (`export PATH=~/tools/verilator-5.052/bin:$PATH`). `Makefile.uvm` stops with a clear message (`check_verilator`) when an older Verilator is found.
+
+**Constraint solver for UVM (`make uvm`).** Verilator solves `randomize() with {...}` at run time with an external SMT solver, `z3 --in` by default. Without it the constrained-random tests fail by design (§10.9) and `Makefile.uvm` stops with an install hint (`check_solver`). Either the distribution package or a virtual environment works:
 
 ```bash
-python3 -m venv ~/z3venv && ~/z3venv/bin/pip install z3-solver
-export PATH=~/z3venv/bin:$PATH   # add to ~/.bashrc
-z3 --version                     # results in this README: Z3 version 5.1.0
+sudo apt install z3                                              # Ubuntu 24.04 package: Z3 4.8.12
+python3 -m venv ~/z3venv && ~/z3venv/bin/pip install z3-solver   # no root; then export PATH=~/z3venv/bin:$PATH
+z3 --version
 ```
 
 ### 8.3 RISC-V GNU Toolchain (rv32imc / ilp32)
@@ -569,7 +568,7 @@ make test-all
 | `make soc-perf` | HW vs SW speedup measurement (same SoC, same `mcycle`) |
 | `make arch-test` | Official `riscv-arch-test` ISA compliance with Spike signature compare (default `ARCH_EXT="I M C"`, 73 tests, §10.3) |
 | `make qspi-err` | QSPI FIFO overflow / flush / status error paths (25 checks) |
-| `make uvm` | UVM — 5 blocks (GPIO + Timer + UART_0 + I2C + AI accelerator), 10 tests, directed + constrained-random (needs `z3`, §10.9) |
+| `make uvm` | UVM — 5 blocks (GPIO + Timer + UART_0 + I2C + AI accelerator), 10 tests in 20 seeded runs, directed + constrained-random (needs `z3`, §10.9) |
 | `make jtag-sim` | riscv-dbg JTAG subsystem on the delivered build (`soc_files.f`): pure-SV TAP bit-bang, 17 stages (IDCODE → DMI → halt → abstract/progbuf → step/trigger → ndmreset, then DMI back-pressure, `cmderr` paths, SBA tie-off, TAP corner cases, ISRAM write + `ebreak`, DM region) — no external tool; component 17 of `make test-all` |
 | `make jtag-bridge-sim` | `axi_dm_slave` unit TB with the real `dm_top`: arbitration, R/B channel hold, `w_strb`, reset with a request in flight — 6 scenarios + timing-contract SVA; component 18 of `make test-all` |
 | `make jtag-openocd-build` | Builds the OpenOCD-driven simulation (`SimJTAG` + DPI `remote_bitbang` server on `localhost:9999`) |
@@ -629,14 +628,14 @@ cd obj_dir && ./blogic_sim +CPB=434
 
 | Layer | Tool / Style | Purpose |
 |---|---|---|
-| **Unit RTL sim** | Verilator 5.049 devel, SystemVerilog | Per-module testbenches (`verif/tb/`) |
+| **Unit RTL sim** | Verilator 5.052 (5.049 devel until 13 September 2026), SystemVerilog | Per-module testbenches (`verif/tb/`) |
 | **SoC integration sim** | Verilator + `sim_main.cpp` | Full SoC, UART golden-string monitor |
 | **ISA compliance** | `riscv-arch-test` repo + Spike signature compare | RV32I / M / C self-tests (73) |
 | **Lockstep** | Spike ISS + Python diff (`verif/spike/compare_traces.py`) | Cycle-by-cycle PC + commit trace |
 | **Bus protocol** | Procedural protocol checkers (`verif/sva/`) bound to 10 AXI / AXI-Lite interfaces | Handshake and payload-stability rules, AXI4 burst rules |
 | **UVM** | Vendored UVM (`verif/uvm-lib`) + block-agnostic AXI-Lite agent | 5 blocks (GPIO / Timer / UART_0 / I2C / AI accelerator CSR + AXI4 master), directed + constrained-random (z3), reference-model scoreboards |
 | **AI accuracy** | Python `run_accuracy_window.py` + RTL TB | 1000-sample SW (TFLite) vs RTL class match, 1000/1000 (FC logits bit-exact on 981/1000, max 1 LSB) |
-| **Coverage** | Verilator `--coverage-line` + uncovered-line classification | SoC 90.7 % line / 88.6 % branch on the delivered configuration (JTAG bridge 100 % under `make jtag-cov`); every remaining line justified (`verif/coverage_siniflandirma.md`) |
+| **Coverage** | Verilator `--coverage-line` + uncovered-line classification | SoC 90.7 % line / 88.5 % branch on Verilator 5.052 (88.6 % on 5.049) (JTAG bridge 100 % under `make jtag-cov`); every remaining line justified (`verif/coverage_siniflandirma.md`) |
 
 ### 10.2 Regression Test Suite
 
@@ -767,7 +766,7 @@ Block-TB verdict string: `*** TEST SUCCESS *** I2C SISTEM YOLU DOGRULANDI` (syst
 
 ### 10.8 Coverage Report
 
-Line, branch and annotation figures in this section are from the **2026-09-06** clean run on the delivered configuration (Verilator 5.049, Spike enabled) and are unchanged in every later `make coverage` run on the same Verilator (committed summary: `verif/coverage_summary.txt`); functional-coverage and auto-clear figures carry their own run dates; the module-level table is the 2026-09-01 run (`verif/coverage_tb_summary.txt`).
+Line, branch and annotation figures in this section are from the **2026-09-10** clean run on Verilator 5.052 (Spike enabled) and are unchanged in the 2026-09-13 rerun; functional coverage (22/22) and the auto-clear count come from that 2026-09-13 rerun (`verif/coverage_summary.txt`); the earlier 2026-09-06 run on Verilator 5.049 is identical except branch 88.6 % (819/924) and one more uncovered `obi_to_axi.sv` line here (`verif/coverage_siniflandirma.md`, section 11); the module-level table is the 2026-09-01 run (`verif/coverage_tb_summary.txt`).
 
 <p align="center"><img src="images/coverage_summary.png" width="860" alt="coverage summary chart"></p>
 <p align="center"><sub>Left: SoC-level coverage vs. the 90% mark. Right: uncovered point-lines per team-RTL module (A/B classification below). Rendered from <code>verif/coverage_summary.txt</code> by <code>scripts/coverage_chart.py</code>.</sub></p>
@@ -799,7 +798,7 @@ and is appended to the same summary.
 | Metric | Result (6 September 2026, delivered configuration) |
 |---|---|
 | **Line coverage** | **90.7 %** (359 / 396) |
-| **Branch coverage** | **88.6 %** (819 / 924) |
+| **Branch coverage** | **88.5 %** (818 / 924) |
 | Lines fully covered (annotation) | 90.0 % (1685 / 1856) |
 | JTAG bridge `axi_dm_slave.sv` via `make jtag-cov` | **100 %** (49 / 49); riscv-dbg `dmi_jtag_tap` 99.1 %, `dm_mem` 96.3 %, `dmi_jtag` 90.3 %, `dm_csrs` 81.3 % |
 
@@ -814,7 +813,7 @@ the same 15 tests measured 91.1 % line / 91.3 % branch; the 22 idle-only
 lines of `axi_dm_slave.sv` account for the whole difference.
 
 <p align="center"><img src="images/coverage_terminal_20260910.png" width="760" alt="make coverage summary: line 90.7 %, branch 88.6 %, functional coverage 21/22"></p>
-<p align="center"><sub><code>make coverage</code>, run of 10 September 2026, before the <code>STP=3</code> phase of 12 September (the summary is now 22 / 22) — line <b>90.7 %</b> (359/396), branch <b>88.6 %</b> (819/924), annotation 90.0 % (1685/1856), functional coverage <b>21/22</b> (UART 6/7, QSPI 7/7, AI-CSR 5/5, IRQ 3/3) and the EK-2 v1.3 <code>CFG[0]</code> auto-clear proof (6,374 checks, 0 violations). Text rendered verbatim from <code>verif/coverage_summary.txt</code>. The 9 September image showed 22/22 from a contaminated union — see the functional-coverage paragraph below.</sub></p>
+<p align="center"><sub><code>make coverage</code>, main-branch run of 10 September 2026 on Verilator 5.049, before the <code>STP=3</code> phase of 12 September (the summary is now 22 / 22) — line <b>90.7 %</b> (359/396), branch <b>88.6 %</b> (819/924), annotation 90.0 % (1685/1856), functional coverage <b>21/22</b> (UART 6/7, QSPI 7/7, AI-CSR 5/5, IRQ 3/3) and the EK-2 v1.3 <code>CFG[0]</code> auto-clear proof (6,374 checks, 0 violations). Text rendered verbatim from <code>verif/coverage_summary.txt</code>. The 9 September image showed 22/22 from a contaminated union — see the functional-coverage paragraph below.</sub></p>
 
 Every remaining uncovered line of the team RTL (the idle-only JTAG bridge lines and the 5 lines
 of the vendor-derived `uart_rx.v` aside) falls into one of three documented classes
@@ -881,7 +880,7 @@ note sits next to the 9 September snapshot in `verif/results/2026-09-09/`.
 ### 10.9 UVM Testbench — 5 Blocks, 10 Tests
 
 ```bash
-make uvm                             # clean build + all 10 tests (also part of make test-all); needs z3
+make uvm                             # clean build + all 10 tests in 20 seeded runs (also part of make test-all); needs z3
 make -f Makefile.uvm directed        # GPIO directed only
 make -f Makefile.uvm timer_directed  # Timer directed only
 make -f Makefile.uvm uart_directed   # UART_0 directed only
@@ -903,34 +902,32 @@ AXI4 contract (single beat, 4 bytes, INCR, WLAST) and the address window on ever
 access and, on every DONE edge, compares the 1000-word conv_out tensor with the
 golden model. The observations reach the tests through `verif/uvm/ai_side_if.sv`.
 
-**Constrained randomization needs an SMT solver.** Verilator solves
-`randomize() with {...}` at run time with **z3** (`pip install z3-solver` in a
-virtual environment — no root needed). Without it `randomize()` fails. Until
-10 September that produced only a warning and a fixed fallback pattern, so
-`gpio_random_test` passed with no constrained randomization at all; it is now a
-`UVM_ERROR`, and `Makefile.uvm` stops before compiling when `z3` is not on `PATH`
-(`check_solver`). Negative control: `gpio_random_test` without z3 reports 50
-`UVM_ERROR`s; with z3 it reports 0 and the transaction data is random. The
-Timer, UART_0 and I2C random tests draw from safe address pools with `$urandom`.
+**Toolchain (on `main` since 13 September 2026).** The environment runs on **Accellera UVM 2020-3.1** (IEEE 1800.2-2020, `verilator/uvm` commit `656f20d`; provenance in `verif/uvm-lib/KAYNAK.md`) compiled by **Verilator 5.052**. The earlier `795b5f2` fork carried Verilator-specific workarounds and the build suppressed `CONSTRAINTIGN`, so the random sequences bypassed the solver with `$urandom`. With 5.052 they use the real constraint solver: every address and data word comes from `randomize()`, the address is bound to the block's register pool with an `inside` constraint, and a failed or out-of-pool solution is a `uvm_error`, not a silent fallback.
+
+**Constrained randomization needs an SMT solver.** Verilator solves `randomize() with {...}` at run time with **z3** (installation in §8.2). Without it `randomize()` fails; every failed call is a `UVM_ERROR`, and `Makefile.uvm` stops before compiling when `z3` is not on `PATH` (`check_solver`). Negative control: with `z3` removed from `PATH`, `gpio_random_test` and `timer_random_test` report a `UVM_ERROR` from their first transaction; with `z3` every run reports 0.
+
+One measured tool limit remains: **Verilator 5.052 does not apply `dist` weights.** A single-variable `dist {1 := 60, 0 := 40}` gave 52 % over 2,000 draws, and inside an implication the write ratio followed the pool sizes instead of the weights (3/9 for UART and I²C, 6/14 for the Timer). The read/write direction is therefore drawn from a separate uniform dice object seeded with the sequence's full name (`$urandom` gave every test the same stream), with the intended 60 % write probability; the achieved ratio is reported on every run and a deviation of more than 25 points fails the test, so the weighting cannot silently break again. The I²C block now builds with full line + toggle coverage like the other three; the 5.049 toggle-instrumentation internal error is gone.
+
+**DPI and seeds.** The UVM DPI layer is enabled: `uvm_dpi.cc`, including the Verilator VPI back-end added in `656f20d`, is compiled with `--vpi`, so `+UVM_TESTNAME` is read through DPI and the component-name checks run; UVM 2020-3.1 had warned on every run that its `UVM_NO_DPI` mode may be removed. `make uvm` runs the five directed tests once and each of the five random tests with three seeds (`UVM_SEEDS ?= 1 2 3`, passed as `+verilator+seed+N`), 20 runs in total; `make uvm UVM_SEEDS="1 2 3 4 5"` widens the sweep.
 
 | Test | What it proves | Result |
 |---|---|---|
 | `gpio_directed_test` | IDR/ODR R/W, mask checks against reference model | **PASS** |
 | `gpio_random_test` | 50 constrained-random transactions (z3), scoreboard | **PASS** |
 | `timer_directed_test` | reset values, read-backs, CLR, counting (CNT strictly increases), event accumulate + EVC clear | **PASS** |
-| `timer_random_test` | 60 random R/W over the full register map | **PASS** |
+| `timer_random_test` | 60 constrained-random R/W over the full register map (solver-chosen addresses, 60 % writes) | **PASS** |
 | `uart_directed_test` | reset values (CPB = 434), 1 Mbps CPB read-back, STP modes, TDR flow and **CFG[0] hardware auto-clear after TX (EK-2 v1.3)** | **PASS** |
-| `uart_random_test` | 60 random R/W against the UART reference model | **PASS** |
+| `uart_random_test` | 60 constrained-random R/W against the UART reference model | **PASS** |
 | `i2c_directed_test` | NBY clamping (0→1, 7→4), read-backs, **no-slave NACK path for both TX and RX** (`TX_DONE`/`RX_DONE` + `NACK_ERR`, RDR left clean) | **PASS** |
-| `i2c_random_test` | 60 random R/W against the I²C reference model | **PASS** |
+| `i2c_random_test` | 60 constrained-random R/W against the I²C reference model | **PASS** |
 | `ai_directed_test` | reset values, `DATA_ADDR` / `OUT_ADDR` read-back, unmapped offsets; two end-to-end inferences — START → BUSY → `irq_o` (460,993 cycles with this memory model) → `STATUS.RESULT` = golden argmax 2, result word written at `OUT_ADDR` (default and `0x0003_7F00`), conv_out 0 / 1000 words different, exactly 1,001 AXI4 write beats per inference (1,000 conv_out words + the result word) → CLEAR_DONE; a second START written while busy is ignored (DONE count stays 2). AXI4 master: 33,324 reads and 2,002 writes, 0 contract / window violations | **PASS** |
 | `ai_random_test` | 80 constrained-random CSR transactions (z3; START excluded by constraint; each offset targeted 10 times in shuffled order by construction and `STATUS` read-only by constraint; coverage gate: `CTRL` / `DATA_ADDR` / `OUT_ADDR` each written at least once), then an inference from the restored configuration with the same checks | **PASS** |
 
-**Regression result: 10 PASS, 0 FAIL** (`UVM_ERROR : 0`, `UVM_FATAL : 0` in every
-run; protocol monitor reports 0 violations in all 10).
+**Regression result: 20 PASS, 0 FAIL**: 10 tests, the five random ones with three seeds each (`UVM_ERROR : 0`, `UVM_FATAL : 0` and `UVM_WARNING : 0` in every
+run; protocol monitor reports 0 violations in all 20).
 
 <p align="center"><img src="images/uvm_regression_terminal_20260910.png" width="780" alt="UVM Regression: 10 PASS, 0 FAIL"></p>
-<p align="center"><sub><code>make uvm</code>, clean run of 10 September 2026 — five block environments, 10 tests, <b>10 PASS / 0 FAIL</b>, z3 as the constraint solver; <code>UVM_ERROR : 0</code> and <code>UVM_FATAL : 0</code> in every run. Selected lines rendered verbatim from <code>verif/results/2026-09-10/uvm/uvm_run.log</code>.</sub></p>
+<p align="center"><sub><code>make uvm</code>, main-branch clean run of 10 September 2026 on Verilator 5.049 — five block environments, 10 tests, <b>10 PASS / 0 FAIL</b>, z3 as the constraint solver; <code>UVM_ERROR : 0</code> and <code>UVM_FATAL : 0</code> in every run. Selected lines rendered verbatim from <code>verif/results/2026-09-10/uvm/uvm_run.log</code>.</sub></p>
 
 The UVM library is vendored under `verif/uvm-lib` — no external clone is needed (see `verif/uvm-lib/KAYNAK.md`).
 
@@ -1984,14 +1981,9 @@ GDS, which no other simulation exercised), with `ASIC_SRAM_MACRO` and the
 delivered OpenRAM models. **Scope limit, stated plainly:** this target compiles
 **RTL** (`soc_files.f` + `rtl/asic/asic_top.sv`) against the vendor's
 *behavioural* macro models — it is **not** a post-layout netlist or SDF
-back-annotated simulation. What it proves is functional behaviour and the macro
-read/write contract at the ASIC top level. The post-layout evidence is separate
-and now exists in two forms: STA over all paths in three corners
-(`asic/reports/timing/`) and a **gate-level simulation of the delivered netlist
-with the TT SDF back-annotated** — `verif/gls/`, PASS on 12 September 2026:
-booting from flash and running one inference bit-exactly at the verified
-37.000 ns period, 0 timing-check violations over 3,898,641 cycles
-(`verif/results/2026-09-12/gls/`).
+back-annotated simulation, and no such target exists in this repository. What it
+proves is functional behaviour and the macro read/write contract at the ASIC top
+level; post-layout timing is proven by STA instead (`asic/reports/timing/`).
 It it boots from QSPI flash and then runs the accelerator's convolution
 layer, comparing the 1000-word `conv_out` region in AI SRAM **bit-exactly**
 (FNV-1a) against the committed golden vector. That region can only be produced
@@ -2089,7 +2081,6 @@ that the exploration tables of §10.10 compare against.
 | Magic DRC (DEF + abstract-view input, `MAGIC_DRC_USE_GDS: false`; the GDS-based signoff DRC is the KLayout row) | 9,201 markers, **all one rule (`nwell.4`)** — measured root-cause analysis (every marker ≤ 6.13 µm from a tap, 0 markers inside SRAM footprints) documents it as a Magic connectivity-resolution artefact; KLayout/LVS/XOR are clean on the same GDS (`asic/README.md` §9.9/4) |
 | Power (estimated, no VCD) | TT **64.0 mW at the verified 27.0 MHz** (SRAM 63 %, clock 18 %, seq. 17 %; SS 59.6 / FF 67.9 mW); at the 50 MHz target TT 117.5 mW (SS 108.8 / FF 124.6 mW, `asic/reports/timing_target_20ns/<corner>/power.rpt`) |
 | Lint | Verilator **0 errors** / 979 warnings in the flow's lint step (`asic/reports/lint/verilator_lint.log`), nothing suppressed, no waivers. By source: 446 `TIMESCALEMOD` in the LibreLane-generated macro black-box file, 326 in vendored code (CV32E40P, PULP libraries, riscv-dbg), 20 in the Forencich UART core, **187 in team RTL** (`UNUSEDSIGNAL` 107, `WIDTHEXPAND` 29, `PINCONNECTEMPTY` 21, `BLKSEQ` 13, `UNUSEDPARAM` 6, `UNDRIVEN` 4, `PINMISSING` 3, `WIDTHTRUNC` 3, `CASEINCOMPLETE` 1). Both `UNOPTFLAT` are in CV32E40P (`cv32e40p_id_stage.sv:293`, `cv32e40p_core.sv:275`). Most team `PINCONNECTEMPTY` are unused outputs, but on each UART the unconnected `s_axis_tready` and `frame_error` have consequences (`uart_axil.sv:258, 273`; `uart_stream_axil.sv:389, 404`), declared in §5.7 items 1 and 10. `make lint` suppresses six classes on the command line (`Makefile:437-438`), so its count is not comparable |
-| Gate-level simulation (netlist + TT SDF) | **PASS**, 12 September 2026: the delivered netlist (185,950 instances after filler removal, all 88,779 standard cells SDF-annotated) boots from flash and runs one inference bit-exactly at the 37.000 ns signoff period — 0 timing-check violations over 3,898,641 cycles (Questa counts violations as errors: the 5 ns negative control ends with `Errors: 553`, this run with `Errors: 0`), and no X or Z on the three output lines the testbench samples (`uart_txd_o`, `qspi_cs_no`, `qspi_sclk_o`) although 4,940 flip-flops have no reset and start as X. Method and scope limits (TT corner only, behavioural SRAM models, dynamic): `verif/gls/README.md`; PASS log `verif/results/2026-09-12/gls/full_37ns_boot_ai.log.gz`, 5 ns control `verif/results/2026-09-10/gls/neg_control_5ns.log.gz` |
 | Transistors (MOS gates counted on the delivered GDS) | **12,750,459** (`asic/scripts/count_transistors.py`; 12,715,215 in the September 6 run) |
 
 <p align="center"><img src="asic/results/images/asic_top_render_hd.png" alt="asic_top - delivered GDS, power grid and fill cells hidden" width="820"></p>
@@ -2221,7 +2212,7 @@ make sim FW_SRC=sw/tests/ai_irq_test.c TRACE=1
 | Tool | Version (verified) | Purpose |
 |---|---|---|
 | **SystemVerilog** | IEEE 1800-2017 subset | RTL design |
-| **Verilator** | 5.049 devel | RTL simulation, line + branch coverage |
+| **Verilator** | 5.052 (5.049 devel until 13 September 2026) | RTL simulation, line + branch coverage |
 | **UVM** | Vendored under `verif/uvm-lib`; constraint solver z3 (`pip install z3-solver`, §8.2) | Constrained-random verification |
 | **Spike ISS** | RV32IMC build | Processor lockstep co-simulation |
 | **`riscv-arch-test`** | upstream | Official ISA compliance |

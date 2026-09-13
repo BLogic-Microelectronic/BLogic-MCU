@@ -1,8 +1,8 @@
 //----------------------------------------------------------------------
-// Copyright 2009-2011 Mentor Graphics Corporation
-// Copyright 2010-2011 Synopsys, Inc.
 // Copyright 2007-2018 Cadence Design Systems, Inc.
-// Copyright 2013 NVIDIA Corporation
+// Copyright 2009-2011 Mentor Graphics Corporation
+// Copyright 2013-2024 NVIDIA Corporation
+// Copyright 2010-2011 Synopsys, Inc.
 //   All Rights Reserved Worldwide
 //
 //   Licensed under the Apache License, Version 2.0 (the
@@ -20,12 +20,25 @@
 //   permissions and limitations under the License.
 //----------------------------------------------------------------------
 
-// hdl vendor backends are defined for VCS,QUESTA,XCELIUM
+//----------------------------------------------------------------------
+// Git details (see DEVELOPMENT.md):
+//
+// $File:     src/dpi/uvm_hdl.c $
+// $Rev:      2024-02-08 13:43:04 -0800 $
+// $Hash:     29e1e3f8ee4d4aa2035dba1aba401ce1c19aa340 $
+//
+//----------------------------------------------------------------------
+
+
+// hdl vendor backends are defined for VCS,QUESTA,VERILATOR,XCELIUM
 #if defined(VCS) || defined(VCSMX)
 #include "uvm_hdl_vcs.c"
 #else
 #ifdef QUESTA
 #include "uvm_hdl_questa.c"
+#else
+#ifdef VERILATOR
+#include "uvm_hdl_verilator.c"
 #else
 #if defined(XCELIUM) || defined(NCSC)
 #include "uvm_hdl_xcelium.c"
@@ -34,4 +47,4 @@
 #endif
 #endif
 #endif
-
+#endif

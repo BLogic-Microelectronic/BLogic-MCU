@@ -400,17 +400,11 @@ package axi_lite_uvm_pkg;
                 start_item(txn);
                 if (!txn.randomize() with {
                     addr inside {32'h00, 32'h04};
-                }) begin
+                })
                     // Kisitli randomize() calisma aninda SMT cozucuyle (z3) cozulur; cozucu PATH'te
-                    // yoksa randomize() 0 doner. Eskiden burada uyari basilip sabit
-                    // desene dusuluyordu ve test yine PASS veriyordu - "constrained-random"
-                    // iddiasi sessizce yonlu teste donusuyordu. Artik hata: test FAIL olur.
-                    `uvm_error("SEQ", "Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi")
-                    txn.addr = (i % 2 == 0) ? 32'h04 : 32'h00;
-                    txn.data = i * 32'hDEAD;
-                    txn.rw   = (i % 3 != 0) ? 1 : 0;
-                    txn.strb = 4'b1111;
-                end
+                    // yoksa randomize() 0 doner. Eskiden burada uyari basilip sabit desene
+                    // dusuluyordu ve test yine PASS veriyordu; artik hata, test FAIL olur.
+                    `uvm_error("SEQ", $sformatf("randomize() basarisiz: txn %0d (SMT cozucu z3 PATH'te mi?)", i))
                 finish_item(txn);
                 `uvm_info("SEQ", $sformatf("[%0d/%0d] %s addr=0x%02h data=0x%08h",
                     i+1, num_txns, txn.rw ? "WR" : "RD", txn.addr, txn.rw ? txn.data : txn.rdata), UVM_MEDIUM)

@@ -219,11 +219,35 @@ package periph_uvm_pkg;
 
     endclass
 
+    // Yon zari: okuma/yazma kararini dizinin kendi RNG'sinden ceker.
+    // Tek degiskenli duz aralik; dist kullanilmaz (5.052 agirligi uygulamiyor).
+    class yon_zari;
+        rand int unsigned v;
+        constraint v_c { v < 100; }
+    endclass
+
     // --------------------------------------------
-    // Havuzdan rastgele R/W sequence
+    // Havuzdan rastgele R/W sequence - kisitli rastgele (Verilator >= 5.052)
     //
-    // Simulatorun kisit cozumune yaslanmamak icin adres/rw secimi
-    // dogrudan $urandom ile yapilir (bkz. -Wno-CONSTRAINTIGN).
+    // Adres ve veri randomize() ile secilir; adres, inside kisitiyla ilgili
+    // havuza baglidir. Cozucu cozemezse ya da sonuc kisitin disina duserse
+    // test uvm_error ile DUSER.
+    //
+    // Yon (okuma/yazma) bilerek yordamsal secilir: Verilator 5.052 dist
+    // agirliklarini uygulamiyor. Olculdu (2000 ornek): tek degiskenli
+    // dist {1 := 60, 0 := 40} %52 verdi; dist implikasyon icindeyken oran
+    // havuz boyutlarina kaydi (UART/I2C'de 3/9 ~ %37, Timer'da 6/14 ~ %45).
+    // Yazma orani her kosuda raporlanir; hedeften 25 puandan fazla saparsa
+    // test DUSER, boylece agirliklandirma sessizce bozulamaz.
+    //
+    // Testler diziyi kendi tip adiyla yaratir (ornek: uart_random_test_seq).
+    // UVM dizi tohumunu tip + tam ad + global tohumdan turettigi icin ortak
+    // "seq" adinda ayni tohumla timer/uart/i2c ayni akisi paylasiyordu.
+    //
+    // Yon karari ayri bir zar nesnesinden (yon_zari) gelir ve nesne dizinin
+    // tam adiyla tohumlanir. $urandom Verilator'da surec tohumunu kullandigi
+    // icin UVM'in ad tabanli tohumlamasi ona yansimiyordu: dizi adi farkli
+    // olsa da ayni tohumda testler ayni okuma/yazma sirasini paylasiyordu.
     // --------------------------------------------
     class periph_random_seq extends axi_lite_base_seq;
         `uvm_object_utils(periph_random_seq)
@@ -240,21 +264,38 @@ package periph_uvm_pkg;
         task body();
             axi_lite_seq_item txn;
             bit do_wr;
+            int n_wr = 0;
+            int oran;
+            yon_zari zar = new();
+            zar.srandom(uvm_create_random_seed(get_type_name(), get_full_name()));
             for (int i = 0; i < num_txns; i++) begin
                 txn = axi_lite_seq_item::type_id::create($sformatf("txn_%0d", i));
                 start_item(txn);
-                do_wr    = (wr_pool.size() > 0) &&
-                           (int'($urandom_range(0, 99)) < wr_pct);
-                txn.rw   = do_wr;
-                txn.addr = do_wr ? wr_pool[$urandom_range(0, wr_pool.size()-1)]
-                                 : rd_pool[$urandom_range(0, rd_pool.size()-1)];
-                txn.data = $urandom();
-                txn.strb = 4'b1111;
+                if (!zar.randomize())
+                    `uvm_error("SEQ", $sformatf("yon zari randomize() basarisiz: txn %0d", i))
+                do_wr = (wr_pool.size() > 0) && (zar.v < wr_pct);
+                if (!txn.randomize() with {
+                        rw == do_wr;
+                        (rw == 1'b1) -> (addr inside {wr_pool});
+                        (rw == 1'b0) -> (addr inside {rd_pool});
+                    })
+                    `uvm_error("SEQ", $sformatf("randomize() basarisiz: txn %0d", i))
+                // Cozucunun kisitlara uydugunu her islemde bagimsiz denetle
+                if (txn.rw ? !(txn.addr inside {wr_pool}) : !(txn.addr inside {rd_pool}))
+                    `uvm_error("SEQ", $sformatf("kisit ihlali: %s addr=0x%02h havuz disinda",
+                        txn.rw ? "WR" : "RD", txn.addr))
+                if (txn.rw) n_wr++;
                 finish_item(txn);
                 `uvm_info("SEQ", $sformatf("[%0d/%0d] %s addr=0x%02h data=0x%08h",
                     i+1, num_txns, txn.rw ? "WR" : "RD", txn.addr,
                     txn.rw ? txn.data : txn.rdata), UVM_MEDIUM)
             end
+            oran = (num_txns > 0) ? (n_wr * 100 / num_txns) : 0;
+            `uvm_info("SEQ", $sformatf("kisitli rastgele: %0d islem, %0d yazma / %0d okuma = %%%0d (hedef %%%0d)",
+                num_txns, n_wr, num_txns - n_wr, oran, wr_pct), UVM_LOW)
+            if (wr_pool.size() > 0 && num_txns >= 20 && (oran > wr_pct + 25 || oran < wr_pct - 25))
+                `uvm_error("SEQ", $sformatf("yazma orani %%%0d, hedef %%%0d degerinden 25 puandan fazla sapti",
+                    oran, wr_pct))
         endtask
     endclass
 
@@ -493,7 +534,7 @@ package periph_uvm_pkg;
             sqr = env.agent.sequencer;
             phase.raise_objection(this, "timer_random_test");
 
-            seq = periph_random_seq::type_id::create("seq");
+            seq = periph_random_seq::type_id::create({get_type_name(), "_seq"});
             seq.wr_pool  = {32'h00, 32'h04, 32'h08, 32'h0C, 32'h10, 32'h1C};
             seq.rd_pool  = {32'h00, 32'h04, 32'h08, 32'h0C,
                             32'h10, 32'h14, 32'h18, 32'h1C};
@@ -592,7 +633,7 @@ package periph_uvm_pkg;
             sqr = env.agent.sequencer;
             phase.raise_objection(this, "uart_random_test");
 
-            seq = periph_random_seq::type_id::create("seq");
+            seq = periph_random_seq::type_id::create({get_type_name(), "_seq"});
             seq.wr_pool  = {32'h00, 32'h04, 32'h0C};
             seq.rd_pool  = {32'h00, 32'h04, 32'h08, 32'h0C, 32'h10, 32'h14};
             seq.num_txns = 60;
@@ -704,7 +745,7 @@ package periph_uvm_pkg;
             sqr = env.agent.sequencer;
             phase.raise_objection(this, "i2c_random_test");
 
-            seq = periph_random_seq::type_id::create("seq");
+            seq = periph_random_seq::type_id::create({get_type_name(), "_seq"});
             seq.wr_pool  = {32'h00, 32'h04, 32'h0C};
             seq.rd_pool  = {32'h00, 32'h04, 32'h08, 32'h0C, 32'h10, 32'h14};
             seq.num_txns = 60;

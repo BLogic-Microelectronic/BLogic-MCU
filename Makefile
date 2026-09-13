@@ -701,7 +701,7 @@ test-all:
 	echo "  soc-timer  (Timer cevre birimi)   : $$st"; \
 	echo "  soc-strm   (UART_1 stream SoC yolu): $$ss"; \
 	echo "  arch-test  (riscv-arch-test $(ARCH_EXT))   : $$c"; \
-	echo "  uvm        (5 blok, 10 test: GPIO+Timer+UART_0+I2C+YZ): $$u"; \
+	echo "  uvm        (5 blok, 10 test / 20 kosu: GPIO+Timer+UART_0+I2C+YZ): $$u"; \
 	echo "  jtag-sim   (riscv-dbg JTAG 17 asama)  : $$js"; \
 	echo "  jtag-bridge-sim (axi_dm_slave 6 senaryo): $$jb"; \
 	echo "  (OpenOCD/gdb demolari ve lint kapilari: make jtag-gates, make lint, make lint-fpga)"; \

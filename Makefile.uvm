@@ -8,7 +8,10 @@
 # blok-ozel scoreboard/test'ler periph_uvm_pkg'de (YZ: ai_uvm_pkg).
 # ============================================
 
-VERILATOR  = verilator
+# UVM 2020-3.1 (verilator/uvm 656f20d) Verilator >= 5.052 ister (13 Eylul 2026'dan beri main'de).
+# Oncelik: komut satiri / ortam VERILATOR, sonra ~/tools/verilator-5.052, sonra PATH.
+VERILATOR_MIN ?= 5.052
+VERILATOR     ?= $(firstword $(wildcard $(HOME)/tools/verilator-5.052/bin/verilator) verilator)
 UVM_JOBS  ?= 2   # WSL'de fazla paralellik OOM yapiyor
 TOP_MODULE = uvm_pkg
 
@@ -67,6 +70,11 @@ I2C_BIN    = $(OBJ_DIR_I2C)/V$(TOP_MODULE)
 AI_BIN     = $(OBJ_DIR_AI)/V$(TOP_MODULE)
 
 # Test isimleri
+# Tohumlar: run_all rastgele testleri UVM_SEEDS'teki her tohumla kosar
+# (+verilator+seed+N; UVM global tohumu buradan turer). run_one tek tohum.
+UVM_SEEDS ?= 1 2 3
+UVM_SEED  ?= $(firstword $(UVM_SEEDS))
+
 UVM_TESTNAME  ?= gpio_directed_test
 UVM_BIN       ?= $(GPIO_BIN)
 ALL_TESTS      = gpio_directed_test gpio_random_test
@@ -85,26 +93,25 @@ RUN_PAIRS = \
     $(AI_BIN):ai_random_test
 
 # Verilator flags
-# COV_FLAG: varsayilan tam kapsam (line+toggle). I2C derlemesinde
-# Verilator 5.049-devel'in toggle-coverage enstrumantasyonu
-# i2c_master_axil.sv:191'deki ifadede Internal Error uretiyor
-# (arac hatasi, RTL hatasi degil) -> I2C icin yalniz line coverage.
+# COV_FLAG: tam kapsam (line+toggle). 5.049-devel I2C'de toggle
+# enstrumantasyonunda Internal Error veriyordu (i2c_master_axil.sv:191);
+# 5.052'de GPIO/Timer/UART/I2C ayni bayrakla derlenir.
 # YZ hizlandirici: toggle enstrumantasyonu ~900 bin cevrimlik iki cikarimi
 # gereksiz yavaslatir; SoC seviyesi kapsama zaten make coverage'ta -> line.
 COV_FLAG = --coverage
-$(I2C_BIN): COV_FLAG = --coverage-line
 $(AI_BIN):  COV_FLAG = --coverage-line
 
 VERILATOR_FLAGS = \
     --main --binary --build --cc \
     --timing \
+    --vpi \
     $(COV_FLAG) \
     -j $(UVM_JOBS) \
     --timescale 1ns/1ns
 
 # UVM kutuphanesinin uyarilarini sustur
 DISABLED_WARNINGS = \
-    -Wno-DECLFILENAME -Wno-CONSTRAINTIGN -Wno-MISINDENT \
+    -Wno-DECLFILENAME -Wno-MISINDENT \
     -Wno-VARHIDDEN -Wno-WIDTHTRUNC -Wno-CASTCONST \
     -Wno-WIDTHEXPAND -Wno-UNDRIVEN -Wno-UNUSEDSIGNAL \
     -Wno-UNUSEDPARAM -Wno-SYMRSVDWORD -Wno-ZERODLY \
@@ -116,8 +123,12 @@ INCDIRS = +incdir+"$(UVM_HOME)" \
           +incdir+verif/uvm \
           +incdir+rtl/peripherals
 
-DEFINES = +define+UVM_NO_DPI \
-          +define+UVM_REPORT_DISABLE_FILE_LINE
+# UVM DPI acik: UVM 2020-3.1 her kosuda UVM_NO_DPI modunu kaldirmayi
+# planladigini uyariyordu. uvm_dpi.cc (656f20d'deki Verilator VPI arka ucu
+# uvm_hdl_verilator.c dahil) --vpi ile derlenir; +UVM_TESTNAME DPI'dan
+# okunur ve bilesen adi denetimi calisir.
+UVM_DPI_SRC = $(UVM_HOME)/dpi/uvm_dpi.cc
+DEFINES     = +define+UVM_REPORT_DISABLE_FILE_LINE
 
 # Hedefler
 .PHONY: all directed random run_one run_all clean help \
@@ -141,9 +152,20 @@ help:
 	@echo "  make -f Makefile.uvm i2c_random      I2C random"
 	@echo "  make -f Makefile.uvm ai_directed     YZ hizlandirici directed (2 cikarim)"
 	@echo "  make -f Makefile.uvm ai_random       YZ hizlandirici random (z3) + cikarim"
-	@echo "  make -f Makefile.uvm all             Temiz derle + 10 test"
+	@echo "  make -f Makefile.uvm all             Temiz derle + 10 test (rastgele: UVM_SEEDS tohumla)"
 	@echo "  make -f Makefile.uvm clean           Temizle"
 	@echo "============================================="
+
+# Verilator surum kapisi: UVM 2020-3.1 eski surumle derlenmez
+.PHONY: check_verilator
+check_verilator:
+	@v=$$($(VERILATOR) --version | awk '{print $$2}'); \
+	low=$$(printf '%s\n%s\n' "$(VERILATOR_MIN)" "$$v" | sort -V | head -1); \
+	if [ "$$low" != "$(VERILATOR_MIN)" ]; then \
+		echo "HATA: UVM 2020-3.1 icin Verilator >= $(VERILATOR_MIN) gerekli; bulunan $$v ($(VERILATOR))"; \
+		echo "      ~/tools/verilator-5.052 kurun ya da VERILATOR=<yol> verin."; exit 1; \
+	fi; \
+	echo ">>> Verilator $$v"
 
 # Derleme (blok basina ayri obj dizini)
 compile: $(GPIO_BIN)
@@ -153,53 +175,53 @@ compile_i2c: $(I2C_BIN)
 compile_ai: $(AI_BIN)
 compile_all: compile compile_timer compile_uart compile_i2c compile_ai
 
-$(GPIO_BIN): $(GPIO_SRCS)
+$(GPIO_BIN): $(GPIO_SRCS) $(UVM_PKG) | check_verilator
 	@echo ""
 	@echo ">>> UVM Verilator derleme (GPIO)..."
 	@mkdir -p $(LOG_DIR)
 	$(VERILATOR) $(VERILATOR_FLAGS) --Mdir $(OBJ_DIR) $(DISABLED_WARNINGS) \
 		$(DEFINES) $(INCDIRS) \
-		$(UVM_PKG) $(GPIO_SRCS) \
+		$(UVM_PKG) $(GPIO_SRCS) $(UVM_DPI_SRC) \
 		2>&1 | tee $(LOG_DIR)/compile.log
 	@echo ">>> Derleme tamam: $(GPIO_BIN)"
 
-$(TIMER_BIN): $(TIMER_SRCS)
+$(TIMER_BIN): $(TIMER_SRCS) $(UVM_PKG) | check_verilator
 	@echo ""
 	@echo ">>> UVM Verilator derleme (Timer)..."
 	@mkdir -p $(LOG_DIR)
 	$(VERILATOR) $(VERILATOR_FLAGS) --Mdir $(OBJ_DIR_TIMER) $(DISABLED_WARNINGS) \
 		$(DEFINES) $(INCDIRS) \
-		$(UVM_PKG) $(TIMER_SRCS) \
+		$(UVM_PKG) $(TIMER_SRCS) $(UVM_DPI_SRC) \
 		2>&1 | tee $(LOG_DIR)/compile_timer.log
 	@echo ">>> Derleme tamam: $(TIMER_BIN)"
 
-$(UART_BIN): $(UART_SRCS)
+$(UART_BIN): $(UART_SRCS) $(UVM_PKG) | check_verilator
 	@echo ""
 	@echo ">>> UVM Verilator derleme (UART_0)..."
 	@mkdir -p $(LOG_DIR)
 	$(VERILATOR) $(VERILATOR_FLAGS) --Mdir $(OBJ_DIR_UART) $(DISABLED_WARNINGS) \
 		$(DEFINES) $(INCDIRS) \
-		$(UVM_PKG) $(UART_SRCS) \
+		$(UVM_PKG) $(UART_SRCS) $(UVM_DPI_SRC) \
 		2>&1 | tee $(LOG_DIR)/compile_uart.log
 	@echo ">>> Derleme tamam: $(UART_BIN)"
 
-$(I2C_BIN): $(I2C_SRCS)
+$(I2C_BIN): $(I2C_SRCS) $(UVM_PKG) | check_verilator
 	@echo ""
 	@echo ">>> UVM Verilator derleme (I2C)..."
 	@mkdir -p $(LOG_DIR)
 	$(VERILATOR) $(VERILATOR_FLAGS) --Mdir $(OBJ_DIR_I2C) $(DISABLED_WARNINGS) \
 		$(DEFINES) $(INCDIRS) \
-		$(UVM_PKG) $(I2C_SRCS) \
+		$(UVM_PKG) $(I2C_SRCS) $(UVM_DPI_SRC) \
 		2>&1 | tee $(LOG_DIR)/compile_i2c.log
 	@echo ">>> Derleme tamam: $(I2C_BIN)"
 
-$(AI_BIN): $(AI_SRCS)
+$(AI_BIN): $(AI_SRCS) $(UVM_PKG) | check_verilator
 	@echo ""
 	@echo ">>> UVM Verilator derleme (YZ hizlandirici)..."
 	@mkdir -p $(LOG_DIR)
 	$(VERILATOR) $(VERILATOR_FLAGS) --Mdir $(OBJ_DIR_AI) $(DISABLED_WARNINGS) \
 		$(DEFINES) $(INCDIRS) \
-		$(UVM_PKG) $(AI_SRCS) \
+		$(UVM_PKG) $(AI_SRCS) $(UVM_DPI_SRC) \
 		2>&1 | tee $(LOG_DIR)/compile_ai.log
 	@echo ">>> Derleme tamam: $(AI_BIN)"
 
@@ -213,6 +235,7 @@ run_one:
 	./$(UVM_BIN) \
 		+UVM_TESTNAME="$(UVM_TESTNAME)" \
 		+UVM_VERBOSITY=UVM_MEDIUM \
+		+UVM_NO_RELNOTES +verilator+seed+$(UVM_SEED) \
 		+verilator+coverage+file+$(COV_DIR)/$(UVM_TESTNAME).cov \
 		2>&1 | tee $(LOG_DIR)/$(UVM_TESTNAME).log
 	@echo ""
@@ -223,44 +246,52 @@ run_one:
 
 # Constrained-random kapisi: Verilator randomize() kisitlarini calisma aninda
 # harici SMT cozucusuyle (varsayilan "z3 --in") cozer. z3 yoksa randomize()
-# basarisiz olur; bu artik UVM_ERROR (axi_lite_uvm_pkg.sv), ama kosuya hic
-# baslamadan net mesajla durmak daha iyi. Kurulum (sudo gerekmez):
-#   python3 -m venv ~/z3venv && ~/z3venv/bin/pip install z3-solver
-#   export PATH=~/z3venv/bin:$$PATH
+# basarisiz olur; bu UVM_ERROR (axi_lite_uvm_pkg.sv, periph_uvm_pkg.sv), ama
+# kosuya hic baslamadan net mesajla durmak daha iyi. Kurulum: README 8.2.
 check_solver:
 	@command -v z3 >/dev/null 2>&1 || { \
 		echo "HATA: z3 bulunamadi - constrained-random testler kosamaz."; \
-		echo "      python3 -m venv ~/z3venv && ~/z3venv/bin/pip install z3-solver"; \
-		echo "      export PATH=~/z3venv/bin:\$$PATH"; exit 1; }
-	@echo ">>> SMT cozucu: $$(command -v z3) ($$(z3 --version))"
+		echo "      sudo apt install z3   ya da   python3 -m venv ~/z3venv && ~/z3venv/bin/pip install z3-solver"; \
+		echo "      (venv icin: export PATH=~/z3venv/bin:\$$PATH)"; exit 1; }
+	@echo ">>> SMT cozucu: $$(z3 --version)"
 
-# Tum testleri kos (10 test, 5 binari)
+# Tum testleri kos: yonlendirilmis testler bir kez, rastgele testler
+# UVM_SEEDS'teki her tohumla. Varsayilan: 5 + 5 x 3 = 20 kosu.
 run_all: check_solver compile_all
 	@echo ""
-	@echo ">>> Tum UVM testleri kosuluyor (5 blok, 10 test)..."
+	@echo ">>> Tum UVM testleri kosuluyor (5 blok, 10 test; rastgele testlerde tohumlar: $(UVM_SEEDS))..."
 	@mkdir -p $(COV_DIR)
-	@pass=0; fail=0; \
+	@pass=0; fail=0; runs=0; \
 	for pair in $(RUN_PAIRS); do \
 		bin=$${pair%%:*}; testname=$${pair##*:}; \
-		echo ""; \
-		echo "=== UVM Test: $$testname ($$bin) ==="; \
-		./$$bin \
-			+UVM_TESTNAME="$$testname" \
-			+UVM_VERBOSITY=UVM_MEDIUM \
-			+verilator+coverage+file+$(COV_DIR)/$$testname.cov \
-			2>&1 | tee $(LOG_DIR)/$$testname.log; \
-		if grep -q "UVM_ERROR :    0" $(LOG_DIR)/$$testname.log && \
-		   grep -q "UVM_FATAL :    0" $(LOG_DIR)/$$testname.log; then \
-			echo ">>> $$testname: PASS"; \
-			pass=$$((pass + 1)); \
-		else \
-			echo ">>> $$testname: FAIL"; \
-			fail=$$((fail + 1)); \
-		fi; \
+		case $$testname in \
+			*_random_test) seeds="$(UVM_SEEDS)";; \
+			*) seeds="$(UVM_SEED)";; \
+		esac; \
+		for seed in $$seeds; do \
+			log=$(LOG_DIR)/$${testname}_s$${seed}.log; \
+			echo ""; \
+			echo "=== UVM Test: $$testname tohum=$$seed ($$bin) ==="; \
+			./$$bin \
+				+UVM_TESTNAME="$$testname" \
+				+UVM_VERBOSITY=UVM_MEDIUM \
+				+UVM_NO_RELNOTES +verilator+seed+$$seed \
+				+verilator+coverage+file+$(COV_DIR)/$${testname}_s$${seed}.cov \
+				2>&1 | tee $$log; \
+			runs=$$((runs + 1)); \
+			if grep -q "UVM_ERROR :    0" $$log && \
+			   grep -q "UVM_FATAL :    0" $$log; then \
+				echo ">>> $$testname (tohum $$seed): PASS"; \
+				pass=$$((pass + 1)); \
+			else \
+				echo ">>> $$testname (tohum $$seed): FAIL"; \
+				fail=$$((fail + 1)); \
+			fi; \
+		done; \
 	done; \
 	echo ""; \
 	echo "============================================"; \
-	echo " UVM Regression: $$pass PASS, $$fail FAIL"; \
+	echo " UVM Regression: $$pass PASS, $$fail FAIL ($$runs kosu; rastgele testler $(words $(UVM_SEEDS)) tohumla)"; \
 	echo "============================================"; \
 	exit $$fail
 

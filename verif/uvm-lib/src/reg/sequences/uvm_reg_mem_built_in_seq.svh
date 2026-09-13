@@ -1,10 +1,10 @@
 //
 // -------------------------------------------------------------
-// Copyright 2010-2011 Mentor Graphics Corporation
-// Copyright 2010 Synopsys, Inc.
-// Copyright 2010-2018 Cadence Design Systems, Inc.
 // Copyright 2010 AMD
-// Copyright 2015-2018 NVIDIA Corporation
+// Copyright 2010-2018 Cadence Design Systems, Inc.
+// Copyright 2010-2011 Mentor Graphics Corporation
+// Copyright 2015-2024 NVIDIA Corporation
+// Copyright 2010 Synopsys, Inc.
 //    All Rights Reserved Worldwide
 // 
 //    Licensed under the Apache License, Version 2.0 (the
@@ -23,7 +23,17 @@
 // -------------------------------------------------------------
 // 
 
+//----------------------------------------------------------------------
+// Git details (see DEVELOPMENT.md):
+//
+// $File:     src/reg/sequences/uvm_reg_mem_built_in_seq.svh $
+// $Rev:      2024-02-08 13:43:04 -0800 $
+// $Hash:     29e1e3f8ee4d4aa2035dba1aba401ce1c19aa340 $
+//
+//----------------------------------------------------------------------
+
 //------------------------------------------------------------------------------
+
 // Class -- NODOCS -- uvm_reg_mem_built_in_seq
 //
 // Sequence that executes a user-defined selection
@@ -31,12 +41,13 @@
 //
 //------------------------------------------------------------------------------
 
-// @uvm-ieee 1800.2-2017 auto E.8.1
+
+// @uvm-ieee 1800.2-2020 auto E.8.1
 class uvm_reg_mem_built_in_seq extends uvm_reg_sequence #(uvm_sequence #(uvm_reg_item));
 
    `uvm_object_utils(uvm_reg_mem_built_in_seq)
 
-   // @uvm-ieee 1800.2-2017 auto E.8.3.1
+   // @uvm-ieee 1800.2-2020 auto E.8.3.1
    function new(string name="uvm_reg_mem_built_in_seq");
      super.new(name);
    endfunction
@@ -60,12 +71,12 @@ class uvm_reg_mem_built_in_seq extends uvm_reg_sequence #(uvm_sequence #(uvm_reg
    // Executes any or all the built-in register and memory sequences.
    // Do not call directly. Use seq.start() instead.
    
-   // @uvm-ieee 1800.2-2017 auto E.8.3.2
+   // @uvm-ieee 1800.2-2020 auto E.8.3.2
    virtual task body();
 
       if (model == null) begin
-         `uvm_error("uvm_reg_mem_built_in_seq", "Not block or system specified to run sequence on")
-         return;
+        `uvm_error("uvm_reg_mem_built_in_seq", "Not block or system specified to run sequence on")
+        return;
       end
 
       uvm_report_info("START_SEQ",{"\n\nStarting ",get_name()," sequence...\n"},UVM_LOW);
@@ -75,11 +86,7 @@ class uvm_reg_mem_built_in_seq extends uvm_reg_sequence #(uvm_sequence #(uvm_reg
                                              "NO_REG_TESTS", 0) == null &&
           uvm_resource_db#(bit)::get_by_name({"REG::",model.get_full_name()},
                                              "NO_REG_HW_RESET_TEST", 0) == null ) begin
-`ifdef VERILATOR
-         uvm_reg_hw_reset_seq seq = uvm_reg_hw_reset_seq::type_id_create("reg_hw_reset_seq");
-`else
-         uvm_reg_hw_reset_seq seq = uvm_reg_hw_reset_seq::type_id::create("reg_hw_reset_seq");
-`endif
+        uvm_reg_hw_reset_seq seq = uvm_reg_hw_reset_seq::type_id::create("reg_hw_reset_seq");
         seq.model = model;
         seq.start(null,this);
         `uvm_info("FINISH_SEQ",{"Finished ",seq.get_name()," sequence."},UVM_LOW)
@@ -90,11 +97,7 @@ class uvm_reg_mem_built_in_seq extends uvm_reg_sequence #(uvm_sequence #(uvm_reg
                                              "NO_REG_TESTS", 0) == null &&
           uvm_resource_db#(bit)::get_by_name({"REG::",model.get_full_name()},
                                              "NO_REG_BIT_BASH_TEST", 0) == null ) begin
-`ifdef VERILATOR
-         uvm_reg_bit_bash_seq seq = uvm_reg_bit_bash_seq::type_id_create("reg_bit_bash_seq");
-`else
-         uvm_reg_bit_bash_seq seq = uvm_reg_bit_bash_seq::type_id::create("reg_bit_bash_seq");
-`endif
+        uvm_reg_bit_bash_seq seq = uvm_reg_bit_bash_seq::type_id::create("reg_bit_bash_seq");
         seq.model = model;
         seq.start(null,this);
         `uvm_info("FINISH_SEQ",{"Finished ",seq.get_name()," sequence."},UVM_LOW)
@@ -105,11 +108,7 @@ class uvm_reg_mem_built_in_seq extends uvm_reg_sequence #(uvm_sequence #(uvm_reg
                                              "NO_REG_TESTS", 0) == null &&
           uvm_resource_db#(bit)::get_by_name({"REG::",model.get_full_name()},
                                              "NO_REG_ACCESS_TEST", 0) == null ) begin
-`ifdef VERILATOR
-         uvm_reg_access_seq seq = uvm_reg_access_seq::type_id_create("reg_access_seq");
-`else
-         uvm_reg_access_seq seq = uvm_reg_access_seq::type_id::create("reg_access_seq");
-`endif
+        uvm_reg_access_seq seq = uvm_reg_access_seq::type_id::create("reg_access_seq");
         seq.model = model;
         seq.start(null,this);
         `uvm_info("FINISH_SEQ",{"Finished ",seq.get_name()," sequence."},UVM_LOW)
@@ -122,11 +121,7 @@ class uvm_reg_mem_built_in_seq extends uvm_reg_sequence #(uvm_sequence #(uvm_reg
                                              "NO_MEM_TESTS", 0) == null &&
           uvm_resource_db#(bit)::get_by_name({"REG::",model.get_full_name()},
                                              "NO_MEM_ACCESS_TEST", 0) == null ) begin
-`ifdef VERILATOR
-         uvm_mem_access_seq seq = uvm_mem_access_seq::type_id_create("mem_access_seq");
-`else
-         uvm_mem_access_seq seq = uvm_mem_access_seq::type_id::create("mem_access_seq");
-`endif
+        uvm_mem_access_seq seq = uvm_mem_access_seq::type_id::create("mem_access_seq");
         seq.model = model;
         seq.start(null,this);
         `uvm_info("FINISH_SEQ",{"Finished ",seq.get_name()," sequence."},UVM_LOW)
@@ -137,11 +132,7 @@ class uvm_reg_mem_built_in_seq extends uvm_reg_sequence #(uvm_sequence #(uvm_reg
                                              "NO_REG_TESTS", 0) == null &&
           uvm_resource_db#(bit)::get_by_name({"REG::",model.get_full_name()},
                                              "NO_REG_SHARED_ACCESS_TEST", 0) == null ) begin
-`ifdef VERILATOR
-         uvm_reg_mem_shared_access_seq seq = uvm_reg_mem_shared_access_seq::type_id_create("shared_access_seq");
-`else
-         uvm_reg_mem_shared_access_seq seq = uvm_reg_mem_shared_access_seq::type_id::create("shared_access_seq");
-`endif
+        uvm_reg_mem_shared_access_seq seq = uvm_reg_mem_shared_access_seq::type_id::create("shared_access_seq");
         seq.model = model;
         seq.start(null,this);
         `uvm_info("FINISH_SEQ",{"Finished ",seq.get_name()," sequence."},UVM_LOW)
@@ -152,11 +143,7 @@ class uvm_reg_mem_built_in_seq extends uvm_reg_sequence #(uvm_sequence #(uvm_reg
                                              "NO_REG_TESTS", 0) == null &&
           uvm_resource_db#(bit)::get_by_name({"REG::",model.get_full_name()},
                                              "NO_MEM_WALK_TEST", 0) == null ) begin
-`ifdef VERILATOR
-         uvm_mem_walk_seq seq = uvm_mem_walk_seq::type_id_create("mem_walk_seq");
-`else
-         uvm_mem_walk_seq seq = uvm_mem_walk_seq::type_id::create("mem_walk_seq");
-`endif
+        uvm_mem_walk_seq seq = uvm_mem_walk_seq::type_id::create("mem_walk_seq");
         seq.model = model;
         seq.start(null,this);
         `uvm_info("FINISH_SEQ",{"Finished ",seq.get_name()," sequence."},UVM_LOW)
