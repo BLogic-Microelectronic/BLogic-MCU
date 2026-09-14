@@ -2281,7 +2281,7 @@ make sim FW_SRC=sw/tests/ai_irq_test.c TRACE=1
 22. OpenOCD — *Open On-Chip Debugger*, version 0.12.0, [https://openocd.org/](https://openocd.org/)
 23. LibreLane — *RTL-to-GDSII flow*, version 3.0.6 (`ba7193b`), [https://github.com/librelane/librelane](https://github.com/librelane/librelane)
 24. SkyWater Technology & Google — *SKY130 PDK*, [https://github.com/google/skywater-pdk](https://github.com/google/skywater-pdk); packaged as sky130A by *open\_pdks* (`8afc834`), [https://github.com/fossi-foundation/open-pdks](https://github.com/fossi-foundation/open-pdks)
-
+25. Bize çip mi takacan la gardaş
 ---
 
 ## 17. License & Acknowledgments
