@@ -1466,6 +1466,7 @@ the 20 ns target figures are in `reports/timing_target_20ns/` and in 9.1.
 | Instance count / std cells | 2,561,057 / 321,880 (10,509 of them hold cells, 9.9/2) |
 | Transistor count (MOS gates, measured on the delivered GDS) | **12,750,459** (`scripts/count_transistors.py`: flat poly-over-diffusion count, SRAM bitcells and decap devices included; 12,715,215 on September 6) |
 | Utilization | 51.05% (std-cell 14.39%) |
+| Gate-level simulation (delivered netlist + TT SDF, Questa 10.7c) | **PASS** - boot from flash and one AI inference bit-exact at the 37.000 ns signoff period, 0 timing-check violations over 3,898,641 cycles (12 September 2026; method, SDF annotation census and negative controls in `verif/gls/README.md`, log in `verif/results/2026-09-12/gls/`) |
 
 <p align="center"><img src="results/images/setup_slack_histogram.png" width="860" alt="setup slack histograms per corner"></p>
 <p align="center"><sub>Setup-slack distribution of the 2,310 reported paths per corner at the 37 ns signoff (<code>scripts/timing_histogram.py</code>). All three populations are positive; the SS worst path sits at +0.197 ns (9.1).</sub></p>

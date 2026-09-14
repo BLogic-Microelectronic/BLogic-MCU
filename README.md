@@ -262,6 +262,15 @@ numbers in §13.8. "Specification" is `docs/2026_Çip_Tasarım_Yarışması_Şar
 │   │   ├── qspi_test.c, qspi_modes_test.c, qspi_fifo_err_test.c, qspi_rdpath_test.c
 │   │   ├── i2c_system_test.c, i2c_soc_test.c, csr_negatif_test.c
 │   │   ├── ai_micro_speech_test.c, ai_irq_test.c, ai_sw_reference.c, ai_sat_test.c
+│   ├── demo/                             # Demo-day firmware + jury-tool integration (§12.6–12.7)
+│   │   ├── demo_main.c                   # firmware v2: two-UART harness flow + panel protocol
+│   │   ├── monitor_main.c                # line-oriented register/memory monitor for ad-hoc jury scenarios
+│   │   ├── team_icd.json                 # jury-tool ICD (BLG1 frame, CRC16-CCITT, 115200 / 230400)
+│   │   ├── harness_frames.py             # byte-identical FrameBuilder for simulation and the self-test
+│   │   ├── make_harness_dataset.py       # own regression set in the tool's layout (seeded generator)
+│   │   ├── make_harness_dataset_public.py  # set derived from the jury's public_dataset (156 verbatim + augmentations)
+│   │   ├── juri_panel.py                 # demo-day cockpit (§12.7-C)
+│   │   └── harness_results/              # committed jury-tool reports: public set 156/156, own set 200/200 + 2000/2000
 │   └── ai_model/                         # AI golden vectors & accuracy harness
 │       ├── micro_speech_quantized.tflite # Reference model
 │       ├── extract_weights.py            # → weights/bias .hex
@@ -300,7 +309,12 @@ numbers in §13.8. "Specification" is `docs/2026_Çip_Tasarım_Yarışması_Şar
 │   ├── uvm-lib/                          # Vendored UVM library (no clone needed)
 │   ├── spike/                            # Spike ISS lockstep trace compare
 │   │   └── compare_traces.py
-│   ├── arch_tests/                       # riscv-arch-test glue (link.ld + htif.S)
+│   ├── arch_tests/                       # riscv-arch-test: vendored suite (RV32I/M/C, 73 tests), run_arch_test.sh,
+│   │                                     #   target/blogic glue (link.ld + htif.S), known_diffs.txt (cebreak-01 analysis)
+│   ├── gls/                              # Gate-level simulation of the delivered netlist + TT SDF (Questa; PASS 12 Sep 2026, §13.7)
+│   ├── questa/                           # Questa / ModelSim waveform flow for the make test-all tests (tests.tcl, wave/*.do)
+│   ├── results/                          # Dated run evidence: 2026-09-09 (regression, lockstep, coverage, perf),
+│   │                                     #   2026-09-10 (arch-test, UVM, coverage, ai_irq, GLS speed runs), 2026-09-12 (GLS full run)
 │   ├── models/                           # Verification models
 │   │   ├── spi_flash_model.sv            # QSPI flash device
 │   │   ├── i2c_slave_model.sv            # I²C echo slave
@@ -329,7 +343,8 @@ numbers in §13.8. "Specification" is `docs/2026_Çip_Tasarım_Yarışması_Şar
 │   └── run/                              # transient LibreLane workspace (.gitkeep only)
 ├── docs/
 │   ├── verification_and_test_plan.md     # Full verification & test plan (methods, results, traceability)
-│   └── oznitelik_vektoru_formati.md      # AI input-vector contract (K13: frame format + handshake)
+│   ├── oznitelik_vektoru_formati.md      # AI input-vector contract (K13: frame format + handshake)
+│   └── demo_gunu_kontrol_listesi.md      # Demo-day checklist (cabling, commands, expected outputs, fallbacks)
 ├── scripts/
 │   ├── elf2hex.py                        # ELF → $readmemh hex
 │   ├── run_regression.sh                 # 6-test regression (UART x3 + Spike lockstep x2 + QSPI)
@@ -1680,7 +1695,7 @@ Interface Control Document (ICD) written by the team. The delivered firmware
 | ICD status | `python demo_harness.py validate -c sw/demo/team_icd.json` → **Valid** (one advisory warning about 115200 on the stream port; `sw2` up + ICD baud 230400 halves the vector time); `run --dry-run` against the tool's simulated device: 10/11 robustness scenarios pass, the eleventh (`peripheral_interleave`) needs the real board |
 | **board evidence** | 8 September 2026 00:53, Genesys 2 with the delivered `fpga_top.bit` and firmware v2 in flash, CP2102 USB-TTL on Pmod JA (COM8) + on-board FT232 (COM7), the jury tool unmodified: `run --manifest public_dataset/manifest.csv` → **golden agreement 100.00 % (156/156)**, 0 mismatches, 0 timeouts, latency median / p95 / max 43.28 / 43.81 / 44.06 ms, **robustness 11 / 11** (silence, dither, saturation, alternating, back-to-back ×5, truncated, oversized, peripheral interleave via `r`, determinism 10× jitter 0.90 ms, 3 s idle); run twice with identical results. Report set committed under `sw/demo/harness_results/2026-09-08_public_dataset/` (`report.md`, `summary.json`, `samples.csv`, `robustness.csv`, `transcript.log`, `config_used.json`) |
 | simulation evidence | `make demo-harness-sim` — the firmware runs on the Verilator model with 13 stream scenarios injected back-to-back on UART_1 at 230400 baud, the board's fastest stream rate (valid / zero / saturated / alternating vectors, a truncated frame followed by a valid one, 37 junk bytes after a frame, a bad-CRC frame, a `BLG` decoy, three back-to-back frames); the 14 `RESULT:` lines must match the bit-exact software reference in order → `[HARNESS-SIM] PASS` |
-| own regression set in the tool's format | `make demo-harness-dataset` (`sw/demo/make_harness_dataset.py`, pure Python, no numpy/tflite) writes a dataset in the jury tool's own layout — `manifest.csv` (`file,name,truth,golden,…`) + `vectors/*.bin` (1960 int8) + `dataset_summary.json` — from the generator of `kart_sweep.py` / the panel's RANDOM SWEEP (40 named families + the seeded 8-family extension; the generator whose 1000 vectors are RTL-verified by `ai-batch1000` and board-verified in §11.4), the `golden` column coming from the bit-exact software reference. 8 September 2026: 1000 vectors in 52 s and 2000 in 89 s (seed 31082026; the 2000-vector set is a superset of the 1000-vector one — the generator's sequence is seeded, so extending `--n` only appends), accepted by the unmodified tool. `make demo-harness-sim-dataset` (`DS_K` vectors of the set through the UART_1 stream path on the Verilator model, one harness-style pause after each frame) → `[HARNESS-SIM] PASS` **10/10** (8 September 2026: seeded 10-vector subset, all 19,680 bytes received, `ok=10 bad=0`). **On the board**, same setup as the public-set run: 03:05 with 200 vectors → **200/200**, and 23:56 with the full **2000-vector** set → **golden agreement 100.00 % (2000/2000)**, 0 timeouts, 0 mismatches, latency median / p95 / max **43.34 / 43.92 / 46.38 ms**, **robustness 11 / 11**; the confusion matrix is perfectly diagonal (silence 27, unknown 481, yes 741, no 751). Report sets with their manifests committed under `sw/demo/harness_results/2026-09-08_random_dataset_n200/` and `…_n2000/` |
+| own regression set in the tool's format | `make demo-harness-dataset` (`sw/demo/make_harness_dataset.py`, pure Python, no numpy/tflite) writes a dataset in the jury tool's own layout — `manifest.csv` (`file,name,truth,golden,…`) + `vectors/*.bin` (1960 int8) + `dataset_summary.json` — from the generator of `kart_sweep.py` / the panel's RANDOM SWEEP (40 named families + the seeded 8-family extension; the generator whose 1000 vectors are RTL-verified by `ai-batch1000` and board-verified in §11.4), the `golden` column coming from the bit-exact software reference. 8 September 2026: 1000 vectors in 52 s and 2000 in 89 s (seed 31082026; the 2000-vector set is a superset of the 1000-vector one — the generator's sequence is seeded, so extending `--n` only appends), accepted by the unmodified tool. `make demo-harness-sim-dataset` (`DS_K` vectors of the set through the UART_1 stream path on the Verilator model, one harness-style pause after each frame) → `[HARNESS-SIM] PASS` **10/10** (8 September 2026: seeded 10-vector subset, all 19,680 bytes received, `ok=10 bad=0`). **On the board**, same setup as the public-set run: 03:05 with 200 vectors → **200/200**, and 23:56 with the full **2000-vector** set → **golden agreement 100.00 % (2000/2000)**, 0 timeouts, 0 mismatches, latency median / p95 / max **43.34 / 43.92 / 46.38 ms**, **robustness 11 / 11**; the confusion matrix is perfectly diagonal (silence 27, unknown 481, yes 741, no 751). Report sets with their manifests committed under `sw/demo/harness_results/2026-09-08_random_dataset_n200/` and `…_n2000/`. 14 September 2026: `sw/demo/make_harness_dataset_public.py` writes the same layout **from the jury's own `public_dataset`** — its 156 vectors verbatim (`aug=id`, `truth` carried over) plus seeded shift / gain / noise / mix / mask derivations of them; 10,000 vectors in 401 s (seed 31082026: silence 448 / unknown 1,368 / yes 3,108 / no 5,076). On the 156 verbatim rows the bit-exact software reference reproduces the jury's `golden` column **156/156** and agrees with its `truth` label on 113 (the model's own accuracy on real speech, 72.4 %); the derived rows carry no `truth` claim — their `golden` comes from the software reference. Generation and reference check only: this set has not been run on the board |
 | the tool's GUI | `demo_gui.py` (gui 1.2.1) opened with the same ICD on 8 September: all 72 fields load, **Validate** shows only the 115200 advisory, Run tab with the public manifest → "Run complete" dialog and report folder written (dry-run: 30/30 golden, 10/11 robustness — `peripheral_interleave` needs the board, as in the CLI dry-run). Demo-day note: the GUI's *Synthetic (test only)* source attaches a cyclic pseudo-golden label, so agreement reads ≈25 % by construction; use *Manifest CSV* (public set or `random_dataset`) |
 
 Demo-day sequence with the jury tool: load `fpga_top.bit`, press R19 (the
@@ -2228,6 +2243,8 @@ make sim FW_SRC=sw/tests/ai_irq_test.c TRACE=1
 | **PULP `common_cells`** (CDC subset) | v1.38.0 (vendored) | `cdc_2phase_clearable` chain used by `dmi_cdc` |
 | **PULP `tech_cells_generic`** | v0.2.3 (vendored) | `tc_clk_inverter` / `tc_clk_mux2` for the TAP TDO clock |
 | **KLayout** (Python module) | — | GDS renders, transistor count and layout images in `asic/scripts/` |
+| **Questa Sim-64** | 10.7c | Gate-level simulation of the delivered netlist with the TT SDF (`verif/gls/`, §13.7) and the waveform flow of `verif/questa/` |
+| **LibreLane** | 3.0.6 (`ba7193b`, Classic flow) on sky130A / open_pdks `8afc834` | RTL-to-GDSII with the bundled Yosys + yosys-slang, OpenROAD, Magic, Netgen and KLayout (§13.1, `asic/environment/versions.txt`) |
 | **GitHub** | — | Version control |
 
 ---
@@ -2235,20 +2252,29 @@ make sim FW_SRC=sw/tests/ai_irq_test.c TRACE=1
 ## 16. References
 
 1. RISC-V International — *RISC-V Instruction Set Manual, Volume I: Unprivileged ISA*, [https://riscv.org/specifications/](https://riscv.org/specifications/)
-2. OpenHW Group — *CV32E40P User Manual*, [https://docs.openhwgroup.org/projects/cv32e40p-user-manual/](https://docs.openhwgroup.org/projects/cv32e40p-user-manual/)
-3. RISC-V International — *riscv-arch-test*, [https://github.com/riscv-non-isa/riscv-arch-test](https://github.com/riscv-non-isa/riscv-arch-test)
-4. CHIPS Alliance — *riscv-dv* (random instruction generator), [https://github.com/chipsalliance/riscv-dv](https://github.com/chipsalliance/riscv-dv)
-5. Arm Limited — *AMBA AXI Protocol Specification (IHI 0022)*, [https://developer.arm.com/documentation/ihi0022/latest](https://developer.arm.com/documentation/ihi0022/latest)
-6. PULP Platform — *axi* library, [https://github.com/pulp-platform/axi](https://github.com/pulp-platform/axi)
-7. PULP Platform — *common\_cells* library, [https://github.com/pulp-platform/common\_cells](https://github.com/pulp-platform/common_cells)
-8. R. David et al. — *TensorFlow Lite Micro: Embedded ML on TinyML Systems*, **MLSys 2021**
-9. P. Warden & D. Situnayake — *TinyML*, O'Reilly Media, 2019
-10. Google — *Micro Speech example*, [https://github.com/tensorflow/tflite-micro/tree/main/tensorflow/lite/micro/examples/micro\_speech](https://github.com/tensorflow/tflite-micro/tree/main/tensorflow/lite/micro/examples/micro_speech)
-11. Accellera — *Universal Verification Methodology (UVM 1.2) Reference Manual*
-12. D. Harris & S. Harris — *Digital Design and Computer Architecture: RISC-V Edition*, Morgan Kaufmann, 2021
-13. Wilson Snyder — *Verilator User's Guide*, [https://verilator.org/guide/latest/](https://verilator.org/guide/latest/)
-14. Digilent — *Genesys 2 Reference Manual*, [https://digilent.com/reference/programmable-logic/genesys-2/reference-manual](https://digilent.com/reference/programmable-logic/genesys-2/reference-manual)
-15. Xilinx (AMD) — *UG470: 7 Series FPGAs Configuration User Guide* (STARTUPE2 / CCLK)
+2. RISC-V International — *RISC-V Instruction Set Manual, Volume II: Privileged Architecture*, [https://riscv.org/specifications/](https://riscv.org/specifications/)
+3. RISC-V International — *RISC-V External Debug Support*, version 0.13.2, [https://github.com/riscv/riscv-debug-spec](https://github.com/riscv/riscv-debug-spec)
+4. OpenHW Group — *CV32E40P User Manual*, [https://docs.openhwgroup.org/projects/cv32e40p-user-manual/](https://docs.openhwgroup.org/projects/cv32e40p-user-manual/)
+5. RISC-V International — *riscv-arch-test*, [https://github.com/riscv-non-isa/riscv-arch-test](https://github.com/riscv-non-isa/riscv-arch-test)
+6. RISC-V Software — *Spike, the RISC-V ISA Simulator*, [https://github.com/riscv-software-src/riscv-isa-sim](https://github.com/riscv-software-src/riscv-isa-sim)
+7. PULP Platform — *riscv-dbg* (RISC-V Debug Module, DTM and JTAG TAP), commit `21a5fbe`, [https://github.com/pulp-platform/riscv-dbg](https://github.com/pulp-platform/riscv-dbg)
+8. Arm Limited — *AMBA AXI Protocol Specification (IHI 0022)*, [https://developer.arm.com/documentation/ihi0022/latest](https://developer.arm.com/documentation/ihi0022/latest)
+9. PULP Platform — *axi* library, [https://github.com/pulp-platform/axi](https://github.com/pulp-platform/axi)
+10. PULP Platform — *common\_cells* and *tech\_cells\_generic* libraries, [https://github.com/pulp-platform/common\_cells](https://github.com/pulp-platform/common_cells), [https://github.com/pulp-platform/tech\_cells\_generic](https://github.com/pulp-platform/tech_cells_generic)
+11. A. Forencich — *verilog-uart*, [https://github.com/alexforencich/verilog-uart](https://github.com/alexforencich/verilog-uart)
+12. R. David et al. — *TensorFlow Lite Micro: Embedded ML on TinyML Systems*, **MLSys 2021**
+13. P. Warden & D. Situnayake — *TinyML*, O'Reilly Media, 2019
+14. P. Warden — *Speech Commands: A Dataset for Limited-Vocabulary Speech Recognition*, arXiv:1804.03209, 2018
+15. Google — *Micro Speech example*, [https://github.com/tensorflow/tflite-micro/tree/main/tensorflow/lite/micro/examples/micro\_speech](https://github.com/tensorflow/tflite-micro/tree/main/tensorflow/lite/micro/examples/micro_speech)
+16. Accellera — *UVM 1800.2-2017 1.0 Reference Implementation* (IEEE Std 1800.2-2017); the Verilator adaptation vendored under `verif/uvm-lib` is [https://github.com/verilator/uvm](https://github.com/verilator/uvm), commit `795b5f2`
+17. L. de Moura & N. Bjørner — *Z3: An Efficient SMT Solver*, TACAS 2008, [https://github.com/Z3Prover/z3](https://github.com/Z3Prover/z3)
+18. Wilson Snyder — *Verilator User's Guide*, [https://verilator.org/guide/latest/](https://verilator.org/guide/latest/)
+19. D. Harris & S. Harris — *Digital Design and Computer Architecture: RISC-V Edition*, Morgan Kaufmann, 2021
+20. Digilent — *Genesys 2 Reference Manual*, [https://digilent.com/reference/programmable-logic/genesys-2/reference-manual](https://digilent.com/reference/programmable-logic/genesys-2/reference-manual)
+21. Xilinx (AMD) — *UG470: 7 Series FPGAs Configuration User Guide* (STARTUPE2 / CCLK)
+22. OpenOCD — *Open On-Chip Debugger*, version 0.12.0, [https://openocd.org/](https://openocd.org/)
+23. LibreLane — *RTL-to-GDSII flow*, version 3.0.6 (`ba7193b`), [https://github.com/librelane/librelane](https://github.com/librelane/librelane)
+24. SkyWater Technology & Google — *SKY130 PDK*, [https://github.com/google/skywater-pdk](https://github.com/google/skywater-pdk); packaged as sky130A by *open\_pdks* (`8afc834`), [https://github.com/fossi-foundation/open-pdks](https://github.com/fossi-foundation/open-pdks)
 
 ---
 

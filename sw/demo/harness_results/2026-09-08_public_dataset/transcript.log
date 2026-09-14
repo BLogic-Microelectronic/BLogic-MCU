@@ -1,0 +1,382 @@
+00:53:52.022  BLogic MCU - Micro Speech live demo (QSPI boot, demo firmware v2)
+00:53:52.022  [DEMO] h=HW inference  v=new input via BLG1 (send_vector.py)  r=report  l=UART1 loopback test  ?=menu
+00:53:52.022  [DEMO] baud: sw0=9600 sw1=115200 (both down=115200); sw2 up = stream UART1 230400
+00:53:52.022  [DEMO] stream UART1 (Pmod JA) frames BLG1+len16+1960 int8+CRC16, answered on UART0 with a result line
+00:53:52.229  RESULT: no
+00:53:52.246  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:52.460  RESULT: no
+00:53:52.460  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:52.692  RESULT: no
+00:53:52.692  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:52.923  RESULT: no
+00:53:52.923  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:53.155  RESULT: yes
+00:53:53.155  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:53.386  RESULT: no
+00:53:53.386  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:53.617  RESULT: yes
+00:53:53.617  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:53.848  RESULT: yes
+00:53:53.848  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:54.078  RESULT: no
+00:53:54.078  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:54.309  RESULT: no
+00:53:54.309  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:54.540  RESULT: yes
+00:53:54.540  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:54.771  RESULT: silence
+00:53:54.771  [DEMO] class = silence  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:55.001  RESULT: yes
+00:53:55.002  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:55.233  RESULT: yes
+00:53:55.233  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:55.464  RESULT: no
+00:53:55.464  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:55.695  RESULT: yes
+00:53:55.695  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:55.927  RESULT: no
+00:53:55.927  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:56.157  RESULT: yes
+00:53:56.157  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:56.388  RESULT: yes
+00:53:56.388  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:56.619  RESULT: no
+00:53:56.619  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:56.850  RESULT: no
+00:53:56.850  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:57.081  RESULT: yes
+00:53:57.082  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:57.312  RESULT: no
+00:53:57.312  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:57.543  RESULT: no
+00:53:57.543  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:57.774  RESULT: no
+00:53:57.774  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:58.004  RESULT: no
+00:53:58.004  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:58.235  RESULT: no
+00:53:58.235  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:58.466  RESULT: yes
+00:53:58.466  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:58.697  RESULT: no
+00:53:58.697  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:58.928  RESULT: unknown
+00:53:58.928  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:59.158  RESULT: no
+00:53:59.158  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:59.389  RESULT: yes
+00:53:59.389  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:59.620  RESULT: no
+00:53:59.620  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:53:59.850  RESULT: yes
+00:53:59.850  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:00.081  RESULT: unknown
+00:54:00.081  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:00.313  RESULT: no
+00:54:00.313  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:00.544  RESULT: no
+00:54:00.544  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:00.775  RESULT: no
+00:54:00.775  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:01.005  RESULT: no
+00:54:01.005  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:01.236  RESULT: no
+00:54:01.236  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:01.467  RESULT: no
+00:54:01.467  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:01.698  RESULT: unknown
+00:54:01.698  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:01.928  RESULT: no
+00:54:01.929  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:02.159  RESULT: no
+00:54:02.159  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:02.390  RESULT: no
+00:54:02.390  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:02.622  RESULT: no
+00:54:02.622  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:02.853  RESULT: yes
+00:54:02.853  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:03.084  RESULT: yes
+00:54:03.084  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:03.315  RESULT: yes
+00:54:03.315  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:03.546  RESULT: yes
+00:54:03.546  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:03.776  RESULT: no
+00:54:03.776  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:04.007  RESULT: no
+00:54:04.007  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:04.238  RESULT: no
+00:54:04.238  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:04.470  RESULT: no
+00:54:04.470  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:04.702  RESULT: no
+00:54:04.702  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:04.933  RESULT: no
+00:54:04.933  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:05.164  RESULT: yes
+00:54:05.164  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:05.396  RESULT: no
+00:54:05.396  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:05.627  RESULT: no
+00:54:05.627  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:05.857  RESULT: no
+00:54:05.857  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:06.089  RESULT: unknown
+00:54:06.089  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:06.320  RESULT: no
+00:54:06.320  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:06.552  RESULT: unknown
+00:54:06.552  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:06.783  RESULT: silence
+00:54:06.783  [DEMO] class = silence  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:07.014  RESULT: no
+00:54:07.014  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:07.246  RESULT: no
+00:54:07.246  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:07.477  RESULT: yes
+00:54:07.477  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:07.708  RESULT: unknown
+00:54:07.708  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:07.940  RESULT: unknown
+00:54:07.940  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:08.171  RESULT: no
+00:54:08.171  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:08.402  RESULT: yes
+00:54:08.402  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:08.632  RESULT: no
+00:54:08.632  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:08.863  RESULT: no
+00:54:08.863  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:09.094  RESULT: no
+00:54:09.094  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:09.325  RESULT: no
+00:54:09.325  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:09.555  RESULT: no
+00:54:09.556  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:09.786  RESULT: yes
+00:54:09.786  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:10.017  RESULT: unknown
+00:54:10.017  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:10.249  RESULT: no
+00:54:10.249  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:10.480  RESULT: no
+00:54:10.480  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:10.710  RESULT: no
+00:54:10.710  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:10.941  RESULT: yes
+00:54:10.941  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:11.172  RESULT: no
+00:54:11.172  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:11.403  RESULT: no
+00:54:11.403  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:11.633  RESULT: yes
+00:54:11.633  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:11.864  RESULT: no
+00:54:11.864  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:12.095  RESULT: no
+00:54:12.095  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:12.326  RESULT: yes
+00:54:12.326  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:12.556  RESULT: yes
+00:54:12.556  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:12.787  RESULT: yes
+00:54:12.787  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:13.018  RESULT: yes
+00:54:13.018  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:13.249  RESULT: yes
+00:54:13.249  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:13.479  RESULT: yes
+00:54:13.479  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:13.710  RESULT: no
+00:54:13.710  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:13.942  RESULT: yes
+00:54:13.942  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:14.173  RESULT: unknown
+00:54:14.173  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:14.403  RESULT: no
+00:54:14.403  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:14.635  RESULT: no
+00:54:14.635  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:14.867  RESULT: unknown
+00:54:14.867  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:15.098  RESULT: no
+00:54:15.098  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:15.328  RESULT: silence
+00:54:15.328  [DEMO] class = silence  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:15.559  RESULT: yes
+00:54:15.559  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:15.790  RESULT: yes
+00:54:15.790  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:16.021  RESULT: yes
+00:54:16.021  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:16.252  RESULT: no
+00:54:16.252  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:16.482  RESULT: unknown
+00:54:16.482  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:16.713  RESULT: yes
+00:54:16.713  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:16.944  RESULT: no
+00:54:16.944  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:17.176  RESULT: no
+00:54:17.176  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:17.406  RESULT: yes
+00:54:17.406  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:17.638  RESULT: yes
+00:54:17.638  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:17.869  RESULT: no
+00:54:17.869  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:18.101  RESULT: unknown
+00:54:18.101  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:18.331  RESULT: no
+00:54:18.331  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:18.563  RESULT: yes
+00:54:18.563  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:18.794  RESULT: yes
+00:54:18.794  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:19.025  RESULT: no
+00:54:19.025  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:19.255  RESULT: no
+00:54:19.255  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:19.486  RESULT: no
+00:54:19.486  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:19.717  RESULT: no
+00:54:19.717  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:19.948  RESULT: yes
+00:54:19.948  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:20.178  RESULT: yes
+00:54:20.178  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:20.409  RESULT: yes
+00:54:20.409  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:20.640  RESULT: no
+00:54:20.640  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:20.871  RESULT: no
+00:54:20.871  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:21.102  RESULT: yes
+00:54:21.102  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:21.333  RESULT: yes
+00:54:21.333  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:21.564  RESULT: silence
+00:54:21.564  [DEMO] class = silence  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:21.795  RESULT: no
+00:54:21.795  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:22.025  RESULT: unknown
+00:54:22.025  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:22.257  RESULT: no
+00:54:22.257  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:22.488  RESULT: no
+00:54:22.488  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:22.719  RESULT: no
+00:54:22.719  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:22.950  RESULT: yes
+00:54:22.950  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:23.181  RESULT: no
+00:54:23.181  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:23.412  RESULT: no
+00:54:23.412  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:23.644  RESULT: no
+00:54:23.644  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:23.876  RESULT: unknown
+00:54:23.876  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:24.106  RESULT: silence
+00:54:24.107  [DEMO] class = silence  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:24.337  RESULT: yes
+00:54:24.337  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:24.568  RESULT: silence
+00:54:24.568  [DEMO] class = silence  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:24.800  RESULT: no
+00:54:24.800  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:25.030  RESULT: no
+00:54:25.030  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:25.262  RESULT: no
+00:54:25.262  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:25.493  RESULT: no
+00:54:25.493  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:25.724  RESULT: yes
+00:54:25.724  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:25.955  RESULT: no
+00:54:25.955  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:26.186  RESULT: yes
+00:54:26.186  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:26.417  RESULT: unknown
+00:54:26.417  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:26.648  RESULT: no
+00:54:26.648  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:26.878  RESULT: no
+00:54:26.878  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:27.109  RESULT: no
+00:54:27.109  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:27.340  RESULT: yes
+00:54:27.340  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:27.571  RESULT: unknown
+00:54:27.571  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:27.802  RESULT: yes
+00:54:27.802  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:28.033  RESULT: no
+00:54:28.033  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:28.264  RESULT: yes
+00:54:28.264  [DEMO] class = yes  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:28.496  RESULT: no
+00:54:28.496  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:28.726  RESULT: no
+00:54:28.726  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:28.958  RESULT: no
+00:54:28.958  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:29.189  RESULT: no
+00:54:29.189  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:29.421  RESULT: unknown
+00:54:29.421  [DEMO] class = unknown  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:29.651  RESULT: no
+00:54:29.651  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:29.882  RESULT: silence
+00:54:29.882  [DEMO] class = silence  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:30.113  RESULT: no
+00:54:30.113  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:30.344  RESULT: silence
+00:54:30.344  [DEMO] class = silence  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:30.574  RESULT: no
+00:54:30.574  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:30.805  RESULT: no
+00:54:30.805  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:30.998  RESULT: no
+00:54:31.018  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:31.208  RESULT: no
+00:54:31.208  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:31.400  RESULT: no
+00:54:31.421  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:31.610  RESULT: no
+00:54:31.610  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:32.266  RESULT: no
+00:54:32.282  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:32.497  RESULT: no
+00:54:32.497  [DEMO] class = no  HW cycle = 459142  speedup ~21.0x (SW baseline 9,684,726)
+00:54:32.970  RESULT: no
+00:54:32.970  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:33.201  RESULT: no
+00:54:33.201  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:33.254  REPORT: SW baseline 9,684,726 cycles (xPack 13.2.0 -O2, soc-perf); live HW measurement above. Details: README.
+00:54:33.254  [DEMO] stream frames ok=364 bad=0 idle-dropped=2 ring-overflow=0 unprocessed=0 rx-bytes=720224 bad-len=0 bad-crc=0
+00:54:33.474  RESULT: no
+00:54:33.474  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:33.706  RESULT: no
+00:54:33.706  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:33.937  RESULT: no
+00:54:33.937  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:34.167  RESULT: no
+00:54:34.167  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:34.398  RESULT: no
+00:54:34.398  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:34.629  RESULT: no
+00:54:34.629  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:34.860  RESULT: no
+00:54:34.860  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:35.090  RESULT: no
+00:54:35.090  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:35.321  RESULT: no
+00:54:35.321  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:35.552  RESULT: no
+00:54:35.552  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:35.783  RESULT: no
+00:54:35.783  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
+00:54:39.014  RESULT: no
+00:54:39.014  [DEMO] class = no  HW cycle = 459078  speedup ~21.0x (SW baseline 9,684,726)
