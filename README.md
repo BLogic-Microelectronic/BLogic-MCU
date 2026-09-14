@@ -1996,9 +1996,14 @@ GDS, which no other simulation exercised), with `ASIC_SRAM_MACRO` and the
 delivered OpenRAM models. **Scope limit, stated plainly:** this target compiles
 **RTL** (`soc_files.f` + `rtl/asic/asic_top.sv`) against the vendor's
 *behavioural* macro models — it is **not** a post-layout netlist or SDF
-back-annotated simulation, and no such target exists in this repository. What it
-proves is functional behaviour and the macro read/write contract at the ASIC top
-level; post-layout timing is proven by STA instead (`asic/reports/timing/`).
+back-annotated simulation. What it proves is functional behaviour and the macro
+read/write contract at the ASIC top level. The post-layout evidence is separate
+and exists in two forms: STA over all paths in three corners
+(`asic/reports/timing/`) and a **gate-level simulation of the delivered netlist
+with the TT SDF back-annotated** — `verif/gls/`, PASS on 12 September 2026:
+booting from flash and running one inference bit-exactly at the verified
+37.000 ns period, 0 timing-check violations over 3,898,641 cycles
+(`verif/results/2026-09-12/gls/`).
 It it boots from QSPI flash and then runs the accelerator's convolution
 layer, comparing the 1000-word `conv_out` region in AI SRAM **bit-exactly**
 (FNV-1a) against the committed golden vector. That region can only be produced
@@ -2096,6 +2101,7 @@ that the exploration tables of §10.10 compare against.
 | Magic DRC (DEF + abstract-view input, `MAGIC_DRC_USE_GDS: false`; the GDS-based signoff DRC is the KLayout row) | 9,201 markers, **all one rule (`nwell.4`)** — measured root-cause analysis (every marker ≤ 6.13 µm from a tap, 0 markers inside SRAM footprints) documents it as a Magic connectivity-resolution artefact; KLayout/LVS/XOR are clean on the same GDS (`asic/README.md` §9.9/4) |
 | Power (estimated, no VCD) | TT **64.0 mW at the verified 27.0 MHz** (SRAM 63 %, clock 18 %, seq. 17 %; SS 59.6 / FF 67.9 mW); at the 50 MHz target TT 117.5 mW (SS 108.8 / FF 124.6 mW, `asic/reports/timing_target_20ns/<corner>/power.rpt`) |
 | Lint | Verilator **0 errors** / 979 warnings in the flow's lint step (`asic/reports/lint/verilator_lint.log`), nothing suppressed, no waivers. By source: 446 `TIMESCALEMOD` in the LibreLane-generated macro black-box file, 326 in vendored code (CV32E40P, PULP libraries, riscv-dbg), 20 in the Forencich UART core, **187 in team RTL** (`UNUSEDSIGNAL` 107, `WIDTHEXPAND` 29, `PINCONNECTEMPTY` 21, `BLKSEQ` 13, `UNUSEDPARAM` 6, `UNDRIVEN` 4, `PINMISSING` 3, `WIDTHTRUNC` 3, `CASEINCOMPLETE` 1). Both `UNOPTFLAT` are in CV32E40P (`cv32e40p_id_stage.sv:293`, `cv32e40p_core.sv:275`). Most team `PINCONNECTEMPTY` are unused outputs, but on each UART the unconnected `s_axis_tready` and `frame_error` have consequences (`uart_axil.sv:258, 273`; `uart_stream_axil.sv:389, 404`), declared in §5.7 items 1 and 10. `make lint` suppresses six classes on the command line (`Makefile:437-438`), so its count is not comparable |
+| Gate-level simulation (netlist + TT SDF) | **PASS**, 12 September 2026: the delivered netlist (185,950 instances after filler removal, all 88,779 standard cells SDF-annotated) boots from flash and runs one inference bit-exactly at the 37.000 ns signoff period — 0 timing-check violations over 3,898,641 cycles (Questa counts violations as errors: the 5 ns negative control ends with `Errors: 553`, this run with `Errors: 0`), and no X or Z on the three output lines the testbench samples (`uart_txd_o`, `qspi_cs_no`, `qspi_sclk_o`) although 4,940 flip-flops have no reset and start as X. Method and scope limits (TT corner only, behavioural SRAM models, dynamic): `verif/gls/README.md`; PASS log `verif/results/2026-09-12/gls/full_37ns_boot_ai.log.gz`, 5 ns control `verif/results/2026-09-10/gls/neg_control_5ns.log.gz` |
 | Transistors (MOS gates counted on the delivered GDS) | **12,750,459** (`asic/scripts/count_transistors.py`; 12,715,215 in the September 6 run) |
 
 <p align="center"><img src="asic/results/images/asic_top_render_hd.png" alt="asic_top - delivered GDS, power grid and fill cells hidden" width="820"></p>
@@ -2266,7 +2272,7 @@ make sim FW_SRC=sw/tests/ai_irq_test.c TRACE=1
 13. P. Warden & D. Situnayake — *TinyML*, O'Reilly Media, 2019
 14. P. Warden — *Speech Commands: A Dataset for Limited-Vocabulary Speech Recognition*, arXiv:1804.03209, 2018
 15. Google — *Micro Speech example*, [https://github.com/tensorflow/tflite-micro/tree/main/tensorflow/lite/micro/examples/micro\_speech](https://github.com/tensorflow/tflite-micro/tree/main/tensorflow/lite/micro/examples/micro_speech)
-16. Accellera — *UVM 1800.2-2017 1.0 Reference Implementation* (IEEE Std 1800.2-2017); the Verilator adaptation vendored under `verif/uvm-lib` is [https://github.com/verilator/uvm](https://github.com/verilator/uvm), commit `795b5f2`
+16. Accellera — *UVM 2020-3.1 Reference Implementation* (IEEE Std 1800.2-2020); the Verilator adaptation vendored under `verif/uvm-lib` is [https://github.com/verilator/uvm](https://github.com/verilator/uvm), commit `656f20d` (provenance and deviations: `verif/uvm-lib/KAYNAK.md`, `DEVIATIONS.md`)
 17. L. de Moura & N. Bjørner — *Z3: An Efficient SMT Solver*, TACAS 2008, [https://github.com/Z3Prover/z3](https://github.com/Z3Prover/z3)
 18. Wilson Snyder — *Verilator User's Guide*, [https://verilator.org/guide/latest/](https://verilator.org/guide/latest/)
 19. D. Harris & S. Harris — *Digital Design and Computer Architecture: RISC-V Edition*, Morgan Kaufmann, 2021
