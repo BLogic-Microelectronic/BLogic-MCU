@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 # ============================================
 # Ostim BLogic Mikroelektronik
 # tiny_conv_reference.py  -  YZ golden vektor uretici
@@ -163,6 +168,10 @@ def array_to_c(name, data, dtype="int8_t"):
 
 header_path = os.path.join(out_dir, "blogic_ai_golden.h")
 with open(header_path, 'w') as f:
+    f.write("// SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan\n"
+            "// SPDX-License-Identifier: GPL-3.0-only\n"
+            "// Licensed under the GNU General Public License version 3 only.\n"
+            "// See the LICENSE file in the repository root for the full license text.\n\n")
     f.write("#ifndef BLOGIC_AI_GOLDEN_H\n#define BLOGIC_AI_GOLDEN_H\n\n#include <stdint.h>\n\n")
     f.write(array_to_c("golden_input_yes", golden_inputs["yes"]) + "\n\n")
     f.write(array_to_c("golden_output_yes", golden_fc_outputs["yes"]) + "\n\n")

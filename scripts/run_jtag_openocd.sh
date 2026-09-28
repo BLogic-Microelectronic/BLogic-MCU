@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 # ============================================
 # Ostim BLogic Mikroelektronik
 # run_jtag_openocd.sh  -  OpenOCD ucdan-uca demo kosucusu (JTAG teslim cipinin parcasi; Gun 2-3)

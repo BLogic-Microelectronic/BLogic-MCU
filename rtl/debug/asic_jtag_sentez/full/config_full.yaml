@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 # BLogic MCU - LibreLane Classic ana yapilandirmasi
 # DDK "2026 Final Ciktilar" Tablo 8 geregi: asic/config.yaml
 # Tum yollar depoya gore goreli (dir:: = bu dosyanin dizini). Mutlak yol yok (bolum 3).

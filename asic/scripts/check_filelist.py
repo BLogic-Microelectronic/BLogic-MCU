@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 """check_filelist.py - asic/config.yaml VERILOG_FILES <-> asic/filelist.f uyum denetimi.
 
 DDK "Final Istenen Ciktilar" sayfa 20: "LibreLane yapilandirmasinda kullanilan
@@ -25,6 +30,11 @@ CONFIG = os.path.join(ASIC_DIR, "config.yaml")
 FILELIST = os.path.join(ASIC_DIR, "filelist.f")
 
 HEADER = """\
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 # ============================================================
 # Ostim BLogic Mikroelektronik - asic/filelist.f
 # ASIC sentezinde kullanilan RTL kaynak listesi (DDK Tablo 8).

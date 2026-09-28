@@ -1,4 +1,15 @@
+<!--
+SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+SPDX-License-Identifier: GPL-3.0-only
+Licensed under the GNU General Public License version 3 only.
+See the LICENSE file in the repository root for the full license text.
+-->
+
 # Third-Party Components and Licenses
+
+Original BLogic work is licensed under GPL-3.0-only. See the repository's
+[LICENSE](../LICENSE) and [LICENSING.md](../LICENSING.md) for the licensing
+boundary; the third-party licenses below remain in effect.
 
 Per DDK "Final Istenen Ciktilar" (EN: Final Required Deliverables) section 9.13 and section 10. License texts
 are under `asic/licenses/`; the copyright headers in the source trees

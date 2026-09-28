@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 # guard_large_files.sh - protection against GitHub's 100 MB single-file limit.
 # Run AFTER collect_outputs.sh and BEFORE committing. Idempotent.
 # For every results/ and reports/ file above 95 MB: record the original SHA-256 -> gzip -9;

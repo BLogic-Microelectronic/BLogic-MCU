@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 # ============================================
 # Ostim BLogic Mikroelektronik
 # write_dtr_567.py  -  5.1 / 5.2 / 6 / 7 bölümleri (kısa, 2 sayfa hedef)

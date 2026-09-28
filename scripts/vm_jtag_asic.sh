@@ -1,4 +1,9 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 # ============================================
 # Ostim BLogic Mikroelektronik
 # vm_jtag_asic.sh - JTAG revizyonunun ASIC (sky130) sentez maliyeti - VM kosusu

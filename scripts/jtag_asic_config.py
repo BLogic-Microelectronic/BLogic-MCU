@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 """
 jtag_asic_config.py - asic/config.yaml'dan SENTEZ karsilastirma config'leri turetir.
 TARIHSEL KESIF ARACI (3-4 Eylul 2026): JTAG teslim yapilandirmasina alinmadan once

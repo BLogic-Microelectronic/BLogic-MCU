@@ -1,3 +1,10 @@
+<!--
+SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+SPDX-License-Identifier: GPL-3.0-only
+Licensed under the GNU General Public License version 3 only.
+See the LICENSE file in the repository root for the full license text.
+-->
+
 > **STATUS (6 September 2026): Option B - JTAG IS PART OF THE DELIVERED CHIP.** The
 > riscv-dbg based JTAG debug subsystem (TAP + DTM/CDC + DM + the `axi_dm_slave`
 > bridge) has been taken into the delivery configuration: the `JTAG_DEBUG`,

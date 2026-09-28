@@ -1,3 +1,10 @@
+<!--
+SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+SPDX-License-Identifier: GPL-3.0-only
+Licensed under the GNU General Public License version 3 only.
+See the LICENSE file in the repository root for the full license text.
+-->
+
 # DDK Written Decisions and Errata — Those Affecting the Submission
 
 This file carries the full text of the DDK announcements cited as

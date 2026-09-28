@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 # Gonderilen cerceve ile AI SRAM'e ulasan veriyi karsilastir.
 # "Kac bayt yerine ulasti, nerede bozuldu" sorusunun cevabi.
 # DUZELTME (13 Agu): [8:-4] dilim varsayimi 8 baytlik 0xFF preamble'la

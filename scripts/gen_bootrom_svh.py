@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 # ============================================
 # Ostim BLogic Mikroelektronik
 # gen_bootrom_svh.py - bootrom.hex -> sentezlenebilir case icerigi
@@ -13,7 +18,11 @@ words = [l.strip() for l in src.read_text().split() if l.strip()]
 if not words:
     sys.exit("bootrom.hex bos")
 
-lines = ["// OTOMATIK URETILDI - elle duzenlemeyin",
+lines = ["// SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan",
+         "// SPDX-License-Identifier: GPL-3.0-only",
+         "// Licensed under the GNU General Public License version 3 only.",
+         "// See the LICENSE file in the repository root for the full license text.", "",
+         "// OTOMATIK URETILDI - elle duzenlemeyin",
          f"// Kaynak: bootrom.hex ({len(words)} word)",
          "// Uretici: scripts/gen_bootrom_svh.py", ""]
 for i, w in enumerate(words):

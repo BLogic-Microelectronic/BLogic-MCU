@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 # ============================================
 # Ostim BLogic Mikroelektronik
 # jtag_kart_wsl.ps1 - Genesys 2 USB-JTAG (FT2232H) cihazini usbipd ile WSL2'ye verir

@@ -1,3 +1,10 @@
+<!--
+SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+SPDX-License-Identifier: GPL-3.0-only
+Licensed under the GNU General Public License version 3 only.
+See the LICENSE file in the repository root for the full license text.
+-->
+
 # sky130 exploration runs of the JTAG debug subsystem (v1 / v2 / v3)
 
 > **What these are.** Three full LibreLane runs made on the flow VM on 3-4

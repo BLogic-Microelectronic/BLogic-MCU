@@ -1,3 +1,10 @@
+<!--
+SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+SPDX-License-Identifier: GPL-3.0-only
+Licensed under the GNU General Public License version 3 only.
+See the LICENSE file in the repository root for the full license text.
+-->
+
 # JTAG v3 full flow - margin recovery through CTS settings (VM1, 3-4 September 2026)
 
 The SAME RTL as v2 (registered `axi_dm_slave`); the only difference is four

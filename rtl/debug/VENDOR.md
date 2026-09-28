@@ -1,3 +1,10 @@
+<!--
+SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+SPDX-License-Identifier: GPL-3.0-only
+Licensed under the GNU General Public License version 3 only.
+See the LICENSE file in the repository root for the full license text.
+-->
+
 # rtl/debug -- vendored JTAG debug dependencies
 
 This directory holds third-party RTL for the RISC-V debug module (DM) and the

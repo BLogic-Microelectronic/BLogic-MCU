@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 """Setup-slack histograms from the delivered three-corner STA reports.
 
 Parses every reported setup path (2,310 per corner in RUN_final_2026-09-06) in reports/timing/nom_<corner>/max.rpt

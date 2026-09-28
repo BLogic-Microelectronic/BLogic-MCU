@@ -1,4 +1,9 @@
 @echo off
+rem SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+rem SPDX-License-Identifier: GPL-3.0-only
+rem Licensed under the GNU General Public License version 3 only.
+rem See the LICENSE file in the repository root for the full license text.
+
 rem ============================================
 rem Ostim BLogic Mikroelektronik
 rem wave.bat - open a testbench in the Questa GUI with a ready-made wave window

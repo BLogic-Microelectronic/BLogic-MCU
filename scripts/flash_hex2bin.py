@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 # build/flash.hex (satir basina 1 bayt, metin hex) -> ham binary.
 # Kart akisi koprusu: gen_flash_image.py'nin urettigi TAM imaji (fw@0x0 +
 # veri@0x8000 + YZ@0x10000) flash_firmware.tcl'in bekledigi .bin'e cevirir.

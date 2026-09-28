@@ -1,4 +1,9 @@
 `verilator_config
+// SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+// SPDX-License-Identifier: GPL-3.0-only
+// Licensed under the GNU General Public License version 3 only.
+// See the LICENSE file in the repository root for the full license text.
+
 // CV32E40P vendor agaci coverage kapsami disi (soc_files.f'ten uretildi):
 //  - upstream'de dogrulanmis vendor IP
 //  - Verilator 5.049 --coverage bu dosyalarda internal error veriyor

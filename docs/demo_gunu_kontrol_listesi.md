@@ -1,3 +1,10 @@
+<!--
+SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+SPDX-License-Identifier: GPL-3.0-only
+Licensed under the GNU General Public License version 3 only.
+See the LICENSE file in the repository root for the full license text.
+-->
+
 # Demo günü kontrol listesi — TEKNOFEST jüri test aracı (demo_harness.py 1.0.2)
 
 Jüri, kartı kendi Python aracına bağlar: **stream UART** üzerinden 1960 baytlık

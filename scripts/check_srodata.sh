@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+# Licensed under the GNU General Public License version 3 only.
+# See the LICENSE file in the repository root for the full license text.
+
 # link.ld .srodata/.sdata/.sbss toplamazsa bu bolumler bellege yuklenmez.
 # GCC kucuk (varsayilan <8 B) salt-okunur nesneleri oraya koyar; degisken
 # indisli okuma 0 doner, sabit indisli okuma derleyici immediate'ina

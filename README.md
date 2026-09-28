@@ -1,3 +1,10 @@
+<!--
+SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+SPDX-License-Identifier: GPL-3.0-only
+Licensed under the GNU General Public License version 3 only.
+See the LICENSE file in the repository root for the full license text.
+-->
+
 <div align="center">
 
 ![TEKNOFEST 2026](images/cover.png)
@@ -2295,6 +2302,18 @@ make sim FW_SRC=sw/tests/ai_irq_test.c TRACE=1
 
 This project was developed by **BLogic Mikroelektronik** for the **TEKNOFEST 2026 Chip Design Competition**, hosted at **Ostim Technical University**.
 
+The original BLogic work is licensed under the **GNU General Public License,
+version 3 only (GPL-3.0-only)**. This includes the team's RTL, firmware,
+verification code, scripts, build configurations and project documentation.
+See [LICENSE](LICENSE) for the full terms and [LICENSING.md](LICENSING.md) for
+the scope, generated artifacts and third-party exclusions. The work is provided
+without warranty, as described in the license.
+
+Third-party components retain their existing licenses and notices; the root
+GPL license does not replace them. In particular, BLogic's Python tools in
+`sw/ai_model/` are GPLv3, while the upstream model and feature data retain their
+applicable upstream terms.
+
 ### Vendored Open-Source Components
 
 | Component | Author | License | Path |
@@ -2302,9 +2321,9 @@ This project was developed by **BLogic Mikroelektronik** for the **TEKNOFEST 202
 | CV32E40P core | OpenHW Group | Solderpad Hardware Licence v0.51 | `rtl/core/cv32e40p/` |
 | PULP `axi` library | PULP Platform | Solderpad Hardware Licence v0.51 | `rtl/bus/axi/` |
 | PULP `common_cells` | PULP Platform | Solderpad Hardware Licence v0.51 | `rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/` |
-| `verilog-uart` | Alex Forencich | MIT | `rtl/peripherals/verilog-uart/` |
+| `verilog-uart` | Alex Forencich | MIT | `rtl/peripherals/verilog-uart/` and the copies `rtl/peripherals/uart.v`, `uart_rx.v`, `uart_tx.v` |
 | Accellera UVM | Accellera | Apache 2.0 | `verif/uvm-lib/` |
-| TFLite Micro Speech model & features | Google / TensorFlow Authors | Apache 2.0 | `sw/ai_model/` |
+| TFLite Micro Speech model & features | Google / TensorFlow Authors | Apache 2.0 | `sw/ai_model/micro_speech_quantized.tflite` and upstream-derived data (see [LICENSING.md](LICENSING.md)) |
 | PULP `riscv-dbg` (JTAG debug subsystem of the delivered chip, commit `21a5fbe`) | PULP Platform | Solderpad Hardware Licence v0.51 (copy: `asic/licenses/riscv-dbg_SHL-0.51.txt`) | `rtl/debug/vendor/riscv-dbg/` |
 | PULP `common_cells` v1.38.0 CDC cells, `tech_cells_generic` v0.2.3 | PULP Platform | Solderpad Hardware Licence v0.51 (copies: `asic/licenses/common_cells_v1.38.0_SHL-0.51.txt`, `tech_cells_generic_SHL-0.51.txt`) | `rtl/debug/vendor/common_cells_v1.38.0/`, `rtl/debug/vendor/tech_cells_generic/` |
 | `remote_bitbang` server / `SimJTAG` (simulation only) | UC Regents / SiFive | BSD-3-Clause / Apache 2.0 | `rtl/debug/vendor/riscv-dbg/tb/` |
