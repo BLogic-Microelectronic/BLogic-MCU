@@ -19,6 +19,13 @@
   <img src="images/blogic_balporsugu_img.png" alt="OSTİM BLogic Mikroelektronik">
 </p>
 
+<p align="center">
+  <img src="images/teknofest_2026.jpeg" width="850" alt="BLogic Mikroelektronik team at the TEKNOFEST 2026 Chip Design Competition">
+</p>
+<p align="center">
+  <sub>BLogic Mikroelektronik at the TEKNOFEST 2026 Chip Design Competition.</sub>
+</p>
+
 ## Table of Contents
 
 1. [Overview](#1-overview)
