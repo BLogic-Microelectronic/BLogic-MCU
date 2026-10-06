@@ -96,6 +96,19 @@ asic/**/runs/
 !asic/results/**
 !asic/checksums/**
 
+# Buyuk fiziksel tasarim ciktilari v1.0'dan beri repoda degil, release'e ekli.
+# asic/fetch_results.sh onlari bu yollara indirir; tekrar commit'lenmesinler.
+asic/results/def/*.gz
+asic/results/gds/*.gz
+asic/results/mag/*.gz
+asic/results/netlist/*.gz
+asic/results/netlist/asic_top_synth.v
+asic/results/odb/*.part*
+asic/results/sdf/**/*.sdf
+asic/results/spef/**/*.gz
+asic/results/spice/*.gz
+asic/asic-results-*.tar.gz
+
 # ============================================================
 # docs/ TAMAMI YEREL - repoya girmez
 # Plan, defter, duyuru metinleri, DTR/OTR dosyalari... hepsi yerelde kalir.

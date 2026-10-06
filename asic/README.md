@@ -279,6 +279,13 @@ without issues. Disk: run directory (`run/`, deleted at delivery)
 (`reports/` 280 MB + `results/` 653 MB; files above GitHub's 100 MB limit
 are gzipped - `results/BUYUK_DOSYALAR.md`).
 
+Since v1.0 the large outputs under `results/` (GDS, ODB, Magic database, DEF,
+SDF, SPEF, SPICE and netlists) are no longer stored in the repository. They are
+attached to the [v1.0 release](https://github.com/BLogic-Microelectronic/BLogic-MCU/releases/tag/v1.0);
+`bash asic/fetch_results.sh` downloads them into the same paths and checks them
+against the committed `.sha256` files. The repository as submitted, with these
+files included, is the tag `teknofest-final`.
+
 ## 9.4 RTL and Flow Inputs
 
 - **File list:** `asic/filelist.f`. The canonical source is the
