@@ -14,8 +14,25 @@
 name: CI
 
 on:
+  # Only branch pushes: a version tag points to a commit that has already been tested.
+  # Changes that touch only documentation do not run the simulation suite.
   push:
+    branches: ["**"]
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+      - "images/**"
+      - ".github/release-notes/**"
+      - "LICENSE"
+      - "LICENSING.md"
   pull_request:
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+      - "images/**"
+      - ".github/release-notes/**"
+      - "LICENSE"
+      - "LICENSING.md"
   workflow_dispatch:
   schedule:
     # Weekly run on Monday 05:17 UTC, so that a change in the runner image

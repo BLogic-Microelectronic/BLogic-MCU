@@ -13,7 +13,21 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+      - "images/**"
+      - ".github/release-notes/**"
+      - "LICENSE"
+      - "LICENSING.md"
   pull_request:
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+      - "images/**"
+      - ".github/release-notes/**"
+      - "LICENSE"
+      - "LICENSING.md"
   workflow_dispatch:
 
 permissions:

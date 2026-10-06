@@ -18,7 +18,7 @@ implemented on FPGA and signed off as a sky130 ASIC.
 [![ASIC: sky130](https://img.shields.io/badge/ASIC-sky130%2C%20DRC%2FLVS%20clean-success)](docs/DOCUMENTATION.md#137-final-signoff-results--run_hold035_2026-09-09)
 [![FPGA: 50 MHz](https://img.shields.io/badge/FPGA-Genesys%202%2C%2050%20MHz-success)](docs/DOCUMENTATION.md#12-fpga-prototyping)
 
-<img src="images/board_demo.gif" width="560" alt="BLogic MCU on a Digilent Genesys 2 board, classifying feature vectors in real time">
+<img src="https://raw.githubusercontent.com/BLogic-Microelectronic/BLogic-MCU/main/images/board_demo.gif" width="560" alt="BLogic MCU on a Digilent Genesys 2 board, classifying feature vectors in real time">
 
 <sub>The design on a Digilent Genesys 2 board, classifying feature vectors sent over UART by the competition's
 test tool. The OLED shows the class reported by the accelerator, the inference cycle count and the UART rates.
@@ -55,9 +55,9 @@ with LibreLane to a GDS that passes DRC and LVS and is signed off at 27 MHz.
 | ASIC | sky130, 18.77 mm² die, 27 SRAM macros, DRC 0, LVS match, gate-level simulation with SDF passing at 27.0 MHz |
 
 <p align="center">
-  <img src="asic/results/images/asic_top_render_hd.png" width="420" alt="Layout of the delivered sky130 GDS">
+  <img src="https://raw.githubusercontent.com/BLogic-Microelectronic/BLogic-MCU/main/asic/results/images/asic_top_render_hd.png" width="420" alt="Layout of the delivered sky130 GDS">
   &nbsp;
-  <img src="images/system_architecture_jtag.png" width="420" alt="Block diagram of BLogic MCU">
+  <img src="https://raw.githubusercontent.com/BLogic-Microelectronic/BLogic-MCU/main/images/system_architecture_jtag.png" width="420" alt="Block diagram of BLogic MCU">
 </p>
 <p align="center"><sub>Left: the delivered sky130 layout, with the power grid and fill cells hidden. Right: block diagram.</sub></p>
 
