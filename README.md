@@ -12,6 +12,7 @@ See the LICENSE file in the repository root for the full license text.
 A 32-bit RISC-V microcontroller with a hardware accelerator for keyword spotting,
 implemented on FPGA and signed off as a sky130 ASIC.
 
+[![CI](https://github.com/BLogic-Microelectronic/BLogic-MCU/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/BLogic-Microelectronic/BLogic-MCU/actions/workflows/ci.yml)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 [![ISA: RV32IMC](https://img.shields.io/badge/ISA-RV32IMC-orange)](docs/DOCUMENTATION.md#103-isa-compliance-rv32imc-directed-test-3131-pass-riscv-arch-test-7273--1-analysed-known-difference)
 [![ASIC: sky130](https://img.shields.io/badge/ASIC-sky130%2C%20DRC%2FLVS%20clean-success)](docs/DOCUMENTATION.md#137-final-signoff-results--run_hold035_2026-09-09)
@@ -61,9 +62,31 @@ with LibreLane to a GDS that passes DRC and LVS and is signed off at 27 MHz.
 
 ## Getting started
 
-The simulation flow requires Verilator 5.0 or later and a `riscv32-unknown-elf` GCC toolchain.
-Installation instructions are given in
-[section 8 of the documentation](docs/DOCUMENTATION.md#8-prerequisites--toolchain-installation).
+### With Docker
+
+The simulation image contains Verilator, Spike, the RISC-V GCC toolchain and the sources, so nothing
+else has to be installed:
+
+```bash
+docker run --rm ghcr.io/blogic-microelectronic/blogic-mcu
+```
+
+The default command runs two programs on the Verilator model of the SoC, a boot test that prints over
+UART_0 and one inference on the AI accelerator, and prints a summary. It takes about half a minute.
+Any make target can be given instead, or a shell can be opened in the environment:
+
+```bash
+docker run --rm ghcr.io/blogic-microelectronic/blogic-mcu make regression
+docker run --rm -it ghcr.io/blogic-microelectronic/blogic-mcu bash
+```
+
+### From source
+
+The simulation flow is verified with Verilator 5.052 and the xPack RISC-V GCC 13.2 toolchain. Spike is
+needed for the lockstep and ISA compliance tests. Installation instructions are given in
+[section 8 of the documentation](docs/DOCUMENTATION.md#8-prerequisites--toolchain-installation);
+on Ubuntu 24.04, [`.github/scripts/build_tools.sh`](.github/scripts/build_tools.sh) builds the same
+versions that the CI uses.
 
 ```bash
 git clone --depth 1 https://github.com/BLogic-Microelectronic/BLogic-MCU.git
@@ -77,6 +100,14 @@ make compile && make sim
 
 The `--depth 1` option downloads only the latest version of the repository and is recommended,
 because earlier commits contain large physical design files.
+
+### Continuous integration
+
+Every push runs the simulation test suite on GitHub Actions
+([workflow](.github/workflows/ci.yml)): lint, the regression, the block and SoC tests, the ISA
+compliance suite, UVM, the JTAG debug tests with OpenOCD and gdb, the ASIC top level with the SRAM
+macro models, and coverage. The Docker image is built and tested by a
+[second workflow](.github/workflows/docker.yml) before it is published.
 
 ## Physical design outputs
 
