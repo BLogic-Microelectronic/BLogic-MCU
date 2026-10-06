@@ -50,7 +50,7 @@ with LibreLane to a GDS that passes DRC and LVS and is signed off at 27 MHz.
 |---|---|
 | Processor | CV32E40P, RV32IMC, machine mode only, 4-stage pipeline |
 | Memory | 1 KB boot ROM, 8 KB instruction SRAM, 8 KB data SRAM, 30 KB AI SRAM |
-| Verification | 90.7 % line and 88.5 % branch coverage; riscv-arch-test 72 of 73 signatures identical to Spike; Spike lockstep co-simulation; UVM environment for five blocks; AXI protocol checkers |
+| Verification | 90.7 % line and 88.5 % branch coverage; riscv-arch-test 72 of 73 signatures identical to Spike; Spike lockstep co-simulation; UVM environment for five blocks; AXI protocol checkers; a report and a register access log for every test |
 | FPGA | Digilent Genesys 2 (XC7K325T), 50 MHz, WNS +2.433 ns |
 | ASIC | sky130, 18.77 mm² die, 27 SRAM macros, DRC 0, LVS match, gate-level simulation with SDF passing at 27.0 MHz |
 
@@ -81,6 +81,9 @@ docker run --rm ghcr.io/blogic-microelectronic/blogic-mcu make regression
 docker run --rm -it ghcr.io/blogic-microelectronic/blogic-mcu bash
 ```
 
+The `latest` tag follows the main branch. Each release also has its own tag, for example
+`ghcr.io/blogic-microelectronic/blogic-mcu:v1.1`, which does not change.
+
 ### From source
 
 The simulation flow is verified with Verilator 5.052 and the xPack RISC-V GCC 13.2 toolchain. Spike is
@@ -99,13 +102,48 @@ make compile && make sim
 "Hello World from BLogic MCU!" received on UART_0. `make regression` runs the main regression suite,
 `make test-all` runs all 18 verification components, and `make help` lists every available target.
 
-After each simulation the test prints a short report and writes two files into its log directory:
-`report.txt`, which states what the test proves, the checks it made and the registers it accessed, and
-`bus_trace.log`, which lists every register access with its cycle, address, register name and value.
-The tests are described in [docs/TESTS.md](docs/TESTS.md).
-
 The `--depth 1` option downloads only the latest version of the repository and is recommended,
 because earlier commits contain large physical design files.
+
+### Test reports and register access logs
+
+Every simulation test ends with a short summary of what it did:
+
+```text
+---- Test report: UART_0 transmit (Hello World) -----------------------------------------
+  What it proves : Proves that the core boots from the instruction SRAM, executes C code and
+                   transmits a string through UART_0 at the programmed clocks-per-bit value.
+  Test files     : sw/tests/uart_hello.c, sw/drivers/blogic_mcu.h, sw/common/crt0.S, ...
+  Design files   : rtl/peripherals/uart_axil.sv, rtl/peripherals/uart_tx.v, rtl/soc_top.sv, ...
+  Checks         : 1 passed, 0 failed (listed in the report)
+  Registers      : UART0: CPB, TDR, CFG  (15,750 accesses)
+  Bus protocol   : 10 interfaces checked, no violations
+  Result         : PASS (125,739 cycles)
+  Report         : logs/sim/uart_hello/report.txt
+  Access log     : logs/sim/uart_hello/bus_trace.log
+```
+
+Two files are written into the log directory of the test:
+
+- `report.txt` states what the test proves, every check it made with its result, how often each
+  register was read and written, the results of the bus protocol checkers and coverage monitors,
+  and where the other log files are.
+- `bus_trace.log` lists every access on the peripheral bus in time order, with the cycle, the
+  address, the register name and the value, together with the checks of the test:
+
+```text
+#        cycle  access  address     register         data
+            69  write  0x40000000  UART0.CPB        0x000001b2
+            79  write  0x4000000c  UART0.TDR        0x00000048  'H'
+            82  write  0x40000010  UART0.CFG        0x00000003
+            85  read   0x40000010  UART0.CFG        0x00000001
+              ... the access above repeated 512 more times, last at cycle 4181
+```
+
+At the end of `make test-all`, `logs/report_index.txt` lists the report of every test.
+`make sim MEM_TRACE=1` also writes `mem_trace.log` with every load and store of the processor.
+What each test checks, which files it uses and which registers it accesses is described in
+[docs/TESTS.md](docs/TESTS.md).
 
 ### Continuous integration
 
@@ -118,8 +156,9 @@ macro models, and coverage. The Docker image is built and tested by a
 ## Physical design outputs
 
 The large outputs of the ASIC flow (GDS, ODB, Magic database, SDF and SPEF files) are not stored
-in the repository. They are attached as downloadable files to the
-[v1.0 release](https://github.com/BLogic-Microelectronic/BLogic-MCU/releases/tag/v1.0).
+in the repository. They are attached as downloadable files to every
+[release](https://github.com/BLogic-Microelectronic/BLogic-MCU/releases), and
+`bash asic/fetch_results.sh` downloads and verifies them.
 The signoff reports, the configuration and the layout images remain in [`asic/`](asic/README.md).
 The repository exactly as submitted to the competition is preserved under the tag
 [`teknofest-final`](https://github.com/BLogic-Microelectronic/BLogic-MCU/tree/teknofest-final).
@@ -131,7 +170,7 @@ Frequently used sections:
 
 - [Memory map](docs/DOCUMENTATION.md#4-memory-map) and [peripheral register map](docs/DOCUMENTATION.md#5-peripheral-register-map)
 - [Deviations from the specification and known limitations](docs/DOCUMENTATION.md#57-deviations-from-the-specification-and-known-limitations)
-- [Verification](docs/DOCUMENTATION.md#10-verification)
+- [Verification](docs/DOCUMENTATION.md#10-verification) and the [list of tests](docs/TESTS.md)
 - [AI accelerator](docs/DOCUMENTATION.md#11-ai-accelerator)
 - [FPGA prototyping](docs/DOCUMENTATION.md#12-fpga-prototyping)
 - [ASIC flow](docs/DOCUMENTATION.md#13-asic-flow-sky130) and the [ASIC README](asic/README.md)
