@@ -138,4 +138,4 @@ text(60, 940, "Bellek: Boot ROM + Instruction SRAM + Data SRAM + AI SRAM = 47 KB
 out = img.resize((W//SCALE, H//SCALE), Image.LANCZOS)
 png = "images/memory_map.png"
 out.save(png, dpi=(200, 200))
-print("YAZILDI:", png, out.size)
+print("WRITTEN:", png, out.size)

@@ -61,9 +61,9 @@ static void kontrol(const char *ad, uint32_t beklenen, uint32_t gercek) {
     uart_puts(UART0, ad);
     if (beklenen == gercek) { uart_puts(UART0, " PASS\n"); gecen++; }
     else {
-        uart_puts(UART0, " FAIL beklenen=");
+        uart_puts(UART0, " FAIL expected=");
         puth(beklenen);
-        uart_puts(UART0, " gercek=");
+        uart_puts(UART0, " got=");
         puth(gercek);
         uart_puts(UART0, "\n");
         kalan++;
@@ -115,11 +115,11 @@ int main(void) {
     /* [2] alt doyum: -2^30 bias -> tum conv_out 0x80 */
     doyum_kosusu("[2] bias=-2^30 (alt doyum)\n", 0xC0000000U, 0x80808080U);
 
-    uart_puts(UART0, "\n[AI-SAT] gecen=");
+    uart_puts(UART0, "\n[AI-SAT] passed=");
     putu(gecen);
-    uart_puts(UART0, " kalan=");
+    uart_puts(UART0, " failed=");
     putu(kalan);
-    uart_puts(UART0, (kalan == 0U) ? "  SONUC: PASS\n" : "  SONUC: FAIL\n");
+    uart_puts(UART0, (kalan == 0U) ? "  RESULT: PASS\n" : "  RESULT: FAIL\n");
     if (kalan == 0U)
         uart_puts(UART0, "Hello World from BLogic MCU!\n");
 

@@ -78,9 +78,9 @@ static void kontrol(const char *ad, uint32_t beklenen, uint32_t gercek) {
     uart_puts(UART0, ad);
     if (beklenen == gercek) { uart_puts(UART0, " PASS\n"); gecen++; }
     else {
-        uart_puts(UART0, " FAIL beklenen=");
+        uart_puts(UART0, " FAIL expected=");
         puth(beklenen);
-        uart_puts(UART0, " gercek=");
+        uart_puts(UART0, " got=");
         puth(gercek);
         uart_puts(UART0, "\n");
         kalan++;
@@ -94,7 +94,7 @@ static void kontrol_kuyruk(const char *ad, uint32_t alt, uint32_t ust,
     uart_puts(UART0, ad);
     if ((gercek == alt) || (gercek == ust)) { uart_puts(UART0, " PASS\n"); gecen++; }
     else {
-        uart_puts(UART0, " FAIL gercek=");
+        uart_puts(UART0, " FAIL got=");
         puth(gercek);
         uart_puts(UART0, "\n");
         kalan++;
@@ -115,91 +115,91 @@ static void kos(const char *ad, uint32_t fcr, uint32_t ccr) {
     while ((QSPI->STA & STA_BUSY) && --tmo) { }
     kontrol(ad, 0U, QSPI->STA & STA_BUSY);
     kontrol("done", STA_DONE, QSPI->STA & STA_DONE);
-    kontrol("hata-yok", 0U, (QSPI->STA >> STA_ERR_SHIFT) & STA_ERR_MASK);
+    kontrol("no-error", 0U, (QSPI->STA >> STA_ERR_SHIFT) & STA_ERR_MASK);
 }
 
 int main(void) {
     UART0->CPB = TEST_CPB;
-    uart_puts(UART0, "\n=== QSPI okuma yollari (kapsama C-sinifi) ===\n");
+    uart_puts(UART0, "\n=== QSPI read paths (coverage class C) ===\n");
 
     QSPI->ADR = 0x00001000U;
     temizle();
 
     /* [1] cok baytli x1 okuma: 8 bayt -> 2 tam word (RTL:384-389,409-412) */
     uart_puts(UART0, "[1] READ 8B (tam word paketleme)\n");
-    kos("bitti", 0U, CCR_KUR(0x03U, 1U, 0U, 0U, 8U));
+    kos("done", 0U, CCR_KUR(0x03U, 1U, 0U, 0U, 8U));
     kontrol("word0", 0xAAAAAAAAU, QSPI->DR);
     kontrol("word1", 0xAAAAAAAAU, QSPI->DR);
     kontrol("rx bosaldi", STA_RX_EMPTY, QSPI->STA & STA_RX_EMPTY);
 
     /* [2] 6 bayt: 1 tam + 2 kuyruk (RTL:400-401) */
-    uart_puts(UART0, "[2] READ 6B (2-bayt kuyruk)\n");
-    kos("bitti", 0U, CCR_KUR(0x03U, 1U, 0U, 0U, 6U));
+    uart_puts(UART0, "[2] READ 6B (2-byte tail)\n");
+    kos("done", 0U, CCR_KUR(0x03U, 1U, 0U, 0U, 6U));
     kontrol("tam word", 0xAAAAAAAAU, QSPI->DR);
     kontrol_kuyruk("kuyruk-2B", 0x0000AAAAU, 0xAAAA0000U, QSPI->DR);
 
     /* [3] 7 bayt: 1 tam + 3 kuyruk (RTL:400-401 diger dal) */
-    uart_puts(UART0, "[3] READ 7B (3-bayt kuyruk)\n");
-    kos("bitti", 0U, CCR_KUR(0x03U, 1U, 0U, 0U, 7U));
+    uart_puts(UART0, "[3] READ 7B (3-byte tail)\n");
+    kos("done", 0U, CCR_KUR(0x03U, 1U, 0U, 0U, 7U));
     kontrol("tam word", 0xAAAAAAAAU, QSPI->DR);
     kontrol_kuyruk("kuyruk-3B", 0x00AAAAAAU, 0xAAAAAA00U, QSPI->DR);
 
     /* [4] FAST_READ: adres + 8 dummy (RTL:321-323,350-365) */
     uart_puts(UART0, "[4] FAST_READ 0x0B (addr+dummy)\n");
-    kos("bitti", 0U, CCR_KUR(0x0BU, 1U, 0U, 8U, 4U));
-    kontrol("veri", 0xAAAAAAAAU, QSPI->DR);
+    kos("done", 0U, CCR_KUR(0x0BU, 1U, 0U, 8U, 4U));
+    kontrol("data", 0xAAAAAAAAU, QSPI->DR);
 
     /* [5] RDSR: adressiz okuma (RTL:303-307); ilk 32 kenar oncesi
        model sessiz -> bayt kesin 0x00 */
     uart_puts(UART0, "[5] RDSR 0x05 (adressiz)\n");
-    kos("bitti", FCR_ADDR_OFF, CCR_KUR(0x05U, 1U, 0U, 0U, 1U));
-    kontrol("veri(0)", 0x00000000U, QSPI->DR);
+    kos("done", FCR_ADDR_OFF, CCR_KUR(0x05U, 1U, 0U, 0U, 1U));
+    kontrol("data(0)", 0x00000000U, QSPI->DR);
 
     /* [6] RES: adressiz + 24 dummy (RTL:292-295 + SPI_DUMMY) */
     uart_puts(UART0, "[6] RES 0xAB (adressiz+dummy)\n");
-    kos("bitti", FCR_ADDR_OFF, CCR_KUR(0xABU, 1U, 0U, 24U, 4U));
-    kontrol("veri", 0xAAAAAAAAU, QSPI->DR);
+    kos("done", FCR_ADDR_OFF, CCR_KUR(0xABU, 1U, 0U, 24U, 4U));
+    kontrol("data", 0xAAAAAAAAU, QSPI->DR);
 
     /* [7] SE: adresli, verisiz (RTL:318-320) */
-    uart_puts(UART0, "[7] SE 0xD8 (adresli, verisiz)\n");
-    kos("bitti", FCR_ADDR_ON, CCR_KUR(0xD8U, 0U, 0U, 0U, 1U));
+    uart_puts(UART0, "[7] SE 0xD8 (with address, no data)\n");
+    kos("done", FCR_ADDR_ON, CCR_KUR(0xD8U, 0U, 0U, 0U, 1U));
 
     /* [8] READ4: 4-bayt adres (RTL:341) */
     uart_puts(UART0, "[8] READ4 0x13 (4B adres)\n");
     QSPI->ADR = 0x01234567U;
-    kos("bitti", FCR_ADDR4B, CCR_KUR(0x13U, 1U, 0U, 0U, 4U));
-    kontrol("veri", 0xAAAAAAAAU, QSPI->DR);
+    kos("done", FCR_ADDR4B, CCR_KUR(0x13U, 1U, 0U, 0U, 4U));
+    kontrol("data", 0xAAAAAAAAU, QSPI->DR);
     QSPI->ADR = 0x00001000U;
 
     /* [9] x2 okuma: DOR (RTL:158-161,375). io_i[0] surulmez ->
        deger desene bagli; done+pop yeterli, deger raporlanir */
-    uart_puts(UART0, "[9] DOR 0x3B (x2 okuma)\n");
-    kos("bitti", 0U, CCR_KUR(0x3BU, 2U, 0U, 8U, 4U));
-    uart_puts(UART0, "  x2 veri = ");
+    uart_puts(UART0, "[9] DOR 0x3B (x2 read)\n");
+    kos("done", 0U, CCR_KUR(0x3BU, 2U, 0U, 8U, 4U));
+    uart_puts(UART0, "  x2 data = ");
     puth(QSPI->DR);
     uart_puts(UART0, " (bilgi)\n");
 
     /* [10] x4 okuma: QOR (RTL:166,376) */
-    uart_puts(UART0, "[10] QOR 0x6B (x4 okuma)\n");
-    kos("bitti", 0U, CCR_KUR(0x6BU, 3U, 0U, 8U, 4U));
-    uart_puts(UART0, "  x4 veri = ");
+    uart_puts(UART0, "[10] QOR 0x6B (x4 read)\n");
+    kos("done", 0U, CCR_KUR(0x6BU, 3U, 0U, 8U, 4U));
+    uart_puts(UART0, "  x4 data = ");
     puth(QSPI->DR);
     uart_puts(UART0, " (bilgi)\n");
 
     /* [11] x2 yazma: dual PP (RTL:127-129 TX yonu) */
-    uart_puts(UART0, "[11] dual-PP 0xA2 (x2 yazma)\n");
+    uart_puts(UART0, "[11] dual-PP 0xA2 (x2 write)\n");
     QSPI->FCR = FCR_TX_FLUSH | FCR_RX_FLUSH;
     QSPI->CCR = CCR_CLR_STA;
     QSPI->DR  = 0x11223344U;
-    kos("bitti", 0U, CCR_KUR(0xA2U, 2U, 1U, 0U, 4U));
+    kos("done", 0U, CCR_KUR(0xA2U, 2U, 1U, 0U, 4U));
 
     temizle();
 
-    uart_puts(UART0, "\n[QSPI-RD] gecen=");
+    uart_puts(UART0, "\n[QSPI-RD] passed=");
     putu(gecen);
-    uart_puts(UART0, " kalan=");
+    uart_puts(UART0, " failed=");
     putu(kalan);
-    uart_puts(UART0, (kalan == 0U) ? "  SONUC: PASS\n" : "  SONUC: FAIL\n");
+    uart_puts(UART0, (kalan == 0U) ? "  RESULT: PASS\n" : "  RESULT: FAIL\n");
     if (kalan == 0U)
         uart_puts(UART0, "Hello World from BLogic MCU!\n");
 

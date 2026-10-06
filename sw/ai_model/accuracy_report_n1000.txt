@@ -1,9 +1,9 @@
 ==================================================================
-EK-1 %10 DOGRULUK PENCERESI - NIHAI RAPOR (RTL sonuclu)
+EK-1 10 % ACCURACY WINDOW - FINAL REPORT (with RTL results)
 ==================================================================
-Ornek sayisi N=1000 | SW referansi: bkz. uretim bolumu altta
+Samples N=1000 | software reference: see the generation section below
 
-  i | ornek          | etiket  | SW fc_out            | SW | RTL | esles
+  i | sample         | label   | SW fc_out            | SW | RTL | match
 ------------------------------------------------------------------
   0 | yes_real       | yes     | [-50, -5, 121, -4]   |  2 |   2 | OK
   1 | no_real        | no      | [-61, 37, -13, 68]   |  3 |   3 | OK
@@ -1006,17 +1006,17 @@ Ornek sayisi N=1000 | SW referansi: bkz. uretim bolumu altta
 998 | x0958_sp29     | -       | [-20, 55, 19, 8]     |  1 |   1 | OK
 999 | x0959_pt217    | -       | [-128, 72, 78, 127]  |  3 |   3 | OK
 ------------------------------------------------------------------
-SW-RTL sinif eslesmesi : 1000/1000
-Etiketli gercek ornekler (2 adet): SW dogruluk 2/2, RTL dogruluk 2/2
-Matematiksel sinir     : |acc_SW - acc_RTL| <= uyumsuzluk orani = 0.0 puan
-SONUC: fark = 0.0 puan <= 10 puan -> EK-1 penceresi SAGLANDI (her test kumesinde)
+SW-RTL class match     : 1000/1000
+Labelled recorded samples (2): SW accuracy 2/2, RTL accuracy 2/2
+Mathematical bound     : |acc_SW - acc_RTL| <= mismatch rate = 0.0 points
+RESULT: difference = 0.0 points <= 10 points -> EK-1 window MET (on every test set)
 
---- uretim bolumu ---
-SW referansi          : GERCEK TFLite interpreter (sw/ai_model/micro_speech_quantized.tflite), FC logitleri (softmax oncesi) karsilastirildi
-Ornek uretimi         : seed=2026, N=1000 (sabit cekirdek 40: 2 gercek ses + 4 sentetik + 34 turetilmis; kalan 960: girdi uzayi taramasi, 8 aile)
-Beraberlik (tie)      : 82/1000 ornekte ilk iki logit esit -> karar 'ilk maksimum' kuralina bagli (8.2%)
-TFLite FC logit vs kosim: birebir 981/1000, max |fark| = 1 LSB, argmax uyumu 1000/1000
-TFLite Softmax cikisi : argmax uyumu 1000/1000 (softmax monotonik -> karar esdeger; RTL logit-argmax uygular)
-Etiketli gercek kume  : SW dogruluk 2/2 (yes_real, no_real)
-RTL sutunu            : make ai kosun, sonra:
+--- generation section ---
+Software reference    : REAL TFLite interpreter (sw/ai_model/micro_speech_quantized.tflite), FC logits (before softmax) compared
+Sample generation     : seed=2026, N=1000 (fixed core of 40: 2 recorded audio + 4 synthetic + 34 derived; remaining 960: input space sweep, 8 families)
+Ties                  : in 82/1000 samples the top two logits are equal -> the decision follows the first-maximum rule (8.2%)
+TFLite FC logits vs co-simulation: identical 981/1000, max |difference| = 1 LSB, argmax agreement 1000/1000
+TFLite softmax output : argmax agreement 1000/1000 (softmax is monotonic -> same decision; the RTL takes the argmax of the logits)
+Labelled recorded set : SW accuracy 2/2 (yes_real, no_real)
+RTL column            : run make ai, then:
   python3 sw/ai_model/run_accuracy_window.py --ingest-rtl obj_dir_ai/ai_run.log

@@ -82,7 +82,7 @@ module axi_lite_protocol_checker #(
                 check_count <= check_count + 1;
                 if (!awvalid) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL AW1: AWVALID handshake olmadan dustu t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL AW1: AWVALID dropped before the handshake t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
@@ -91,7 +91,7 @@ module axi_lite_protocol_checker #(
                 check_count <= check_count + 1;
                 if (awaddr !== prev_awaddr) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL AW2: AWADDR degisti handshake olmadan t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL AW2: AWADDR changed before the handshake t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
@@ -106,7 +106,7 @@ module axi_lite_protocol_checker #(
                 check_count <= check_count + 1;
                 if (!wvalid) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL W1: WVALID handshake olmadan dustu t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL W1: WVALID dropped before the handshake t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
@@ -115,13 +115,13 @@ module axi_lite_protocol_checker #(
                 check_count <= check_count + 1;
                 if (wdata !== prev_wdata) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL W2: WDATA degisti handshake olmadan t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL W2: WDATA changed before the handshake t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
                 if (wstrb !== prev_wstrb) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL W3: WSTRB degisti handshake olmadan t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL W3: WSTRB changed before the handshake t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
@@ -136,7 +136,7 @@ module axi_lite_protocol_checker #(
                 check_count <= check_count + 1;
                 if (!bvalid) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL B1: BVALID handshake olmadan dustu t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL B1: BVALID dropped before the handshake t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
@@ -151,7 +151,7 @@ module axi_lite_protocol_checker #(
                 check_count <= check_count + 1;
                 if (!arvalid) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL AR1: ARVALID handshake olmadan dustu t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL AR1: ARVALID dropped before the handshake t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
@@ -160,7 +160,7 @@ module axi_lite_protocol_checker #(
                 check_count <= check_count + 1;
                 if (araddr !== prev_araddr) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL AR2: ARADDR degisti handshake olmadan t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL AR2: ARADDR changed before the handshake t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
@@ -175,7 +175,7 @@ module axi_lite_protocol_checker #(
                 check_count <= check_count + 1;
                 if (!rvalid) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL R1: RVALID handshake olmadan dustu t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL R1: RVALID dropped before the handshake t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
@@ -183,17 +183,11 @@ module axi_lite_protocol_checker #(
         end
     end
 
-    // simulasyon sonu raporu
+    // End-of-simulation report: one line per interface.
     final begin
-        $display("=== [%s] AXI-Lite Protocol Check Raporu ===", INTF_NAME);
-        $display("  Kontrol : %0d", check_count);
-        $display("  PASS    : %0d", pass_count);
-        $display("  FAIL    : %0d", fail_count);
-        if (fail_count == 0)
-            $display("  >>> PROTOKOL UYUMLU <<<");
-        else
-            $display("  >>> PROTOKOL IHLALI TESPIT EDILDI <<<");
-        $display("==========================================");
+        $display("[%s] AXI-Lite Protocol Check Report: %0d checks, %0d pass, %0d fail => %0s",
+                 INTF_NAME, check_count, pass_count, fail_count,
+                 (fail_count == 0) ? "PROTOCOL OK" : "PROTOCOL VIOLATION");
     end
 `endif // NO_PROTOCOL_CHECK
 

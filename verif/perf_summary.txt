@@ -1,30 +1,30 @@
-BLogic MCU - YZ hizlandirici basarim olcumu (make soc-perf)
-tarih     : 2026-09-10
+BLogic MCU - AI accelerator performance measurement (make soc-perf)
+date      : 2026-09-10
 verilator : Verilator 5.052 2026-09-05 rev v5.052
 rv-gcc    : riscv32-unknown-elf-gcc (xPack GNU RISC-V Embedded GCC x86_64) 13.2.0
             /usr/local/bin/riscv32-unknown-elf-gcc
-opt       : -O2   (yazilim referansi .text = 3058 B)
-NOT       : oran yazilim tabanina duyarlidir; taban derleyici ve
-            optimizasyon seviyesiyle degisir, donanim yolu degismez.
-olcum     : SoC seviyesi, mcycle CSR ile; ayni girdi once donanimda,
-            sonra ayni cekirdek uzerinde saf yazilim referansiyla kosulur.
-girdi     : yes_real (TFLite Micro Speech gercek ses ozniteligi)
-kaynak    : sw/tests/ai_sw_reference.c  ·  log: logs/sim/ai_sw_reference/uart.log
+opt       : -O2   (software reference .text = 3058 B)
+NOTE      : the ratio depends on the software baseline, which changes
+            with the compiler and optimisation level; the hardware path does not.
+method    : SoC level, with the mcycle CSR; the same input runs first on the
+            accelerator, then as a pure software reference on the same core.
+input     : yes_real (recorded audio features from TFLite Micro Speech)
+source    : sw/tests/ai_sw_reference.c  ·  log: logs/sim/ai_sw_reference/uart.log
 ------------------------------------------------------------
 
-  Donanim (YZ hizlandirici) :    459,016 cevrim   argmax=2 (yes)
-  Yazilim (CV32E40P)        :  9,684,726 cevrim   argmax=2 (yes)
-  HIZLANMA                  : 21.0x
+  Hardware (AI accelerator) :    459,016 cycles   argmax=2 (yes)
+  Software (CV32E40P)       :  9,684,726 cycles   argmax=2 (yes)
+  SPEEDUP                   : 21.0x
 
-  Dogruluk: conv_out 1000/1000 word birebir esit (bit-exact)
+  Accuracy: conv_out 1000/1000 words identical (bit-exact)
 
-  Cikti hizi (sistem saatine gore):
-    Saat      HW inference/s      HW B/s      SW inference/s      SW B/s
+  Throughput (by system clock):
+    Clock     HW inference/s      HW B/s      SW inference/s      SW B/s
      50 MHz              108     211,680                5       9,800
     100 MHz              217     425,320               10      19,600
 
-  Not: hedef sistem saati 50 MHz'dir; 100 MHz satiri olcek referansidir.
-       ASIC imzasindan farkli bir fmax cikarsa bu tablo yenilenmelidir.
+  Note: the target system clock is 50 MHz; the 100 MHz row is for scale only.
+       If the ASIC signoff gives a different fmax, this table must be regenerated.
 
-Kabul kriteri (EK-1): hizlanma > 1.0x ve sonuclar altin referansla birebir.
-Durum: PASS
+Acceptance criterion (EK-1): speed-up > 1.0x and results identical to the golden reference.
+Status: PASS

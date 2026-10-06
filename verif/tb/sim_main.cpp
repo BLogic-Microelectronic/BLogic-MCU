@@ -223,22 +223,22 @@ int main(int argc, char** argv) {
         CPB = sweep_cpbs[0];
     }
 
-    std::cout << "[SIM] start  test=" << test_name
-              << "  cpb=" << CPB
-              << "  logdir=" << log_dir << std::endl;
+    std::cout << "[SIM] Start: test " << test_name
+              << ", UART at " << CPB << " clocks per bit"
+              << ", logs in " << log_dir << std::endl;
 
     // +GOLDEN_FILE: bosluk iceren beklenen dizgeler plusarg'a sigmiyor,
     // dosyadan okunuyor. Sondaki tek newline kirpilir (editor ekliyor).
     if (!golden_file.empty()) {
         std::ifstream gf(golden_file, std::ios::binary);
-        if (!gf) { std::cerr << "[SIM] HATA: golden dosyasi acilamadi: "
+        if (!gf) { std::cerr << "[SIM] ERROR: cannot open the expected-output file: "
                              << golden_file << std::endl; return 2; }
         std::string g((std::istreambuf_iterator<char>(gf)),
                        std::istreambuf_iterator<char>());
         if (!g.empty() && g.back() == '\n') g.pop_back();
-        if (g.empty()) { std::cerr << "[SIM] HATA: golden dosyasi bos" << std::endl; return 2; }
+        if (g.empty()) { std::cerr << "[SIM] ERROR: the expected-output file is empty" << std::endl; return 2; }
         golden_string = g;
-        std::cout << "[SIM] golden (dosyadan): \"" << golden_string << "\"" << std::endl;
+        std::cout << "[SIM] Expected UART output (from file): \"" << golden_string << "\"" << std::endl;
     }
 
     // +UART_RX_FILE: host tarafini benzet. Dosya verilirse UART0 loopback'i
@@ -246,13 +246,13 @@ int main(int argc, char** argv) {
     UartBitDriver* uart_driver = nullptr;
     if (!uart_rx_file.empty()) {
         std::ifstream rf(uart_rx_file, std::ios::binary);
-        if (!rf) { std::cerr << "[SIM] HATA: RX dosyasi acilamadi: "
+        if (!rf) { std::cerr << "[SIM] ERROR: cannot open the UART_0 input file: "
                              << uart_rx_file << std::endl; return 2; }
         std::vector<uint8_t> d((std::istreambuf_iterator<char>(rf)),
                                 std::istreambuf_iterator<char>());
-        if (d.empty()) { std::cerr << "[SIM] HATA: RX dosyasi bos" << std::endl; return 2; }
-        std::cout << "[SIM] UART RX enjeksiyonu: " << d.size() << " bayt, CPB=" << CPB
-                  << ", gecikme=" << uart_rx_delay << " cevrim (loopback KAPALI)" << std::endl;
+        if (d.empty()) { std::cerr << "[SIM] ERROR: the UART_0 input file is empty" << std::endl; return 2; }
+        std::cout << "[SIM] Sending " << d.size() << " bytes to UART_0 RX at " << CPB
+                  << " clocks per bit, starting " << uart_rx_delay << " cycles later (TX-to-RX loopback off)" << std::endl;
         uart_driver = new UartBitDriver(CPB, std::move(d), uart_rx_delay);
     }
 
@@ -262,21 +262,21 @@ int main(int argc, char** argv) {
     UartBitDriver* uart1_driver = nullptr;
     if (!uart1_rx_file.empty()) {
         std::ifstream rf(uart1_rx_file, std::ios::binary);
-        if (!rf) { std::cerr << "[SIM] HATA: UART1 RX dosyasi acilamadi: "
+        if (!rf) { std::cerr << "[SIM] ERROR: cannot open the UART_1 input file: "
                              << uart1_rx_file << std::endl; return 2; }
         std::vector<uint8_t> d((std::istreambuf_iterator<char>(rf)),
                                 std::istreambuf_iterator<char>());
-        if (d.empty()) { std::cerr << "[SIM] HATA: UART1 RX dosyasi bos" << std::endl; return 2; }
+        if (d.empty()) { std::cerr << "[SIM] ERROR: the UART_1 input file is empty" << std::endl; return 2; }
         int cpb1 = uart1_cpb ? uart1_cpb : CPB;
-        std::cout << "[SIM] UART1 (stream) RX enjeksiyonu: " << d.size() << " bayt, CPB=" << cpb1
-                  << ", gecikme=" << uart1_rx_delay << " cevrim (UART1 loopback KAPALI)" << std::endl;
+        std::cout << "[SIM] Sending " << d.size() << " bytes to UART_1 (stream) RX at " << cpb1
+                  << " clocks per bit, starting " << uart1_rx_delay << " cycles later (UART_1 loopback off)" << std::endl;
         uart1_driver = new UartBitDriver(cpb1, std::move(d), uart1_rx_delay);
         if (!uart1_gaps_file.empty() && uart1_gap_cyc > 0) {
             std::ifstream gf(uart1_gaps_file);
             std::vector<size_t> g; size_t v;
             while (gf >> v) g.push_back(v);
-            std::cout << "[SIM] UART1 aralar: " << g.size() << " sinirda " << uart1_gap_cyc
-                      << " cevrim (harness cerceve arasi RESULT bekleme modeli)" << std::endl;
+            std::cout << "[SIM] UART_1: pause of " << uart1_gap_cyc << " cycles at " << g.size()
+                      << " frame boundaries (models the jury tool waiting for each RESULT)" << std::endl;
             uart1_driver->setGaps(std::move(g), uart1_gap_cyc);
         }
     }
@@ -284,21 +284,20 @@ int main(int argc, char** argv) {
     std::string uart_trigger;
     if (uart_driver && !trigger_file.empty()) {
         std::ifstream tf(trigger_file, std::ios::binary);
-        if (!tf) { std::cerr << "[SIM] HATA: tetik dosyasi acilamadi: "
+        if (!tf) { std::cerr << "[SIM] ERROR: cannot open the trigger file: "
                              << trigger_file << std::endl; return 2; }
         std::string s((std::istreambuf_iterator<char>(tf)),
                        std::istreambuf_iterator<char>());
         if (!s.empty() && s.back() == '\n') s.pop_back();
-        if (s.empty()) { std::cerr << "[SIM] HATA: tetik dosyasi bos" << std::endl; return 2; }
+        if (s.empty()) { std::cerr << "[SIM] ERROR: the trigger file is empty" << std::endl; return 2; }
         uart_trigger = s;
         uart_driver->needTrigger();
-        std::cout << "[SIM] RX tetigi: \"" << uart_trigger
-                  << "\" gorulene kadar hat bosta" << std::endl;
+        std::cout << "[SIM] UART_0 RX stays idle until the MCU prints \"" << uart_trigger << "\"" << std::endl;
     }
 
     UartBitDecoder* uart_decoder = new UartBitDecoder(CPB);
     if (!sweep_cpbs.empty()) {
-        std::cout << "[SIM] SWEEP modu: " << sweep_cpbs.size() << " faz, CPB listesi:";
+        std::cout << "[SIM] Baud-rate sweep: " << sweep_cpbs.size() << " phases, clocks per bit:";
         for (size_t i = 0; i < sweep_cpbs.size(); ++i) std::cout << " " << sweep_cpbs[i];
         std::cout << std::endl;
     }
@@ -399,9 +398,8 @@ int main(int argc, char** argv) {
             if (uart_driver && !uart_trigger.empty() && !uart_driver->armed()
                 && buf_str.find(uart_trigger) != std::string::npos) {
                 uart_driver->arm();
-                std::cout << "[SIM] tetik goruldu (cycle=" << cyc
-                          << "), " << uart_rx_delay << " cevrim sonra gonderim basliyor"
-                          << std::endl;
+                std::cout << "[SIM] Trigger text seen at cycle " << cyc
+                          << "; sending starts " << uart_rx_delay << " cycles later" << std::endl;
             }
             if (sweep_cpbs.empty()) {
                 if (buf_str.find(golden_string) != std::string::npos) break;
@@ -410,9 +408,9 @@ int main(int argc, char** argv) {
                 if (pos != std::string::npos) {
                     search_from = pos + golden_string.size();
                     sweep_done++;
-                    std::cout << "[SIM] SWEEP faz " << sweep_done << "/" << sweep_cpbs.size()
-                              << " OK (alici CPB=" << sweep_cpbs[sweep_done - 1]
-                              << ", cycle=" << cyc << ")" << std::endl;
+                    std::cout << "[SIM] Sweep phase " << sweep_done << " of " << sweep_cpbs.size()
+                              << " OK (receiver at " << sweep_cpbs[sweep_done - 1]
+                              << " clocks per bit, cycle " << cyc << ")" << std::endl;
                     if (sweep_done == sweep_cpbs.size()) break;
                     delete uart_decoder;
                     uart_decoder = new UartBitDecoder(sweep_cpbs[sweep_done]);
@@ -427,9 +425,9 @@ int main(int argc, char** argv) {
     uart_log.flush();
     rtl_trace_log.flush();
     if (uart1_driver) {
-        std::cout << "[SIM] UART1 stream: gonderilen=" << uart1_driver->sent() << "/" << uart1_driver->total()
-                  << " bayt, alicida rx_done yukselisi=" << u1_flag_rises
-                  << " (fark = RX cozme kaybi; firmware rx-bytes sayaci ile karsilastir)" << std::endl;
+        std::cout << "[SIM] UART_1 stream: sent " << uart1_driver->sent() << " of " << uart1_driver->total()
+                  << " bytes, the receiver flagged " << u1_flag_rises
+                  << " (a difference means bytes lost in the receiver)" << std::endl;
     }
 
     std::string t_end_iso = iso_now();
@@ -468,20 +466,20 @@ int main(int argc, char** argv) {
                      top->rootp->soc_top__DOT__i_ai_sram__DOT__mem[i]);
             ad << b;
         }
-        std::cout << "[SIM] AI SRAM dokuldu -> " << ai_dump_file << std::endl;
+        std::cout << "[SIM] AI SRAM input region written to " << ai_dump_file << std::endl;
         {
-            std::cout << "[SIM] RTL ilk 16 bayt:";
+            std::cout << "[SIM] First bytes received by UART_0:";
             for (size_t i = 0; i < rx_first.size(); i++) {
                 char b[8]; snprintf(b, sizeof(b), " %02X", rx_first[i]);
                 std::cout << b;
             }
             std::cout << std::endl;
         }
-        std::cout << "[SIM] UART_0 son durum:"
+        std::cout << "[SIM] UART_0 state at the end:"
                   << "  cfg_rx_done=" << (int)top->rootp->soc_top__DOT__i_uart_0__DOT__cfg_rx_done
                   << "  cfg_tx_done=" << (int)top->rootp->soc_top__DOT__i_uart_0__DOT__cfg_tx_done
                   << "  cfg_tx_en="   << (int)top->rootp->soc_top__DOT__i_uart_0__DOT__cfg_tx_en
-                  << "  RTL_teslim=" << rx_flag_rises
+                  << "  bytes_received=" << rx_flag_rises
                   << "  uart_rdr=0x"  << std::hex
                   << (unsigned)top->rootp->soc_top__DOT__i_uart_0__DOT__uart_rdr
                   << std::dec << std::endl;
@@ -494,6 +492,12 @@ int main(int argc, char** argv) {
                << "uart_bytes="    << rx_buf.size()    << "\n"
                << "wall_time_s="   << wall_s           << "\n"
                << "cpb="           << CPB              << "\n";
+    {
+        // expected UART_0 text, newlines written as \n (read by scripts/test_report.py)
+        std::string g;
+        for (char ch : golden_string) { if (ch == '\n') g += "\\n"; else if (ch == '\r') g += "\\r"; else g += ch; }
+        result_log << "expected_output=" << g << "\n";
+    }
     if (uart_driver) {
         result_log << "uart_rx_file="  << uart_rx_file << "\n"
                    << "uart_rx_armed=" << (uart_driver->armed() ? "yes" : "no") << "\n"
@@ -514,7 +518,7 @@ int main(int argc, char** argv) {
     result_log.flush();
 
     if (!match) {
-        diag_log << "=== KOK HATA TESHIS RAPORU ===\n";
+        diag_log << "=== FAILURE DIAGNOSIS ===\n";
         diag_log << "rx_byte_count="  << rx_buf.size() << "\n";
         diag_log << "total_cycles="   << cyc           << "\n";
         diag_log << "wall_time_s="    << wall_s        << "\n";
@@ -541,17 +545,18 @@ int main(int argc, char** argv) {
         diag_log.flush();
     }
 
-    std::cout << "[SIM] " << result
-              << "  cycles=" << cyc
-              << "  bytes="  << rx_buf.size()
-              << "  -> "     << log_dir
-              << (match ? "/result.log" : "/diag.log")
-              << std::endl;
+    top->final();   // end-of-simulation reports: protocol checkers, coverage monitors, bus_trace.log
+    if (match)
+        std::cout << "[SIM] PASS: expected UART output received after " << cyc << " cycles ("
+                  << rx_buf.size() << " bytes)" << std::endl;
+    else
+        std::cout << "[SIM] FAIL: expected UART output not received within " << cyc << " cycles ("
+                  << rx_buf.size() << " bytes received); diagnosis: " << log_dir << "/diag.log" << std::endl;
+    std::cout << "[SIM] Logs: " << log_dir << "/  (uart.log = UART_0 output, result.log, rtl_trace.log = executed PCs)" << std::endl;
 
-    top->final();
 #if VM_COVERAGE
     Verilated::threadContextp()->coveragep()->write((log_dir + "/coverage.dat").c_str());
-    std::cout << "[COV] " << log_dir << "/coverage.dat yazildi" << std::endl;
+    std::cout << "[COV] Coverage data written to " << log_dir << "/coverage.dat" << std::endl;
 #endif
     delete uart_decoder;
     delete uart_driver;

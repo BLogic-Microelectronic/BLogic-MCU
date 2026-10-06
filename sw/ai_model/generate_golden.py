@@ -17,7 +17,7 @@ except ImportError:
     try:
         from tflite_runtime.interpreter import Interpreter
     except ImportError:
-        sys.exit("tensorflow veya tflite-runtime kurulu degil.")
+        sys.exit("Neither tensorflow nor tflite-runtime is installed.")
 
 MODEL  = "sw/ai_model/micro_speech_quantized.tflite"
 OUTDIR = "sw/ai_model/golden_vectors"
@@ -26,7 +26,7 @@ OUTDIR = "sw/ai_model/golden_vectors"
 CLASS_NAMES = ['silence', 'unknown', 'yes', 'no']
 
 if not os.path.exists(MODEL):
-    sys.exit(f"Model bulunamadi: {MODEL}")
+    sys.exit(f"Model not found: {MODEL}")
 os.makedirs(OUTDIR, exist_ok=True)
 
 interp = Interpreter(MODEL, experimental_preserve_all_tensors=True)
@@ -45,9 +45,9 @@ for t in interp.get_tensor_details():
         add1_idx = t['index']
 
 if relu_idx is None or add1_idx is None:
-    sys.exit(f"Ara tensor bulunamadi (Relu={relu_idx}, add_1={add1_idx})")
+    sys.exit(f"Intermediate tensor not found (Relu={relu_idx}, add_1={add1_idx})")
 
-print(f"Tensor index'leri: input={input_idx}, Relu={relu_idx}, "
+print(f"Tensor indices: input={input_idx}, Relu={relu_idx}, "
       f"add_1={add1_idx}, output={output_idx}\n")
 
 
@@ -63,7 +63,7 @@ def run_inference(inp_int8):
 
 
 # 4 sinifa denk dusen input ara (rastgele + fallback)
-print("=== Sinif tarama (rastgele input) ===")
+print("=== Class search (random input) ===")
 np.random.seed(2026)
 found = {}   # sinif -> (input, conv_out, fc_out, softmax)
 trial = 0
@@ -76,21 +76,21 @@ while len(found) < 4 and trial < MAX_TRIALS:
     name = CLASS_NAMES[argmax]
     if name not in found:
         found[name] = (inp, conv_out, fc_out, softmax)
-        print(f"  trial {trial:5d}: '{name}' bulundu  argmax={argmax}  "
+        print(f"  trial {trial:5d}: '{name}' found  argmax={argmax}  "
               f"softmax={list(int(x) for x in softmax)}")
 
 
 # bulamadigimiz siniflar icin elle desenler
 if len(found) < 4:
-    print("\n=== Eksik siniflar icin fallback desenler ===")
+    print("\n=== Fallback patterns for missing classes ===")
     fallbacks = [
-        ("dusuk_enerji",  np.random.randint(-128, -110, size=1960, dtype=np.int8)),
-        ("orta_enerji",   np.random.randint(-30, 30, size=1960, dtype=np.int8)),
-        ("yuksek_enerji", np.random.randint(80, 127, size=1960, dtype=np.int8)),
-        ("hep_-128",      np.full(1960, -128, dtype=np.int8)),
-        ("hep_0",         np.zeros(1960, dtype=np.int8)),
-        ("hep_127",       np.full(1960, 127, dtype=np.int8)),
-        ("alternan",      np.tile([-128, 127], 980).astype(np.int8)),
+        ("low_energy",    np.random.randint(-128, -110, size=1960, dtype=np.int8)),
+        ("mid_energy",    np.random.randint(-30, 30, size=1960, dtype=np.int8)),
+        ("high_energy",   np.random.randint(80, 127, size=1960, dtype=np.int8)),
+        ("all_-128",      np.full(1960, -128, dtype=np.int8)),
+        ("all_0",         np.zeros(1960, dtype=np.int8)),
+        ("all_127",       np.full(1960, 127, dtype=np.int8)),
+        ("alternating",   np.tile([-128, 127], 980).astype(np.int8)),
     ]
     for label, inp in fallbacks:
         if len(found) >= 4:
@@ -99,20 +99,20 @@ if len(found) < 4:
         name = CLASS_NAMES[argmax]
         if name not in found:
             found[name] = (inp, conv_out, fc_out, softmax)
-            print(f"  desen '{label}': '{name}' bulundu  argmax={argmax}  "
+            print(f"  pattern '{label}': '{name}' found  argmax={argmax}  "
                   f"softmax={list(int(x) for x in softmax)}")
 
 
 # hala eksik varsa ilk bulunani kopyala
 missing = [n for n in CLASS_NAMES if n not in found]
 if missing:
-    print(f"\nUYARI: Su siniflar bulunamadi: {missing}")
-    print("        Bu siniflar icin ilk bulunan veriyi kopyaliyoruz; TB sayisal")
-    print("        dogrulugu yine de test edebilir, sadece etiket anlamli olmaz.")
+    print(f"\nWARNING: These classes were not found: {missing}")
+    print("        The first data found is copied for these classes; the TB can still")
+    print("        check numerical accuracy, but the label will not be meaningful.")
     first_key = next(iter(found))
     for n in missing:
         found[n] = found[first_key]
-        print(f"          {n} <- {first_key} (kopya)")
+        print(f"          {n} <- {first_key} (copy)")
 
 
 # hex yazma
@@ -130,7 +130,7 @@ def save_int8_hex(data, path):
             f.write(f"{w:08X}\n")
 
 
-print("\n=== Hex dosyalarini yaz ===")
+print("\n=== Writing hex files ===")
 for name in CLASS_NAMES:
     inp, conv_out, fc_out, softmax = found[name]
     save_int8_hex(inp,      os.path.join(OUTDIR, f"input_{name}.hex"))
@@ -143,19 +143,19 @@ for name in CLASS_NAMES:
 
 # golden_summary.txt (rapor; TB okumaz)
 with open(os.path.join(OUTDIR, "golden_summary.txt"), "w") as f:
-    f.write("BLogic MCU -- YZ Hizlandirici Golden Vektor Raporu (gercek TFLite requant)\n")
-    f.write("Kaynak: micro_speech_quantized.tflite (extract_weights.py + generate_golden.py)\n")
-    f.write("Sinif sirasi: [" + ", ".join(CLASS_NAMES) + "]\n")
+    f.write("BLogic MCU: AI Accelerator Golden Vector Report (real TFLite requantization)\n")
+    f.write("Source: micro_speech_quantized.tflite (extract_weights.py + generate_golden.py)\n")
+    f.write("Class order: [" + ", ".join(CLASS_NAMES) + "]\n")
     f.write("=" * 60 + "\n")
-    f.write(f"{'Senaryo':>10s} | {'FC_out':>24s} | argmax | {'Sinif':>8s}\n")
+    f.write(f"{'Scenario':>10s} | {'FC_out':>24s} | argmax | {'Class':>8s}\n")
     for _name in CLASS_NAMES:
         _inp, _co, _fc, _sm = found[_name]
         _am = int(np.argmax(_sm))
         _fs = "[" + ", ".join(str(int(_v)) for _v in _fc) + "]"
         f.write(f"{_name:>10s} | {_fs:>24s} | {_am:6d} | {CLASS_NAMES[_am]:>8s}\n")
-print("golden_summary.txt yazildi.")
+print("golden_summary.txt written.")
 
-print("\n=== Satir sayisi dogrulamasi ===")
+print("\n=== Line count check ===")
 expected_lines = {
     "input_silence.hex":     490, "input_unknown.hex":     490,
     "input_yes.hex":         490, "input_no.hex":          490,
@@ -168,19 +168,19 @@ all_ok = True
 for fn, exp in expected_lines.items():
     p = os.path.join(OUTDIR, fn)
     if not os.path.isfile(p):
-        print(f"  {fn:25s} DOSYA YOK")
+        print(f"  {fn:25s} FILE MISSING")
         all_ok = False
         continue
     with open(p) as f:
         n = sum(1 for _ in f)
-    tag = "OK" if n == exp else f"BEKLENEN {exp}"
+    tag = "OK" if n == exp else f"EXPECTED {exp}"
     if n != exp:
         all_ok = False
-    print(f"  {fn:25s} {n:>5d} satir   [{tag}]")
+    print(f"  {fn:25s} {n:>5d} lines   [{tag}]")
 
 if all_ok:
-    print("\n[SONUC] Tum golden dosyalari hazir. Simdi standalone TB:")
+    print("\n[RESULT] All golden files are ready. Now run the standalone TB:")
     print("        cd obj_dir_ai && ./ai_accel_tb_sim")
-    print("        (veya yeniden derlemek gerekirse: make -f Makefile.verilator clean verilate)")
+    print("        (or, if a rebuild is needed: make -f Makefile.verilator clean verilate)")
 else:
-    print("\n[UYARI] Bazi dosyalar eksik veya yanlis boyutta.")
+    print("\n[WARNING] Some files are missing or have the wrong size.")

@@ -17,15 +17,15 @@ import struct, sys
 MAGIC = b"BLG1"
 cerceve = open(sys.argv[1], "rb").read()
 m = cerceve.find(MAGIC)
-print("=== AI SRAM giris bolgesi karsilastirmasi ===")
+print("=== AI SRAM input region comparison ===")
 if m < 0:
-    print(">>> HATA: cercevede BLG1 basligi yok"); sys.exit(2)
+    print(">>> ERROR: no BLG1 header in the frame"); sys.exit(2)
 (ln,) = struct.unpack_from("<I", cerceve, m + 4)
 beklenen = cerceve[m + 8 : m + 8 + ln]
 (chk,) = struct.unpack_from("<I", cerceve, m + 8 + ln)
-print("cerceve  : preamble=%d, veri=%d bayt, saglama=0x%08X" % (m, ln, chk))
+print("frame    : preamble=%d, data=%d bytes, checksum=0x%08X" % (m, ln, chk))
 if len(beklenen) != ln or (sum(beklenen) & 0xFFFFFFFF) != chk:
-    print(">>> HATA: cerceve kendi icinde tutarsiz (uzunluk/saglama)"); sys.exit(2)
+    print(">>> ERROR: frame is internally inconsistent (length/checksum)"); sys.exit(2)
 
 gercek = bytearray()
 for satir in open(sys.argv[2]):
@@ -35,21 +35,21 @@ for satir in open(sys.argv[2]):
 gercek = bytes(gercek)
 
 if len(gercek) < len(beklenen):
-    print("dump     : %d bayt (beklenen %d) - KISA" % (len(gercek), len(beklenen)))
+    print("dump     : %d bytes (expected %d), SHORT" % (len(gercek), len(beklenen)))
 n = min(len(beklenen), len(gercek))
 ilk = next((i for i in range(n) if gercek[i] != beklenen[i]), None)
 esit = sum(1 for i in range(n) if gercek[i] == beklenen[i])
 if ilk is None and n == len(beklenen):
-    print(">>> TAM ESLESME - %d/%d bayt yerine ulasti" % (n, len(beklenen)))
+    print(">>> FULL MATCH: %d/%d bytes arrived" % (n, len(beklenen)))
     sys.exit(0)
-print("eslesen  : %d / %d bayt" % (esit, len(beklenen)))
-print("ilk fark : %s" % ("bayt %d" % ilk if ilk is not None else "yok (dump kisa)"))
+print("matching : %d / %d bytes" % (esit, len(beklenen)))
+print("1st diff : %s" % ("byte %d" % ilk if ilk is not None else "none (dump is short)"))
 if ilk is not None:
     a = max(0, ilk - 4)
-    print("  beklenen[%d:%d] = %s" % (a, ilk + 8, list(beklenen[a:ilk + 8])))
-    print("  gercek  [%d:%d] = %s" % (a, ilk + 8, list(gercek[a:ilk + 8])))
+    print("  expected[%d:%d] = %s" % (a, ilk + 8, list(beklenen[a:ilk + 8])))
+    print("  actual  [%d:%d] = %s" % (a, ilk + 8, list(gercek[a:ilk + 8])))
 if ilk == 0 and esit < 50:
-    print(">>> Hicbir sey ulasmadi: baslik senkronu tutmadi")
+    print(">>> Nothing arrived: header sync failed")
 else:
-    print(">>> Akis %s. baytta koptu" % (ilk if ilk is not None else n))
+    print(">>> Stream broke at byte %s" % (ilk if ilk is not None else n))
 sys.exit(1)

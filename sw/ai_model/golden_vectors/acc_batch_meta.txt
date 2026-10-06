@@ -1,4 +1,4 @@
-# i | ornek | etiket | sw_fc | sw_argmax | kosim_argmax | logit_maxdiff
+# i | sample | label | sw_fc | sw_argmax | cosim_argmax | logit_maxdiff
   0 | yes_real       | yes     | [-50, -5, 121, -4]   | 2 | 2 | 0
   1 | no_real        | no      | [-61, 37, -13, 68]   | 3 | 3 | 0
   2 | syn_yes        | -       | [-128, 97, 112, 87]  | 2 | 2 | 0

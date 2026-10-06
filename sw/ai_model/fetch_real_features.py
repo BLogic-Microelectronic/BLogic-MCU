@@ -27,7 +27,7 @@ CLS = ["silence", "unknown", "yes", "no"]
 
 
 def die(msg):
-    print("[HATA] " + msg)
+    print("[ERROR] " + msg)
     sys.exit(1)
 
 
@@ -65,18 +65,18 @@ def load_quant_params():
     def one(name):
         m = re.search(r"#define\s+%s\s+\(?(-?\d+)\)?" % name, src)
         if not m:
-            die("quant_params.h icinde %s bulunamadi" % name)
+            die("%s not found in quant_params.h" % name)
         return int(m.group(1))
     def arr(name):
         m = re.search(name + r"\s*\[\s*8\s*\]\s*=\s*\{([^}]*)\}", src)
         if not m:
-            die("quant_params.h icinde %s bulunamadi" % name)
+            die("%s not found in quant_params.h" % name)
         # '(int32_t)' icindeki '32' sayilmasin diye kelime-siniri
         vals = re.findall(r"(?<![\w])(?:0x[0-9A-Fa-f]+|-?\d+)(?![\w])",
                           m.group(1))
         vals = [int(v, 0) for v in vals]
         if len(vals) != 8:
-            die("%s: 8 deger bekleniyordu, %d bulundu" % (name, len(vals)))
+            die("%s: expected 8 values, found %d" % (name, len(vals)))
         return vals
     qp = {
         "input_zp":    one("INPUT_ZP"),
@@ -88,7 +88,7 @@ def load_quant_params():
     m = re.search(r"#define\s+M_FC_Q31\s+\(\(int32_t\)(0x[0-9A-Fa-f]+)\)", src)
     s = re.search(r"#define\s+SHIFT_FC\s+\((\d+)\)", src)
     if not (m and s):
-        die("quant_params.h icinde M_FC_Q31/SHIFT_FC bulunamadi")
+        die("M_FC_Q31/SHIFT_FC not found in quant_params.h")
     qp["m_fc"] = int(m.group(1), 16)
     qp["s_fc"] = int(s.group(1))
     # Q31 sabitleri isaretli yorumlanir
@@ -143,23 +143,23 @@ def parse_cc(blob, label):
     text = blob.decode("utf-8", errors="replace")
     m = re.search(r"\[\]\s*(?:\w+\s*)*=\s*\{(.*?)\};", text, re.S)
     if not m:
-        die("%s: C dizisi bulunamadi (beklenen '...[] = { ... };')" % label)
+        die("%s: C array not found (expected '...[] = { ... };')" % label)
     vals = [int(v) for v in re.findall(r"-?\d+", m.group(1))]
     if len(vals) != 1960:
-        die("%s: %d deger bulundu, 1960 bekleniyordu" % (label, len(vals)))
+        die("%s: found %d values, expected 1960" % (label, len(vals)))
     return vals
 
 
 def int8_candidates(vals):
     if min(vals) < 0:
         if min(vals) < -128 or max(vals) > 127:
-            die("deger araligi int8 disi: [%d, %d]" % (min(vals), max(vals)))
-        return [("int8 (dogrudan)", vals)]
+            die("value range is outside int8: [%d, %d]" % (min(vals), max(vals)))
+        return [("int8 (direct)", vals)]
     if max(vals) > 255:
-        die("deger araligi bayt disi: max=%d" % max(vals))
+        die("value range is outside a byte: max=%d" % max(vals))
     return [
-        ("uint8-128 (uint8 oznitelik -> int8)", [v - 128 for v in vals]),
-        ("two's-complement (bayt -> int8)",
+        ("uint8-128 (uint8 feature -> int8)", [v - 128 for v in vals]),
+        ("two's-complement (byte -> int8)",
          [v - 256 if v > 127 else v for v in vals]),
     ]
 
@@ -167,7 +167,7 @@ def int8_candidates(vals):
 def fetch(name, local_path):
     if local_path:
         blob = open(local_path, "rb").read()
-        src = "yerel: " + local_path
+        src = "local: " + local_path
         return blob, src
     last = None
     for tag in TAGS:
@@ -177,13 +177,13 @@ def fetch(name, local_path):
                 blob = r.read()
             if b"{" in blob and len(blob) > 4000:
                 return blob, url
-            last = "beklenmedik icerik: " + url
+            last = "unexpected content: " + url
         except Exception as e:
             last = "%s -> %s" % (url, e)
-    print("[HATA] Indirme basarisiz. Son deneme: %s" % last)
-    print("  Elle indirip yerel-yol moduyla calistirin:")
+    print("[ERROR] Download failed. Last attempt: %s" % last)
+    print("  Download the files by hand and run in local-path mode:")
     print("    python3 sw/ai_model/fetch_real_features.py yes.cc no.cc")
-    print("  Dosyalar (herhangi bir tensorflow v2.3/v2.4 etiketi):")
+    print("  Files (any tensorflow v2.3/v2.4 tag):")
     for n in ("yes", "no"):
         print("    " + URL_T.format(tag=TAGS[0], name=n))
     sys.exit(1)
@@ -191,17 +191,17 @@ def fetch(name, local_path):
 
 def main():
     if not os.path.isdir(G):
-        die("repo kokunden calistirin (sw/ai_model/golden_vectors bulunamadi)")
+        die("run from the repository root (sw/ai_model/golden_vectors not found)")
     for f in ("weights_conv.hex", "bias_conv.hex", "weights_fc.hex",
               "bias_fc.hex", "quant_params.h"):
         if not os.path.isfile(os.path.join(G, f)):
-            die("eksik: %s/%s (once extract_weights.py)" % (G, f))
+            die("missing: %s/%s (run extract_weights.py first)" % (G, f))
 
     local = {"yes": None, "no": None}
     if len(sys.argv) == 3:
         local["yes"], local["no"] = sys.argv[1], sys.argv[2]
     elif len(sys.argv) != 1:
-        die("kullanim: fetch_real_features.py [yes.cc no.cc]")
+        die("usage: fetch_real_features.py [yes.cc no.cc]")
 
     cw = hexbytes(os.path.join(G, "weights_conv.hex"))[:640]
     cb = hexwords(os.path.join(G, "bias_conv.hex"))
@@ -212,8 +212,8 @@ def main():
     raw = {}
     for name in ("yes", "no"):
         blob, src = fetch(name, local[name])
-        print("[KAYNAK] %s: %s" % (name, src))
-        print("         sha256=%s (%d bayt)"
+        print("[SOURCE] %s: %s" % (name, src))
+        print("         sha256=%s (%d bytes)"
               % (hashlib.sha256(blob).hexdigest(), len(blob)))
         raw[name] = parse_cc(blob, name)
 
@@ -230,7 +230,7 @@ def main():
             inp = cands[mode]
             co, fc = run_model(inp, cw, cb, fw, fb, qp)
             am = max(range(4), key=lambda i: fc[i])
-            print("[KOSIM] %-3s | mod: %-36s | fc_out=%s argmax=%d (%s)"
+            print("[SIM] %-3s | mode: %-36s | fc_out=%s argmax=%d (%s)"
                   % (name, mode, fc, am, CLS[am]))
             if am != EXPECT[name]:
                 ok = False
@@ -240,51 +240,52 @@ def main():
             chosen = (mode, cand)
             break
     if chosen is None:
-        die("hicbir kodlama adayi beklenen siniflari vermedi "
-            "(yes->2, no->3). Kaynak dosyalar yanlis olabilir; "
-            "HICBIR dosya yazilmadi.")
+        die("no encoding candidate produced the expected classes "
+            "(yes->2, no->3). The source files may be wrong; "
+            "NO files were written.")
 
     mode, cand = chosen
-    print("\n[SECIM] kodlama: %s" % mode)
+    print("\n[CHOICE] encoding: %s" % mode)
     for name in ("yes", "no"):
         inp, co, fc, am = cand[name]
         save_int8_hex(inp, os.path.join(G, "input_%s_real.hex" % name))
         save_int8_hex(co, os.path.join(G, "conv_out_%s_real.hex" % name))
         save_int8_hex(fc, os.path.join(G, "output_%s_real.hex" % name))
-        print("[YAZ] input/conv_out/output_%s_real.hex  fc_out=%s -> %s"
+        print("[WRITE] input/conv_out/output_%s_real.hex  fc_out=%s -> %s"
               % (name, fc, CLS[am]))
 
     # golden_summary.txt EK-3 bolumu (varsa yenilenir)
     spath = os.path.join(G, "golden_summary.txt")
-    marker = "--- EK-3 gercek ses oznitelikleri ---"
+    marker = "--- EK-3 real speech features ---"
     body = ""
     if os.path.isfile(spath):
         body = open(spath).read()
-        if marker in body:
-            body = body.split(marker)[0].rstrip() + "\n"
+        for old in (marker, "--- EK-3 gercek ses oznitelikleri ---"):
+            if old in body:
+                body = body.split(old)[0].rstrip() + "\n"
     lines = [marker]
-    lines.append("Kaynak: tflite-micro micro_speech micro_features "
-                 "(1 sn mono WAV -> 49x40 oznitelik)")
+    lines.append("Source: tflite-micro micro_speech micro_features "
+                 "(1 s mono WAV -> 49x40 features)")
     for name in ("yes", "no"):
         _, _, fc, am = cand[name]
         lines.append("%9s_real | %24s | %6d | %8s"
                      % (name, fc, am, CLS[am]))
-    lines.append("Kodlama tespiti: %s; kabul kosulu yes->2 ve no->3 saglandi."
+    lines.append("Detected encoding: %s; acceptance condition yes->2 and no->3 met."
                  % mode)
     with open(spath, "w") as f:
         f.write(body + "\n".join(lines) + "\n")
-    print("[YAZ] golden_summary.txt EK-3 bolumu guncellendi")
+    print("[WRITE] golden_summary.txt EK-3 section updated")
 
     # SoC on-yukleme imajini yeniden uret
-    print("\n[CALISTIR] generate_ai_sram_init.py")
+    print("\n[RUN] generate_ai_sram_init.py")
     rc = subprocess.call([sys.executable,
                           "sw/ai_model/generate_ai_sram_init.py"])
     if rc != 0:
         die("generate_ai_sram_init.py rc=%d" % rc)
 
-    print("\n[SONUC] EK-3 gercek-ses golden zinciri hazir. Sonraki adimlar:")
-    print("  make ai       # beklenen: [ADIM E] PASS - 6/6 senaryo")
-    print("  make soc-ai   # beklenen: yes_real, argmax=2, [SOC-AI] PASS")
+    print("\n[RESULT] EK-3 real-speech golden chain is ready. Next steps:")
+    print("  make ai       # expected: [STEP E] PASS, 6/6 scenarios")
+    print("  make soc-ai   # expected: yes_real, argmax=2, [SOC-AI] PASS")
     return 0
 
 

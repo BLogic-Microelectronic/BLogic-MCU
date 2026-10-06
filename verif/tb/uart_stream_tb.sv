@@ -9,6 +9,9 @@
 // ============================================
 `timescale 1ns/1ps
 module uart_stream_tb;
+    import tb_log_pkg::*;
+    BusLog blog;                      // bus_trace.log, bus_summary.tsv
+    longint unsigned cyc = 0;         // clock cycle counter for the log
 
     // CSR ofsetleri
     localparam logic [5:0] A_CPB  = 6'h00;
@@ -27,9 +30,21 @@ module uart_stream_tb;
     localparam logic [31:0] MEM_BASE = 32'h0003_0000;
     localparam int unsigned MEM_WORDS = 2048;        // 8 KB pencere
 
+    function automatic string reg_name(input logic [5:0] a);
+        case (a)
+            A_CPB: return "UART1.CPB";        A_STP: return "UART1.STP";
+            A_RDR: return "UART1.RDR";        A_TDR: return "UART1.TDR";
+            A_CFG: return "UART1.CFG";        A_SADR: return "UART1.STRM_ADDR";
+            A_SLEN: return "UART1.STRM_LEN";  A_SCTL: return "UART1.STRM_CTRL";
+            A_SSTA: return "UART1.STRM_STAT";
+            default: return $sformatf("UART1+0x%02h", a);
+        endcase
+    endfunction
+
     logic clk = 1'b0;
     logic rst_n = 1'b0;
     always #10 clk = ~clk;                            // 50 MHz
+    always @(posedge clk) cyc <= cyc + 1;
 
     // AXI-Lite master (TB -> DUT CSR)
     logic [31:0] awaddr  = '0;
@@ -144,23 +159,24 @@ module uart_stream_tb;
         end else begin
             if (m_awvalid && m_awready) begin
                 // tek beat, 4 bayt, INCR kontrolu
-                if (m_awlen != 8'd0)    $fatal(1, "[MEM] awlen != 0: %0d", m_awlen);
-                if (m_awsize != 3'b010) $fatal(1, "[MEM] awsize != 4B: %0d", m_awsize);
+                if (m_awlen != 8'd0)    blog.require(cyc, 1'b0, "DMA write is a single beat (AWLEN = 0)", $sformatf("AWLEN = %0d", m_awlen));
+                if (m_awsize != 3'b010) blog.require(cyc, 1'b0, "DMA write is 4 bytes wide (AWSIZE = 2)", $sformatf("AWSIZE = %0d", m_awsize));
                 if (m_awaddr < MEM_BASE || m_awaddr >= MEM_BASE + MEM_WORDS*4)
-                    $fatal(1, "[MEM] adres pencere disi: 0x%08x", m_awaddr);
+                    blog.require(cyc, 1'b0, "DMA write address inside the AI SRAM window", $sformatf("0x%08x", m_awaddr));
                 if (m_awaddr[1:0] != 2'b00)
-                    $fatal(1, "[MEM] hizasiz word adresi: 0x%08x", m_awaddr);
+                    blog.require(cyc, 1'b0, "DMA write address is word aligned", $sformatf("0x%08x", m_awaddr));
                 aw_q   <= m_awaddr;
                 aw_got <= 1'b1;
             end
             if (m_wvalid && m_wready) begin
-                if (!m_wlast) $fatal(1, "[MEM] wlast bekleniyordu");
+                if (!m_wlast) blog.require(cyc, 1'b0, "DMA write data beat carries WLAST");
                 wd_q  <= m_wdata;
                 ws_q  <= m_wstrb;
                 w_got <= 1'b1;
             end
             if (aw_got && w_got && !m_bvalid) begin
                 widx = (aw_q - MEM_BASE) >> 2;
+                blog.access(cyc, 1'b1, aw_q, "AI SRAM (DMA)", wd_q, ws_q, 2'b00);
                 if (ws_q[0]) mem[widx][ 7: 0] <= wd_q[ 7: 0];
                 if (ws_q[1]) mem[widx][15: 8] <= wd_q[15: 8];
                 if (ws_q[2]) mem[widx][23:16] <= wd_q[23:16];
@@ -186,6 +202,7 @@ module uart_stream_tb;
         awvalid = 1'b0;
         wvalid  = 1'b0;
         while (!bvalid) @(negedge clk);
+        blog.access(cyc, 1'b1, {26'd0, addr}, reg_name(addr), data, 4'hF, bresp);
     endtask
 
     task automatic axi_read(input logic [5:0] addr, output logic [31:0] data);
@@ -197,6 +214,7 @@ module uart_stream_tb;
         arvalid = 1'b0;
         while (!rvalid) @(negedge clk);
         data = rdata;
+        blog.access(cyc, 1'b0, {26'd0, addr}, reg_name(addr), data, 4'hF, rresp);
     endtask
 
     // 8N1: start + 8 veri (LSB-first) + stop
@@ -219,7 +237,7 @@ module uart_stream_tb;
             axi_read(A_SSTA, sta);
             if (sta[1]) return;                      // DONE
             n++;
-            if (n > 50_000) $fatal(1, "[STRM] DONE zaman asimi (STA=0x%08x)", sta);
+            if (n > 50_000) blog.require(cyc, 1'b0, "STRM_STAT.DONE is set within 50000 polls", $sformatf("STRM_STAT = 0x%08x", sta));
         end
     endtask
 
@@ -229,8 +247,9 @@ module uart_stream_tb;
 
     // beklenen word'u dogrula
     task automatic check_word(input int unsigned idx, input logic [31:0] exp, input string tag);
-        if (mem[idx] !== exp)
-            $fatal(1, "[%s] mem[%0d] = 0x%08x, beklenen 0x%08x", tag, idx, mem[idx], exp);
+        blog.require(cyc, mem[idx] === exp,
+                     $sformatf("[%s] memory word 0x%08x holds the expected bytes", tag, MEM_BASE + idx * 4),
+                     $sformatf("read 0x%08x, expected 0x%08x", mem[idx], exp));
     endtask
 
     // test akisi
@@ -238,6 +257,12 @@ module uart_stream_tb;
     int unsigned base_idx;
 
     initial begin
+        string pfx;
+        pfx = "";
+        void'($value$plusargs("LOGDIR=%s", pfx));
+        blog = new(pfx, "uart_stream_tb register accesses and DMA writes (make uart-stream)",
+                   "testbench AXI-Lite master -> uart_stream_axil registers; uart_stream_axil AXI4 master -> memory model of the AI SRAM",
+                   "cycle");
         // komsu bayt korunumu icin bellegi on-dolgula
         for (int i = 0; i < MEM_WORDS; i++) mem[i] = 32'hAAAA_AAAA;
 
@@ -248,47 +273,50 @@ module uart_stream_tb;
         axi_write(A_CPB, CPB);
 
         // A) temel DMA: 16 bayt
-        $display("[A] Temel DMA: 16 bayt @0x%08x", MEM_BASE);
+        $display("[A] Basic DMA: 16 bytes to 0x%08x", MEM_BASE);
+        blog.note(cyc, "scenario A: basic DMA, 16 bytes");
         irq_seen = 1'b0;
         axi_write(A_SADR, MEM_BASE);
         axi_write(A_SLEN, 32'd16);
         axi_write(A_SCTL, 32'h1);                    // START
         axi_read(A_SSTA, sta);
-        if (!sta[0]) $fatal(1, "[A] START sonrasi BUSY=0");
-        if (!strm_active) $fatal(1, "[A] strm_active=0 (arbiter sahiplik sinyali)");
+        blog.require(cyc, sta[0], "[A] STRM_STAT.BUSY is 1 after START");
+        blog.require(cyc, strm_active, "[A] stream_active_o is 1 while the DMA owns the AI SRAM port");
 
         for (int i = 0; i < 16; i++) uart_send_byte(pat(i));
         wait_done(sta);
 
-        if (sta[0])              $fatal(1, "[A] DONE sonrasi BUSY hala 1");
-        if (sta[31:16] != 16'd16) $fatal(1, "[A] rxcnt=%0d, beklenen 16", sta[31:16]);
-        if (!irq_seen)           $fatal(1, "[A] IRQ pulse gorulmedi");
-        if (strm_active)         $fatal(1, "[A] DONE sonrasi strm_active hala 1");
+        blog.require(cyc, !sta[0], "[A] STRM_STAT.BUSY is 0 after DONE");
+        blog.require(cyc, sta[31:16] == 16'd16, "[A] receive count in STRM_STAT is 16", $sformatf("%0d", sta[31:16]));
+        blog.require(cyc, irq_seen, "[A] interrupt pulse seen at the end of the transfer");
+        blog.require(cyc, !strm_active, "[A] stream_active_o is 0 after DONE");
 
         base_idx = 0;
         for (int w = 0; w < 4; w++)
             check_word(base_idx + w,
                        {pat(4*w+3), pat(4*w+2), pat(4*w+1), pat(4*w+0)}, "A");
-        $display("[A] PASS — 4 word little-endian dogru, DONE+IRQ+rxcnt OK");
+        $display("[A] PASS: 4 words in little-endian order, DONE, IRQ and receive count correct");
 
         // B) kismi word: len=7 @ +0x40
-        $display("[B] Kismi word: 7 bayt @0x%08x", MEM_BASE + 32'h40);
+        $display("[B] Partial word: 7 bytes to 0x%08x", MEM_BASE + 32'h40);
+        blog.note(cyc, "scenario B: 7 bytes, the last word is written with byte enables 0111");
         axi_write(A_SCTL, 32'h0);                    // etkisiz yazma
         axi_write(A_SADR, MEM_BASE + 32'h40);
         axi_write(A_SLEN, 32'd7);
         axi_write(A_SCTL, 32'h1);
         for (int i = 0; i < 7; i++) uart_send_byte(pat(100 + i));
         wait_done(sta);
-        if (sta[31:16] != 16'd7) $fatal(1, "[B] rxcnt=%0d, beklenen 7", sta[31:16]);
+        blog.require(cyc, sta[31:16] == 16'd7, "[B] receive count in STRM_STAT is 7", $sformatf("%0d", sta[31:16]));
 
         base_idx = 32'h40 >> 2;
         check_word(base_idx + 0, {pat(103), pat(102), pat(101), pat(100)}, "B");
         // son word 3 bayt; ust bayt 0xAA korunmali
         check_word(base_idx + 1, {8'hAA, pat(106), pat(105), pat(104)}, "B");
-        $display("[B] PASS — wstrb=0111 kismi yazma + komsu bayt korunumu OK");
+        $display("[B] PASS: partial write with WSTRB 0111, the neighbouring byte is kept");
 
         // C) busy iken SADR yazisi etkisiz olmali
-        $display("[C] Busy iken SADR kilidi");
+        $display("[C] STRM_ADDR is locked while the DMA is busy");
+        blog.note(cyc, "scenario C: a write to STRM_ADDR during a transfer must be ignored");
         axi_write(A_SADR, MEM_BASE + 32'h80);
         axi_write(A_SLEN, 32'd4);
         axi_write(A_SCTL, 32'h1);
@@ -296,13 +324,13 @@ module uart_stream_tb;
         for (int i = 0; i < 4; i++) uart_send_byte(pat(200 + i));
         wait_done(sta);
         axi_read(A_SADR, r);
-        if (r != MEM_BASE + 32'h80)
-            $fatal(1, "[C] SADR busy iken degisti: 0x%08x", r);
+        blog.require(cyc, r == MEM_BASE + 32'h80, "[C] STRM_ADDR unchanged by the write during the transfer", $sformatf("0x%08x", r));
         check_word(32'h80 >> 2, {pat(203), pat(202), pat(201), pat(200)}, "C");
-        $display("[C] PASS — busy sirasinda SADR korunur, veri dogru hedefe yazildi");
+        $display("[C] PASS: STRM_ADDR kept during the transfer, data written to the right place");
 
         // D) ABORT + yeniden START
-        $display("[D] ABORT ortasinda durdur + yeniden START");
+        $display("[D] ABORT in the middle of a transfer, then a new START");
+        blog.note(cyc, "scenario D: ABORT after 3 of 8 bytes, then a new transfer on the same channel");
         irq_seen = 1'b0;
         axi_write(A_SADR, MEM_BASE + 32'hC0);
         axi_write(A_SLEN, 32'd8);
@@ -316,11 +344,11 @@ module uart_stream_tb;
             do begin
                 axi_read(A_SSTA, sta);
                 n++;
-                if (n > 1000) $fatal(1, "[D] ABORT sonrasi BUSY dusmedi");
+                if (n > 1000) blog.require(cyc, 1'b0, "[D] STRM_STAT.BUSY clears after ABORT");
             end while (sta[0]);
         end
-        if (sta[1])    $fatal(1, "[D] ABORT DONE kurdu (kurmamali)");
-        if (irq_seen)  $fatal(1, "[D] ABORT IRQ uretti (uretmemeli)");
+        blog.require(cyc, !sta[1], "[D] ABORT does not set DONE");
+        blog.require(cyc, !irq_seen, "[D] ABORT does not raise the interrupt");
         // ayni kanal yeniden kullanilabilmeli
         axi_write(A_SADR, MEM_BASE + 32'h100);
         axi_write(A_SLEN, 32'd4);
@@ -330,21 +358,22 @@ module uart_stream_tb;
         check_word(32'h100 >> 2, {pat(63), pat(62), pat(61), pat(60)}, "D");
         // abort edilen akisin yarim baytlari sizmamali
         check_word(32'hC0 >> 2, 32'hAAAA_AAAA, "D");
-        $display("[D] PASS — ABORT temiz (IRQ/DONE yok), yeniden START calisiyor");
+        $display("[D] PASS: ABORT is clean (no IRQ, no DONE) and a new START works");
 
         // E) DMA kapaliyken normal UART modu
-        $display("[E] DMA kapaliyken RX→RDR ve TX→CFG[2]");
+        $display("[E] With the DMA off: RX to RDR and TX done in CFG[2]");
+        blog.note(cyc, "scenario E: normal UART receive and transmit with the DMA off");
         uart_send_byte(8'h5A);
         begin
             int unsigned n = 0;
             do begin
                 axi_read(A_CFG, r);
                 n++;
-                if (n > 1000) $fatal(1, "[E] rx_done gelmedi");
+                if (n > 1000) blog.require(cyc, 1'b0, "[E] CFG.RX_DONE is set after a byte is received");
             end while (!r[1]);
         end
         axi_read(A_RDR, r);
-        if (r[7:0] != 8'h5A) $fatal(1, "[E] RDR=0x%02x, beklenen 0x5A", r[7:0]);
+        blog.require(cyc, r[7:0] == 8'h5A, "[E] RDR holds the received byte 0x5A", $sformatf("0x%02x", r[7:0]));
         axi_write(A_CFG, 32'h0);                     // bayraklari temizle
 
         axi_write(A_TDR, 32'hA5);                    // TX baslat
@@ -353,19 +382,22 @@ module uart_stream_tb;
             do begin
                 axi_read(A_CFG, r);
                 n++;
-                if (n > 2000) $fatal(1, "[E] tx_done gelmedi");
+                if (n > 2000) blog.require(cyc, 1'b0, "[E] CFG.TX_DONE is set after a byte is sent");
             end while (!r[2]);
         end
-        $display("[E] PASS — normal UART RX/TX yollari calisiyor");
+        blog.check(cyc, "[E] CFG.TX_DONE is set after a byte is sent", 1'b1);
+        $display("[E] PASS: normal UART receive and transmit paths work");
 
+        blog.close();
         $display("");
-        $display("*** TEST SUCCESS *** UART-stream DMA (A-E) 5/5 senaryo gecti");
+        $display("*** TEST SUCCESS *** UART stream DMA: all 5 scenarios (A to E) passed");
         $finish;
     end
 
     // bekci
     initial begin
         #20ms;
+        blog.fail(cyc, "test finished within 20 ms of simulated time");
         $fatal(1, "[STRM] GLOBAL TIMEOUT");
     end
 

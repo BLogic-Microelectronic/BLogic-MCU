@@ -52,7 +52,7 @@ __attribute__((interrupt)) void ai_isr(void) {
     g_isr_status = st;
 
     // sonuc ISR icinde UART'a yazilir
-    uart_puts(UART0, "[ISR] ai_irq alindi, STATUS=");
+    uart_puts(UART0, "[ISR] ai_irq received, STATUS=");
     uart_puth(UART0, st);
     uart_puts(UART0, " argmax=");
     uart_putu(UART0, (st >> STATUS_RESULT_SHIFT) & STATUS_RESULT_MASK);
@@ -66,8 +66,8 @@ __attribute__((interrupt)) void ai_isr(void) {
 int main(void) {
     UART0->CPB = 434;
 
-    uart_puts(UART0, "\n[AI-IRQ] BLogic MCU - Micro Speech (kesme/ISR akisi)\n");
-    uart_puts(UART0, "[AI-IRQ] Senaryo: yes_real; DONE -> irq17 -> ISR -> UART\n");
+    uart_puts(UART0, "\n[AI-IRQ] BLogic MCU - Micro Speech (interrupt/ISR flow)\n");
+    uart_puts(UART0, "[AI-IRQ] Input: yes_real; DONE -> irq17 -> ISR -> UART\n");
 
     AI_ACC->DATA_ADDR = AI_SRAM_BASE + AI_INPUT_OFF;
     AI_ACC->OUT_ADDR  = AI_SRAM_BASE + AI_RESULT_OFF;
@@ -84,7 +84,7 @@ int main(void) {
         ".option pop\n"
         ::: "t0");
 
-    uart_puts(UART0, "[AI-IRQ] CTRL.START yazildi, cekirdek ISR bekliyor\n");
+    uart_puts(UART0, "[AI-IRQ] CTRL.START written, core waits for the ISR\n");
     AI_ACC->CTRL = CTRL_START;
 
     // Bekleme hali: cekirdek wfi ile uyur, irq17 uyandirir. Cihaz degil,
@@ -106,32 +106,32 @@ int main(void) {
 
     uint32_t ok = 1U;
     if (g_isr_fired == 0U) {
-        uart_puts(UART0, "[AI-IRQ] FAIL: timeout - ISR hic calismadi\n");
+        uart_puts(UART0, "[AI-IRQ] FAIL: timeout, the ISR never ran\n");
         ok = 0U;
     } else {
         uint32_t argmax = (g_isr_status >> STATUS_RESULT_SHIFT)
                           & STATUS_RESULT_MASK;
-        uart_puts(UART0, "[AI-IRQ] ISR calisma sayisi = ");
+        uart_puts(UART0, "[AI-IRQ] ISR call count = ");
         uart_putu(UART0, g_isr_fired);
         uart_puts(UART0, "\n");
         if (g_isr_fired != 1U) {
-            uart_puts(UART0, "[AI-IRQ] FAIL: birden fazla ISR (clear yolu?)\n");
+            uart_puts(UART0, "[AI-IRQ] FAIL: more than one ISR call (clear path?)\n");
             ok = 0U;
         }
         if (argmax != EXPECTED_ARGMAX) {
-            uart_puts(UART0, "[AI-IRQ] FAIL: argmax beklenen degil\n");
+            uart_puts(UART0, "[AI-IRQ] FAIL: argmax is not the expected class\n");
             ok = 0U;
         } else {
             uart_puts(UART0, "[AI-IRQ] argmax = 2 (");
             uart_puts(UART0, CLASS_NAMES[argmax]);
-            uart_puts(UART0, ") - dogru\n");
+            uart_puts(UART0, ") - correct\n");
         }
         uint32_t st_now = AI_ACC->STATUS;
         if ((st_now & STATUS_DONE) != 0U) {
-            uart_puts(UART0, "[AI-IRQ] FAIL: DONE temizlenmemis\n");
+            uart_puts(UART0, "[AI-IRQ] FAIL: DONE was not cleared\n");
             ok = 0U;
         } else {
-            uart_puts(UART0, "[AI-IRQ] DONE temizlendi, STATUS=");
+            uart_puts(UART0, "[AI-IRQ] DONE cleared, STATUS=");
             uart_puth(UART0, st_now);
             uart_puts(UART0, "\n");
         }

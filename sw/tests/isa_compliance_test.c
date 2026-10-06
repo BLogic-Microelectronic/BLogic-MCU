@@ -37,7 +37,7 @@ int main(void) {
     uart_puts(UART0, "=== BLogic ISA Compliance Test ===\n");
 
     // RV32I aritmetik
-    uart_puts(UART0, "[RV32I] Aritmetik...\n");
+    uart_puts(UART0, "[RV32I] Arithmetic...\n");
     check("ADD",   100 + 200,    300);
     check("SUB",   500 - 123,    377);
     check("ADDI",  42 + 8,       50);
@@ -47,7 +47,7 @@ int main(void) {
     check("SUB_NEG", a - b,      -13);
 
     // RV32I mantiksal
-    uart_puts(UART0, "[RV32I] Mantiksal...\n");
+    uart_puts(UART0, "[RV32I] Logical...\n");
     check("AND",  0xFF00 & 0x0FF0, 0x0F00);
     check("OR",   0xFF00 | 0x00FF, 0xFFFF);
     check("XOR",  0xAAAA ^ 0x5555, 0xFFFF);
@@ -63,13 +63,13 @@ int main(void) {
     check("SLLI", 0xA << 4,      0xA0);
 
     // RV32I karsilastirma
-    uart_puts(UART0, "[RV32I] Karsilastirma...\n");
+    uart_puts(UART0, "[RV32I] Compare...\n");
     check("SLT",   (-5 < 3) ? 1 : 0,   1);
     check("SLTU",  (3U < 5U) ? 1 : 0,   1);
     check("SLTI",  (10 < 20) ? 1 : 0,   1);
 
     // RV32I dallanma
-    uart_puts(UART0, "[RV32I] Dallanma...\n");
+    uart_puts(UART0, "[RV32I] Branch...\n");
     volatile int x = 5, y = 5, z = 10;
     check("BEQ",  (x == y) ? 1 : 0, 1);
     check("BNE",  (x != z) ? 1 : 0, 1);
@@ -91,7 +91,7 @@ int main(void) {
     check("LUI", (int32_t)(lui_val & 0xFFFFF000), (int32_t)0x12345000);
 
     // RV32M carpma/bolme
-    uart_puts(UART0, "[RV32M] Carpma/Bolme...\n");
+    uart_puts(UART0, "[RV32M] Multiply/divide...\n");
     check("MUL",   7 * 13,       91);
     check("MUL_NEG", (-6) * 7,  -42);
     volatile int32_t d1 = 100, d2 = 7;
@@ -102,7 +102,7 @@ int main(void) {
     check("REMU",  (int32_t)(u1 % u2), (int32_t)15);
 
     // sonuc
-    uart_puts(UART0, "\n=== Sonuc: ");
+    uart_puts(UART0, "\n=== Result: ");
     uart_put_int(pass_count);
     uart_puts(UART0, "/");
     uart_put_int(test_count);

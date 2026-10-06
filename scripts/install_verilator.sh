@@ -24,14 +24,14 @@ PREFIX="$HOME/tools/verilator-$VER"
 SRC="$HOME/tools/src/verilator-$VER"
 
 if [ -x "$PREFIX/bin/verilator" ]; then
-    echo "Zaten kurulu: $("$PREFIX/bin/verilator" --version)  ($PREFIX)"
+    echo "Already installed: $("$PREFIX/bin/verilator" --version)  ($PREFIX)"
     exit 0
 fi
 
 # z3: Verilator'in kisitli rastgele (randomize) cozucusu, calisma aninda gerekli
 for t in git autoconf flex bison help2man g++ make perl python3 z3; do
     command -v "$t" >/dev/null || {
-        echo "Eksik arac: $t"
+        echo "Missing tool: $t"
         echo "  sudo apt install git autoconf flex bison help2man g++ make perl python3 z3"
         exit 1
     }
@@ -53,5 +53,5 @@ make -j"$JOBS"
 make install
 
 "$PREFIX/bin/verilator" --version
-echo "Kuruldu: $PREFIX"
-echo "Artik 'make uvm' bu surumle derler (Makefile.uvm check_verilator ile dogrular)."
+echo "Installed: $PREFIX"
+echo "'make uvm' now builds with this version (Makefile.uvm verifies it with check_verilator)."

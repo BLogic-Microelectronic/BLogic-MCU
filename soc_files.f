@@ -123,6 +123,9 @@ rtl/peripherals/qspi_master_axil.sv
 rtl/peripherals/uart_stream_axil.sv
 
 # protocol checker'lar (sentezde yok)
+# tb_log_pkg + soc_bus_trace: register access log of every SoC simulation (bus_trace.log)
+verif/sva/tb_log_pkg.sv
+verif/sva/soc_bus_trace.sv
 verif/sva/axi_lite_protocol_checker.sv
 verif/sva/axi4_protocol_checker.sv
 verif/sva/soc_protocol_bind.sv

@@ -100,3 +100,6 @@ coverage_off -file "rtl/debug/vendor/riscv-dbg/src/dm_top.sv"
 coverage_off -file "rtl/debug/vendor/riscv-dbg/src/dmi_cdc.sv"
 coverage_off -file "rtl/debug/vendor/riscv-dbg/src/dmi_jtag_tap.sv"
 coverage_off -file "rtl/debug/vendor/riscv-dbg/src/dmi_jtag.sv"
+// Testbench register access log (simulation only, not design code)
+coverage_off -file "verif/sva/tb_log_pkg.sv"
+coverage_off -file "verif/sva/soc_bus_trace.sv"

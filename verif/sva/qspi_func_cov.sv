@@ -47,12 +47,8 @@ module qspi_func_cov (
         automatic int hit = 0;
         if (i_read) hit++; if (i_dor) hit++; if (i_qor) hit++; if (i_read4b) hit++;
         if (m_x1) hit++; if (m_x2) hit++; if (m_x4) hit++;
-        $display("=== [FUNC-COV] QSPI (%m) ===");
-        $display("  transaction : %0d", txns);
-        $display("  instr binleri: READ=%0d DOR=%0d QOR=%0d READ4B=%0d diger=%0d",
-                 i_read, i_dor, i_qor, i_read4b, i_other);
-        $display("  mod binleri  : x1=%0d x2=%0d x4=%0d veri-yok=%0d", m_x1, m_x2, m_x4, m_none);
-        $display("  bin kapsami  : %0d/7", hit);
+        $display("[FUNC-COV] QSPI (%m): %0d transactions; commands READ=%0d DOR=%0d QOR=%0d READ4B=%0d other=%0d; data modes x1=%0d x2=%0d x4=%0d none=%0d; %0d of 7 bins hit",
+                 txns, i_read, i_dor, i_qor, i_read4b, i_other, m_x1, m_x2, m_x4, m_none, hit);
     end
 endmodule
 

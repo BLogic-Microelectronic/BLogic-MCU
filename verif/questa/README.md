@@ -89,7 +89,7 @@ Flow details that matter for Questa (all measured on 10.7c, 6 September 2026):
   four functional-coverage modules and the protocol checkers are attached with
   `bind` statements at compilation-unit scope; without a named compilation
   unit Questa silently drops them (vlog-2650). With it every run ends with the
-  `[FUNC-COV]` and `PROTOKOL UYUMLU` reports, as in Verilator.
+  `[FUNC-COV]` and `PROTOCOL OK` reports, as in Verilator.
 - `-suppress 7061` (vlog and vopt): `axi_sram_wrapper.sv` and `ai_accel_tb.sv`
   fill a memory from an `initial` block (`$readmemh`) and write it from
   `always_ff`; Questa reports this as a suppressible error, Verilator does not
@@ -222,7 +222,7 @@ file, e.g. `set QUESTA_WAVE_EXTRA=/questa_soc_tb/dut/i_uart_0/*` before
   six points fixed above (`info script`, dropped `bind`s, vlog/vopt-7061,
   vsim-8386, the `+incdir+` order of `jtag_bridge_sim`, `$now`); after the
   fixes every test reached its verdict with all protocol checkers reporting
-  `PROTOKOL UYUMLU` and the `[FUNC-COV]` counters printed.
+  `PROTOCOL OK` and the `[FUNC-COV]` counters printed.
 
 | Test | Verdict | Wall time |
 |---|---|---|

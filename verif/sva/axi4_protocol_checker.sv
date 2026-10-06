@@ -137,7 +137,7 @@ module axi4_protocol_checker #(
             check_count <= check_count + 1;
             if (!awvalid) begin
                 fail_count <= fail_count + 1;
-                $display("[%s] FAIL AW1: AWVALID handshake olmadan dustu t=%0t", INTF_NAME, $time);
+                $display("[%s] FAIL AW1: AWVALID dropped before the handshake t=%0t", INTF_NAME, $time);
             end else begin
                 pass_count <= pass_count + 1;
             end
@@ -147,7 +147,7 @@ module axi4_protocol_checker #(
                 if (awaddr !== prev_awaddr || awlen !== prev_awlen ||
                     awsize !== prev_awsize || awburst !== prev_awburst) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL AW2: AW sinyalleri handshake olmadan degisti t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL AW2: AW signals changed before the handshake t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
@@ -161,7 +161,7 @@ module axi4_protocol_checker #(
             check_count <= check_count + 1;
             if (!wvalid) begin
                 fail_count <= fail_count + 1;
-                $display("[%s] FAIL W1: WVALID handshake olmadan dustu t=%0t", INTF_NAME, $time);
+                $display("[%s] FAIL W1: WVALID dropped before the handshake t=%0t", INTF_NAME, $time);
             end else begin
                 pass_count <= pass_count + 1;
             end
@@ -170,7 +170,7 @@ module axi4_protocol_checker #(
                 check_count <= check_count + 1;
                 if (wdata !== prev_wdata || wstrb !== prev_wstrb || wlast !== prev_wlast) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL W2: W sinyalleri handshake olmadan degisti t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL W2: W signals changed before the handshake t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
@@ -184,7 +184,7 @@ module axi4_protocol_checker #(
             check_count <= check_count + 1;
             if (!bvalid) begin
                 fail_count <= fail_count + 1;
-                $display("[%s] FAIL B1: BVALID handshake olmadan dustu t=%0t", INTF_NAME, $time);
+                $display("[%s] FAIL B1: BVALID dropped before the handshake t=%0t", INTF_NAME, $time);
             end else begin
                 pass_count <= pass_count + 1;
             end
@@ -197,7 +197,7 @@ module axi4_protocol_checker #(
             check_count <= check_count + 1;
             if (!arvalid) begin
                 fail_count <= fail_count + 1;
-                $display("[%s] FAIL AR1: ARVALID handshake olmadan dustu t=%0t", INTF_NAME, $time);
+                $display("[%s] FAIL AR1: ARVALID dropped before the handshake t=%0t", INTF_NAME, $time);
             end else begin
                 pass_count <= pass_count + 1;
             end
@@ -207,7 +207,7 @@ module axi4_protocol_checker #(
                 if (araddr !== prev_araddr || arlen !== prev_arlen ||
                     arsize !== prev_arsize || arburst !== prev_arburst) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL AR2: AR sinyalleri handshake olmadan degisti t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL AR2: AR signals changed before the handshake t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
@@ -221,7 +221,7 @@ module axi4_protocol_checker #(
             check_count <= check_count + 1;
             if (!rvalid) begin
                 fail_count <= fail_count + 1;
-                $display("[%s] FAIL R1: RVALID handshake olmadan dustu t=%0t", INTF_NAME, $time);
+                $display("[%s] FAIL R1: RVALID dropped before the handshake t=%0t", INTF_NAME, $time);
             end else begin
                 pass_count <= pass_count + 1;
             end
@@ -292,7 +292,7 @@ module axi4_protocol_checker #(
             check_count <= check_count + 1;
             if (w_beat_cnt !== {1'b0, pending_awlen}) begin
                 fail_count <= fail_count + 1;
-                $display("[%s] FAIL LEN1: WLAST beat sayisi uyumsuz (beklenen=%0d, gercek=%0d) t=%0t",
+                $display("[%s] FAIL LEN1: WLAST beat count mismatch (expected %0d, got %0d) t=%0t",
                          INTF_NAME, pending_awlen + 1, w_beat_cnt + 1, $time);
             end else begin
                 pass_count <= pass_count + 1;
@@ -331,7 +331,7 @@ module axi4_protocol_checker #(
             check_count <= check_count + 1;
             if (r_beat_cnt !== {1'b0, pending_arlen}) begin
                 fail_count <= fail_count + 1;
-                $display("[%s] FAIL LEN2: RLAST beat sayisi uyumsuz (beklenen=%0d, gercek=%0d) t=%0t",
+                $display("[%s] FAIL LEN2: RLAST beat count mismatch (expected %0d, got %0d) t=%0t",
                          INTF_NAME, pending_arlen + 1, r_beat_cnt + 1, $time);
             end else begin
                 pass_count <= pass_count + 1;
@@ -346,7 +346,7 @@ module axi4_protocol_checker #(
                 check_count <= check_count + 1;
                 if (awburst == 2'b11) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL BURST1: AWBURST=RESERVED(2'b11) gecersiz t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL BURST1: AWBURST=RESERVED(2'b11) is not allowed t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
@@ -355,7 +355,7 @@ module axi4_protocol_checker #(
                 check_count <= check_count + 1;
                 if (arburst == 2'b11) begin
                     fail_count <= fail_count + 1;
-                    $display("[%s] FAIL BURST1: ARBURST=RESERVED(2'b11) gecersiz t=%0t", INTF_NAME, $time);
+                    $display("[%s] FAIL BURST1: ARBURST=RESERVED(2'b11) is not allowed t=%0t", INTF_NAME, $time);
                 end else begin
                     pass_count <= pass_count + 1;
                 end
@@ -391,25 +391,12 @@ module axi4_protocol_checker #(
         end
     end
 
-    // simulasyon sonu raporu
+    // End-of-simulation report: one line per interface.
     final begin
-        $display("");
-        $display("=== [%s] AXI4 Protocol Check Raporu ===", INTF_NAME);
-        $display("  Kontrol sayisi : %0d", check_count);
-        $display("  PASS           : %0d", pass_count);
-        $display("  FAIL           : %0d", fail_count);
-        $display("  WARN           : %0d", warn_count);
-        $display("  -----------------------------------");
-        $display("  AW handshakes  : %0d", aw_handshakes);
-        $display("  W  handshakes  : %0d", w_handshakes);
-        $display("  B  handshakes  : %0d", b_handshakes);
-        $display("  AR handshakes  : %0d", ar_handshakes);
-        $display("  R  handshakes  : %0d", r_handshakes);
-        if (fail_count == 0)
-            $display("  >>> AXI4 PROTOKOL UYUMLU <<<");
-        else
-            $display("  >>> AXI4 PROTOKOL IHLALI TESPIT EDILDI <<<");
-        $display("==========================================");
+        $display("[%s] AXI4 Protocol Check Report: %0d checks, %0d pass, %0d fail, %0d warnings; handshakes AW %0d, W %0d, B %0d, AR %0d, R %0d => %0s",
+                 INTF_NAME, check_count, pass_count, fail_count, warn_count,
+                 aw_handshakes, w_handshakes, b_handshakes, ar_handshakes, r_handshakes,
+                 (fail_count == 0) ? "AXI4 PROTOCOL OK" : "AXI4 PROTOCOL VIOLATION");
     end
 `endif // NO_PROTOCOL_CHECK
 

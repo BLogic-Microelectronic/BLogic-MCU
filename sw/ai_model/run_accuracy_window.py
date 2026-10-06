@@ -22,7 +22,7 @@ SEED = 2026
 
 
 def die(msg):
-    print("[HATA] " + msg)
+    print("[ERROR] " + msg)
     sys.exit(1)
 
 
@@ -59,17 +59,17 @@ def load_quant_params():
     def one(name):
         m = re.search(r"#define\s+%s\s+\(?(-?\d+)\)?" % name, src)
         if not m:
-            die("quant_params.h icinde %s yok" % name)
+            die("%s not found in quant_params.h" % name)
         return int(m.group(1))
     def arr(name):
         m = re.search(name + r"\s*\[\s*8\s*\]\s*=\s*\{([^}]*)\}", src)
         if not m:
-            die("quant_params.h icinde %s yok" % name)
+            die("%s not found in quant_params.h" % name)
         vals = re.findall(r"(?<![\w])(?:0x[0-9A-Fa-f]+|-?\d+)(?![\w])",
                           m.group(1))
         vals = [int(v, 0) for v in vals]
         if len(vals) != 8:
-            die("%s: 8 deger bekleniyordu, %d bulundu" % (name, len(vals)))
+            die("%s: 8 values expected, %d found" % (name, len(vals)))
         return vals
     qp = {"input_zp": one("INPUT_ZP"), "conv_out_zp": one("CONV_OUT_ZP"),
           "fc_out_zp": one("FC_OUT_ZP"),
@@ -77,7 +77,7 @@ def load_quant_params():
     m = re.search(r"#define\s+M_FC_Q31\s+\(\(int32_t\)(0x[0-9A-Fa-f]+)\)", src)
     s = re.search(r"#define\s+SHIFT_FC\s+\((\d+)\)", src)
     if not (m and s):
-        die("quant_params.h icinde M_FC_Q31/SHIFT_FC yok")
+        die("M_FC_Q31/SHIFT_FC not found in quant_params.h")
     qp["m_fc"], qp["s_fc"] = int(m.group(1), 16), int(s.group(1))
     qp["m_conv"] = [v - (1 << 32) if v >= (1 << 31) else v
                     for v in qp["m_conv"]]
@@ -258,11 +258,11 @@ def make_samples(rng, yr, nr, syn):
               [100 if (i % 2) == 0 else -100 for i in range(1960)]))
     s.append(("ramp", None, [(i % 256) - 128 for i in range(1960)]))
     if len(s) != 40:
-        die("sabit cekirdek kume %d != 40 (uretim kurali bozulmus)" % len(s))
+        die("fixed core set has %d samples, not 40 (generation rule broken)" % len(s))
     if N > 40:
         s.extend(extend_samples(rng, yr, nr, syn, N - 40))
     if len(s) != N:
-        die("ornek sayisi %d != N=%d" % (len(s), N))
+        die("%d samples generated, N=%d expected" % (len(s), N))
     return s
 
 
@@ -271,7 +271,7 @@ def tflite_runner(fc_zp):
     try:
         import numpy as np
     except ImportError:
-        die("numpy yok; --no-tflite modunu kullanin veya venv'i etkinlestirin")
+        die("numpy not found; use --no-tflite or activate the virtual environment")
     Interp = None
     try:
         from tensorflow.lite.python.interpreter import Interpreter as Interp
@@ -279,10 +279,10 @@ def tflite_runner(fc_zp):
         try:
             from tflite_runtime.interpreter import Interpreter as Interp
         except Exception:
-            die("tensorflow/tflite_runtime yok; venv'i etkinlestirin "
-                "veya --no-tflite ile kosun (raporda vekil olarak yazilir)")
+            die("tensorflow/tflite_runtime not found; activate the virtual environment "
+                "or run with --no-tflite (the report then names the substitute)")
     if not os.path.exists(MODEL):
-        die("model yok: " + MODEL)
+        die("model not found: " + MODEL)
 
     it = Interp(MODEL)
     it.allocate_tensors()
@@ -330,10 +330,10 @@ def tflite_runner(fc_zp):
 # ingest-rtl modu
 def ingest_rtl(log_path):
     if not os.path.isfile(log_path):
-        die("log yok: " + log_path)
+        die("log not found: " + log_path)
     meta_path = os.path.join(G, "acc_batch_meta.txt")
     if not os.path.isfile(meta_path):
-        die("acc_batch_meta.txt yok - once uretim modunu kosun")
+        die("acc_batch_meta.txt not found; run the generation mode first")
     meta = []
     for ln in open(meta_path):
         if ln.startswith("#") or "|" not in ln:
@@ -342,15 +342,15 @@ def ingest_rtl(log_path):
         meta.append({"i": int(p[0]), "name": p[1], "label": p[2],
                      "sw_fc": p[3], "sw_am": int(p[4])})
     if len(meta) != N:
-        die("meta %d satir, %d bekleniyordu" % (len(meta), N))
+        die("acc_batch_meta.txt has %d rows, %d expected" % (len(meta), N))
 
     rtl = {}
-    for m in re.finditer(r"\[BATCH-(\d+)\] sw=(\d+) rtl=(\d+) (OK|FARK)",
+    for m in re.finditer(r"\[BATCH-(\d+)\] sw=(\d+) rtl=(\d+) (OK|DIFF|FARK)",
                          open(log_path, errors="replace").read()):
         rtl[int(m.group(1))] = int(m.group(3))
     if len(rtl) != N:
-        die("logda %d BATCH satiri bulundu, %d bekleniyordu "
-            "(make ai tam kostu mu?)" % (len(rtl), N))
+        die("%d BATCH lines found in the log, %d expected "
+            "(did make ai run to the end?)" % (len(rtl), N))
 
     match = sum(1 for m in meta if rtl[m["i"]] == m["sw_am"])
     lab = [m for m in meta if m["label"] != "-"]
@@ -360,45 +360,47 @@ def ingest_rtl(log_path):
 
     lines = []
     lines.append("=" * 66)
-    lines.append("EK-1 %10 DOGRULUK PENCERESI - NIHAI RAPOR (RTL sonuclu)")
+    lines.append("EK-1 10 % ACCURACY WINDOW - FINAL REPORT (with RTL results)")
     lines.append("=" * 66)
-    lines.append("Ornek sayisi N=%d | SW referansi: bkz. uretim bolumu altta"
+    lines.append("Samples N=%d | software reference: see the generation section below"
                  % N)
     lines.append("")
-    lines.append("  i | ornek          | etiket  | SW fc_out            "
-                 "| SW | RTL | esles")
+    lines.append("  i | sample         | label   | SW fc_out            "
+                 "| SW | RTL | match")
     lines.append("-" * 66)
     for m in meta:
         r = rtl[m["i"]]
         lines.append("%3d | %-14s | %-7s | %-20s | %2d | %3d | %s"
                      % (m["i"], m["name"], m["label"], m["sw_fc"],
-                        m["sw_am"], r, "OK" if r == m["sw_am"] else "FARK"))
+                        m["sw_am"], r, "OK" if r == m["sw_am"] else "DIFF"))
     lines.append("-" * 66)
-    lines.append("SW-RTL sinif eslesmesi : %d/%d" % (match, N))
-    lines.append("Etiketli gercek ornekler (%d adet): SW dogruluk %d/%d, "
-                 "RTL dogruluk %d/%d" % (len(lab), sw_ok, len(lab),
+    lines.append("SW-RTL class match     : %d/%d" % (match, N))
+    lines.append("Labelled recorded samples (%d): SW accuracy %d/%d, "
+                 "RTL accuracy %d/%d" % (len(lab), sw_ok, len(lab),
                                          rtl_ok, len(lab)))
-    lines.append("Matematiksel sinir     : |acc_SW - acc_RTL| <= "
-                 "uyumsuzluk orani = %.1f puan" % bound)
+    lines.append("Mathematical bound     : |acc_SW - acc_RTL| <= "
+                 "mismatch rate = %.1f points" % bound)
     if match == N:
-        lines.append("SONUC: fark = 0.0 puan <= 10 puan -> "
-                     "EK-1 penceresi SAGLANDI (her test kumesinde)")
+        lines.append("RESULT: difference = 0.0 points <= 10 points -> "
+                     "EK-1 window MET (on every test set)")
     elif bound <= 10.0:
-        lines.append("SONUC: fark ust siniri %.1f puan <= 10 puan -> "
-                     "EK-1 penceresi SAGLANDI" % bound)
+        lines.append("RESULT: upper bound of the difference %.1f points <= 10 points -> "
+                     "EK-1 window MET" % bound)
     else:
-        lines.append("SONUC: ust sinir %.1f puan > 10 puan -> INCELE"
+        lines.append("RESULT: upper bound %.1f points > 10 points -> INVESTIGATE"
                      % bound)
     lines.append("")
     if os.path.isfile(REPORT):
         old = open(REPORT).read()
-        cut = old.find("--- uretim bolumu ---")
+        cut = old.find("--- generation section ---")
+        if cut < 0:
+            cut = old.find("--- uretim bolumu ---")
         if cut >= 0:
             lines.append(old[cut:].rstrip())
     open(REPORT, "w").write("\n".join(lines) + "\n")
     print("\n".join(lines[:12]))
     print("...")
-    print("[YAZ] %s guncellendi (nihai tablo)" % REPORT)
+    print("[WRITE] %s updated (final table)" % REPORT)
     return 0
 
 
@@ -406,12 +408,12 @@ def ingest_rtl(log_path):
 def main():
     global N
     if not os.path.isdir(G):
-        die("repo kokunden calistirin")
+        die("run from the repository root")
     for a in sys.argv[1:]:
         if a.startswith("--n="):
             N = int(a[4:])
             if N < 40:
-                die("--n en az 40 olmali (sabit cekirdek kume 40 ornek)")
+                die("--n must be at least 40 (the fixed core set has 40 samples)")
     args = [a for a in sys.argv[1:] if not a.startswith("--n=")]
     if len(args) == 2 and args[0] == "--ingest-rtl":
         return ingest_rtl(args[1])
@@ -420,8 +422,8 @@ def main():
     for f in ("input_yes_real.hex", "input_no_real.hex", "input_yes.hex",
               "input_no.hex", "input_unknown.hex", "input_silence.hex"):
         if not os.path.isfile(os.path.join(G, f)):
-            die("eksik: %s/%s (once fetch_real_features.py / "
-                "generate_golden.py)" % (G, f))
+            die("missing: %s/%s (run fetch_real_features.py / "
+                "generate_golden.py first)" % (G, f))
 
     cw = hexbytes(os.path.join(G, "weights_conv.hex"))[:640]
     cb = hexwords(os.path.join(G, "bias_conv.hex"))
@@ -439,20 +441,20 @@ def main():
 
     sw_run, has_logits = None, False
     if no_tflite:
-        sw_kind = ("RTL-birebir kosim (VEKIL; --no-tflite modu, "
-                   "interpreter bu ortamda yok)")
+        sw_kind = ("bit-exact co-simulation of the RTL arithmetic (SUBSTITUTE; --no-tflite mode, "
+                   "no interpreter in this environment)")
     else:
         sw_run, has_logits = tflite_runner(qp["fc_out_zp"])
-        sw_kind = "GERCEK TFLite interpreter (%s)" % MODEL
+        sw_kind = "REAL TFLite interpreter (%s)" % MODEL
         if has_logits:
-            sw_kind += ", FC logitleri (softmax oncesi) karsilastirildi"
+            sw_kind += ", FC logits (before softmax) compared"
         else:
-            sw_kind += (", UYARI: FC logit tensoru cekilemedi; softmax "
-                        "cikisi kullanildi (argmax esdeger)")
+            sw_kind += (", WARNING: the FC logit tensor could not be read; the softmax "
+                        "output was used (same argmax)")
 
     meta, in_lines, exp_lines = [], [], []
     eq_cnt, max_diff, am_agree, soft_agree, tie_cnt = 0, 0, 0, 0, 0
-    print("[KOSU] %d ornek, SW referansi: %s" % (N, sw_kind))
+    print("[RUN] %d samples, software reference: %s" % (N, sw_kind))
     for i, (name, label, vec) in enumerate(samples):
         ko = run_model(vec, cw, cb, fw, fb, qp)
         soft = None
@@ -480,14 +482,14 @@ def main():
         exp_lines.append(pack4(sw))
         print("  [%2d] %-14s sw_fc=%-22s sw_argmax=%d (%s)%s"
               % (i, name, sw, sw_am, CLS[sw_am],
-                 "" if d == 0 else "  [kosim logit farki max=%d]" % d))
+                 "" if d == 0 else "  [co-simulation logit difference max=%d]" % d))
 
     open(os.path.join(G, "acc_batch_inputs.hex"), "w").write(
         "\n".join(in_lines) + "\n")
     open(os.path.join(G, "acc_batch_expected.hex"), "w").write(
         "\n".join(exp_lines) + "\n")
     with open(os.path.join(G, "acc_batch_meta.txt"), "w") as f:
-        f.write("# i | ornek | etiket | sw_fc | sw_argmax | kosim_argmax"
+        f.write("# i | sample | label | sw_fc | sw_argmax | cosim_argmax"
                 " | logit_maxdiff\n")
         for i, name, label, sw, sw_am, ko_am, d in meta:
             f.write("%3d | %-14s | %-7s | %-20s | %d | %d | %d\n"
@@ -496,44 +498,46 @@ def main():
     lab = [m for m in meta if m[2] != "-"]
     sw_ok = sum(1 for m in lab if CLS[m[4]] == m[2])
     rep = []
-    rep.append("--- uretim bolumu ---")
-    rep.append("SW referansi          : " + sw_kind)
-    rep.append("Ornek uretimi         : seed=%d, N=%d (sabit cekirdek 40: "
-               "2 gercek ses + 4 sentetik + 34 turetilmis; kalan %d: girdi "
-               "uzayi taramasi, 8 aile)" % (SEED, N, max(0, N - 40)))
-    rep.append("Beraberlik (tie)      : %d/%d ornekte ilk iki logit esit -> "
-               "karar 'ilk maksimum' kuralina bagli (%.1f%%)"
+    rep.append("--- generation section ---")
+    rep.append("Software reference    : " + sw_kind)
+    rep.append("Sample generation     : seed=%d, N=%d (fixed core of 40: "
+               "2 recorded audio + 4 synthetic + 34 derived; remaining %d: input "
+               "space sweep, 8 families)" % (SEED, N, max(0, N - 40)))
+    rep.append("Ties                  : in %d/%d samples the top two logits are equal -> "
+               "the decision follows the first-maximum rule (%.1f%%)"
                % (tie_cnt, N, 100.0 * tie_cnt / N))
     if sw_run and has_logits:
-        rep.append("TFLite FC logit vs kosim: birebir %d/%d, max |fark| = "
-                   "%d LSB, argmax uyumu %d/%d"
+        rep.append("TFLite FC logits vs co-simulation: identical %d/%d, max |difference| = "
+                   "%d LSB, argmax agreement %d/%d"
                    % (eq_cnt, N, max_diff, am_agree, N))
-        rep.append("TFLite Softmax cikisi : argmax uyumu %d/%d "
-                   "(softmax monotonik -> karar esdeger; RTL "
-                   "logit-argmax uygular)" % (soft_agree, N))
+        rep.append("TFLite softmax output : argmax agreement %d/%d "
+                   "(softmax is monotonic -> same decision; the RTL "
+                   "takes the argmax of the logits)" % (soft_agree, N))
     elif sw_run:
-        rep.append("TFLite Softmax cikisi : argmax uyumu %d/%d "
-                   "(FC logit tensoru cekilemedi; softmax monotonik -> "
-                   "karar esdeger)" % (am_agree, N))
+        rep.append("TFLite softmax output : argmax agreement %d/%d "
+                   "(FC logit tensor not readable; softmax is monotonic -> "
+                   "same decision)" % (am_agree, N))
     else:
-        rep.append("TFLite vs kosim       : logit birebir %d/%d, max |fark|"
-                   " = %d LSB, argmax uyumu %d/%d (VEKIL mod)"
+        rep.append("TFLite vs co-simulation: logits identical %d/%d, max |difference|"
+                   " = %d LSB, argmax agreement %d/%d (SUBSTITUTE mode)"
                    % (eq_cnt, N, max_diff, am_agree, N))
-    rep.append("Etiketli gercek kume  : SW dogruluk %d/%d (yes_real, no_real)"
+    rep.append("Labelled recorded set : SW accuracy %d/%d (yes_real, no_real)"
                % (sw_ok, len(lab)))
-    rep.append("RTL sutunu            : make ai kosun, sonra:")
+    rep.append("RTL column            : run make ai, then:")
     rep.append("  python3 sw/ai_model/run_accuracy_window.py "
                "--ingest-rtl obj_dir_ai/ai_run.log")
     txt = "\n".join(rep) + "\n"
     old = ""
     if os.path.isfile(REPORT) and "EK-1" in open(REPORT).read():
         old = open(REPORT).read()
-        cut = old.find("--- uretim bolumu ---")
+        cut = old.find("--- generation section ---")
+        if cut < 0:
+            cut = old.find("--- uretim bolumu ---")
         old = old[:cut] if cut >= 0 else old
     open(REPORT, "w").write(old + txt)
     print("\n" + txt.rstrip())
-    print("[YAZ] acc_batch_inputs.hex (%d satir), acc_batch_expected.hex "
-          "(%d satir), acc_batch_meta.txt, %s"
+    print("[WRITE] acc_batch_inputs.hex (%d lines), acc_batch_expected.hex "
+          "(%d lines), acc_batch_meta.txt, %s"
           % (len(in_lines), len(exp_lines), REPORT))
     return 0
 

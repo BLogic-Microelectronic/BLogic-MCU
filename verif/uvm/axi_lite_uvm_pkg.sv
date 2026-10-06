@@ -63,7 +63,7 @@ package axi_lite_uvm_pkg;
         function void build_phase(uvm_phase phase);
             super.build_phase(phase);
             if (!uvm_config_db #(virtual axi_lite_if)::get(this, "", "vif", vif))
-                `uvm_fatal("NOVIF", "Virtual interface bulunamadi")
+                `uvm_fatal("NOVIF", "Virtual interface not found")
         endfunction
 
         task run_phase(uvm_phase phase);
@@ -147,7 +147,7 @@ package axi_lite_uvm_pkg;
                         check_count++;
                         if (!vif.awvalid) begin
                             fail_count++;
-                            `uvm_error("PROTO", "AW1: AWVALID handshake olmadan dustu")
+                            `uvm_error("PROTO", "AW1: AWVALID deasserted without a handshake")
                         end else
                             pass_count++;
                     end
@@ -156,7 +156,7 @@ package axi_lite_uvm_pkg;
                         check_count++;
                         if (!vif.wvalid) begin
                             fail_count++;
-                            `uvm_error("PROTO", "W1: WVALID handshake olmadan dustu")
+                            `uvm_error("PROTO", "W1: WVALID deasserted without a handshake")
                         end else
                             pass_count++;
                     end
@@ -165,7 +165,7 @@ package axi_lite_uvm_pkg;
                         check_count++;
                         if (!vif.bvalid) begin
                             fail_count++;
-                            `uvm_error("PROTO", "B1: BVALID handshake olmadan dustu")
+                            `uvm_error("PROTO", "B1: BVALID deasserted without a handshake")
                         end else
                             pass_count++;
                     end
@@ -174,7 +174,7 @@ package axi_lite_uvm_pkg;
                         check_count++;
                         if (!vif.arvalid) begin
                             fail_count++;
-                            `uvm_error("PROTO", "AR1: ARVALID handshake olmadan dustu")
+                            `uvm_error("PROTO", "AR1: ARVALID deasserted without a handshake")
                         end else
                             pass_count++;
                     end
@@ -183,7 +183,7 @@ package axi_lite_uvm_pkg;
                         check_count++;
                         if (!vif.rvalid) begin
                             fail_count++;
-                            `uvm_error("PROTO", "R1: RVALID handshake olmadan dustu")
+                            `uvm_error("PROTO", "R1: RVALID deasserted without a handshake")
                         end else
                             pass_count++;
                     end
@@ -198,12 +198,12 @@ package axi_lite_uvm_pkg;
 
         function void report_phase(uvm_phase phase);
             `uvm_info("PROTO_RPT", $sformatf(
-                "Protocol Check: %0d kontrol, %0d PASS, %0d FAIL",
+                "Protocol Check: %0d checks, %0d PASS, %0d FAIL",
                 check_count, pass_count, fail_count), UVM_LOW)
             if (fail_count > 0)
-                `uvm_error("PROTO_RPT", "PROTOKOL IHLALI TESPIT EDILDI")
+                `uvm_error("PROTO_RPT", "PROTOCOL VIOLATION")
             else
-                `uvm_info("PROTO_RPT", "PROTOKOL UYUMLU", UVM_LOW)
+                `uvm_info("PROTO_RPT", "PROTOCOL OK", UVM_LOW)
         endfunction
 
     endclass
@@ -221,7 +221,7 @@ package axi_lite_uvm_pkg;
         function void build_phase(uvm_phase phase);
             super.build_phase(phase);
             if (!uvm_config_db #(virtual axi_lite_if)::get(this, "", "vif", vif))
-                `uvm_fatal("NOVIF", "Virtual interface bulunamadi")
+                `uvm_fatal("NOVIF", "Virtual interface not found")
         endfunction
 
         task run_phase(uvm_phase phase);
@@ -244,7 +244,7 @@ package axi_lite_uvm_pkg;
             vif.araddr  <= 0;
             @(posedge vif.rst_n);
             @(posedge vif.clk);
-            `uvm_info("DRV", "Reset tamamlandi", UVM_MEDIUM)
+            `uvm_info("DRV", "Reset complete", UVM_MEDIUM)
         endtask
 
         task drive_write(axi_lite_seq_item txn);
@@ -320,9 +320,9 @@ package axi_lite_uvm_pkg;
             if (get_is_active() == UVM_ACTIVE) begin
                 driver    = axi_lite_driver::type_id::create("driver", this);
                 sequencer = axi_lite_sequencer::type_id::create("sequencer", this);
-                `uvm_info("AGT", "ACTIVE mod — driver + sequencer olusturuldu", UVM_MEDIUM)
+                `uvm_info("AGT", "ACTIVE mode: driver and sequencer created", UVM_MEDIUM)
             end else begin
-                `uvm_info("AGT", "PASSIVE mod — sadece monitor", UVM_MEDIUM)
+                `uvm_info("AGT", "PASSIVE mode: monitor only", UVM_MEDIUM)
             end
         endfunction
 
@@ -409,7 +409,7 @@ package axi_lite_uvm_pkg;
                     // Kisitli randomize() calisma aninda SMT cozucuyle (z3) cozulur; cozucu PATH'te
                     // yoksa randomize() 0 doner. Eskiden burada uyari basilip sabit desene
                     // dusuluyordu ve test yine PASS veriyordu; artik hata, test FAIL olur.
-                    `uvm_error("SEQ", $sformatf("randomize() basarisiz: txn %0d (SMT cozucu z3 PATH'te mi?)", i))
+                    `uvm_error("SEQ", $sformatf("randomize() failed: txn %0d (is the SMT solver z3 on PATH?)", i))
                 finish_item(txn);
                 `uvm_info("SEQ", $sformatf("[%0d/%0d] %s addr=0x%02h data=0x%08h",
                     i+1, num_txns, txn.rw ? "WR" : "RD", txn.addr, txn.rw ? txn.data : txn.rdata), UVM_MEDIUM)
@@ -441,25 +441,25 @@ package axi_lite_uvm_pkg;
                 // ODR register'a yazma
                 if (txn.addr[4:0] == 5'h04) begin
                     gpio_odr_model = {16'h0, txn.data[15:0]}; // ODR[15:0], ust 16 bit etkisiz
-                    `uvm_info("SB", $sformatf("ODR modeli guncellendi: 0x%08h", gpio_odr_model), UVM_HIGH)
+                    `uvm_info("SB", $sformatf("ODR model updated: 0x%08h", gpio_odr_model), UVM_HIGH)
                 end
                 // Yazma yaniti OKAY olmali
                 if (txn.resp == 2'b00)
                     match_count++;
                 else begin
                     mismatch_count++;
-                    `uvm_error("SB", $sformatf("Yazma yaniti OKAY degil: resp=%0d", txn.resp))
+                    `uvm_error("SB", $sformatf("Write response is not OKAY: resp=%0d", txn.resp))
                 end
             end else begin
                 // ODR okunuyorsa model ile karsilastir
                 if (txn.addr[4:0] == 5'h04) begin
                     if (txn.rdata == gpio_odr_model) begin
                         match_count++;
-                        `uvm_info("SB", $sformatf("ODR okuma eslesti: 0x%08h", txn.rdata), UVM_HIGH)
+                        `uvm_info("SB", $sformatf("ODR read matched: 0x%08h", txn.rdata), UVM_HIGH)
                     end else begin
                         mismatch_count++;
                         `uvm_error("SB", $sformatf(
-                            "ODR UYUMSUZ! beklenen=0x%08h gercek=0x%08h",
+                            "ODR MISMATCH: expected=0x%08h actual=0x%08h",
                             gpio_odr_model, txn.rdata))
                     end
                 end else begin
@@ -468,7 +468,7 @@ package axi_lite_uvm_pkg;
                         match_count++;
                     else begin
                         mismatch_count++;
-                        `uvm_error("SB", $sformatf("Okuma yaniti OKAY degil: resp=%0d", txn.resp))
+                        `uvm_error("SB", $sformatf("Read response is not OKAY: resp=%0d", txn.resp))
                     end
                 end
             end
@@ -476,12 +476,12 @@ package axi_lite_uvm_pkg;
 
         function void report_phase(uvm_phase phase);
             `uvm_info("SB_RPT", $sformatf(
-                "Scoreboard: %0d islem, %0d esleme, %0d uyumsuzluk",
+                "Scoreboard: %0d transactions, %0d matches, %0d mismatches",
                 total_txns, match_count, mismatch_count), UVM_LOW)
             if (mismatch_count == 0)
-                `uvm_info("SB_RPT", ">>> SCOREBOARD BASARILI <<<", UVM_LOW)
+                `uvm_info("SB_RPT", ">>> SCOREBOARD PASSED <<<", UVM_LOW)
             else
-                `uvm_error("SB_RPT", ">>> SCOREBOARD HATALI <<<")
+                `uvm_error("SB_RPT", ">>> SCOREBOARD FAILED <<<")
         endfunction
 
     endclass
@@ -511,7 +511,7 @@ package axi_lite_uvm_pkg;
 
         function void report_phase(uvm_phase phase);
             `uvm_info("COV_RPT", $sformatf(
-                "Coverage: %0d WR, %0d RD, %0d benzersiz adres",
+                "Coverage: %0d WR, %0d RD, %0d unique addresses",
                 wr_count, rd_count, addr_seen.size()), UVM_LOW)
         endfunction
 
@@ -534,14 +534,14 @@ package axi_lite_uvm_pkg;
             agent      = axi_lite_agent::type_id::create("agent", this);
             scoreboard = axi_lite_scoreboard::type_id::create("scoreboard", this);
             coverage   = axi_lite_coverage::type_id::create("coverage", this);
-            `uvm_info("ENV", "Build tamamlandi", UVM_MEDIUM)
+            `uvm_info("ENV", "Build complete", UVM_MEDIUM)
         endfunction
 
         function void connect_phase(uvm_phase phase);
             super.connect_phase(phase);
             agent.ap.connect(scoreboard.analysis_imp);
             agent.ap.connect(coverage.analysis_export);
-            `uvm_info("ENV", "Connect tamamlandi", UVM_MEDIUM)
+            `uvm_info("ENV", "Connect complete", UVM_MEDIUM)
         endfunction
 
     endclass

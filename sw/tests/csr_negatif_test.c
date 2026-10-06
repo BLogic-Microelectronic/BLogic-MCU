@@ -46,9 +46,9 @@ static void kontrol(const char *ad, uint32_t beklenen, uint32_t gercek) {
     uart_puts(UART0, ad);
     if (beklenen == gercek) { uart_puts(UART0, " PASS\n"); gecen++; }
     else {
-        uart_puts(UART0, " FAIL beklenen=");
+        uart_puts(UART0, " FAIL expected=");
         puth(beklenen);
-        uart_puts(UART0, " gercek=");
+        uart_puts(UART0, " got=");
         puth(gercek);
         uart_puts(UART0, "\n");
         kalan++;
@@ -72,7 +72,7 @@ int main(void) {
     uart_puts(UART0, "[1] GPIO\n");
     GPIO->ODR = 0x1234U;
     yaz(GPIO_BASE + 0x00U, 0xFFFFU);          /* IDR = RO */
-    kontrol("IDR yazma ODR'yi bozmadi", 0x1234U, GPIO->ODR);
+    kontrol("IDR write left ODR unchanged", 0x1234U, GPIO->ODR);
     kontrol("haritasiz 0x08", 0x0U, oku(GPIO_BASE + 0x08U));
     GPIO->ODR = 0x0U;
 
@@ -83,13 +83,13 @@ int main(void) {
     /* [3] UART1: SCTL (0x1C) yalniz-yazilir -> okuma default'a duser;
        0x24 tamamen haritasiz (uart_stream_axil.sv:219) */
     uart_puts(UART0, "[3] UART1\n");
-    kontrol("SCTL okuma (WO)", 0x0U, oku(UART1_BASE + 0x1CU));
+    kontrol("SCTL read (write-only)", 0x0U, oku(UART1_BASE + 0x1CU));
     kontrol("haritasiz 0x24", 0x0U, oku(UART1_BASE + 0x24U));
 
     /* [4] TIMER: bayt-adresli okuma araddr[1:0]!=0 -> default kol
        (timer_axil.sv:189); cv32e40p lb bayt adresini oldugu gibi surer */
     uart_puts(UART0, "[4] TIMER\n");
-    kontrol("bayt-ofset okuma", 0x0U,
+    kontrol("byte-offset read", 0x0U,
             (uint32_t)*(volatile uint8_t *)(TIMER_BASE + 0x01U));
 
     /* [5] QSPI: haritasiz 0x18'e yazma yapilandirmayi bozmaz
@@ -99,8 +99,8 @@ int main(void) {
         uint32_t ccr_once = oku(QSPI_BASE + 0x00U);
         uint32_t fcr_once = oku(QSPI_BASE + 0x10U);
         yaz(QSPI_BASE + 0x18U, 0xDEADBEEFU);
-        kontrol("CCR degismedi", ccr_once, oku(QSPI_BASE + 0x00U));
-        kontrol("FCR degismedi", fcr_once, oku(QSPI_BASE + 0x10U));
+        kontrol("CCR unchanged", ccr_once, oku(QSPI_BASE + 0x00U));
+        kontrol("FCR unchanged", fcr_once, oku(QSPI_BASE + 0x10U));
         kontrol("haritasiz 0x14", 0x0U, oku(QSPI_BASE + 0x14U));
         kontrol("haritasiz 0x18", 0x0U, oku(QSPI_BASE + 0x18U));
     }
@@ -110,14 +110,14 @@ int main(void) {
     uart_puts(UART0, "[6] AI CSR\n");
     AI_ACC->DATA_ADDR = 0x00030000U;
     yaz(AI_ACC_BASE + 0x10U, 0xCAFEBABEU);
-    kontrol("DATA_ADDR degismedi", 0x00030000U, AI_ACC->DATA_ADDR);
+    kontrol("DATA_ADDR unchanged", 0x00030000U, AI_ACC->DATA_ADDR);
     kontrol("haritasiz 0x10", 0x0U, oku(AI_ACC_BASE + 0x10U));
 
-    uart_puts(UART0, "\n[CSR-NEG] gecen=");
+    uart_puts(UART0, "\n[CSR-NEG] passed=");
     putu(gecen);
-    uart_puts(UART0, " kalan=");
+    uart_puts(UART0, " failed=");
     putu(kalan);
-    uart_puts(UART0, (kalan == 0U) ? "  SONUC: PASS\n" : "  SONUC: FAIL\n");
+    uart_puts(UART0, (kalan == 0U) ? "  RESULT: PASS\n" : "  RESULT: FAIL\n");
     if (kalan == 0U)
         uart_puts(UART0, "Hello World from BLogic MCU!\n");
 

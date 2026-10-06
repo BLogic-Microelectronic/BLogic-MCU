@@ -23,6 +23,9 @@
 `timescale 1ns / 1ps
 
 module axi_dm_slave_tb;
+    import tb_log_pkg::*;
+    BusLog blog;                      // bus_trace.log, bus_summary.tsv
+
     localparam logic [31:0] DM_BASE = 32'h0004_0000;
     // debug ROM ilk sozcugu (DM_BASE + 0x800 = dm_halt_addr): riscv-dbg
     // vendor'da sabit (debug_rom/debug_rom.sv: 64'h00000013_0180006f).
@@ -31,6 +34,37 @@ module axi_dm_slave_tb;
 
     logic clk = 0, rst_n = 0;
     always #5 clk = ~clk;
+
+    longint unsigned cyc = 0;         // clock cycle counter for the log
+    always @(posedge clk) cyc <= cyc + 1;
+
+    // Log names: AXI addresses are debug module memory, not the SoC map
+    function automatic string dm_mem_name(input logic [31:0] a, input bit instr);
+        logic [31:0] off;
+        string port;
+        off  = a - DM_BASE;
+        port = instr ? " (instr)" : "";
+        if (off == 32'h380)               return {"DM data0 0x00000380", port};
+        if (off >= 32'h800 && off < 32'h1000) return {$sformatf("DM debug ROM 0x%08h", off), port};
+        return {$sformatf("DM memory 0x%08h", off), port};
+    endfunction
+
+    function automatic string dmi_name(input logic [6:0] a);
+        case (a)
+            7'h04: return "DMI data0";
+            7'h10: return "DMI dmcontrol";
+            7'h11: return "DMI dmstatus";
+            7'h16: return "DMI abstractcs";
+            7'h17: return "DMI command";
+            7'h38: return "DMI sbcs";
+            7'h39: return "DMI sbaddress0";
+            7'h3C: return "DMI sbdata0";
+            default: begin
+                if (a >= 7'h20 && a <= 7'h2F) return $sformatf("DMI progbuf%0d", a - 7'h20);
+                return $sformatf("DMI 0x%02h", a);
+            end
+        endcase
+    endfunction
 
     // AXI arayuzleri (soc_top ile ayni genislikler)
     AXI_BUS #(
@@ -91,6 +125,7 @@ module axi_dm_slave_tb;
     //      gecerlidir -> once ornekle, sonra ilerle.
     task automatic dmi_op(input logic [6:0] addr, input dm::dtm_op_e op,
                           input logic [31:0] data, output logic [31:0] rdata);
+        logic [1:0] resp;
         @(negedge clk);
         dmi_req.addr = addr; dmi_req.op = op; dmi_req.data = data;
         dmi_req_valid = 1'b1;
@@ -99,10 +134,17 @@ module axi_dm_slave_tb;
         @(negedge clk);            // araya giren posedge istegi kabul etti
         dmi_req_valid = 1'b0;
         rdata = 32'hDEAD_BEEF;
+        resp  = 2'b10;                 // no response seen: logged as an error response
         for (int i = 0; i < 6; i++) begin
-            if (dmi_resp_valid) begin rdata = dmi_resp.data; break; end
+            if (dmi_resp_valid) begin
+                rdata = dmi_resp.data;
+                resp  = (dmi_resp.resp == 2'd0) ? 2'b00 : 2'b10;
+                break;
+            end
             @(negedge clk);
         end
+        blog.access(cyc, op == dm::DTM_WRITE, {25'd0, addr}, dmi_name(addr),
+                    (op == dm::DTM_WRITE) ? data : rdata, 4'hF, resp);
     endtask
 
     // ---- AXI master gorevleri (kanal kanal, ready ayri kontrol edilir) ----
@@ -128,6 +170,7 @@ module axi_dm_slave_tb;
                             input logic [3:0] id, input int rready_delay,
                             output logic [31:0] rdata);
         int guard;
+        logic [1:0] resp;
         if (instr) begin
             @(negedge clk);
             instr_bus.ar_addr  = addr; instr_bus.ar_id = id; instr_bus.ar_valid = 1'b1;
@@ -139,6 +182,7 @@ module axi_dm_slave_tb;
             guard = 0;
             while (!instr_bus.r_valid && guard < 50) begin @(negedge clk); guard++; end
             rdata = instr_bus.r_data;
+            resp  = instr_bus.r_resp;
             @(negedge clk);
             instr_bus.r_ready = 1'b0;
         end else begin
@@ -152,15 +196,18 @@ module axi_dm_slave_tb;
             guard = 0;
             while (!data_bus.r_valid && guard < 50) begin @(negedge clk); guard++; end
             rdata = data_bus.r_data;
+            resp  = data_bus.r_resp;
             @(negedge clk);
             data_bus.r_ready = 1'b0;
         end
+        blog.access(cyc, 1'b0, addr, dm_mem_name(addr, instr), rdata, 4'hF, resp);
     endtask
 
     task automatic axi_write(input logic [31:0] addr, input logic [31:0] wdata,
                              input logic [3:0] strb, input logic [3:0] id,
                              input int bready_delay);
         int guard;
+        logic [1:0] resp;
         @(negedge clk);
         data_bus.aw_addr  = addr; data_bus.aw_id = id; data_bus.aw_valid = 1'b1;
         data_bus.w_data   = wdata; data_bus.w_strb = strb; data_bus.w_last = 1'b1;
@@ -172,8 +219,10 @@ module axi_dm_slave_tb;
         data_bus.b_ready = 1'b1;
         guard = 0;
         while (!data_bus.b_valid && guard < 50) begin @(negedge clk); guard++; end
+        resp = data_bus.b_resp;
         @(negedge clk);
         data_bus.b_ready = 1'b0;
+        blog.access(cyc, 1'b1, addr, dm_mem_name(addr, 1'b0), wdata, strb, resp);
     endtask
 
     // ---- Test ----
@@ -189,6 +238,12 @@ module axi_dm_slave_tb;
     always @(posedge clk) if (rst_n && dut.resp_pending) resp_pending_hits <= resp_pending_hits + 1;
 
     initial begin
+        string pfx;
+        pfx = "";
+        void'($value$plusargs("LOGDIR=%s", pfx));
+        blog = new(pfx, "axi_dm_slave_tb register accesses (make jtag-bridge-sim)",
+                   "testbench AXI masters (instruction and data port) -> axi_dm_slave -> dm_top; DMI driven directly",
+                   "cycle");
         instr_bus.ar_valid = 1'b0; instr_bus.r_ready = 1'b0;
         instr_bus.aw_valid = 1'b0; instr_bus.w_valid = 1'b0; instr_bus.b_ready = 1'b1;
         instr_bus.ar_addr = '0; instr_bus.ar_id = '0;
@@ -219,7 +274,7 @@ module axi_dm_slave_tb;
 
         #100 rst_n = 1'b1;
         repeat (5) @(negedge clk);
-        $display("[%0t] === AXI_DM_SLAVE BIRIM TESTI (bosluk G-08) ===", $time);
+        $display("[%0t] === AXI_DM_SLAVE UNIT TEST (gap G-08) ===", $time);
 
         // DM'i etkinlestir (dmcontrol.dmactive=1) - progbuf/data yazmaclari
         // ancak dmactive=1 iken degerlerini korur.
@@ -228,6 +283,7 @@ module axi_dm_slave_tb;
         // ---------------------------------------------------------------
         // 1) Ayni cevrimde BUYRUK okuma + VERI okuma: oncelik VERI'de
         // ---------------------------------------------------------------
+        blog.note(cyc, "stage 1: instruction read and data read in the same cycle, the data read must win");
         ok_all = 1'b1;
         @(negedge clk);
         instr_bus.ar_addr = DM_BASE + 32'h800; instr_bus.ar_id = 4'h1; instr_bus.ar_valid = 1'b1;
@@ -237,33 +293,46 @@ module axi_dm_slave_tb;
         #1;   // ar_ready KOMBINASYONEL: ayni cevrimde, posedge'den ONCE ornekle
         if (!(data_bus.ar_ready && !instr_bus.ar_ready)) begin
             ok_all = 1'b0;
-            $display("      tahkim: data.ar_ready=%0b instr.ar_ready=%0b (1/0 beklenir)",
+            $display("      arbitration: data.ar_ready=%0b instr.ar_ready=%0b (expected 1/0)",
                      data_bus.ar_ready, instr_bus.ar_ready);
-        end else $display("[%0t]       ayni cevrim veri+buyruk okuma -> VERI kabul, buyruk bekletildi", $time);
+        end else $display("[%0t]       data and instruction read in the same cycle: data accepted, instruction held", $time);
+        blog.check(cyc, "[1] data AR accepted and instruction AR held in the same cycle",
+                   data_bus.ar_ready && !instr_bus.ar_ready,
+                   $sformatf("data.ar_ready=%0b instr.ar_ready=%0b", data_bus.ar_ready, instr_bus.ar_ready));
         @(negedge clk);            // istek posedge'de kabul edildi
         data_bus.ar_valid = 1'b0;
         // veri yaniti
         n = 0;
         while (!data_bus.r_valid && n < 10) begin @(negedge clk); n++; end
         if (!data_bus.r_valid || (data_bus.r_id !== 4'h2)) begin
-            ok_all = 1'b0; $display("      veri R: valid=%0b id=%0h", data_bus.r_valid, data_bus.r_id);
-        end else $display("[%0t]       veri R yaniti: id=%0h data=0x%08h (%0d cevrim)", $time, data_bus.r_id, data_bus.r_data, n);
+            ok_all = 1'b0; $display("      data R: valid=%0b id=%0h", data_bus.r_valid, data_bus.r_id);
+        end else $display("[%0t]       data R response: id=%0h data=0x%08h (%0d cycles)", $time, data_bus.r_id, data_bus.r_data, n);
+        if (data_bus.r_valid)
+            blog.access(cyc, 1'b0, DM_BASE + 32'h380, dm_mem_name(DM_BASE + 32'h380, 1'b0), data_bus.r_data, 4'hF, data_bus.r_resp);
+        blog.check(cyc, "[1] data R response arrives with ID 2", data_bus.r_valid && (data_bus.r_id === 4'h2),
+                   $sformatf("valid=%0b id=%0h", data_bus.r_valid, data_bus.r_id));
         @(negedge clk);
         // buyruk istegi simdi kabul edilmeli
         n = 0;
         while (!instr_bus.r_valid && n < 10) begin @(negedge clk); n++; end
         if (!instr_bus.r_valid || (instr_bus.r_id !== 4'h1)) begin
-            ok_all = 1'b0; $display("      buyruk R: valid=%0b id=%0h", instr_bus.r_valid, instr_bus.r_id);
-        end else $display("[%0t]       buyruk R yaniti: id=%0h data=0x%08h (debug ROM)", $time, instr_bus.r_id, instr_bus.r_data);
+            ok_all = 1'b0; $display("      instruction R: valid=%0b id=%0h", instr_bus.r_valid, instr_bus.r_id);
+        end else $display("[%0t]       instruction R response: id=%0h data=0x%08h (debug ROM)", $time, instr_bus.r_id, instr_bus.r_data);
+        if (instr_bus.r_valid)
+            blog.access(cyc, 1'b0, DM_BASE + 32'h800, dm_mem_name(DM_BASE + 32'h800, 1'b1), instr_bus.r_data, 4'hF, instr_bus.r_resp);
+        blog.check(cyc, "[1] instruction R response follows with ID 1", instr_bus.r_valid && (instr_bus.r_id === 4'h1),
+                   $sformatf("valid=%0b id=%0h", instr_bus.r_valid, instr_bus.r_id));
         instr_bus.ar_valid = 1'b0;
         @(negedge clk); instr_bus.r_ready = 1'b0; data_bus.r_ready = 1'b0;
         repeat (3) @(negedge clk);
-        if (ok_all) begin $display("[%0t] [1/%0d] TAHKIM (veri okuma > buyruk okuma) OK", $time, NSTAGE); stage_ok++; end
-        else $error("[1/%0d] TAHKIM FAIL", NSTAGE);
+        blog.check(cyc, "[1/6] arbitration: data read before instruction read", ok_all);
+        if (ok_all) begin $display("[%0t] [1/%0d] ARBITRATION (data read before instruction read) OK", $time, NSTAGE); stage_ok++; end
+        else $error("[1/%0d] ARBITRATION FAIL", NSTAGE);
 
         // ---------------------------------------------------------------
         // 2) Ayni cevrimde buyruk okuma + veri YAZMA: yazma once
         // ---------------------------------------------------------------
+        blog.note(cyc, "stage 2: instruction read and data write in the same cycle, the write must win");
         ok_all = 1'b1;
         @(negedge clk);
         instr_bus.ar_addr = DM_BASE + 32'h808; instr_bus.ar_valid = 1'b1; instr_bus.r_ready = 1'b1;
@@ -273,29 +342,40 @@ module axi_dm_slave_tb;
         #1;   // aw_ready/w_ready KOMBINASYONEL
         if (!(data_bus.aw_ready && data_bus.w_ready && !instr_bus.ar_ready)) begin
             ok_all = 1'b0;
-            $display("      tahkim: aw_ready=%0b w_ready=%0b instr.ar_ready=%0b",
+            $display("      arbitration: aw_ready=%0b w_ready=%0b instr.ar_ready=%0b",
                      data_bus.aw_ready, data_bus.w_ready, instr_bus.ar_ready);
-        end else $display("[%0t]       ayni cevrim veri yazma + buyruk okuma -> YAZMA kabul", $time);
+        end else $display("[%0t]       data write and instruction read in the same cycle: write accepted", $time);
+        blog.check(cyc, "[2] data AW/W accepted and instruction AR held in the same cycle",
+                   data_bus.aw_ready && data_bus.w_ready && !instr_bus.ar_ready,
+                   $sformatf("aw_ready=%0b w_ready=%0b instr.ar_ready=%0b",
+                             data_bus.aw_ready, data_bus.w_ready, instr_bus.ar_ready));
         @(negedge clk);            // yazma posedge'de kabul edildi
         data_bus.aw_valid = 1'b0; data_bus.w_valid = 1'b0;
         n = 0;
         while (!data_bus.b_valid && n < 10) begin @(negedge clk); n++; end
-        if (!data_bus.b_valid) begin ok_all = 1'b0; $display("      B yaniti gelmedi"); end
-        else $display("[%0t]       B yaniti %0d cevrimde (resp=%0d)", $time, n, data_bus.b_resp);
+        if (!data_bus.b_valid) begin ok_all = 1'b0; $display("      no B response received"); end
+        else $display("[%0t]       B response after %0d cycles (resp=%0d)", $time, n, data_bus.b_resp);
+        if (data_bus.b_valid)
+            blog.access(cyc, 1'b1, DM_BASE + 32'h380, dm_mem_name(DM_BASE + 32'h380, 1'b0), 32'hA1B2_C3D4, 4'b1111, data_bus.b_resp);
+        blog.check(cyc, "[2] B response arrives for the data write", data_bus.b_valid, $sformatf("%0d cycles", n));
         @(negedge clk);
         n = 0;
         while (!instr_bus.r_valid && n < 10) begin @(negedge clk); n++; end
-        if (!instr_bus.r_valid) begin ok_all = 1'b0; $display("      buyruk R gelmedi"); end
+        if (!instr_bus.r_valid) begin ok_all = 1'b0; $display("      no instruction R response received"); end
+        else blog.access(cyc, 1'b0, DM_BASE + 32'h808, dm_mem_name(DM_BASE + 32'h808, 1'b1), instr_bus.r_data, 4'hF, instr_bus.r_resp);
+        blog.check(cyc, "[2] instruction R response follows the write", instr_bus.r_valid);
         instr_bus.ar_valid = 1'b0;
         @(negedge clk); instr_bus.r_ready = 1'b0; data_bus.b_ready = 1'b0;
         repeat (3) @(negedge clk);
-        if (ok_all) begin $display("[%0t] [2/%0d] TAHKIM (veri yazma > buyruk okuma) OK", $time, NSTAGE); stage_ok++; end
-        else $error("[2/%0d] TAHKIM FAIL", NSTAGE);
+        blog.check(cyc, "[2/6] arbitration: data write before instruction read", ok_all);
+        if (ok_all) begin $display("[%0t] [2/%0d] ARBITRATION (data write before instruction read) OK", $time, NSTAGE); stage_ok++; end
+        else $error("[2/%0d] ARBITRATION FAIL", NSTAGE);
 
         // ---------------------------------------------------------------
         // 3) r_ready 3 cevrim DUSUK: r_valid tutulur, DM istegi kesilir,
         //    adres sabit kalir, yeni istek kabul EDILMEZ
         // ---------------------------------------------------------------
+        blog.note(cyc, "stage 3: r_ready held low for 3 cycles, the R channel must hold");
         ok_all = 1'b1;
         @(negedge clk);
         data_bus.ar_addr = DM_BASE + 32'h380; data_bus.ar_id = 4'h5; data_bus.ar_valid = 1'b1;
@@ -311,26 +391,32 @@ module axi_dm_slave_tb;
             if (!data_bus.r_valid || dm_req || (dm_addr !== addr_seen) ||
                 data_bus.ar_ready || instr_bus.ar_ready) begin
                 ok_all = 1'b0;
-                $display("      tutma sozlesmesi bozuldu (cevrim %0d): r_valid=%0b dm_req=%0b dm_addr=0x%08h ar_ready=%0b/%0b",
+                $display("      R hold contract violated (cycle %0d): r_valid=%0b dm_req=%0b dm_addr=0x%08h ar_ready=%0b/%0b",
                          i, data_bus.r_valid, dm_req, dm_addr, data_bus.ar_ready, instr_bus.ar_ready);
             end
         end
+        blog.check(cyc, "[3] with r_ready=0: r_valid held, dm_req=0, dm_addr stable, no new request accepted (3 cycles)",
+                   ok_all, $sformatf("dm_addr=0x%08h", addr_seen));
         if (ok_all)
-            $display("[%0t]       r_ready=0 iken: r_valid tutuldu, dm_req=0, dm_addr=0x%08h sabit, ar_ready=0 (3 cevrim)",
+            $display("[%0t]       with r_ready=0: r_valid held, dm_req=0, dm_addr=0x%08h stable, ar_ready=0 (3 cycles)",
                      $time, addr_seen);
         data_bus.r_ready = 1'b1;
         rd_d = data_bus.r_data;
+        blog.access(cyc, 1'b0, DM_BASE + 32'h380, dm_mem_name(DM_BASE + 32'h380, 1'b0), rd_d, 4'hF, data_bus.r_resp);
         @(negedge clk);
-        if (data_bus.r_valid) begin ok_all = 1'b0; $display("      r_valid el sikismadan sonra dusmedi"); end
+        blog.check(cyc, "[3] r_valid drops after the handshake", !data_bus.r_valid);
+        if (data_bus.r_valid) begin ok_all = 1'b0; $display("      r_valid did not drop after the handshake"); end
         data_bus.r_ready = 1'b0;
         repeat (3) @(negedge clk);
+        blog.check(cyc, "[3/6] R channel hold", ok_all, $sformatf("data=0x%08h", rd_d));
         if (ok_all) begin
-            $display("[%0t] [3/%0d] R KANALI TUTMA OK (data=0x%08h)", $time, NSTAGE, rd_d); stage_ok++;
-        end else $error("[3/%0d] R KANALI TUTMA FAIL", NSTAGE);
+            $display("[%0t] [3/%0d] R CHANNEL HOLD OK (data=0x%08h)", $time, NSTAGE, rd_d); stage_ok++;
+        end else $error("[3/%0d] R CHANNEL HOLD FAIL", NSTAGE);
 
         // ---------------------------------------------------------------
         // 4) b_ready 3 cevrim DUSUK: b_valid tutulur, kopru mesgul kalir
         // ---------------------------------------------------------------
+        blog.note(cyc, "stage 4: b_ready held low for 3 cycles, the B channel must hold and the bridge stay busy");
         ok_all = 1'b1;
         @(negedge clk);
         data_bus.aw_addr = DM_BASE + 32'h380; data_bus.aw_valid = 1'b1;
@@ -344,53 +430,64 @@ module axi_dm_slave_tb;
             @(negedge clk);
             if (!data_bus.b_valid || !dut.busy || data_bus.aw_ready || instr_bus.ar_ready) begin
                 ok_all = 1'b0;
-                $display("      b tutma bozuldu (cevrim %0d): b_valid=%0b busy=%0b aw_ready=%0b",
+                $display("      B hold contract violated (cycle %0d): b_valid=%0b busy=%0b aw_ready=%0b",
                          i, data_bus.b_valid, dut.busy, data_bus.aw_ready);
             end
         end
-        if (ok_all) $display("[%0t]       b_ready=0 iken: b_valid tutuldu, kopru mesgul, yeni istek kabul edilmedi", $time);
+        if (ok_all) $display("[%0t]       with b_ready=0: b_valid held, bridge busy, no new request accepted", $time);
+        blog.check(cyc, "[4] with b_ready=0: b_valid held, bridge busy, no new request accepted (3 cycles)", ok_all);
+        blog.access(cyc, 1'b1, DM_BASE + 32'h380, dm_mem_name(DM_BASE + 32'h380, 1'b0), 32'h1122_3344, 4'b1111, data_bus.b_resp);
         data_bus.b_ready = 1'b1;
         @(negedge clk); @(negedge clk);
-        if (data_bus.b_valid) begin ok_all = 1'b0; $display("      b_valid el sikismadan sonra dusmedi"); end
+        blog.check(cyc, "[4] b_valid drops after the handshake", !data_bus.b_valid);
+        if (data_bus.b_valid) begin ok_all = 1'b0; $display("      b_valid did not drop after the handshake"); end
         data_bus.b_ready = 1'b0;
         repeat (3) @(negedge clk);
-        if (ok_all) begin $display("[%0t] [4/%0d] B KANALI TUTMA OK", $time, NSTAGE); stage_ok++; end
-        else $error("[4/%0d] B KANALI TUTMA FAIL", NSTAGE);
+        blog.check(cyc, "[4/6] B channel hold", ok_all);
+        if (ok_all) begin $display("[%0t] [4/%0d] B CHANNEL HOLD OK", $time, NSTAGE); stage_ok++; end
+        else $error("[4/%0d] B CHANNEL HOLD FAIL", NSTAGE);
 
         // ---------------------------------------------------------------
         // 5) Bayt-enable: w_strb DM'e be_o olarak gecer; data0'in yalniz
         //    secilen baytlari degisir (DMI okumasiyla dogrulanir)
         // ---------------------------------------------------------------
+        blog.note(cyc, "stage 5: w_strb reaches the DM as dm_be_o, only the selected bytes of data0 change");
         ok_all = 1'b1;
         axi_write(DM_BASE + 32'h380, 32'hFFFF_FFFF, 4'b1111, 4'h0, 0);
         dmi_op(7'h04, dm::DTM_READ, 32'd0, rd_dmi);
-        if (rd_dmi !== 32'hFFFF_FFFF) begin ok_all = 1'b0; $display("      data0 on yukleme=0x%08h", rd_dmi); end
+        blog.check(cyc, "[5] data0 after a full write is 0xFFFFFFFF", rd_dmi === 32'hFFFF_FFFF, $sformatf("0x%08h", rd_dmi));
+        if (rd_dmi !== 32'hFFFF_FFFF) begin ok_all = 1'b0; $display("      data0 after preload=0x%08h", rd_dmi); end
 
         axi_write(DM_BASE + 32'h380, 32'h1234_5678, 4'b0001, 4'h0, 0);
         dmi_op(7'h04, dm::DTM_READ, 32'd0, rd_dmi);
+        blog.check(cyc, "[5] w_strb=0001 changes only byte 0 (data0 = 0xFFFFFF78)", rd_dmi === 32'hFFFF_FF78, $sformatf("0x%08h", rd_dmi));
         if (rd_dmi !== 32'hFFFF_FF78) begin
-            ok_all = 1'b0; $display("      strb=0001 sonrasi data0=0x%08h (0xFFFFFF78 beklenir)", rd_dmi);
-        end else $display("[%0t]       w_strb=0001 -> data0=0x%08h (yalniz bayt 0 degisti)", $time, rd_dmi);
+            ok_all = 1'b0; $display("      data0 after strb=0001 is 0x%08h (expected 0xFFFFFF78)", rd_dmi);
+        end else $display("[%0t]       w_strb=0001: data0=0x%08h (only byte 0 changed)", $time, rd_dmi);
 
         axi_write(DM_BASE + 32'h380, 32'hAABB_CCDD, 4'b0011, 4'h0, 0);
         dmi_op(7'h04, dm::DTM_READ, 32'd0, rd_dmi);
+        blog.check(cyc, "[5] w_strb=0011 changes only the lower half (data0 = 0xFFFFCCDD)", rd_dmi === 32'hFFFF_CCDD, $sformatf("0x%08h", rd_dmi));
         if (rd_dmi !== 32'hFFFF_CCDD) begin
-            ok_all = 1'b0; $display("      strb=0011 sonrasi data0=0x%08h (0xFFFFCCDD beklenir)", rd_dmi);
-        end else $display("[%0t]       w_strb=0011 -> data0=0x%08h (alt yari degisti)", $time, rd_dmi);
+            ok_all = 1'b0; $display("      data0 after strb=0011 is 0x%08h (expected 0xFFFFCCDD)", rd_dmi);
+        end else $display("[%0t]       w_strb=0011: data0=0x%08h (lower half changed)", $time, rd_dmi);
 
         axi_write(DM_BASE + 32'h380, 32'h9999_0000, 4'b1100, 4'h0, 0);
         dmi_op(7'h04, dm::DTM_READ, 32'd0, rd_dmi);
+        blog.check(cyc, "[5] w_strb=1100 changes only the upper half (data0 = 0x9999CCDD)", rd_dmi === 32'h9999_CCDD, $sformatf("0x%08h", rd_dmi));
         if (rd_dmi !== 32'h9999_CCDD) begin
-            ok_all = 1'b0; $display("      strb=1100 sonrasi data0=0x%08h (0x9999CCDD beklenir)", rd_dmi);
-        end else $display("[%0t]       w_strb=1100 -> data0=0x%08h (ust yari degisti)", $time, rd_dmi);
+            ok_all = 1'b0; $display("      data0 after strb=1100 is 0x%08h (expected 0x9999CCDD)", rd_dmi);
+        end else $display("[%0t]       w_strb=1100: data0=0x%08h (upper half changed)", $time, rd_dmi);
 
-        if (ok_all) begin $display("[%0t] [5/%0d] BAYT-ENABLE (w_strb -> dm_be_o) OK", $time, NSTAGE); stage_ok++; end
-        else $error("[5/%0d] BAYT-ENABLE FAIL", NSTAGE);
+        blog.check(cyc, "[5/6] byte enable (w_strb to dm_be_o)", ok_all);
+        if (ok_all) begin $display("[%0t] [5/%0d] BYTE ENABLE (w_strb to dm_be_o) OK", $time, NSTAGE); stage_ok++; end
+        else $error("[5/%0d] BYTE ENABLE FAIL", NSTAGE);
 
         // ---------------------------------------------------------------
         // 6) Istek ucusta iken RESET: req_q/r_valid/b_valid temizlenir,
         //    ilk istekten sonra kopru normal calisir
         // ---------------------------------------------------------------
+        blog.note(cyc, "stage 6: reset while a request is in flight, then both ports must work again");
         ok_all = 1'b1;
         @(negedge clk);
         data_bus.ar_addr = DM_BASE + 32'h380; data_bus.ar_valid = 1'b1; data_bus.r_ready = 1'b0;
@@ -400,9 +497,12 @@ module axi_dm_slave_tb;
         repeat (3) @(negedge clk);
         if (dut.req_q || data_bus.r_valid || data_bus.b_valid || instr_bus.r_valid) begin
             ok_all = 1'b0;
-            $display("      reset sonrasi: req_q=%0b r_valid=%0b b_valid=%0b",
+            $display("      after reset: req_q=%0b r_valid=%0b b_valid=%0b",
                      dut.req_q, data_bus.r_valid, data_bus.b_valid);
-        end else $display("[%0t]       ucustaki istek reset ile temizlendi (req_q=0, tum valid'ler 0)", $time);
+        end else $display("[%0t]       in-flight request cleared by reset (req_q=0, all valid signals 0)", $time);
+        blog.check(cyc, "[6] reset clears the in-flight request (req_q=0, all valid signals 0)",
+                   !(dut.req_q || data_bus.r_valid || data_bus.b_valid || instr_bus.r_valid),
+                   $sformatf("req_q=%0b r_valid=%0b b_valid=%0b", dut.req_q, data_bus.r_valid, data_bus.b_valid));
         rst_n = 1'b1;
         repeat (5) @(negedge clk);
         dmi_op(7'h10, dm::DTM_WRITE, 32'h0000_0001, rd_dmi);   // dmactive tekrar
@@ -413,27 +513,38 @@ module axi_dm_slave_tb;
         // turetiliyordu - iki port da bozuk/sifir dondurse test yine gecerdi.
         // DM+0x800 = debug ROM ilk sozcugu; riscv-dbg vendor'da sabittir
         // (debug_rom.sv: 64'h00000013_0180006f -> dusuk sozcuk 0x0180006f).
+        blog.check(cyc, "[6] both ports read debug ROM[0] = 0x0180006f after reset",
+                   (rd_d === ROM_W0) && (rd_i === ROM_W0),
+                   $sformatf("data=0x%08h instruction=0x%08h", rd_d, rd_i));
         if ((rd_d !== ROM_W0) || (rd_i !== ROM_W0)) begin
             ok_all = 1'b0;
-            $display("      reset sonrasi okuma: veri=0x%08h buyruk=0x%08h (beklenen 0x%08h)",
+            $display("      read after reset: data=0x%08h instruction=0x%08h (expected 0x%08h)",
                      rd_d, rd_i, ROM_W0);
-        end else $display("[%0t]       reset sonrasi iki port da calisiyor (debug ROM[0]=0x%08h)", $time, rd_d);
-        if (ok_all) begin $display("[%0t] [6/%0d] RESET KURTARMA OK", $time, NSTAGE); stage_ok++; end
-        else $error("[6/%0d] RESET KURTARMA FAIL", NSTAGE);
+        end else $display("[%0t]       both ports work after reset (debug ROM[0]=0x%08h)", $time, rd_d);
+        blog.check(cyc, "[6/6] reset recovery", ok_all);
+        if (ok_all) begin $display("[%0t] [6/%0d] RESET RECOVERY OK", $time, NSTAGE); stage_ok++; end
+        else $error("[6/%0d] RESET RECOVERY FAIL", NSTAGE);
 
         // kapsama: resp_pending bu TB'de vurmali (smoke TB'de HIC vurmuyor)
-        $display("[%0t]       kapsama: resp_pending %0d cevrim yuksek kaldi (jtag_smoke_tb'de 0)",
+        $display("[%0t]       coverage: resp_pending was high for %0d cycles (0 in jtag_smoke_tb)",
                  $time, resp_pending_hits);
+        blog.check(cyc, "resp_pending was asserted (the r_ready/b_ready scenarios took effect)",
+                   resp_pending_hits > 0, $sformatf("%0d cycles", resp_pending_hits));
         if (resp_pending_hits == 0)
-            $error("resp_pending hic vurmadi: r_ready/b_ready senaryolari calismamis");
+            $error("resp_pending was never asserted: the r_ready/b_ready scenarios did not take effect");
 
         if ((stage_ok == NSTAGE) && (resp_pending_hits > 0))
-            $display("[%0t] *** TEST SUCCESS *** axi_dm_slave: tahkim + R/B tutma + bayt-enable + reset (%0d/%0d)",
+            $display("[%0t] *** TEST SUCCESS *** axi_dm_slave: arbitration, R/B hold, byte enable and reset (%0d/%0d)",
                      $time, stage_ok, NSTAGE);
         else
-            $error("AXI_DM_SLAVE FAIL: %0d/%0d asama gecti", stage_ok, NSTAGE);
+            $error("AXI_DM_SLAVE FAIL: %0d/%0d stages passed", stage_ok, NSTAGE);
+        blog.check(cyc, "all stages passed", stage_ok == NSTAGE, $sformatf("%0d of %0d", stage_ok, NSTAGE));
+        blog.close();
         $finish;
     end
 
-    initial #2_000_000 begin $error("TIMEOUT"); $finish; end
+    initial #2_000_000 begin
+        blog.fail(cyc, "test finished within 2 ms of simulated time");
+        $error("TIMEOUT"); $finish;
+    end
 endmodule

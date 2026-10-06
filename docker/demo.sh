@@ -60,9 +60,9 @@ echo
 # Measured figures from the repository ----------------------------------------
 perf=verif/perf_summary.txt
 if [ -f "$perf" ]; then
-    hw=$(awk '/Donanim/ {print $(NF-3)}' "$perf")
-    sw=$(awk '/Yazilim/ {print $(NF-3)}' "$perf")
-    sp=$(awk '/HIZLANMA/ {print $NF}' "$perf")
+    hw=$(awk '/^ *(Hardware|Donanim) / {print $(NF-3)}' "$perf")
+    sw=$(awk '/^ *(Software|Yazilim) / {print $(NF-3)}' "$perf")
+    sp=$(awk '/^ *(SPEEDUP|HIZLANMA) / {print $NF}' "$perf")
     echo "Performance of one inference, measured with 'make soc-perf' (verif/perf_summary.txt):"
     echo "      AI accelerator          : $hw cycles"
     echo "      software on the CV32E40P: $sw cycles"

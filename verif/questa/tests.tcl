@@ -80,25 +80,25 @@ q_def jtag_bridge_sim top axi_dm_slave_tb    workdir . soc 0 \
     files {rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/cf_math_pkg.sv
            rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/fifo_v3.sv
            rtl/bus/axi/src/axi_pkg.sv rtl/bus/axi/src/axi_intf.sv
-           rtl/debug/axi_dm_slave.sv verif/tb/axi_dm_slave_tb.sv} \
+           rtl/debug/axi_dm_slave.sv verif/sva/tb_log_pkg.sv verif/tb/axi_dm_slave_tb.sv} \
     wave axi_dm_slave
 
 # make uart-stp: stop bits 1 / 1.5 / 2 on the bare UART block
 q_def uart_stp        top uart_stp_tb        workdir . soc 0 \
     files {rtl/peripherals/uart_axil.sv rtl/peripherals/uart_tx.v rtl/peripherals/uart_rx.v
-           verif/tb/uart_stp_tb.sv verif/sva/uart_func_cov.sv} \
+           verif/sva/tb_log_pkg.sv verif/tb/uart_stp_tb.sv verif/sva/uart_func_cov.sv} \
     wave uart_stp
 
 # make uart-stream: UART_1 stream DMA block, scenarios A-E
 q_def uart_stream     top uart_stream_tb     workdir . soc 0 \
     files {rtl/peripherals/uart_stream_axil.sv rtl/peripherals/uart_tx.v rtl/peripherals/uart_rx.v
-           verif/tb/uart_stream_tb.sv} \
+           verif/sva/tb_log_pkg.sv verif/tb/uart_stream_tb.sv} \
     wave uart_stream
 
 # make ai: standalone accelerator, 6 scenarios + 40-sample batch (golden files
 # are read relative to the repository root, hence workdir .)
 q_def ai              top ai_accel_tb        workdir . soc 0 \
-    files {verif/tb/ai_accel_tb.sv rtl/ai_accelerator/ai_accelerator.sv} \
+    files {verif/sva/tb_log_pkg.sv verif/tb/ai_accel_tb.sv rtl/ai_accelerator/ai_accelerator.sv} \
     wave ai_accel
 
 # ---- firmware-driven SoC tests through verif/questa/questa_soc_tb.sv --------

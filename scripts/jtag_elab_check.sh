@@ -45,16 +45,16 @@ YS_CMD="yosys -m slang -p \"read_slang --keep-hierarchy -DSYNTHESIS -DASIC_SRAM_
 
 # Ortam secimi (asic_elab.sh ile ayni uc yol); yoksa erken cikis (kod 2)
 if [ -x asic/scripts/run_in_env.sh ] && { command -v librelane >/dev/null 2>&1 || command -v nix >/dev/null 2>&1; }; then
-  echo "[JTAG-ELAB] ortam: asic/environment flake (run_in_env.sh)"
+  echo "[JTAG-ELAB] environment: asic/environment flake (run_in_env.sh)"
   RUN="asic/scripts/run_in_env.sh bash -c"
 elif [ -x "$APPIMG" ]; then
-  echo "[JTAG-ELAB] ortam: AppImage ($APPIMG)"
+  echo "[JTAG-ELAB] environment: AppImage ($APPIMG)"
   RUN="$APPIMG bash -c"
 elif [ -d "$LL" ] && command -v nix-shell >/dev/null 2>&1; then
-  echo "[JTAG-ELAB] ortam: nix-shell ($LL)"
+  echo "[JTAG-ELAB] environment: nix-shell ($LL)"
   RUN="nix-shell-marker"
 else
-  echo "[JTAG-ELAB] HATA: LibreLane bulunamadi (yerel WSL'de slang.so yok; VM'de kosun)."
+  echo "[JTAG-ELAB] ERROR: LibreLane was not found (local WSL has no slang.so; run on the VM)."
   exit 2
 fi
 if [ "$RUN" = "nix-shell-marker" ]; then
@@ -64,9 +64,9 @@ else
 fi
 
 if grep -q 'dm_top' "$REPO/build/jtag_elab/elab.log" && ! grep -qiE '^ERROR|error:' "$REPO/build/jtag_elab/elab.log"; then
-  echo "[JTAG-ELAB] elaborasyon tamam - rapor: build/jtag_elab/elab.log"
+  echo "[JTAG-ELAB] elaboration complete, report: build/jtag_elab/elab.log"
   L=$(grep -F '$dlatch' "$REPO/build/jtag_elab/elab.log" | head -3 || true)
-  [ -n "$L" ] && echo "[JTAG-ELAB] latch bulundu:$L (dmi_jtag_tap tc_clk_mux2 / cv32e40p_sim_clock_gate beklenir - inceleyin)"
+  [ -n "$L" ] && echo "[JTAG-ELAB] latch found:$L (dmi_jtag_tap tc_clk_mux2 / cv32e40p_sim_clock_gate are expected; review them)"
   exit 0
 else
   echo "[JTAG-ELAB] FAIL - build/jtag_elab/elab.log"

@@ -15,10 +15,10 @@ TESTS="uart_hello qspi_test gpio_led_test ai_micro_speech_test uart_baud_sweep a
 BLOG="$PROJ/logs/build/coverage_build.log"
 mkdir -p "$PROJ/logs/build" "$PROJ/logs/coverage"
 
-echo ">>> Coverage build (line, instrumentasyonlu - yavas)..."
+echo ">>> Building the SoC model with line coverage instrumentation (slow)..."
 rm -rf obj_dir
 make -f Makefile.verilator verilate COVERAGE=1 >"$BLOG" 2>&1 \
-    || { echo "    VERILATE FAIL - bkz: $BLOG"; exit 1; }
+    || { echo "    BUILD FAIL (log: $BLOG)"; exit 1; }
 
 DATS=""
 # Onceki kosulardan kalan test loglari fonksiyonel kapsama birlesimine
@@ -48,16 +48,16 @@ for T in $TESTS; do
         EXTRA=(EXTRA_CFLAGS="-DQSPI_ERR_CPB=64"
                SIM_PLUSARGS="+CPB=64 +GOLDEN_FILE=../build/qspi_err/golden.txt +MAX_CYCLES=3000000") ;;
     esac
-    echo ">>> sim: $T"
+    echo ">>> Simulating $T"
     rm -rf build
     [ "$T" = "qspi_test" ] && printf 'AA\nBB\nCC\nDD\n' > obj_dir/flash.hex
     if [ "$T" = "qspi_fifo_err_test" ]; then
         mkdir -p build/qspi_err
-        printf '[QSPI-ERR] gecen=25 kalan=0  SONUC: PASS' > build/qspi_err/golden.txt
+        printf '[QSPI-ERR] passed=25 failed=0  RESULT: PASS' > build/qspi_err/golden.txt
     fi
     make -f Makefile.verilator sim COVERAGE=1 FW_SRC=sw/tests/$T.c "${EXTRA[@]}" \
         >"$PROJ/logs/coverage/${T}_sim.log" 2>&1 \
-        || { echo "    $T FAIL - bkz: logs/coverage/${T}_sim.log"; exit 1; }
+        || { echo "    $T FAIL (log: logs/coverage/${T}_sim.log)"; exit 1; }
     echo "    PASS"
     DATS="$DATS logs/sim/$T/coverage.dat"
 done
@@ -99,13 +99,13 @@ uart_u = set()
 for T in os.environ["TESTS"].split():
     f = "logs/coverage/%s_sim.log" % T
     t = open(f, errors="replace").read()
-    for blok, hit in re.findall(r"\[FUNC-COV\] (\S+).*?bin kapsami\s*:\s*(\d+)/", t, re.S):
+    for blok, hit in re.findall(r"\[FUNC-COV\] (\S+) .*?(\d+) of \d+ bins hit", t):
         if blok in PAY:
             best[blok] = max(best[blok], int(hit))
-    for c434, c50, c5208 in re.findall(r"CPB binleri\s*:\s*434=(\d+) 50=(\d+) 5208=(\d+)", t):
+    for c434, c50, c5208 in re.findall(r"clocks-per-bit bins 434=(\d+) 50=(\d+) 5208=(\d+)", t):
         for ad, n in (("cpb434", c434), ("cpb50", c50), ("cpb5208", c5208)):
             if int(n): uart_u.add(ad)
-    for s00, s01, s10, s11 in re.findall(r"STP binleri\s*:\s*00=(\d+) 01=(\d+) 10=(\d+) 11=(\d+)", t):
+    for s00, s01, s10, s11 in re.findall(r"stop-bit bins 00=(\d+) 01=(\d+) 10=(\d+) 11=(\d+)", t):
         for ad, n in (("stp00", s00), ("stp01", s01), ("stp10", s10), ("stp11", s11)):
             if int(n): uart_u.add(ad)
     # IRQ: hat bazinda gercek birlesim (max degil - her test farkli hatti uyariyor)
@@ -113,27 +113,27 @@ for T in os.environ["TESTS"].split():
         if int(a): irq_u.add("timer")
         if int(b_): irq_u.add("ai")
         if int(c): irq_u.add("strm")
-    for k, fl in re.findall(r"auto-clear\s*:\s*(\d+) kontrol, (\d+) ihlal", t):
+    for k, fl in re.findall(r"auto-clear (\d+) checks, (\d+) violations", t):
         ac_k += int(k); ac_f += int(fl)
 print("")
-print("--- Fonksiyonel kapsama (birlesim, verif/sva/*_func_cov.sv) ---")
+print("--- Functional coverage (union over all tests, verif/sva/*_func_cov.sv) ---")
 best["IRQ"] = max(best.get("IRQ", 0), len(irq_u))
 best["UART"] = max(best.get("UART", 0), len(uart_u))
 tot = sum(best.get(b, 0) for b in PAY)
 for b in ("UART", "QSPI", "AI-CSR", "IRQ"):
     h, n = best.get(b, 0), PAY[b]
     print("  %-8s : %d/%d  (%.0f%%)" % (b, h, n, 100.0 * h / n))
-print("  %-8s : %d/%d  (%.0f%%)" % ("TOPLAM", tot, sum(PAY.values()),
+print("  %-8s : %d/%d  (%.0f%%)" % ("TOTAL", tot, sum(PAY.values()),
                                     100.0 * tot / sum(PAY.values())))
-print("  UART auto-clear (EK-2 v1.3): %d kontrol, %d ihlal" % (ac_k, ac_f))
+print("  UART TX-start auto-clear: %d checks, %d violations" % (ac_k, ac_f))
 if ac_f:
-    raise SystemExit("[HATA] auto-clear ihlali: %d" % ac_f)
+    raise SystemExit("[ERROR] UART auto-clear violations: %d" % ac_f)
 PYEOF
-[ "${PIPESTATUS[0]}" -eq 0 ] || { echo "    FONKSIYONEL KAPSAMA FAIL (auto-clear ihlali ya da eksik test logu; bkz. logs/coverage/summary.txt)"; exit 1; }
+[ "${PIPESTATUS[0]}" -eq 0 ] || { echo "    FUNCTIONAL COVERAGE FAIL (auto-clear violation or missing test log; see logs/coverage/summary.txt)"; exit 1; }
 
 echo "" | tee -a logs/coverage/summary.txt
-echo "--- Ekip RTL: kapsanmamis nokta-satir sayilari ---" | tee -a logs/coverage/summary.txt
-echo "    (satir bazli sayim; ayni satirdaki branch-yarisi kayiplari icin annotate'e bakin)" | tee -a logs/coverage/summary.txt
+echo "--- Team RTL: number of uncovered coverage points per file ---" | tee -a logs/coverage/summary.txt
+echo "    (counted per line; for partly covered branches on one line see the annotated sources)" | tee -a logs/coverage/summary.txt
 # Liste 1 Eylul denetiminde tamamlandi: i2c/boot_rom/axi_sram_wrapper/uart_rx/uart_tx
 # eksikti ve [ -f ] guard'i annotate'te olmayan dosyayi SESSIZCE atliyordu
 # (i2c'nin 122 kapsanmamis satiri ozette hic gorunmedi). Ayrinti:
@@ -146,33 +146,33 @@ for F in ai_accelerator.sv ai_sram_arbiter.sv soc_top.sv soc_axi_interconnect.sv
     if [ -f "$A" ]; then
         printf "  %-28s : %s\n" "$F" "$(grep -c '^%' "$A")" | tee -a logs/coverage/summary.txt
     else
-        printf "  %-28s : annotate yok (nokta uretilmedi: yapisal RTL / waiver / kullanilmiyor)\n" "$F" \
+        printf "  %-28s : no annotation (no coverage points: structural RTL, waived or unused)\n" "$F" \
             | tee -a logs/coverage/summary.txt
     fi
 done
 if [ -f rtl/debug/sim/jtag_cov_summary.txt ]; then
     echo "" | tee -a logs/coverage/summary.txt
-    echo "--- JTAG altsistemi (make jtag-cov, jtag_smoke_tb 17 asama; rtl/debug/sim/jtag_cov_summary.txt) ---" | tee -a logs/coverage/summary.txt
+    echo "--- JTAG subsystem (make jtag-cov, jtag_smoke_tb 17 stages; rtl/debug/sim/jtag_cov_summary.txt) ---" | tee -a logs/coverage/summary.txt
     grep -E 'axi_dm_slave|soc_axi_interconnect|rtl/soc_top|dmi_jtag|dm_csrs|dm_mem|dm_top' rtl/debug/sim/jtag_cov_summary.txt \
         | sed 's/^/  /' | tee -a logs/coverage/summary.txt
 fi
 echo ""
-echo "Annotated kaynaklar: logs/coverage/annotate/  ('%' onekli satir = kapsanmamis)"
+echo "Annotated sources: logs/coverage/annotate/  (lines starting with '%' are not covered)"
 
 # repoya commit edilen ozet kopyasi
 SUM="$PROJ/verif/coverage_summary.txt"
 {
-    echo "BLogic MCU - line coverage ozeti (make coverage)"
-    echo "tarih     : $(date +%Y-%m-%d)"
+    echo "BLogic MCU - line coverage summary (make coverage)"
+    echo "date      : $(date +%Y-%m-%d)"
     echo "verilator : $(verilator --version 2>/dev/null | head -1)"
-    echo "testler   : $TESTS"
-    echo "olcum     : --coverage-line, SoC seviyesi (15 C testi, tek build, sabit payda)"
-    echo "kapsam    : tasarim RTL'i (15 dosya; JTAG koprusu axi_dm_slave.sv dahil). Haric:"
-    echo "            CV32E40P/PULP ve riscv-dbg vendor kodu, testbench'ler, davranissal"
-    echo "            modeller, SVA checker ve covergroup bind'leri - dogrulama altyapisidir."
-    echo "            JTAG altsistemi ayrica jtag_smoke_tb ile olculur: make jtag-cov (sonda)."
-    echo "modul bazli TB kapsamasi: verif/coverage_tb_summary.txt (make coverage-tb)"
+    echo "tests     : $TESTS"
+    echo "method    : --coverage-line, SoC level (15 C tests, one build, fixed denominator)"
+    echo "scope     : design RTL (15 files, including the JTAG bridge axi_dm_slave.sv). Excluded:"
+    echo "            CV32E40P/PULP and riscv-dbg vendor code, testbenches, behavioural models,"
+    echo "            SVA checkers and coverage binds (verification infrastructure)."
+    echo "            The JTAG subsystem is measured separately with jtag_smoke_tb: make jtag-cov (at the end)."
+    echo "per-module testbench coverage: verif/coverage_tb_summary.txt (make coverage-tb)"
     echo "------------------------------------------------------------"
     cat "$PROJ/logs/coverage/summary.txt"
 } > "$SUM"
-echo "Izlenen ozet guncellendi: verif/coverage_summary.txt"
+echo "Updated the committed summary: verif/coverage_summary.txt"

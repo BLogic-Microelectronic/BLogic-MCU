@@ -32,7 +32,7 @@ def yuzde(etiket):
 line = yuzde("line")
 branch = yuzde("branch")
 ann = re.search(r"covered\s*:\s*([\d.]+)%\s*\(\s*(\d+)/(\d+)\)", TXT)
-fonk = re.search(r"TOPLAM\s*:\s*(\d+)/(\d+)\s*\((\d+)%\)", TXT)
+fonk = re.search(r"(?:TOTAL|TOPLAM)\s*:\s*(\d+)/(\d+)\s*\((\d+)%\)", TXT)
 
 genel = [
     ("Line", line[0], "%s/%s" % (line[1], line[2])),

@@ -467,7 +467,7 @@ def questa_karar(transcript):
         return "NO TRANSCRIPT"
     if re.search(r"\*\*\* TEST FAILED|result=FAIL|TIMEOUT|\*\* Fatal|\*\* Error", transcript):
         return "FAIL"
-    if re.search(r"\*\*\* TEST SUCCESS|result=PASS|\[ADIM E\] PASS", transcript):
+    if re.search(r"\*\*\* TEST SUCCESS|result=PASS|\[(STEP|ADIM) E\] PASS", transcript):
         return "PASS"
     return "NO VERDICT"
 
@@ -1554,7 +1554,7 @@ def gui_calistir(smoke_ms=0, otomatik_make=None, depo_yolu=None):
                             pass
                         continue
                     if hedef in ("test-all", "test-full"):   # ozet tablolari -> satirlar
-                        m = re.match(r"^\s+([a-z0-9-]+)\s+\(.*\)\s*:\s*(PASS|FAIL)\s*$",
+                        m = re.match(r"^\s+([a-z0-9-]+)\s+.*:\s*(PASS|FAIL)\s*$",
                                      satir)
                         if m:
                             kuyruk.put(("make_durum", m.group(1), m.group(2), "",
