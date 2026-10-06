@@ -1,3 +1,7 @@
+> v1.0 itibariyla asagidaki results/ dosyalari repoda tutulmuyor; v1.0 release'ine
+> ekli. `bash asic/fetch_results.sh` onlari ayni yollara indirir ve SHA-256 ile
+> dogrular. Teslim edilen hal (dosyalar dahil): `teknofest-final` etiketi.
+
 # Buyuk dosya paketlemesi (GitHub 100 MB limiti)
 
 Asagidaki dosyalar 95 MB uzerinde oldugu icin gzip -9 ile
