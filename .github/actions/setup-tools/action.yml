@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+
+name: Set up the BLogic MCU toolchain
+description: >
+  Installs the system packages and restores Verilator 5.052, Spike and the RISC-V GCC
+  toolchain from the Actions cache, building them on a cache miss.
+
+runs:
+  using: composite
+  steps:
+    - name: Install system packages
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq --no-install-recommends \
+          build-essential autoconf flex bison help2man perl python3 python3-numpy \
+          libfl-dev zlib1g-dev ccache libgoogle-perftools-dev numactl \
+          device-tree-compiler libboost-regex-dev libboost-system-dev \
+          z3 openocd gdb-multiarch iproute2
+
+    - name: Restore toolchain cache
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ~/tools
+        # Change this key when a tool version in build_tools.sh changes.
+        key: tools-ubuntu-24.04-verilator-v5.052-spike-b9d66fb-xpack-13.2.0-2-v1
+
+    - name: Build toolchain (cache miss only)
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: bash .github/scripts/build_tools.sh
+
+    - name: Add tools to PATH
+      shell: bash
+      run: |
+        echo "$HOME/tools/verilator-5.052/bin" >> "$GITHUB_PATH"
+        echo "$HOME/tools/spike/bin"           >> "$GITHUB_PATH"
+        echo "$HOME/tools/riscv/bin32"         >> "$GITHUB_PATH"
+        echo "$HOME/tools/riscv/bin"           >> "$GITHUB_PATH"
+
+    - name: Show tool versions
+      shell: bash
+      run: |
+        verilator --version
+        riscv32-unknown-elf-gcc --version | head -1
+        command -v spike
+        z3 --version

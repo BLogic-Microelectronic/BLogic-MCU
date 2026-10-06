@@ -1,0 +1,114 @@
+# SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# Continuous integration for BLogic MCU.
+#
+# Every make target that can run on a GitHub-hosted runner is executed here. The
+# targets are split into groups that run as parallel jobs; each job checks out the
+# repository, restores the cached toolchain and runs its targets in order.
+#
+# Not run here: the Vivado FPGA build, the LibreLane ASIC flow, Questa, the
+# gate-level simulation and the on-board tests (jtag-board). Their evidence is the
+# committed reports referenced in docs/DOCUMENTATION.md.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly run on Monday 05:17 UTC, so that a change in the runner image
+    # or in a downloaded tool is noticed even when the code does not change.
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  toolchain:
+    name: Toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+      - uses: ./.github/actions/setup-tools
+
+  test:
+    name: ${{ matrix.name }}
+    needs: toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Lint and JTAG isolation
+            id: lint
+            targets: lint lint-fpga jtag-equiv
+          - name: Regression (UART, Spike lockstep, QSPI)
+            id: regression
+            targets: regression uart-baud
+          - name: Quick start and UART block tests
+            id: uart
+            targets: sim uart-stp uart-stream
+          - name: Boot and QSPI
+            id: boot
+            targets: boot boot-real qspi-modes qspi-err
+          - name: I2C and timer
+            id: periph
+            targets: i2c-sys soc-timer soc-strm
+          - name: AI accelerator
+            id: ai
+            targets: ai soc-ai soc-ai-irq ai-uart-load
+          - name: AI performance (HW vs SW)
+            id: perf
+            targets: soc-perf
+          - name: ISA compliance
+            id: isa
+            targets: arch-test isa-compliance
+          - name: UVM
+            id: uvm
+            targets: uvm
+          - name: JTAG debug (simulation, OpenOCD, gdb)
+            id: jtag
+            targets: jtag-sim jtag-bridge-sim jtag-openocd jtag-gdb
+          - name: ASIC top level with SRAM macro models
+            id: asic
+            targets: asic-sram-sim asic-top-sim
+          - name: Demo harness
+            id: harness
+            targets: demo-harness-sim
+          - name: Coverage
+            id: coverage
+            targets: coverage
+    steps:
+      - uses: actions/checkout@v4
+
+      # jtag-equiv compares the RTL with the commit of the 14 August signed run.
+      - name: Fetch the jtag-equiv reference commit
+        if: matrix.id == 'lint'
+        run: git fetch --no-tags --depth=1 origin 73d8dcd9d42ba202d29d2000dcba357eb404d075
+
+      - uses: ./.github/actions/setup-tools
+
+      - name: Run make targets
+        run: bash .github/scripts/run_targets.sh ${{ matrix.targets }}
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.id }}
+          path: |
+            ci-logs/
+            logs/
+            build/uvm_logs/
+          if-no-files-found: ignore
+          retention-days: 14
