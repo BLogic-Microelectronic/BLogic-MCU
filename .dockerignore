@@ -1,0 +1,13 @@
+# Version control and local build output
+.git
+logs
+build
+obj_dir*
+**/__pycache__
+
+# Large ASIC flow outputs and reports (available in the repository and its releases)
+asic/results
+asic/reports
+
+# Documentation images
+images
