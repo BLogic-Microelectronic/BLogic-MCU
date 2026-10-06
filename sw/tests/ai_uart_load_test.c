@@ -119,11 +119,11 @@ static void run_inference(const char *etiket) {
     do { st = AI_ACC->STATUS; tmo--; iter++; }
     while (((st & STATUS_DONE) == 0U) && (tmo != 0U));
 
-    uart_puts(UART0, "[AI] kaynak=");
+    uart_puts(UART0, "[AI] source=");
     uart_puts(UART0, etiket);
 
     if (tmo == 0U) {
-        uart_puts(UART0, "  SONUC: FAIL - DONE gelmedi (timeout)\n");
+        uart_puts(UART0, "  RESULT: FAIL, DONE never came (timeout)\n");
         return;
     }
 
@@ -133,7 +133,7 @@ static void run_inference(const char *etiket) {
     uart_puts(UART0, "  argmax=");
     putu(argmax);
     uart_puts(UART0, " (");
-    uart_puts(UART0, (argmax < 4U) ? CLASS_NAMES[argmax] : "GECERSIZ");
+    uart_puts(UART0, (argmax < 4U) ? CLASS_NAMES[argmax] : "INVALID");
     uart_puts(UART0, ")  mem[OUT]=");
     puth(word);
     uart_puts(UART0, "  poll=");
@@ -141,7 +141,7 @@ static void run_inference(const char *etiket) {
     uart_puts(UART0, "\n");
 
     if (word == 0xDEADBEEFU)
-        uart_puts(UART0, "[AI] UYARI: sentinel duruyor - hizlandirici sonuc yazmadi\n");
+        uart_puts(UART0, "[AI] WARNING: sentinel still there, the accelerator wrote no result\n");
 
     AI_ACC->CTRL = CTRL_CLEAR_DONE;
 }
@@ -152,13 +152,13 @@ int main(void) {
     UART0->CPB = AI_UART_CPB;          /* saha: 434 = 50 MHz / 115200 */
 
     uart_puts(UART0, "\n========================================\n");
-    uart_puts(UART0, " BLogic MCU - UART'tan YZ vektor yukleme\n");
+    uart_puts(UART0, " BLogic MCU - AI input vector over UART\n");
     uart_puts(UART0, "========================================\n");
-    uart_puts(UART0, "[RX] Protokol: 'BLG1' + uzunluk[4] + veri + saglama[4]\n");
-    uart_puts(UART0, "[RX] Tum alanlar little-endian. Bekleniyor...\n");
+    uart_puts(UART0, "[RX] Protocol: 'BLG1' + length[4] + data + checksum[4]\n");
+    uart_puts(UART0, "[RX] All fields little-endian. Waiting...\n");
 
     /* Baslangicta gomulu vektorle bir tur: kablo takili degilse bile demo yasar */
-    run_inference("gomulu vektor");
+    run_inference("built-in vector");
 
     volatile uint8_t *dst = (volatile uint8_t *)(AI_SRAM_BASE + AI_INPUT_OFF);
 
@@ -167,7 +167,7 @@ int main(void) {
         static const char MAGIC[4] = {'B', 'L', 'G', '1'};
         uint32_t matched = 0U, b;
 
-        uart_puts(UART0, "\n[RX] HAZIR - vektor bekleniyor\n");
+        uart_puts(UART0, "\n[RX] READY - waiting for a vector\n");
 
         while (matched < 4U) {
             if (!rx_byte(&b, HDR_TIMEOUT)) { matched = 0U; continue; }
@@ -177,7 +177,7 @@ int main(void) {
 
         uint32_t len = 0U;
         if (!rx_u32(&len, RX_TIMEOUT)) {
-            uart_puts(UART0, "[RX] HATA: uzunluk alinamadi\n");
+            uart_puts(UART0, "[RX] ERROR: length not received\n");
             continue;
         }
 
@@ -188,9 +188,9 @@ int main(void) {
            simulasyonda da donanimda da. Rapor saglamadan SONRA. */
 
         if ((len == 0U) || (len > AI_INPUT_MAX)) {
-            uart_puts(UART0, "[RX] HATA: uzunluk gecersiz (1..");
+            uart_puts(UART0, "[RX] ERROR: invalid length (must be 1..");
             putu(AI_INPUT_MAX);
-            uart_puts(UART0, " olmali) - vektor atlandi\n");
+            uart_puts(UART0, ") - vector skipped\n");
             continue;
         }
 
@@ -198,7 +198,7 @@ int main(void) {
         uint32_t sum = 0U, ok = 1U;
         for (uint32_t i = 0U; i < len; i++) {
             if (!rx_byte(&b, RX_TIMEOUT)) {
-                uart_puts(UART0, "[RX] HATA: veri yarida kesildi, alinan=");
+                uart_puts(UART0, "[RX] ERROR: data cut short, received=");
                 putu(i);
                 uart_puts(UART0, "\n");
                 ok = 0U;
@@ -215,22 +215,22 @@ int main(void) {
         /* --- saglama --- */
         uint32_t crc = 0U;
         if (!rx_u32(&crc, RX_TIMEOUT)) {
-            uart_puts(UART0, "[RX] HATA: saglama alinamadi\n");
+            uart_puts(UART0, "[RX] ERROR: checksum not received\n");
             continue;
         }
 
         if (crc != sum) {
-            uart_puts(UART0, "[RX] SAGLAMA HATASI: beklenen=");
+            uart_puts(UART0, "[RX] CHECKSUM ERROR: expected=");
             puth(crc);
-            uart_puts(UART0, " hesaplanan=");
+            uart_puts(UART0, " computed=");
             puth(sum);
-            uart_puts(UART0, " - cikarim KOSTURULMADI\n");
+            uart_puts(UART0, " - inference NOT run\n");
             continue;
         }
 
-        uart_puts(UART0, "[RX] uzunluk=");
+        uart_puts(UART0, "[RX] length=");
         putu(len);
-        uart_puts(UART0, " bayt  saglama OK (");
+        uart_puts(UART0, " bytes  checksum OK (");
         puth(sum);
         uart_puts(UART0, ")\n");
 

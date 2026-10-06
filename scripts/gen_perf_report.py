@@ -15,7 +15,7 @@ import pathlib, re, subprocess, datetime, sys, os, shutil
 
 log = pathlib.Path("logs/sim/ai_sw_reference/uart.log")
 if not log.exists():
-    sys.exit("uart.log yok - once: make soc-perf")
+    sys.exit("logs/sim/ai_sw_reference/uart.log not found; run make soc-perf first")
 txt = log.read_text(errors="ignore")
 
 def grab(pat):
@@ -24,16 +24,16 @@ def grab(pat):
 
 hw = grab(r"HW argmax = (\d+) \((\w+)\), cycle = (\d+)")
 sw = grab(r"SW argmax = (\d+) \((\w+)\), cycle = (\d+)")
-cmp_ = grab(r"conv_out HW vs SW: (\d+)/(\d+) word esit")
+cmp_ = grab(r"conv_out HW vs SW: (\d+)/(\d+) words? (?:equal|esit)")
 sp  = grab(r"speedup = ([\d.]+)x")
 thr = re.findall(r"@(\d+) MHz: HW (\d+) inf/s = (\d+) B/s \| SW (\d+) inf/s = (\d+) B/s", txt)
 if not (hw and sw and sp):
-    sys.exit("PERF satirlari ayristirilamadi")
+    sys.exit("could not parse the PERF lines in the UART log")
 
 try:
     ver = subprocess.run(["verilator", "--version"], capture_output=True, text=True).stdout.strip()
 except Exception:
-    ver = "bilinmiyor"
+    ver = "unknown"
 
 # --- Derleyici kimligi (K8) ---
 # Hizlanma orani yazilim tabanina baglidir; taban da derleyici surumu ve
@@ -85,39 +85,39 @@ except Exception:
 
 hw_cyc, sw_cyc = int(hw[2]), int(sw[2])
 out = []
-out.append("BLogic MCU - YZ hizlandirici basarim olcumu (make soc-perf)")
-out.append(f"tarih     : {datetime.date.today()}")
+out.append("BLogic MCU - AI accelerator performance measurement (make soc-perf)")
+out.append(f"date      : {datetime.date.today()}")
 out.append(f"verilator : {ver}")
 out.append(f"rv-gcc    : {gcc_ver}")
 out.append(f"            {gcc_yol}")
-out.append(f"opt       : {opt_lvl}   (yazilim referansi .text = {text_b} B)")
-out.append("NOT       : oran yazilim tabanina duyarlidir; taban derleyici ve")
-out.append("            optimizasyon seviyesiyle degisir, donanim yolu degismez.")
-out.append("olcum     : SoC seviyesi, mcycle CSR ile; ayni girdi once donanimda,")
-out.append("            sonra ayni cekirdek uzerinde saf yazilim referansiyla kosulur.")
-out.append("girdi     : yes_real (TFLite Micro Speech gercek ses ozniteligi)")
-out.append("kaynak    : sw/tests/ai_sw_reference.c  ·  log: logs/sim/ai_sw_reference/uart.log")
+out.append(f"opt       : {opt_lvl}   (software reference .text = {text_b} B)")
+out.append("NOTE      : the ratio depends on the software baseline, which changes")
+out.append("            with the compiler and optimisation level; the hardware path does not.")
+out.append("method    : SoC level, with the mcycle CSR; the same input runs first on the")
+out.append("            accelerator, then as a pure software reference on the same core.")
+out.append("input     : yes_real (recorded audio features from TFLite Micro Speech)")
+out.append("source    : sw/tests/ai_sw_reference.c  ·  log: logs/sim/ai_sw_reference/uart.log")
 out.append("-" * 60)
 out.append("")
-out.append(f"  Donanim (YZ hizlandirici) : {hw_cyc:>10,} cevrim   argmax={hw[0]} ({hw[1]})")
-out.append(f"  Yazilim (CV32E40P)        : {sw_cyc:>10,} cevrim   argmax={sw[0]} ({sw[1]})")
-out.append(f"  HIZLANMA                  : {sp[0]}x")
+out.append(f"  Hardware (AI accelerator) : {hw_cyc:>10,} cycles   argmax={hw[0]} ({hw[1]})")
+out.append(f"  Software (CV32E40P)       : {sw_cyc:>10,} cycles   argmax={sw[0]} ({sw[1]})")
+out.append(f"  SPEEDUP                   : {sp[0]}x")
 out.append("")
 if cmp_:
-    out.append(f"  Dogruluk: conv_out {cmp_[0]}/{cmp_[1]} word birebir esit (bit-exact)")
+    out.append(f"  Accuracy: conv_out {cmp_[0]}/{cmp_[1]} words identical (bit-exact)")
 out.append("")
 if thr:
-    out.append("  Cikti hizi (sistem saatine gore):")
-    out.append("    Saat      HW inference/s      HW B/s      SW inference/s      SW B/s")
+    out.append("  Throughput (by system clock):")
+    out.append("    Clock     HW inference/s      HW B/s      SW inference/s      SW B/s")
     for f, hi, hb, si, sb in thr:
         out.append(f"    {f:>3} MHz   {int(hi):>14,}   {int(hb):>9,}   {int(si):>14,}   {int(sb):>9,}")
     out.append("")
-    out.append("  Not: hedef sistem saati 50 MHz'dir; 100 MHz satiri olcek referansidir.")
-    out.append("       ASIC imzasindan farkli bir fmax cikarsa bu tablo yenilenmelidir.")
+    out.append("  Note: the target system clock is 50 MHz; the 100 MHz row is for scale only.")
+    out.append("       If the ASIC signoff gives a different fmax, this table must be regenerated.")
 out.append("")
-out.append("Kabul kriteri (EK-1): hizlanma > 1.0x ve sonuclar altin referansla birebir.")
-out.append("Durum: PASS" if "PERF] PASS" in txt else "Durum: FAIL")
+out.append("Acceptance criterion (EK-1): speed-up > 1.0x and results identical to the golden reference.")
+out.append("Status: PASS" if "PERF] PASS" in txt else "Status: FAIL")
 
 dst = pathlib.Path("verif/perf_summary.txt")
 dst.write_text("\n".join(out) + "\n")
-print(f"[+] {dst} (hizlanma {sp[0]}x)")
+print(f"[+] {dst} (speed-up {sp[0]}x)")

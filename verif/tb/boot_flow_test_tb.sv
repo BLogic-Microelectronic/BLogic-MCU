@@ -65,8 +65,8 @@ module boot_flow_test_tb;
         $display("[%0t] === BOOT FLOW TEST: CPU @ 0x00000000 (Boot ROM) ===", $time);
 
         uart_read(ch);
-        if (ch !== "R") begin $error("'R' bekleniyordu, 0x%02h alindi", ch); $finish; end
-        $display("[%0t] 'R' alindi -> bootloader+firmware calisti", $time);
+        if (ch !== "R") begin $error("expected 'R', received 0x%02h", ch); $finish; end
+        $display("[%0t] 'R' received: bootloader and firmware are running", $time);
 
         // alici 'A' gonderiminden once arm edilmeli, yoksa 'H'nin start kenari kaciriliyor
         fork
@@ -80,9 +80,9 @@ module boot_flow_test_tb;
         join
 
         if (received == "Hello World!")
-            $display("[%0t] *** TEST SUCCESS *** QSPI boot akisi: '%s'", $time, received);
+            $display("[%0t] *** TEST SUCCESS *** QSPI boot flow: '%s'", $time, received);
         else
-            $error("FAIL: alinan='%s'", received);
+            $error("FAIL: received='%s'", received);
         $finish;
     end
 

@@ -11,12 +11,12 @@
 # 9 Agustos 2026'da ai_uart_load_test.c'deki MAGIC[4] boyle kayboldu.
 set -u
 elf="${1:-build/test.elf}"
-[ -f "$elf" ] || { echo "[SRODATA] $elf yok, atlandi"; exit 0; }
+[ -f "$elf" ] || { echo "[SRODATA] $elf not found, skipped"; exit 0; }
 n=$(riscv32-unknown-elf-size -A "$elf" 2>/dev/null | awk '/\.s(rodata|data|bss)/{s+=$2} END{print s+0}')
 if [ "$n" -ne 0 ]; then
-    echo "[SRODATA] HATA: $elf icinde $n bayt .srodata/.sdata/.sbss var."
-    echo "          link.ld bunlari toplamiyor -> bellege yuklenmiyor."
+    echo "[SRODATA] ERROR: $elf has $n bytes in .srodata/.sdata/.sbss."
+    echo "          link.ld does not collect these sections, so they would not be loaded into memory."
     riscv32-unknown-elf-size -A "$elf" | grep -E '\.s(rodata|data|bss)'
     exit 1
 fi
-echo "[SRODATA] OK - toplanmamis kucuk bolum yok"
+echo "[SRODATA] OK: no small-data sections left out of the image"

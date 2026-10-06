@@ -42,23 +42,23 @@ a = ap.parse_args()
 
 fw = read_hex(a.fw)
 if len(fw) > DATA_FLASH_OFF:
-    sys.exit(f"firmware {len(fw)} bayt, veri bolgesine ({DATA_FLASH_OFF:#x}) tasiyor")
+    sys.exit(f"firmware is {len(fw)} bytes and overflows into the data region ({DATA_FLASH_OFF:#x})")
 img = bytearray(fw) + bytearray(DATA_FLASH_OFF - len(fw))
 
 data = read_hex(a.data) if a.data else bytearray()
 if len(data) > DATA_MAX:
-    sys.exit(f"veri bolgesi {len(data)} bayt, DSRAM sinirini ({DATA_MAX:#x}) asiyor")
+    sys.exit(f"data region is {len(data)} bytes and exceeds the DSRAM limit ({DATA_MAX:#x})")
 img += bytearray(data) + bytearray(AI_FLASH_OFF - DATA_FLASH_OFF - len(data))
-print(f"[+] veri {len(data)} bayt @{DATA_FLASH_OFF:#x} -> DSRAM (bootloader kopyalar)")
+print(f"[+] data {len(data)} bytes @{DATA_FLASH_OFF:#x} -> DSRAM (copied by the bootloader)")
 
 ai_path = pathlib.Path(a.ai)
 if ai_path.exists():
     ai = read_hex(ai_path)
     img += ai
-    print(f"[+] firmware {len(fw)} bayt @0x0 · YZ agirligi {len(ai)} bayt @{AI_FLASH_OFF:#x}")
+    print(f"[+] firmware {len(fw)} bytes @0x0, AI weights {len(ai)} bytes @{AI_FLASH_OFF:#x}")
 else:
-    print(f"[!] {ai_path} yok - YZ bolgesi bos; hizlandirici CALISMAZ")
-    print( "[!] once: python3 sw/ai_model/generate_ai_sram_init.py")
+    print(f"[!] {ai_path} not found: the AI region is empty and the accelerator will NOT work")
+    print( "[!] run first: python3 sw/ai_model/generate_ai_sram_init.py")
 
 pathlib.Path(a.out).write_text("\n".join(f"{b:02x}" for b in img) + "\n")
-print(f"[+] {a.out}: {len(img)} bayt")
+print(f"[+] {a.out}: {len(img)} bytes")

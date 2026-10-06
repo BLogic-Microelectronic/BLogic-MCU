@@ -33,7 +33,7 @@ for t in "$@"; do
         > "$QLOG/$t.stdout" 2> "$QLOG/$t.stderr"
     if [ ! -s "$tr" ]; then verdict="NO TRANSCRIPT (compile error? see $t.stdout)"
     elif grep -qE '\*\*\* TEST FAILED|result=FAIL|TIMEOUT|\*\* Fatal|\*\* Error' "$tr"; then verdict="FAIL"
-    elif grep -qE '\*\*\* TEST SUCCESS|result=PASS|\[ADIM E\] PASS' "$tr"; then verdict="PASS"
+    elif grep -qE '\*\*\* TEST SUCCESS|result=PASS|\[(STEP|ADIM) E\] PASS' "$tr"; then verdict="PASS"
     else verdict="NO VERDICT STRING"; fi
     [ "$verdict" = PASS ] || bad=$((bad + 1))
     line=$(printf '%-18s %-42s %5ss' "$t" "$verdict" $(( $(date +%s) - t0 )))

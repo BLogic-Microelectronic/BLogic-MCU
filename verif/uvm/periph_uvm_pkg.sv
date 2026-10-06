@@ -59,23 +59,23 @@ package periph_uvm_pkg;
                     match_count++;
                 else begin
                     mismatch_count++;
-                    `uvm_error("SB", $sformatf("Yazma yaniti OKAY degil: addr=0x%02h resp=%0d",
+                    `uvm_error("SB", $sformatf("Write response is not OKAY: addr=0x%02h resp=%0d",
                               txn.addr[4:0], txn.resp))
                 end
             end else begin
                 if (txn.resp != 2'b00) begin
                     mismatch_count++;
-                    `uvm_error("SB", $sformatf("Okuma yaniti OKAY degil: addr=0x%02h resp=%0d",
+                    `uvm_error("SB", $sformatf("Read response is not OKAY: addr=0x%02h resp=%0d",
                               txn.addr[4:0], txn.resp))
                 end else if (model_read(txn.addr[4:0], exp)) begin
                     if (txn.rdata == exp) begin
                         match_count++;
-                        `uvm_info("SB", $sformatf("RD 0x%02h eslesti: 0x%08h",
+                        `uvm_info("SB", $sformatf("RD 0x%02h matched: 0x%08h",
                                   txn.addr[4:0], txn.rdata), UVM_HIGH)
                     end else begin
                         mismatch_count++;
                         `uvm_error("SB", $sformatf(
-                            "RD 0x%02h UYUMSUZ! beklenen=0x%08h gercek=0x%08h",
+                            "RD 0x%02h MISMATCH: expected=0x%08h actual=0x%08h",
                             txn.addr[4:0], exp, txn.rdata))
                     end
                 end else begin
@@ -87,12 +87,12 @@ package periph_uvm_pkg;
 
         function void report_phase(uvm_phase phase);
             `uvm_info("SB_RPT", $sformatf(
-                "Scoreboard: %0d islem, %0d esleme, %0d uyumsuzluk",
+                "Scoreboard: %0d transactions, %0d matches, %0d mismatches",
                 total_txns, match_count, mismatch_count), UVM_LOW)
             if (mismatch_count == 0)
-                `uvm_info("SB_RPT", ">>> SCOREBOARD BASARILI <<<", UVM_LOW)
+                `uvm_info("SB_RPT", ">>> SCOREBOARD PASSED <<<", UVM_LOW)
             else
-                `uvm_error("SB_RPT", ">>> SCOREBOARD HATALI <<<")
+                `uvm_error("SB_RPT", ">>> SCOREBOARD FAILED <<<")
         endfunction
 
     endclass
@@ -277,17 +277,17 @@ package periph_uvm_pkg;
                 txn = axi_lite_seq_item::type_id::create($sformatf("txn_%0d", i));
                 start_item(txn);
                 if (!zar.randomize())
-                    `uvm_error("SEQ", $sformatf("yon zari randomize() basarisiz: txn %0d", i))
+                    `uvm_error("SEQ", $sformatf("direction randomize() failed: txn %0d", i))
                 do_wr = (wr_pool.size() > 0) && (zar.v < wr_pct);
                 if (!txn.randomize() with {
                         rw == do_wr;
                         (rw == 1'b1) -> (addr inside {wr_pool});
                         (rw == 1'b0) -> (addr inside {rd_pool});
                     })
-                    `uvm_error("SEQ", $sformatf("randomize() basarisiz: txn %0d", i))
+                    `uvm_error("SEQ", $sformatf("randomize() failed: txn %0d", i))
                 // Cozucunun kisitlara uydugunu her islemde bagimsiz denetle
                 if (txn.rw ? !(txn.addr inside {wr_pool}) : !(txn.addr inside {rd_pool}))
-                    `uvm_error("SEQ", $sformatf("kisit ihlali: %s addr=0x%02h havuz disinda",
+                    `uvm_error("SEQ", $sformatf("constraint violation: %s addr=0x%02h is outside the pool",
                         txn.rw ? "WR" : "RD", txn.addr))
                 if (txn.rw) n_wr++;
                 finish_item(txn);
@@ -296,10 +296,10 @@ package periph_uvm_pkg;
                     txn.rw ? txn.data : txn.rdata), UVM_MEDIUM)
             end
             oran = (num_txns > 0) ? (n_wr * 100 / num_txns) : 0;
-            `uvm_info("SEQ", $sformatf("kisitli rastgele: %0d islem, %0d yazma / %0d okuma = %%%0d (hedef %%%0d)",
+            `uvm_info("SEQ", $sformatf("constrained random: %0d transactions, %0d writes / %0d reads = %%%0d (target %%%0d)",
                 num_txns, n_wr, num_txns - n_wr, oran, wr_pct), UVM_LOW)
             if (wr_pool.size() > 0 && num_txns >= 20 && (oran > wr_pct + 25 || oran < wr_pct - 25))
-                `uvm_error("SEQ", $sformatf("yazma orani %%%0d, hedef %%%0d degerinden 25 puandan fazla sapti",
+                `uvm_error("SEQ", $sformatf("write ratio %%%0d deviates from the target %%%0d by more than 25 points",
                     oran, wr_pct))
         endtask
     endclass
@@ -422,14 +422,14 @@ package periph_uvm_pkg;
                 #50;
             end
             `uvm_error(get_type_name(), $sformatf(
-                "poll_mask timeout: addr=0x%02h mask=0x%08h son=0x%08h",
+                "poll_mask timeout: addr=0x%02h mask=0x%08h last=0x%08h",
                 a[4:0], mask, last))
         endtask
 
         function void check_eq(string what, bit [31:0] got, bit [31:0] exp);
             if (got !== exp)
                 `uvm_error(get_type_name(), $sformatf(
-                    "%s: beklenen=0x%08h gercek=0x%08h", what, exp, got))
+                    "%s: expected=0x%08h actual=0x%08h", what, exp, got))
             else
                 `uvm_info(get_type_name(), $sformatf(
                     "%s OK (0x%08h)", what, got), UVM_LOW)
@@ -483,13 +483,13 @@ package periph_uvm_pkg;
             wr(32'h04, 32'h0000_00FF); rd(32'h04, v);
             check_eq("ARE readback", v, 32'h0000_00FF);
             wr(32'h10, 32'h0);         rd(32'h10, v);
-            check_eq("MOD=asagi readback", v, 32'h0);
+            check_eq("MOD=down readback", v, 32'h0);
             wr(32'h10, 32'h1);
 
             // 3) Devre disi + CLR -> CNT=0 kalir
             wr(32'h0C, 32'h0);          // ENA=0
             wr(32'h08, 32'h1);          // CLR pulse
-            rd(32'h14, v); check_eq("CLR sonrasi CNT (ENA=0)", v, 32'h0);
+            rd(32'h14, v); check_eq("CNT after CLR (ENA=0)", v, 32'h0);
 
             // 4) Sayma: PRE=0, ARE buyuk, ENA=1 -> CNT kesin artar
             wr(32'h00, 32'h0);
@@ -499,10 +499,10 @@ package periph_uvm_pkg;
             rd(32'h14, c2);
             if (c2 <= c1)
                 `uvm_error(get_type_name(), $sformatf(
-                    "CNT artmadi: once=0x%08h sonra=0x%08h", c1, c2))
+                    "CNT did not increment: before=0x%08h after=0x%08h", c1, c2))
             else
                 `uvm_info(get_type_name(), $sformatf(
-                    "CNT artiyor: 0x%08h -> 0x%08h", c1, c2), UVM_LOW)
+                    "CNT is incrementing: 0x%08h -> 0x%08h", c1, c2), UVM_LOW)
 
             // 5) Event: ARE kucuk -> EVN birikir; EVC ile temizlenir
             wr(32'h0C, 32'h0);          // once durdur
@@ -512,13 +512,13 @@ package periph_uvm_pkg;
             #500;                       // ~50 cevrim -> birkac event
             rd(32'h18, v);
             if (v == 32'h0)
-                `uvm_error(get_type_name(), "EVN birikmedi (beklenen >0)")
+                `uvm_error(get_type_name(), "EVN did not accumulate (expected >0)")
             else
                 `uvm_info(get_type_name(), $sformatf(
-                    "EVN birikti: %0d event", v), UVM_LOW)
+                    "EVN accumulated: %0d events", v), UVM_LOW)
             wr(32'h0C, 32'h0);          // ENA=0
             wr(32'h1C, 32'h1);          // EVC pulse
-            rd(32'h18, v); check_eq("EVC sonrasi EVN", v, 32'h0);
+            rd(32'h18, v); check_eq("EVN after EVC", v, 32'h0);
 
             #100;
             phase.drop_objection(this, "timer_directed_test");
@@ -607,17 +607,17 @@ package periph_uvm_pkg;
             poll_mask(32'h10, 32'h4, 300, v);   // CFG[2]=TX_DONE bekle
             if ((v & 32'h1) != 32'h0)
                 `uvm_error(get_type_name(), $sformatf(
-                    "CFG[0] auto-clear OLMADI: CFG=0x%08h", v))
+                    "CFG[0] did NOT auto-clear: CFG=0x%08h", v))
             else
                 `uvm_info(get_type_name(), $sformatf(
-                    "CFG[0] auto-clear dogrulandi (CFG=0x%08h)", v), UVM_LOW)
+                    "CFG[0] auto-clear verified (CFG=0x%08h)", v), UVM_LOW)
 
             // 4) Bayrak temizleme: CFG=0 -> tum bayraklar 0
             wr(32'h10, 32'h0);
-            rd(32'h10, v); check_eq("CFG temizleme", v, 32'h0);
+            rd(32'h10, v); check_eq("CFG clear", v, 32'h0);
 
             // 5) RX yokken RDR 0 kalir
-            rd(32'h08, v); check_eq("RDR (RX trafigi yok)", v, 32'h0);
+            rd(32'h08, v); check_eq("RDR (no RX traffic)", v, 32'h0);
 
             #100;
             phase.drop_objection(this, "uart_directed_test");
@@ -691,8 +691,8 @@ package periph_uvm_pkg;
             rd(32'h10, v); check_eq("CFG reset", v, 32'h0);
 
             // 2) NBY kiskac davranisi: 0->1, 7->4, 3->3
-            wr(32'h00, 32'h0); rd(32'h00, v); check_eq("NBY=0 kiskac", v, 32'h1);
-            wr(32'h00, 32'h7); rd(32'h00, v); check_eq("NBY=7 kiskac", v, 32'h4);
+            wr(32'h00, 32'h0); rd(32'h00, v); check_eq("NBY=0 clamp", v, 32'h1);
+            wr(32'h00, 32'h7); rd(32'h00, v); check_eq("NBY=7 clamp", v, 32'h4);
             wr(32'h00, 32'h3); rd(32'h00, v); check_eq("NBY=3",        v, 32'h3);
 
             // 3) ADR/TDR readback
@@ -709,27 +709,27 @@ package periph_uvm_pkg;
             poll_mask(32'h10, 32'h2, 2000, v);  // CFG[1]=TX_DONE bekle
             if ((v & 32'h10) == 32'h0)
                 `uvm_error(get_type_name(), $sformatf(
-                    "NACK_ERR set olmadi (slave yokken): CFG=0x%08h", v))
+                    "NACK_ERR not set (no slave present): CFG=0x%08h", v))
             else
                 `uvm_info(get_type_name(), $sformatf(
-                    "TX NACK yolu dogrulandi (CFG=0x%08h)", v), UVM_LOW)
+                    "TX NACK path verified (CFG=0x%08h)", v), UVM_LOW)
 
             // 5) Bayrak temizleme
             wr(32'h10, 32'h0);
-            rd(32'h10, v); check_eq("CFG temizleme (TX sonrasi)", v, 32'h0);
+            rd(32'h10, v); check_eq("CFG clear (after TX)", v, 32'h0);
 
             // 6) RX -> slave yok -> adres NACK -> RX_DONE + NACK_ERR, RDR=0
             wr(32'h10, 32'h4);          // CFG[2]=1 -> RX baslat
             poll_mask(32'h10, 32'h8, 2000, v);  // CFG[3]=RX_DONE bekle
             if ((v & 32'h10) == 32'h0)
                 `uvm_error(get_type_name(), $sformatf(
-                    "RX NACK_ERR set olmadi: CFG=0x%08h", v))
+                    "RX NACK_ERR not set: CFG=0x%08h", v))
             else
                 `uvm_info(get_type_name(), $sformatf(
-                    "RX NACK yolu dogrulandi (CFG=0x%08h)", v), UVM_LOW)
-            rd(32'h08, v); check_eq("NACK'li RX sonrasi RDR", v, 32'h0);
+                    "RX NACK path verified (CFG=0x%08h)", v), UVM_LOW)
+            rd(32'h08, v); check_eq("RDR after NACKed RX", v, 32'h0);
             wr(32'h10, 32'h0);
-            rd(32'h10, v); check_eq("CFG temizleme (RX sonrasi)", v, 32'h0);
+            rd(32'h10, v); check_eq("CFG clear (after RX)", v, 32'h0);
 
             #100;
             phase.drop_objection(this, "i2c_directed_test");

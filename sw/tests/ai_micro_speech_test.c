@@ -53,7 +53,7 @@ int main(void) {
 
     /* banner */
     uart_puts(UART0, "\n[AI] BLogic MCU - Micro Speech Test (polling)\n");
-    uart_puts(UART0, "[AI] Senaryo: yes_real (gercek ses ozniteligi, beklenen argmax=2)\n");
+    uart_puts(UART0, "[AI] Input: yes_real (features of a recorded \"yes\", expected argmax=2)\n");
 
     /* start oncesi STATUS kontrol (BUSY=0, DONE=0 olmali) */
     uint32_t st0 = AI_ACC->STATUS;
@@ -69,7 +69,7 @@ int main(void) {
     uart_puts(UART0, "\n");
 
     /* START */
-    uart_puts(UART0, "[AI] CTRL.START yaziliyor...\n");
+    uart_puts(UART0, "[AI] Writing CTRL.START...\n");
     /* AI master gercekten yaziyor mu? */
     volatile uint32_t *sentinel = (volatile uint32_t *)(AI_SRAM_BASE + AI_RESULT_OFF);
     *sentinel = 0xDEADBEEF;
@@ -91,7 +91,7 @@ int main(void) {
     } while (((st & STATUS_DONE) == 0U) && (timeout != 0U));
 
     if (timeout == 0U) {
-        uart_puts(UART0, "[AI] FAIL: TIMEOUT - DONE bit gelmedi\n");
+        uart_puts(UART0, "[AI] FAIL: TIMEOUT, the DONE bit never came\n");
         /* golden dizge BASILMAZ: TB onu gorunce PASS yaziyor.
            Basarisizlikta dizge cikmamali ki kapi kirmizi yansin. */
         while (1) { __asm__ volatile("nop"); }
@@ -139,7 +139,7 @@ int main(void) {
         /* golden dizge YALNIZ burada: TB'nin PASS kriteri budur */
         uart_puts(UART0, "Hello World from BLogic MCU!\n");
     } else {
-        uart_puts(UART0, "[AI] FAIL: beklenen=");
+        uart_puts(UART0, "[AI] FAIL: expected=");
         uart_putu(UART0, EXPECTED_ARGMAX);
         uart_puts(UART0, ", STATUS argmax=");
         uart_putu(UART0, argmax);

@@ -55,18 +55,18 @@ module qspi_modes_tb;
     logic [7:0] ch;
     initial begin
         @(posedge resetn);
-        $display("[%0t] === QSPI MODES TEST: x1/x2/x4 + 4B adres ===", $time);
+        $display("[%0t] === QSPI MODES TEST: x1/x2/x4 and 4-byte addressing ===", $time);
         forever begin
             uart_read(ch);
             received = {received, string'(ch)};
             if (ch == "\n") begin
                 $write("[FW] %s", received);
                 if (received == "QSPI MODES OK\n") begin
-                    $display("*** TEST SUCCESS *** x1/x2/x4 + 4B adresleme dogrulandi");
+                    $display("*** TEST SUCCESS *** x1/x2/x4 and 4-byte addressing verified");
                     $finish;
                 end
                 if (received.substr(0, 3) == "FAIL") begin
-                    $error("FW FAIL satiri alindi");
+                    $error("firmware reported a FAIL line");
                     $finish;
                 end
                 received = "";
@@ -76,7 +76,7 @@ module qspi_modes_tb;
 
     initial begin
         #60_000_000;
-        $error("TIMEOUT - 'QSPI MODES OK' gelmedi. Son satir: %s", received);
+        $error("TIMEOUT: 'QSPI MODES OK' was not received. Last line: %s", received);
         $finish;
     end
 endmodule

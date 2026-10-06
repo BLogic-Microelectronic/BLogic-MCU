@@ -25,18 +25,18 @@ LOG_DIR=logs/jtag; mkdir -p "$LOG_DIR"
 STAMP=$(date +%Y-%m-%d_%H%M%S)
 LOG="$LOG_DIR/board_$STAMP.log"
 log() { echo "[JTAG-BOARD] $*"; }
-command -v openocd >/dev/null || { log "HATA: openocd yok"; exit 1; }
+command -v openocd >/dev/null || { log "ERROR: openocd not found"; exit 1; }
 # USB cihazi gorunuyor mu (0403:6010)?
 if ! grep -qs "0403" /sys/bus/usb/devices/*/idVendor 2>/dev/null; then
-    log "HATA: FTDI (0403) USB cihazi WSL'de gorunmuyor - usbipd attach yapildi mi?"; exit 1
+    log "ERROR: the FTDI (0403) USB device is not visible in WSL. Was 'usbipd attach' run?"; exit 1
 fi
-log "openocd basliyor: $CFG + $DEMO -> $LOG"
+log "starting openocd: $CFG + $DEMO -> $LOG"
 timeout 180 openocd -f "$CFG" -f "$DEMO" -c "shutdown" > "$LOG" 2>&1
 rc=$?
-log "openocd cikis kodu: $rc"
-echo "----- ozet -----"
+log "openocd exit code: $rc"
+echo "----- summary -----"
 grep -E "Info : JTAG tap|IDCODE|== DEMO|^pc |^a0 |^mstatus|^misa|0x00021000|halted due|Error|error:|LIBUSB|unable|failed" "$LOG" | head -60
-echo "----------------"
+echo "-------------------"
 ok=1
 grep -q "== DEMO: halt ==" "$LOG" || ok=0
 grep -qE "halted due to debug-request|halted due to breakpoint" "$LOG" || ok=0
@@ -47,10 +47,10 @@ grep -qi "0x00021000.*cafef00d" "$LOG" || ok=0
 # (demo bunu bilerek dener). Bu satirlar hata sayilmaz; kalan her "Error:" sayilir.
 grep -viE "watchpoint" "$LOG" | grep -qiE "LIBUSB_ERROR|unable to open ftdi|JTAG scan chain interrogation failed|Error: " && ok=0
 # ve negatif durumun GERCEKTEN gozlendigini de iste (sessiz gecerse bir sey degismis demektir)
-grep -q "can.t add write watchpoint" "$LOG" || { log "UYARI: beklenen watchpoint reddi gorulmedi"; ok=0; }
+grep -q "can.t add write watchpoint" "$LOG" || { log "WARNING: the expected watchpoint rejection was not seen"; ok=0; }
 if [ $ok = 1 ] && [ $rc = 0 ]; then
-    log "VERDICT: PASS - kartta halt, a0 0x12345678 geri okuma, DSRAM 0x21000 cafef00d ($LOG)"
+    log "VERDICT: PASS - halt on the board, a0 read back as 0x12345678, DSRAM 0x21000 = cafef00d ($LOG)"
     exit 0
 fi
-log "VERDICT: FAIL - ayrintilar: $LOG"
+log "VERDICT: FAIL - details: $LOG"
 exit 1

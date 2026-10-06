@@ -218,7 +218,7 @@ module tb_ai_top;
 
         // yol hatasi sessiz kalmasin: make ai TB'sinin spot-check degerleri
         if (ai_mem[32'h17A8 >> 2] !== 32'h095C1EFA || ai_mem[32'h1BC8 >> 2] !== 32'h0AFDF9FF)
-            $fatal(1, "[AI-TB] agirlik on yuklemesi basarisiz (repo kokunden mi kosuluyor?)");
+            $fatal(1, "[AI-TB] weight preload failed (is the simulation run from the repository root?)");
 
         // fc_out[silence, unknown, yes, no] -> argmax
         b[0] = golden_out[0][ 7: 0]; b[1] = golden_out[0][15: 8];
@@ -231,7 +231,7 @@ module tb_ai_top;
         side.rd_beats     = 0;      side.wr_beats     = 0;
         side.axi4_errs    = 0;      side.oob_errs     = 0;
         side.done_count   = 0;      side.conv_errors  = -1;
-        $display("[AI-TB] on yukleme tamam: yes_real girdisi, beklenen argmax=%0d", am);
+        $display("[AI-TB] preload complete: yes_real input, expected argmax=%0d", am);
     end
 
     // DONE (irq_o) yukselen kenari: conv_out tensorunu altin modelle karsilastir
@@ -245,7 +245,7 @@ module tb_ai_top;
                 if (ai_mem[(32'h07A8 >> 2) + i] !== golden_conv[i]) e++;
             side.conv_errors <= e;
             side.done_count  <= side.done_count + 1;
-            $display("[AI-TB] DONE #%0d: conv_out farki %0d/1000 sozcuk, son yazma 0x%08h <- 0x%08h",
+            $display("[AI-TB] DONE #%0d: conv_out mismatches %0d/1000 words, last write 0x%08h <- 0x%08h",
                      side.done_count + 1, e, side.last_wr_addr, side.last_wr_data);
         end
     end
@@ -262,7 +262,7 @@ module tb_ai_top;
     // simulasyon zaman asimi korumasi (iki cikarim ~9 ms)
     initial begin
         #60_000_000;
-        `uvm_fatal("TIMEOUT", "Simulasyon zaman asimina ugradi")
+        `uvm_fatal("TIMEOUT", "Simulation timed out")
     end
 
 endmodule

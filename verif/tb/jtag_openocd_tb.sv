@@ -100,7 +100,7 @@ module jtag_openocd_tb;
         end
         if (uart_line.len() != 0)
             $display("[%0t] [JTAG-OPENOCD] UART: '%s'", $time, uart_line);
-        $display("[%0t] [JTAG-OPENOCD] UART: ilk %0d karakter alindi", $time, uart_total);
+        $display("[%0t] [JTAG-OPENOCD] UART: first %0d characters received", $time, uart_total);
         $fflush;
     end
 
@@ -108,10 +108,10 @@ module jtag_openocd_tb;
     initial begin
         $display("[%0t] === JTAG-OPENOCD: soc_top + riscv-dbg + SimJTAG (remote_bitbang :%0d) ===",
                  $time, OCD_PORT);
-        $display("[%0t] [JTAG-OPENOCD] baglanti: openocd -f rtl/debug/openocd/blogic_sim.cfg", $time);
+        $display("[%0t] [JTAG-OPENOCD] connect with: openocd -f rtl/debug/openocd/blogic_sim.cfg", $time);
         $fflush;
         wait (resetn === 1'b1);
-        $display("[%0t] [JTAG-OPENOCD] reset birakildi, SimJTAG etkin", $time);
+        $display("[%0t] [JTAG-OPENOCD] reset released, SimJTAG active", $time);
         $fflush;
     end
 
@@ -128,7 +128,7 @@ module jtag_openocd_tb;
     // 1 saat duvar saatine denk gelir (etkilesimli demo icin yeterli).
     initial begin
         #(64'd30_000_000_000);
-        $display("[%0t] [JTAG-OPENOCD] TIMEOUT: 30 s simulasyon zamani doldu", $time);
+        $display("[%0t] [JTAG-OPENOCD] TIMEOUT: 30 s of simulation time elapsed", $time);
         $fflush;
         $finish;
     end

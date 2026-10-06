@@ -49,18 +49,18 @@ module i2c_system_tb;
     logic [7:0] ch;
     initial begin
         @(posedge resetn);
-        $display("[%0t] === I2C SISTEM TESTI: NBY/ADR + TX/RX echo + latch + NACK ===", $time);
+        $display("[%0t] === I2C SYSTEM TEST: NBY/ADR, TX/RX echo, latch and NACK ===", $time);
         forever begin
             uart_read(ch);
             received = {received, string'(ch)};
             if (ch == "\n") begin
                 $write("[FW] %s", received);
                 if (received == "I2C SYS OK\n") begin
-                    $display("*** TEST SUCCESS *** I2C sistem yolu dogrulandi");
+                    $display("*** TEST SUCCESS *** I2C system path verified");
                     $finish;
                 end
                 if (received.substr(0, 3) == "FAIL") begin
-                    $error("FW FAIL satiri alindi");
+                    $error("firmware reported a FAIL line");
                     $finish;
                 end
                 received = "";
@@ -70,7 +70,7 @@ module i2c_system_tb;
 
     initial begin
         #20_000_000;
-        $error("TIMEOUT - 'I2C SYS OK' gelmedi. Son satir: %s", received);
+        $error("TIMEOUT: 'I2C SYS OK' was not received. Last line: %s", received);
         $finish;
     end
 endmodule

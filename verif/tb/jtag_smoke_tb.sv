@@ -160,7 +160,7 @@ module jtag_smoke_tb;
             $display("[%0t] DMI write addr=0x%02h: op=%0d (attempt %0d) -> dmireset", $time, addr, op, attempt);
             dtm_reset();
         end
-        $error("DMI write basarisiz addr=0x%02h", addr);
+        $error("DMI write failed addr=0x%02h", addr);
     endtask
 
     // DMI okuma: istek + yanit taramasi
@@ -179,7 +179,7 @@ module jtag_smoke_tb;
             $display("[%0t] DMI read addr=0x%02h: op=%0d (attempt %0d) -> dmireset", $time, addr, op, attempt);
             dtm_reset();
         end
-        $error("DMI read basarisiz addr=0x%02h", addr);
+        $error("DMI read failed addr=0x%02h", addr);
     endtask
 
     // DM yazmac adresleri (RISC-V Debug 0.13)
@@ -544,7 +544,7 @@ module jtag_smoke_tb;
         idcode = dr_out[31:0];
         if (idcode == EXP_IDCODE) begin
             $display("[%0t] [2/%0d] IDCODE OK: 0x%08h", $time, NSTAGE, idcode); stage_ok++;
-        end else $error("[2/%0d] IDCODE FAIL: 0x%08h (beklenen 0x%08h)", NSTAGE, idcode, EXP_IDCODE);
+        end else $error("[2/%0d] IDCODE FAIL: 0x%08h (expected 0x%08h)", NSTAGE, idcode, EXP_IDCODE);
 
         // 3) DTMCS
         ir_write(IR_DTMCS);
@@ -580,14 +580,14 @@ module jtag_smoke_tb;
         reg_write(REG_X10, 32'hA5A5_5A5A, ok); ok_all &= ok;
         reg_read (REG_X10, rd, ok);            ok_all &= ok;
         if (rd !== 32'hA5A5_5A5A) begin ok_all = 1'b0; $display("      x10 round-trip: 0x%08h", rd); end
-        else $display("[%0t]       x10 yaz/oku round-trip OK (0x%08h)", $time, rd);
+        else $display("[%0t]       x10 write/read round-trip OK (0x%08h)", $time, rd);
 
         reg_write(REG_X10, TEST_ADDR, ok);     ok_all &= ok;
         reg_write(REG_X11, TEST_VAL,  ok);     ok_all &= ok;
         progbuf_exec(INSN_SW_X11_X10, INSN_EBREAK, ok); ok_all &= ok;
         if (dut.i_data_sram.mem[TEST_IDX] !== TEST_VAL) begin
             ok_all = 1'b0;
-            $display("      progbuf sw: DSRAM[0x%08h]=0x%08h (beklenen 0x%08h)", TEST_ADDR,
+            $display("      progbuf sw: DSRAM[0x%08h]=0x%08h (expected 0x%08h)", TEST_ADDR,
                      dut.i_data_sram.mem[TEST_IDX], TEST_VAL);
         end else $display("[%0t]       progbuf sw -> DSRAM[0x%08h]=0x%08h OK", $time, TEST_ADDR, TEST_VAL);
 
@@ -598,8 +598,8 @@ module jtag_smoke_tb;
         else $display("[%0t]       progbuf lw -> x12=0x%08h OK", $time, rd);
 
         reg_read (REG_DPC, dpc, ok);           ok_all &= ok;
-        if (dpc[31:16] !== 16'h0001) begin ok_all = 1'b0; $display("      dpc=0x%08h firmware disinda", dpc); end
-        else $display("[%0t]       dpc=0x%08h (firmware bolgesi) OK", $time, dpc);
+        if (dpc[31:16] !== 16'h0001) begin ok_all = 1'b0; $display("      dpc=0x%08h outside the firmware region", dpc); end
+        else $display("[%0t]       dpc=0x%08h (firmware region) OK", $time, dpc);
 
         if (ok_all) begin
             $display("[%0t] [6/%0d] ABSTRACT/PROGBUF OK", $time, NSTAGE); stage_ok++;
@@ -633,7 +633,7 @@ module jtag_smoke_tb;
         end while (!dmstatus[9] && polls < 50);          // allhalted
         if (!dmstatus[9]) begin ok_all = 1'b0; $display("      halt: dmstatus=0x%08h", dmstatus); end
         reg_read(REG_DPC, dpc_a, ok);          ok_all &= ok;
-        if (dpc_a[31:16] !== 16'h0001) begin ok_all = 1'b0; $display("      dpc A=0x%08h firmware disinda", dpc_a); end
+        if (dpc_a[31:16] !== 16'h0001) begin ok_all = 1'b0; $display("      dpc A=0x%08h outside the firmware region", dpc_a); end
         else $display("[%0t]       halt: dpc A=0x%08h (%0d poll)", $time, dpc_a, polls);
 
         // tek adim: dcsr.step=1, resumereq (haltreq=0!) -> bir buyruk -> tekrar debug
@@ -650,7 +650,7 @@ module jtag_smoke_tb;
         reg_read(REG_DCSR, dcsr,  ok);         ok_all &= ok;
         if (!(dmstatus[17] && dmstatus[9]) || (dpc_b == dpc_a) || (dcsr[8:6] != CAUSE_STEP)) begin
             ok_all = 1'b0;
-            $display("      step: dmstatus=0x%08h dpc B=0x%08h dcsr=0x%08h (cause=%0d, beklenen %0d)",
+            $display("      step: dmstatus=0x%08h dpc B=0x%08h dcsr=0x%08h (cause=%0d, expected %0d)",
                      dmstatus, dpc_b, dcsr, dcsr[8:6], CAUSE_STEP);
         end else $display("[%0t]       step: dpc A=0x%08h -> B=0x%08h, dcsr=0x%08h cause=%0d (step), %0d poll OK",
                           $time, dpc_a, dpc_b, dcsr, dcsr[8:6], polls);
@@ -662,8 +662,8 @@ module jtag_smoke_tb;
         reg_write(REG_TDATA1,  TDATA1_EXEC, ok); ok_all &= ok;
         reg_read (REG_TDATA1,  tdata1,      ok); ok_all &= ok;
         if (!tdata1[2] || (tdata1[31:28] != 4'd2)) begin
-            ok_all = 1'b0; $display("      tdata1 geri okuma=0x%08h (execute/type beklenmiyor)", tdata1);
-        end else $display("[%0t]       trigger kur: tselect=0 tdata2=0x%08h tdata1=0x%08h (type=%0d dmode=%0d action=%0d execute=1) OK",
+            ok_all = 1'b0; $display("      tdata1 readback=0x%08h (unexpected execute/type)", tdata1);
+        end else $display("[%0t]       trigger setup: tselect=0 tdata2=0x%08h tdata1=0x%08h (type=%0d dmode=%0d action=%0d execute=1) OK",
                           $time, dpc_a, tdata1, tdata1[31:28], tdata1[27], tdata1[15:12]);
         dmi_write(DM_DMCONTROL, 32'h4000_0001);          // resumereq | dmactive
         polls = 0;
@@ -677,14 +677,14 @@ module jtag_smoke_tb;
         if (!(dmstatus[17] && dmstatus[9]) || (dpc !== dpc_a) || (dcsr[8:6] != CAUSE_TRIGGER) ||
             (dut.i_cpu.core_i.debug_halted_o !== 1'b1)) begin
             ok_all = 1'b0;
-            $display("      trigger: dmstatus=0x%08h dpc=0x%08h (A=0x%08h) dcsr=0x%08h (cause=%0d, beklenen %0d) core_halted=%0b",
+            $display("      trigger: dmstatus=0x%08h dpc=0x%08h (A=0x%08h) dcsr=0x%08h (cause=%0d, expected %0d) core_halted=%0b",
                      dmstatus, dpc, dpc_a, dcsr, dcsr[8:6], CAUSE_TRIGGER, dut.i_cpu.core_i.debug_halted_o);
         end else $display("[%0t]       trigger hit: dpc=0x%08h == A, dcsr=0x%08h cause=%0d (trigger), core debug_halted_o=1, %0d poll OK",
                           $time, dpc, dcsr, dcsr[8:6], polls);
         reg_write(REG_TDATA1, 32'd0,  ok);     ok_all &= ok;      // tetikleyiciyi kapat
         reg_read (REG_TDATA1, tdata1, ok);     ok_all &= ok;
-        if (tdata1[2]) begin ok_all = 1'b0; $display("      tdata1 kapatilamadi: 0x%08h", tdata1); end
-        else $display("[%0t]       trigger kapat: tdata1=0x%08h (execute=0)", $time, tdata1);
+        if (tdata1[2]) begin ok_all = 1'b0; $display("      tdata1 could not be cleared: 0x%08h", tdata1); end
+        else $display("[%0t]       trigger disabled: tdata1=0x%08h (execute=0)", $time, tdata1);
 
         if (ok_all) begin
             $display("[%0t] [8/%0d] STEP/TRIGGER OK: A=0x%08h step->B=0x%08h, trigger@A -> dpc=0x%08h cause=2",
@@ -696,15 +696,15 @@ module jtag_smoke_tb;
         // on kosul: DM resetinden kalan havereset=1 bayragini temizle ki ndmreset sonrasi 1 olmasi anlamli olsun
         dmi_write(DM_DMCONTROL, 32'h9000_0001);          // ackhavereset | haltreq | dmactive
         dmi_read(DM_DMSTATUS, dmstatus);
-        if (dmstatus[19]) begin ok_all = 1'b0; $display("      on kosul: allhavereset temizlenemedi dmstatus=0x%08h", dmstatus); end
-        else $display("[%0t]       on kosul: ackhavereset -> allhavereset=0 (dmstatus=0x%08h)", $time, dmstatus);
+        if (dmstatus[19]) begin ok_all = 1'b0; $display("      precondition: allhavereset could not be cleared dmstatus=0x%08h", dmstatus); end
+        else $display("[%0t]       precondition: ackhavereset -> allhavereset=0 (dmstatus=0x%08h)", $time, dmstatus);
 
         dmi_write(DM_DMCONTROL, 32'h8000_0003);          // haltreq | ndmreset | dmactive
         idle_ticks(32);
         rst_low = (dut.sys_rst_n === 1'b0) && (dut.i_cpu.core_i.debug_halted_o === 1'b0);
         $display("[%0t]       ndmreset=1: sys_rst_n=%0b core debug_halted_o=%0b", $time, dut.sys_rst_n,
                  dut.i_cpu.core_i.debug_halted_o);
-        if (!rst_low) begin ok_all = 1'b0; $display("      ndmreset SoC resetini dusurmedi"); end
+        if (!rst_low) begin ok_all = 1'b0; $display("      ndmreset did not assert the SoC reset"); end
         idle_ticks(32);
         dmi_write(DM_DMCONTROL, 32'h8000_0001);          // ndmreset birak, haltreq tut
         polls = 0;
@@ -727,7 +727,7 @@ module jtag_smoke_tb;
         reg_read(REG_DCSR, dcsr, ok);          ok_all &= ok;
         if ((dpc !== RESET_VEC) || (dcsr[8:6] != CAUSE_HALTREQ)) begin
             ok_all = 1'b0;
-            $display("      reset-halt: dpc=0x%08h (beklenen 0x%08h) dcsr=0x%08h (cause=%0d, beklenen %0d)",
+            $display("      reset-halt: dpc=0x%08h (expected 0x%08h) dcsr=0x%08h (cause=%0d, expected %0d)",
                      dpc, RESET_VEC, dcsr, dcsr[8:6], CAUSE_HALTREQ);
         end else $display("[%0t]       reset-halt: dpc=0x%08h == BOOT_ADDR, dcsr=0x%08h cause=%0d (haltreq) OK",
                           $time, dpc, dcsr, dcsr[8:6]);
@@ -756,12 +756,12 @@ module jtag_smoke_tb;
         repeat (20) @(posedge clk);
         if ((received2 == "Hello World from BLogic MCU!") && dmstatus[17] && dmstatus[11] &&
             (dut.i_cpu.core_i.debug_running_o === 1'b1)) begin
-            $display("[%0t] [9/%0d] NDMRESET OK: firmware bastan kostu, UART '%s' (2. kez), core running",
+            $display("[%0t] [9/%0d] NDMRESET OK: firmware ran again from the start, UART '%s' (2nd time), core running",
                      $time, NSTAGE, received2); stage_ok++;
         end else if (ok_all)
             $error("[9/%0d] NDMRESET FAIL: UART '%s' dmstatus=0x%08h running=%0b", NSTAGE, received2, dmstatus,
                    dut.i_cpu.core_i.debug_running_o);
-        else $error("[9/%0d] NDMRESET FAIL (ara kontrol): UART '%s' dmstatus=0x%08h", NSTAGE, received2, dmstatus);
+        else $error("[9/%0d] NDMRESET FAIL (intermediate check): UART '%s' dmstatus=0x%08h", NSTAGE, received2, dmstatus);
 
         // ============================================================
         // 10) DMI/DTM "busy" hata yolu  [bosluk G-01]
@@ -777,23 +777,23 @@ module jtag_smoke_tb;
         //     Yanit CDC'den donmeden Capture-DR olursa dmi_jtag error_dmi_busy uretir.
         dmi_scan_raw(DM_DMSTATUS, 32'd0, 2'b01, 0, data_raw, op_raw, addr_raw);
         dmi_scan_raw(DM_DMSTATUS, 32'd0, 2'b01, 0, data_raw, op_raw, addr_raw);
-        $display("[%0t]       (a) DMI cok hizli: op=%0d data=0x%08h (op=3 = DTM busy)",
+        $display("[%0t]       (a) DMI too fast: op=%0d data=0x%08h (op=3 = DTM busy)",
                  $time, op_raw, data_raw);
         // 3 Eylul gozden gecirme: bu satir op'u yalniz BASIYORDU, denetlemiyordu
         // (op != 3 olsa da asama gecerdi). Artik kriter.
         if (op_raw !== 2'b11) begin
-            ok_all = 1'b0; $display("      (a) ikinci tarama op=%0d (3 = DTM busy beklenir)", op_raw);
+            ok_all = 1'b0; $display("      (a) second scan op=%0d (expected 3 = DTM busy)", op_raw);
         end
         dtmcs_read(dtmcs2);
         if (dtmcs2[14:12] != 3'd1) begin
-            ok_all = 1'b0; $display("      dtmcs.idle=%0d (1 beklenir)", dtmcs2[14:12]);
+            ok_all = 1'b0; $display("      dtmcs.idle=%0d (expected 1)", dtmcs2[14:12]);
         end
         dtmcs_write(32'h0001_0000);                      // dmireset
         dtmcs_read(dtmcs2);
         if (dtmcs2[11:10] != 2'b00) begin
-            ok_all = 1'b0; $display("      dmireset sonrasi dtmcs=0x%08h (dmistat=0 beklenir)", dtmcs2);
+            ok_all = 1'b0; $display("      dtmcs after dmireset=0x%08h (expected dmistat=0)", dtmcs2);
         end else
-            $display("[%0t]       (a) -> dmireset: dtmcs=0x%08h dmistat=0 (temiz)", $time, dtmcs2);
+            $display("[%0t]       (a) -> dmireset: dtmcs=0x%08h dmistat=0 (clear)", $time, dtmcs2);
 
         // (b) DM seviyesi: ~4100 cevrimlik progbuf dongusu ile gercek busy penceresi
         //     progbuf0: li x11,2047 / progbuf1: addi x11,x11,-1 / progbuf2: bne x11,x0,-4 / progbuf3: ebreak
@@ -803,25 +803,25 @@ module jtag_smoke_tb;
         dmi_raw_read(DM_DATA0, data_raw, op_raw);
         if ((op_raw != 2'b11) || (data_raw !== 32'hB051_B051)) begin
             ok_all = 1'b0;
-            $display("      DMI busy (data0 okuma): op=%0d data=0x%08h (3 / 0xB051B051 beklenir)", op_raw, data_raw);
+            $display("      DMI busy (data0 read): op=%0d data=0x%08h (expected 3 / 0xB051B051)", op_raw, data_raw);
         end else
-            $display("[%0t]       (b) DM busy: data0 okuma -> op=3, data=0x%08h (DTM_BUSY isareti)", $time, data_raw);
+            $display("[%0t]       (b) DM busy: data0 read -> op=3, data=0x%08h (DTM_BUSY marker)", $time, data_raw);
         dtmcs_read(dtmcs2);
         if (dtmcs2[11:10] != 2'b11) begin
-            ok_all = 1'b0; $display("      DTM yapiskan hata: dtmcs=0x%08h (dmistat=3 beklenir)", dtmcs2);
+            ok_all = 1'b0; $display("      DTM sticky busy status: dtmcs=0x%08h (expected dmistat=3)", dtmcs2);
         end else
-            $display("[%0t]       (b) DTM yapiskan hata: dtmcs=0x%08h dmistat=3", $time, dtmcs2);
+            $display("[%0t]       (b) DTM sticky busy status: dtmcs=0x%08h dmistat=3", $time, dtmcs2);
         dtmcs_write(32'h0001_0000);                        // -> dmireset
         $display("[%0t]       (b) -> dmireset", $time);
 
         dmi_raw_write(DM_COMMAND, CMD_AAR32 | CMD_TRANSFER, op_raw);
-        if (op_raw != 2'b11) begin ok_all = 1'b0; $display("      busy iken command yazma: op=%0d (3 beklenir)", op_raw); end
-        else $display("[%0t]       (b) busy iken command yazma -> op=3", $time);
+        if (op_raw != 2'b11) begin ok_all = 1'b0; $display("      command write while busy: op=%0d (expected 3)", op_raw); end
+        else $display("[%0t]       (b) command write while busy -> op=3", $time);
         dtmcs_write(32'h0001_0000);                        // -> dmireset
 
         dmi_raw_write(DM_PROGBUF0, 32'hDEAD_0001, op_raw);
-        if (op_raw != 2'b11) begin ok_all = 1'b0; $display("      busy iken progbuf0 yazma: op=%0d (3 beklenir)", op_raw); end
-        else $display("[%0t]       (b) busy iken progbuf0 yazma -> op=3", $time);
+        if (op_raw != 2'b11) begin ok_all = 1'b0; $display("      progbuf0 write while busy: op=%0d (expected 3)", op_raw); end
+        else $display("[%0t]       (b) progbuf0 write while busy -> op=3", $time);
         dtm_reset();
 
         // abstractcs okumasi busy iken serbesttir: busy dusene kadar yokla
@@ -829,27 +829,27 @@ module jtag_smoke_tb;
         do begin dmi_read(DM_ABSTRACTCS, acs); polls++; end while (acs[12] && polls < 200);
         if (acs[12] || (acs[10:8] != CMDERR_BUSY)) begin
             ok_all = 1'b0;
-            $display("      busy sonrasi abstractcs=0x%08h (busy=%0d cmderr=%0d, 0/1 beklenir, %0d poll)",
+            $display("      abstractcs after busy=0x%08h (busy=%0d cmderr=%0d, expected 0/1, %0d poll)",
                      acs, acs[12], acs[10:8], polls);
         end else
-            $display("[%0t]       (b) dongu bitti (%0d poll): abstractcs=0x%08h cmderr=1 (CmdErrBusy)",
+            $display("[%0t]       (b) loop finished (%0d poll): abstractcs=0x%08h cmderr=1 (CmdErrBusy)",
                      $time, polls, acs);
         cmderr_clear(cmderr_after);
         if (cmderr_after != CMDERR_NONE) begin
-            ok_all = 1'b0; $display("      abstractcs W1C: cmderr=%0d (0 beklenir)", cmderr_after);
+            ok_all = 1'b0; $display("      abstractcs W1C: cmderr=%0d (expected 0)", cmderr_after);
         end else $display("[%0t]       (b) abstractcs W1C -> cmderr=0", $time);
         reg_read(REG_X11, rd, ok); ok_all &= ok;
-        if (rd !== 32'd0) begin ok_all = 1'b0; $display("      kurtarma: x11=0x%08h (dongu sonu 0 beklenir)", rd); end
-        else $display("[%0t]       (b) kurtarma: x11=0 (progbuf dongusu tamamlandi)", $time);
+        if (rd !== 32'd0) begin ok_all = 1'b0; $display("      recovery: x11=0x%08h (expected 0 at loop end)", rd); end
+        else $display("[%0t]       (b) recovery: x11=0 (progbuf loop completed)", $time);
 
         // (c) ayni senaryo, temizleme dmireset yerine dmihardreset (dtmcs bit 17)
         dmi_write(DM_COMMAND, CMD_AAR32 | CMD_POSTEXEC);
         dmi_raw_read(DM_DATA0, data_raw, op_raw);
-        if (op_raw != 2'b11) begin ok_all = 1'b0; $display("      (c) busy kurulamadi: op=%0d", op_raw); end
+        if (op_raw != 2'b11) begin ok_all = 1'b0; $display("      (c) could not set up busy: op=%0d", op_raw); end
         dtmcs_write(32'h0002_0000);                        // dmihardreset
         dtmcs_read(dtmcs2);
         if (dtmcs2[11:10] != 2'b00) begin
-            ok_all = 1'b0; $display("      dmihardreset sonrasi dtmcs=0x%08h", dtmcs2);
+            ok_all = 1'b0; $display("      dtmcs after dmihardreset=0x%08h", dtmcs2);
         end else $display("[%0t]       (c) -> dmihardreset: dtmcs=0x%08h dmistat=0", $time, dtmcs2);
         polls = 0;
         do begin dmi_read(DM_ABSTRACTCS, acs); polls++; end while (acs[12] && polls < 200);
@@ -857,9 +857,9 @@ module jtag_smoke_tb;
         dmi_read(DM_DMSTATUS, dmstatus);
         if (acs[12] || (cmderr_after != CMDERR_NONE) || !dmstatus[9]) begin
             ok_all = 1'b0;
-            $display("      (c) sonrasi abstractcs=0x%08h cmderr=%0d dmstatus=0x%08h", acs, cmderr_after, dmstatus);
+            $display("      (c) after: abstractcs=0x%08h cmderr=%0d dmstatus=0x%08h", acs, cmderr_after, dmstatus);
         end else
-            $display("[%0t]       (c) dmihardreset sonrasi DMI saglam: dmstatus=0x%08h allhalted=1", $time, dmstatus);
+            $display("[%0t]       (c) DMI intact after dmihardreset: dmstatus=0x%08h allhalted=1", $time, dmstatus);
 
         if (ok_all) begin
             $display("[%0t] [10/%0d] DMI BUSY OK: DTM op=3 + dmistat=3 + dmireset/dmihardreset + CmdErrBusy W1C",
@@ -879,43 +879,43 @@ module jtag_smoke_tb;
         cmd_status(CMD_AAR32 | CMD_POSTEXEC, cmderr_v, busy_stuck);
         if (busy_stuck || (cmderr_v != CMDERR_EXC)) begin
             ok_all = 1'b0;
-            $display("      progbuf istisnasi: cmderr=%0d busy=%0b (3 beklenir)", cmderr_v, busy_stuck);
+            $display("      progbuf exception: cmderr=%0d busy=%0b (expected 3)", cmderr_v, busy_stuck);
         end else
             $display("[%0t]       progbuf illegal -> cmderr 3 (CmdErrorException)", $time);
         if (dm_exc_writes <= exc0) begin
-            ok_all = 1'b0; $display("      beyaz kutu: DM+0x118 (EXCEPTION) yazmasi gozlenmedi");
+            ok_all = 1'b0; $display("      white box: no DM+0x118 (EXCEPTION) write observed");
         end else
-            $display("[%0t]       beyaz kutu: dm_addr=0x%03h EXCEPTION yazmasi %0d kez (dm_exc_addr yolu canli)",
+            $display("[%0t]       white box: dm_addr=0x%03h EXCEPTION write %0d times (dm_exc_addr path live)",
                      $time, DM_EXC_OFF, dm_exc_writes - exc0);
         cmderr_clear(cmderr_after); ok_all &= (cmderr_after == CMDERR_NONE);
         reg_read(REG_DPC, rd, ok); ok_all &= ok;
         dmi_read(DM_DMSTATUS, dmstatus);
         if ((rd !== dpc0) || !dmstatus[9] || (dut.i_cpu.core_i.debug_halted_o !== 1'b1)) begin
             ok_all = 1'b0;
-            $display("      istisna sonrasi: dpc=0x%08h (0x%08h bekleniyor) dmstatus=0x%08h halted=%0b",
+            $display("      after exception: dpc=0x%08h (expected 0x%08h) dmstatus=0x%08h halted=%0b",
                      rd, dpc0, dmstatus, dut.i_cpu.core_i.debug_halted_o);
         end else
-            $display("[%0t]       istisna dpc'yi bozmadi (0x%08h), cekirdek debug modunda kaldi", $time, rd);
+            $display("[%0t]       exception left dpc intact (0x%08h), core stayed in debug mode", $time, rd);
         reg_read(REG_X10, rd, ok);
-        if (!ok) begin ok_all = 1'b0; $display("      kurtarma: istisna sonrasi reg_read basarisiz"); end
-        else $display("[%0t]       kurtarma: istisna sonrasi x10 okumasi calisiyor (0x%08h)", $time, rd);
+        if (!ok) begin ok_all = 1'b0; $display("      recovery: reg_read after exception failed"); end
+        else $display("[%0t]       recovery: x10 read works after exception (0x%08h)", $time, rd);
 
         // varyant 1: FPU olmayan cekirdekte FPR erisimi (regno 0x1020 -> fsw) -> istisna
         cmd_status(CMD_AAR32 | CMD_TRANSFER | {16'd0, REG_F0}, cmderr_v, busy_stuck);
-        $display("[%0t]       FPR f0 (regno 0x%04h): cmderr=%0d busy=%0b (FPU=0 -> 3 = istisna, NotSupported DEGIL)",
+        $display("[%0t]       FPR f0 (regno 0x%04h): cmderr=%0d busy=%0b (FPU=0 -> 3 = exception, NOT NotSupported)",
                  $time, REG_F0, cmderr_v, busy_stuck);
         if (busy_stuck || (cmderr_v != CMDERR_EXC)) ok_all = 1'b0;
         cmderr_clear(cmderr_after); ok_all &= (cmderr_after == CMDERR_NONE);
 
         // varyant 2: var olmayan CSR okumasi (gdb 'info all-registers' bunu yapar)
         cmd_status(CMD_AAR32 | CMD_TRANSFER | {16'd0, REG_CSR_BAD}, cmderr_v, busy_stuck);
-        $display("[%0t]       var olmayan CSR (regno 0x%04h): cmderr=%0d busy=%0b (3 beklenir)",
+        $display("[%0t]       nonexistent CSR (regno 0x%04h): cmderr=%0d busy=%0b (expected 3)",
                  $time, REG_CSR_BAD, cmderr_v, busy_stuck);
         if (busy_stuck || (cmderr_v != CMDERR_EXC)) ok_all = 1'b0;
         cmderr_clear(cmderr_after); ok_all &= (cmderr_after == CMDERR_NONE);
 
         if (ok_all) begin
-            $display("[%0t] [11/%0d] CMDERR=3 OK: progbuf illegal + FPR + var olmayan CSR -> istisna, dm_exc_addr kanitli",
+            $display("[%0t] [11/%0d] CMDERR=3 OK: progbuf illegal + FPR + nonexistent CSR -> exception, dm_exc_addr proven",
                      $time, NSTAGE); stage_ok++;
         end else $error("[11/%0d] CMDERR=3 FAIL", NSTAGE);
 
@@ -928,34 +928,34 @@ module jtag_smoke_tb;
 
         cmd_status(CMD_AAR64 | CMD_TRANSFER | {16'd0, REG_X10}, cmderr_v, busy_stuck);
         if (busy_stuck || (cmderr_v != CMDERR_NOTSUP)) begin
-            ok_all = 1'b0; $display("      aarsize=3: cmderr=%0d busy=%0b (2 beklenir)", cmderr_v, busy_stuck);
+            ok_all = 1'b0; $display("      aarsize=3: cmderr=%0d busy=%0b (expected 2)", cmderr_v, busy_stuck);
         end else $display("[%0t]       aarsize=3 (64 bit) -> cmderr 2 (NotSupported)", $time);
         cmderr_clear(cmderr_after); ok_all &= (cmderr_after == CMDERR_NONE);
 
         cmd_status(CMD_ACCESSMEM | CMD_AAR32 | CMD_TRANSFER, cmderr_v, busy_stuck);
         if (busy_stuck || (cmderr_v != CMDERR_NOTSUP)) begin
-            ok_all = 1'b0; $display("      cmdtype=2: cmderr=%0d busy=%0b (2 beklenir)", cmderr_v, busy_stuck);
+            ok_all = 1'b0; $display("      cmdtype=2: cmderr=%0d busy=%0b (expected 2)", cmderr_v, busy_stuck);
         end else $display("[%0t]       cmdtype=2 (AccessMemory) -> cmderr 2 (NotSupported)", $time);
         cmderr_clear(cmderr_after); ok_all &= (cmderr_after == CMDERR_NONE);
 
         cmd_status(CMD_AAR32 | CMD_TRANSFER | {16'd0, REG_RESERVED}, cmderr_v, busy_stuck);
         if (busy_stuck || (cmderr_v != CMDERR_NOTSUP)) begin
-            ok_all = 1'b0; $display("      rezerve regno: cmderr=%0d busy=%0b (2 beklenir)", cmderr_v, busy_stuck);
-        end else $display("[%0t]       rezerve regno 0x%04h (regno[15:14]!=0) -> cmderr 2", $time, REG_RESERVED);
+            ok_all = 1'b0; $display("      reserved regno: cmderr=%0d busy=%0b (expected 2)", cmderr_v, busy_stuck);
+        end else $display("[%0t]       reserved regno 0x%04h (regno[15:14]!=0) -> cmderr 2", $time, REG_RESERVED);
         cmderr_clear(cmderr_after); ok_all &= (cmderr_after == CMDERR_NONE);
 
         // aarpostincrement: dm_mem'de "aarsize<MaxAar && transfer" dallari ONCE gelir,
         // bu yuzden transfer=1 iken postincrement SESSIZCE yok sayilir (belgeleme).
         cmd_status(CMD_AAR32 | CMD_TRANSFER | CMD_POSTINC | {16'd0, REG_X10}, cmderr_v, busy_stuck);
-        $display("[%0t]       aarpostincrement (transfer=1): cmderr=%0d busy=%0b -> dm_mem sessizce yok sayar (belgelendi)",
+        $display("[%0t]       aarpostincrement (transfer=1): cmderr=%0d busy=%0b -> dm_mem silently ignores it (documented)",
                  $time, cmderr_v, busy_stuck);
         if (busy_stuck) ok_all = 1'b0;
         cmderr_clear(cmderr_after); ok_all &= (cmderr_after == CMDERR_NONE);
 
         reg_read(REG_X10, rd, ok); ok_all &= ok;
         if (rd !== 32'hA5A5_5A5A) begin
-            ok_all = 1'b0; $display("      desteklenmeyen komutlar x10'u bozdu: 0x%08h", rd);
-        end else $display("[%0t]       desteklenmeyen komutlar x10'u bozmadi (0x%08h)", $time, rd);
+            ok_all = 1'b0; $display("      unsupported commands corrupted x10: 0x%08h", rd);
+        end else $display("[%0t]       unsupported commands left x10 intact (0x%08h)", $time, rd);
 
         // aarsize=0/1 (DESTEKLENIR, MaxAar=3): dm_mem sb/sh uretir -> data0'in
         // yalniz alt 1/2 bayti degisir. Bu, axi_dm_slave'in be_o yolunu GERCEK
@@ -964,14 +964,14 @@ module jtag_smoke_tb;
         cmd_status(CMD_TRANSFER | {16'd0, REG_X10}, cmderr_v, busy_stuck);   // aarsize=0 -> sb
         dmi_read(DM_DATA0, rd2);
         if (busy_stuck || (cmderr_v != CMDERR_NONE) || (rd2 !== 32'hFFFF_FF5A)) begin
-            ok_all = 1'b0; $display("      aarsize=0: cmderr=%0d data0=0x%08h (0xFFFFFF5A beklenir)", cmderr_v, rd2);
-        end else $display("[%0t]       aarsize=0 (sb) -> data0=0x%08h (yalniz bayt 0, be=0001)", $time, rd2);
+            ok_all = 1'b0; $display("      aarsize=0: cmderr=%0d data0=0x%08h (expected 0xFFFFFF5A)", cmderr_v, rd2);
+        end else $display("[%0t]       aarsize=0 (sb) -> data0=0x%08h (byte 0 only, be=0001)", $time, rd2);
         dmi_write(DM_DATA0, 32'hFFFF_FFFF);
         cmd_status(32'h0010_0000 | CMD_TRANSFER | {16'd0, REG_X10}, cmderr_v, busy_stuck); // aarsize=1 -> sh
         dmi_read(DM_DATA0, rd2);
         if (busy_stuck || (cmderr_v != CMDERR_NONE) || (rd2 !== 32'hFFFF_5A5A)) begin
-            ok_all = 1'b0; $display("      aarsize=1: cmderr=%0d data0=0x%08h (0xFFFF5A5A beklenir)", cmderr_v, rd2);
-        end else $display("[%0t]       aarsize=1 (sh) -> data0=0x%08h (alt yari, be=0011)", $time, rd2);
+            ok_all = 1'b0; $display("      aarsize=1: cmderr=%0d data0=0x%08h (expected 0xFFFF5A5A)", cmderr_v, rd2);
+        end else $display("[%0t]       aarsize=1 (sh) -> data0=0x%08h (lower half, be=0011)", $time, rd2);
 
         // cmderr=4: cekirdek KOSARKEN abstract komut
         resume_core(ok, dmstatus); ok_all &= ok;
@@ -979,15 +979,15 @@ module jtag_smoke_tb;
         if (busy_stuck || (cmderr_v != CMDERR_HALTRESUME) ||
             (dut.i_cpu.core_i.debug_running_o !== 1'b1)) begin
             ok_all = 1'b0;
-            $display("      kosarken komut: cmderr=%0d busy=%0b running=%0b (4 / 0 / 1 beklenir)",
+            $display("      command while running: cmderr=%0d busy=%0b running=%0b (expected 4 / 0 / 1)",
                      cmderr_v, busy_stuck, dut.i_cpu.core_i.debug_running_o);
         end else
-            $display("[%0t]       kosarken abstract komut -> cmderr 4 (HaltResume), cekirdek kosmaya devam", $time);
+            $display("[%0t]       abstract command while running -> cmderr 4 (HaltResume), core keeps running", $time);
         cmderr_clear(cmderr_after); ok_all &= (cmderr_after == CMDERR_NONE);
         halt_core(ok, dmstatus); ok_all &= ok;
 
         if (ok_all) begin
-            $display("[%0t] [12/%0d] CMDERR=2/4 OK: aarsize=3 + AccessMemory + rezerve regno -> 2, kosarken komut -> 4, W1C",
+            $display("[%0t] [12/%0d] CMDERR=2/4 OK: aarsize=3 + AccessMemory + reserved regno -> 2, command while running -> 4, W1C",
                      $time, NSTAGE); stage_ok++;
         end else $error("[12/%0d] CMDERR=2/4 FAIL", NSTAGE);
 
@@ -1015,12 +1015,12 @@ module jtag_smoke_tb;
         dmi_read(DM_SBCS, sbcs_v);
         if (sbcs_v[21] || (sbcs_v[14:12] != 3'd2)) begin
             ok_all = 1'b0;
-            $display("      SBA okuma: sbcs=0x%08h (sbbusy=%0b sberror=%0d, 0/2 beklenir)",
+            $display("      SBA read: sbcs=0x%08h (sbbusy=%0b sberror=%0d, expected 0/2)",
                      sbcs_v, sbcs_v[21], sbcs_v[14:12]);
         end else
-            $display("[%0t]       SBA okuma -> sbbusy=0, sberror=2 (r_err tie-off; hang YOK)", $time);
+            $display("[%0t]       SBA read -> sbbusy=0, sberror=2 (r_err tie-off; NO hang)", $time);
         dmi_read(DM_SBDATA0, rd);                        // hang olmadigini kanitlar (op==0)
-        $display("[%0t]       sbdata0 okumasi tamamlandi (0x%08h) - DMI takilmadi", $time, rd);
+        $display("[%0t]       sbdata0 read completed (0x%08h), DMI did not hang", $time, rd);
         dmi_write(DM_SBCS, 32'h0000_7000);               // sberror W1C
         dmi_read(DM_SBCS, sbcs_v);
         if (sbcs_v[14:12] != 3'd0) begin ok_all = 1'b0; $display("      sberror W1C: sbcs=0x%08h", sbcs_v); end
@@ -1032,12 +1032,12 @@ module jtag_smoke_tb;
         idle_ticks(16);
         dmi_read(DM_SBCS, sbcs_v);
         if (sbcs_v[14:12] != 3'd4) begin
-            ok_all = 1'b0; $display("      sbaccess=3: sbcs=0x%08h (sberror=4 beklenir)", sbcs_v);
-        end else $display("[%0t]       sbaccess=3 (64 bit) -> sberror=4 (desteklenmeyen boyut)", $time);
+            ok_all = 1'b0; $display("      sbaccess=3: sbcs=0x%08h (expected sberror=4)", sbcs_v);
+        end else $display("[%0t]       sbaccess=3 (64 bit) -> sberror=4 (unsupported size)", $time);
         // sberror!=0 iken sbaddress0 yazmasi yok sayilir (spec) - belgeleme
         dmi_write(DM_SBADDRESS0, 32'h0002_2000);
         dmi_read(DM_SBADDRESS0, rd);
-        $display("[%0t]       sberror!=0 iken sbaddress0 yazmasi: geri okuma 0x%08h (spec: yok sayilir)", $time, rd);
+        $display("[%0t]       sbaddress0 write while sberror!=0: readback 0x%08h (spec: ignored)", $time, rd);
         dmi_write(DM_SBCS, 32'h0000_7000);               // sberror W1C
 
         // SBA yazma: sbdata0 yazmasi -> Write durumu -> yine r_err -> sberror=2
@@ -1047,14 +1047,14 @@ module jtag_smoke_tb;
         idle_ticks(16);
         dmi_read(DM_SBCS, sbcs_v);
         if (sbcs_v[21] || (sbcs_v[14:12] != 3'd2)) begin
-            ok_all = 1'b0; $display("      SBA yazma: sbcs=0x%08h (sberror=2 beklenir)", sbcs_v);
-        end else $display("[%0t]       SBA yazma -> sberror=2 (tie-off hata ile tamamladi)", $time);
+            ok_all = 1'b0; $display("      SBA write: sbcs=0x%08h (expected sberror=2)", sbcs_v);
+        end else $display("[%0t]       SBA write -> sberror=2 (completed with the tie-off bus fault)", $time);
         dmi_write(DM_SBCS, 32'h0000_7000);               // sberror W1C
         dmi_read(DM_SBCS, sbcs_v);
         ok_all &= (sbcs_v[14:12] == 3'd0);
 
         if (ok_all) begin
-            $display("[%0t] [13/%0d] SBA OK: sbcs kesfi + okuma/yazma sberror=2 + sbaccess=3 sberror=4 + W1C, hang yok",
+            $display("[%0t] [13/%0d] SBA OK: sbcs discovery + read/write sberror=2 + sbaccess=3 sberror=4 + W1C, no hang",
                      $time, NSTAGE); stage_ok++;
         end else $error("[13/%0d] SBA FAIL", NSTAGE);
 
@@ -1063,8 +1063,8 @@ module jtag_smoke_tb;
         // ============================================================
         ok_all = 1'b1;
         dmi_read(DM_DMCONTROL, dmc_v);
-        if (dmc_v[0] !== 1'b1) begin ok_all = 1'b0; $display("      dmcontrol=0x%08h (dmactive=1 beklenir)", dmc_v); end
-        else $display("[%0t]       dmcontrol geri okuma=0x%08h (dmactive=1)", $time, dmc_v);
+        if (dmc_v[0] !== 1'b1) begin ok_all = 1'b0; $display("      dmcontrol=0x%08h (expected dmactive=1)", dmc_v); end
+        else $display("[%0t]       dmcontrol readback=0x%08h (dmactive=1)", $time, dmc_v);
 
         // hartsel WARL: NrHarts=1 icin hartsel maskesi tamamen sifirdir (dm_csrs:551)
         dmi_write(DM_DMCONTROL, 32'h0001_0001);          // hartsello=1 yazmayi dene
@@ -1072,10 +1072,10 @@ module jtag_smoke_tb;
         dmi_read(DM_DMSTATUS, dmstatus);
         if ((dmc_v[25:16] != 10'd0) || dmstatus[15] || dmstatus[14]) begin
             ok_all = 1'b0;
-            $display("      hartsel WARL: dmcontrol=0x%08h dmstatus=0x%08h (hartsel 0, nonexistent 0 beklenir)",
+            $display("      hartsel WARL: dmcontrol=0x%08h dmstatus=0x%08h (expected hartsel 0, nonexistent 0)",
                      dmc_v, dmstatus);
         end else
-            $display("[%0t]       hartsel WARL: hartsello=1 yazildi -> geri okuma 0, dmstatus nonexistent=0 (tek hart)",
+            $display("[%0t]       hartsel WARL: hartsello=1 written -> readback 0, dmstatus nonexistent=0 (single hart)",
                      $time);
 
         // desteklenmeyen/salt-temizlenen dmcontrol bitleri yazilsa da 0 okunur:
@@ -1083,25 +1083,25 @@ module jtag_smoke_tb;
         dmi_write(DM_DMCONTROL, 32'h3400_000D);
         dmi_read (DM_DMCONTROL, dmc_v);
         if (dmc_v[29] || dmc_v[28] || dmc_v[26] || dmc_v[3] || dmc_v[2]) begin
-            ok_all = 1'b0; $display("      dmcontrol WARL bitleri: 0x%08h", dmc_v);
+            ok_all = 1'b0; $display("      dmcontrol WARL bits: 0x%08h", dmc_v);
         end else
             $display("[%0t]       dmcontrol WARL: hartreset/ackhavereset/hasel/set+clrresethaltreq -> 0 (0x%08h)",
                      $time, dmc_v);
         dmi_write(DM_DMCONTROL, 32'h8000_0001);          // haltreq | dmactive
         dmi_read (DM_DMSTATUS, dmstatus);
-        if (!dmstatus[9]) begin ok_all = 1'b0; $display("      WARL testleri sonrasi halt kayboldu: 0x%08h", dmstatus); end
+        if (!dmstatus[9]) begin ok_all = 1'b0; $display("      halt lost after WARL tests: 0x%08h", dmstatus); end
 
         // hartinfo: soc_top DM_HARTINFO ile dm_mem DataAddr tutarliligi
         dmi_read(DM_HARTINFO, hinfo_v);
         if (hinfo_v !== 32'h0021_2380) begin
-            ok_all = 1'b0; $display("      hartinfo=0x%08h (0x00212380 beklenir)", hinfo_v);
+            ok_all = 1'b0; $display("      hartinfo=0x%08h (expected 0x00212380)", hinfo_v);
         end else
             $display("[%0t]       hartinfo=0x%08h: nscratch=2 dataaccess=1 datasize=2 dataaddr=0x380",
                      $time, hinfo_v);
 
         dmi_read(DM_ABSTRACTCS, acs);
         if ((acs[3:0] != 4'd2) || (acs[28:24] != 5'd8)) begin
-            ok_all = 1'b0; $display("      abstractcs=0x%08h (datacount=2 progbufsize=8 beklenir)", acs);
+            ok_all = 1'b0; $display("      abstractcs=0x%08h (expected datacount=2 progbufsize=8)", acs);
         end else $display("[%0t]       abstractcs=0x%08h: datacount=2 progbufsize=8", $time, acs);
 
         // haltsum0..3 (halt'ta bit0=1), nextdm, abstractauto, command okumasi
@@ -1109,59 +1109,59 @@ module jtag_smoke_tb;
         dmi_read(DM_HALTSUM1, rd2);  ok_all &= rd2[0];
         dmi_read(DM_HALTSUM2, rd);   ok_all &= rd[0];
         dmi_read(DM_HALTSUM3, rd2);  ok_all &= rd2[0];
-        $display("[%0t]       haltsum0..3 bit0=1 (hart halt'ta)", $time);
+        $display("[%0t]       haltsum0..3 bit0=1 (hart halted)", $time);
         dmi_read(DM_NEXTDM, rd);        ok_all &= (rd == 32'd0);
         dmi_read(DM_ABSTRACTAUTO, rd2); ok_all &= (rd2 == 32'd0);
         dmi_read(DM_COMMAND, rd);       ok_all &= (rd == 32'd0);
-        $display("[%0t]       nextdm=0, abstractauto=0, command okumasi=0", $time);
+        $display("[%0t]       nextdm=0, abstractauto=0, command read=0", $time);
 
         // tanimsiz DMI adresleri: op==0 ve veri 0 (hata yok, sessiz)
         dmi_read(DM_HAWINDOWSEL, rd);  ok_all &= (rd == 32'd0);
         dmi_read(DM_HAWINDOW,    rd);  ok_all &= (rd == 32'd0);
         dmi_read(DM_AUTHDATA,    rd);  ok_all &= (rd == 32'd0);
         dmi_read(DM_UNDEF,       rd);  ok_all &= (rd == 32'd0);
-        $display("[%0t]       tanimsiz DMI adresleri (0x14/0x15/0x30/0x7F): op=0, veri=0", $time);
+        $display("[%0t]       undefined DMI addresses (0x14/0x15/0x30/0x7F): op=0, data=0", $time);
 
         // progbuf0..7 geri okuma + progbuf8 (yok) ; data1 yaz/oku
         for (int pb = 0; pb < 8; pb++) dmi_write(7'h20 + 7'(pb), 32'h1000_0000 + 32'(pb));
         for (int pb = 0; pb < 8; pb++) begin
             dmi_read(7'h20 + 7'(pb), rd);
             if (rd !== (32'h1000_0000 + 32'(pb))) begin
-                ok_all = 1'b0; $display("      progbuf%0d geri okuma=0x%08h", pb, rd);
+                ok_all = 1'b0; $display("      progbuf%0d readback=0x%08h", pb, rd);
             end
         end
         dmi_read(DM_PROGBUF8, rd);
-        if (rd !== 32'd0) begin ok_all = 1'b0; $display("      progbuf8 (yok) okuma=0x%08h", rd); end
-        else $display("[%0t]       progbuf0..7 yaz/oku esit; progbuf8 (ProgBufSize=8 disi) -> 0", $time);
+        if (rd !== 32'd0) begin ok_all = 1'b0; $display("      progbuf8 (nonexistent) read=0x%08h", rd); end
+        else $display("[%0t]       progbuf0..7 write/read match; progbuf8 (beyond ProgBufSize=8) -> 0", $time);
         dmi_write(DM_DATA1, 32'h1357_9BDF);
         dmi_read (DM_DATA1, rd);
-        if (rd !== 32'h1357_9BDF) begin ok_all = 1'b0; $display("      data1 geri okuma=0x%08h", rd); end
-        else $display("[%0t]       data1 yaz/oku round-trip OK (0x%08h)", $time, rd);
+        if (rd !== 32'h1357_9BDF) begin ok_all = 1'b0; $display("      data1 readback=0x%08h", rd); end
+        else $display("[%0t]       data1 write/read round-trip OK (0x%08h)", $time, rd);
 
         // DMI yanit taramasinda adres alani dr_out[40:34] istegin adresini tasir
         dmi_scan_raw(DM_DMSTATUS, 32'd0, 2'b01, 16, data_raw, op_raw, addr_raw);
         dmi_scan_raw(DM_DMSTATUS, 32'd0, 2'b00,  0, data_raw, op_raw, addr_raw);
         if (addr_raw !== DM_DMSTATUS) begin
-            ok_all = 1'b0; $display("      yanit adres alani=0x%02h (0x%02h beklenir)", addr_raw, DM_DMSTATUS);
-        end else $display("[%0t]       yanit adres alani dr[40:34]=0x%02h == istek adresi", $time, addr_raw);
+            ok_all = 1'b0; $display("      response address field=0x%02h (expected 0x%02h)", addr_raw, DM_DMSTATUS);
+        end else $display("[%0t]       response address field dr[40:34]=0x%02h == request address", $time, addr_raw);
 
         // dmstatus sabit bitleri
         dmi_read(DM_DMSTATUS, dmstatus);
         if (!dmstatus[7] || dmstatus[6] || dmstatus[5] || dmstatus[4] || dmstatus[13] || dmstatus[12]) begin
-            ok_all = 1'b0; $display("      dmstatus sabit bitleri=0x%08h", dmstatus);
+            ok_all = 1'b0; $display("      dmstatus fixed bits=0x%08h", dmstatus);
         end else
             $display("[%0t]       dmstatus=0x%08h: authenticated=1 authbusy=0 hasresethaltreq=0 unavail=0",
                      $time, dmstatus);
 
         // hart tarafi: tdata2 geri okuma, tselect WARL (tek tetikleyici), tinfo
         reg_read (REG_TDATA2, rd, ok);            ok_all &= ok;
-        $display("[%0t]       tdata2 geri okuma=0x%08h", $time, rd);
+        $display("[%0t]       tdata2 readback=0x%08h", $time, rd);
         reg_write(REG_TSELECT, 32'd1, ok);        ok_all &= ok;
         reg_read (REG_TSELECT, rd, ok);           ok_all &= ok;
-        if (rd !== 32'd0) begin ok_all = 1'b0; $display("      tselect=1 yazildi, geri okuma=0x%08h (0 beklenir)", rd); end
-        else $display("[%0t]       tselect WARL: 1 yazildi -> 0 okundu (tek tetikleyici)", $time);
+        if (rd !== 32'd0) begin ok_all = 1'b0; $display("      tselect=1 written, readback=0x%08h (expected 0)", rd); end
+        else $display("[%0t]       tselect WARL: wrote 1 -> read 0 (single trigger)", $time);
         reg_read (REG_TINFO, rd, ok);
-        $display("[%0t]       tinfo=0x%08h (bit2 = mcontrol tipi destegi: %0b)", $time, rd, rd[2]);
+        $display("[%0t]       tinfo=0x%08h (bit2 = mcontrol type support: %0b)", $time, rd, rd[2]);
 
         // transfer + postexec: gdb'nin "yazmac yaz + progbuf kos" kombinasyonu
         dmi_write(DM_PROGBUF0, INSN_SW_X11_X10);
@@ -1175,7 +1175,7 @@ module jtag_smoke_tb;
             ok_all = 1'b0;
             $display("      transfer+postexec: cmderr=%0d DSRAM=0x%08h", cmderr_v, dut.i_data_sram.mem[TEST_IDX]);
         end else
-            $display("[%0t]       transfer+postexec: x11=0x1234_5678 yazildi ve progbuf sw ile DSRAM[0x%08h]'a kondu",
+            $display("[%0t]       transfer+postexec: x11=0x1234_5678 written and stored to DSRAM[0x%08h] by progbuf sw",
                      $time, TEST_ADDR);
 
         // resumereq oto-temizleme: resumeack gelince dm_csrs resumereq'i kendisi dusurur
@@ -1185,9 +1185,9 @@ module jtag_smoke_tb;
         while (!(dmstatus[17] && dmstatus[11]) && polls < 50);
         dmi_read(DM_DMCONTROL, dmc_v);
         if (dmc_v[30]) begin
-            ok_all = 1'b0; $display("      resumereq oto-temizleme: dmcontrol=0x%08h (bit30=0 beklenir)", dmc_v);
+            ok_all = 1'b0; $display("      resumereq auto-clear: dmcontrol=0x%08h (expected bit30=0)", dmc_v);
         end else
-            $display("[%0t]       resumereq oto-temizlendi: dmcontrol=0x%08h bit30=0 (%0d poll)", $time, dmc_v, polls);
+            $display("[%0t]       resumereq auto-cleared: dmcontrol=0x%08h bit30=0 (%0d poll)", $time, dmc_v, polls);
         dmi_write(DM_DMCONTROL, 32'h0000_0001);
         halt_core(ok, dmstatus); ok_all &= ok;
 
@@ -1199,12 +1199,12 @@ module jtag_smoke_tb;
         if (!dmstatus[9] || dmstatus[17]) begin
             ok_all = 1'b0; $display("      haltreq+resumereq: dmstatus=0x%08h", dmstatus);
         end else
-            $display("[%0t]       haltreq+resumereq cakismasi: allhalted=1, allresumeack=0 (haltreq kazandi)", $time);
+            $display("[%0t]       haltreq+resumereq conflict: allhalted=1, allresumeack=0 (haltreq wins)", $time);
 
         if (ok_all) begin
-            $display("[%0t] [14/%0d] DM KESIF OK: dmcontrol/hartinfo/abstractcs/haltsum/nextdm/progbuf/data1/tinfo + transfer+postexec",
+            $display("[%0t] [14/%0d] DM DISCOVERY OK: dmcontrol/hartinfo/abstractcs/haltsum/nextdm/progbuf/data1/tinfo + transfer+postexec",
                      $time, NSTAGE); stage_ok++;
-        end else $error("[14/%0d] DM KESIF FAIL", NSTAGE);
+        end else $error("[14/%0d] DM DISCOVERY FAIL", NSTAGE);
 
         // ============================================================
         // 15) TAP seviyesi: IR capture, BYPASS/tanimsiz IR, Pause/Exit2,
@@ -1215,26 +1215,26 @@ module jtag_smoke_tb;
         ok_all = 1'b1;
         ir_write_cap(IR_IDCODE, ir_cap);
         if (ir_cap !== 5'b00101) begin
-            ok_all = 1'b0; $display("      IR capture=0b%05b (0b00101 beklenir)", ir_cap);
-        end else $display("[%0t]       IR capture=0b%05b (IEEE 1149.1: son iki bit 01)", $time, ir_cap);
+            ok_all = 1'b0; $display("      IR capture=0b%05b (expected 0b00101)", ir_cap);
+        end else $display("[%0t]       IR capture=0b%05b (IEEE 1149.1: last two bits 01)", $time, ir_cap);
         dr_shift(32, 64'd0, dr_out);
         if (dr_out[31:0] !== EXP_IDCODE) begin
-            ok_all = 1'b0; $display("      acik IR_IDCODE secimi: 0x%08h", dr_out[31:0]);
-        end else $display("[%0t]       acik IR_IDCODE secimi -> 0x%08h", $time, dr_out[31:0]);
+            ok_all = 1'b0; $display("      explicit IR_IDCODE selection: 0x%08h", dr_out[31:0]);
+        end else $display("[%0t]       explicit IR_IDCODE selection -> 0x%08h", $time, dr_out[31:0]);
 
         // BYPASS (0x00 / 0x1F) ve tanimsiz IR (0x0A): 1 bitlik yazmac, capture 0
         ir_write(5'h00);
         dr_shift(9, 64'h0A5, dr_out);
         if ((dr_out[8:1] !== 8'hA5) || dr_out[0]) begin
             ok_all = 1'b0; $display("      BYPASS0: dout=0x%03h", dr_out[8:0]);
-        end else $display("[%0t]       IR=0x00 BYPASS: 1 bit gecikme, dout[8:1]=0xA5 dout[0]=0", $time);
+        end else $display("[%0t]       IR=0x00 BYPASS: 1 bit delay, dout[8:1]=0xA5 dout[0]=0", $time);
         ir_write(5'h1F);
         dr_shift(9, 64'h0A5, dr_out);
         ok_all &= ((dr_out[8:1] === 8'hA5) && !dr_out[0]);
         ir_write(5'h0A);
         dr_shift(9, 64'h0A5, dr_out);
         ok_all &= ((dr_out[8:1] === 8'hA5) && !dr_out[0]);
-        $display("[%0t]       IR=0x1F ve tanimsiz IR=0x0A da BYPASS'a duser (FSM default dali)", $time);
+        $display("[%0t]       IR=0x1F and undefined IR=0x0A also select BYPASS (FSM default branch)", $time);
 
         // Pause-DR/Exit2-DR: DMI dmstatus okumasi bolunmus taramayla da dogru
         ir_write(IR_DMI);
@@ -1244,24 +1244,24 @@ module jtag_smoke_tb;
         dr_in = {23'd0, DM_DMSTATUS, 32'd0, 2'b00};
         dr_shift_pause(DMI_BITS, dr_in, dr_out);
         if ((dr_out[1:0] !== 2'b00) || !dr_out[11]) begin
-            ok_all = 1'b0; $display("      Pause-DR taramasi: op=%0d dmstatus=0x%08h", dr_out[1:0], dr_out[33:2]);
+            ok_all = 1'b0; $display("      Pause-DR scan: op=%0d dmstatus=0x%08h", dr_out[1:0], dr_out[33:2]);
         end else
-            $display("[%0t]       Pause-DR/Exit2-DR ile bolunmus DMI taramasi: op=0 dmstatus=0x%08h",
+            $display("[%0t]       DMI scan split by Pause-DR/Exit2-DR: op=0 dmstatus=0x%08h",
                      $time, dr_out[33:2]);
 
         // Pause-IR/Exit2-IR: bolunmus IR yazmasi sonrasi dtmcs dogru okunur
         ir_write_pause(IR_DTMCS);
         dr_shift(32, 64'd0, dr_out);
         if ((dr_out[3:0] !== 4'd1) || (dr_out[9:4] !== 6'd7)) begin
-            ok_all = 1'b0; $display("      Pause-IR sonrasi dtmcs=0x%08h", dr_out[31:0]);
-        end else $display("[%0t]       Pause-IR/Exit2-IR ile bolunmus IR yazmasi -> dtmcs=0x%08h", $time, dr_out[31:0]);
+            ok_all = 1'b0; $display("      dtmcs after Pause-IR=0x%08h", dr_out[31:0]);
+        end else $display("[%0t]       IR write split by Pause-IR/Exit2-IR -> dtmcs=0x%08h", $time, dr_out[31:0]);
 
         // Idle'siz ardisik iki DR taramasi (Update-DR -> Select-DR)
         ir_write(IR_IDCODE);
         dr_shift_back2back(32, d1, d2);
         if ((d1[31:0] !== EXP_IDCODE) || (d2[31:0] !== EXP_IDCODE)) begin
-            ok_all = 1'b0; $display("      Idle'siz ardisik tarama: 0x%08h / 0x%08h", d1[31:0], d2[31:0]);
-        end else $display("[%0t]       Idle'siz ardisik iki tarama (Update-DR -> Select-DR) -> IDCODE x2", $time);
+            ok_all = 1'b0; $display("      back-to-back scans without Idle: 0x%08h / 0x%08h", d1[31:0], d2[31:0]);
+        end else $display("[%0t]       two back-to-back scans without Idle (Update-DR -> Select-DR) -> IDCODE x2", $time);
 
         // Trafik ortasinda Test-Logic-Reset (TMS): IR -> IDCODE, DTM hatasi temiz,
         // dmi_cdc clear + dm_csrs FIFO flush sonrasi DMI yeniden calisir
@@ -1270,34 +1270,34 @@ module jtag_smoke_tb;
         tap_tlr_only();
         dr_shift(32, 64'd0, dr_out);
         if (dr_out[31:0] !== EXP_IDCODE) begin
-            ok_all = 1'b0; $display("      TLR sonrasi IR: dr=0x%08h (IDCODE beklenir)", dr_out[31:0]);
-        end else $display("[%0t]       trafik ortasinda TLR(TMS): IR -> IDCODE (0x%08h)", $time, dr_out[31:0]);
+            ok_all = 1'b0; $display("      IR after TLR: dr=0x%08h (expected IDCODE)", dr_out[31:0]);
+        end else $display("[%0t]       TLR(TMS) mid-traffic: IR -> IDCODE (0x%08h)", $time, dr_out[31:0]);
         ir_write(IR_DTMCS);
         dr_shift(32, 64'd0, dr_out);
         if (dr_out[11:10] !== 2'b00) begin
-            ok_all = 1'b0; $display("      TLR sonrasi dtmcs=0x%08h (dmistat=0 beklenir)", dr_out[31:0]);
-        end else $display("[%0t]       TLR sonrasi dtmcs=0x%08h dmistat=0 (dmi_clear yolu)", $time, dr_out[31:0]);
+            ok_all = 1'b0; $display("      dtmcs after TLR=0x%08h (expected dmistat=0)", dr_out[31:0]);
+        end else $display("[%0t]       dtmcs after TLR=0x%08h dmistat=0 (dmi_clear path)", $time, dr_out[31:0]);
         ir_write(IR_DMI);
         dmi_read(DM_DMSTATUS, dmstatus);
-        if (!dmstatus[9]) begin ok_all = 1'b0; $display("      TLR sonrasi DMI: dmstatus=0x%08h", dmstatus); end
-        else $display("[%0t]       TLR sonrasi DMI saglam: dmstatus=0x%08h (CDC clear + FIFO flush)", $time, dmstatus);
+        if (!dmstatus[9]) begin ok_all = 1'b0; $display("      DMI after TLR: dmstatus=0x%08h", dmstatus); end
+        else $display("[%0t]       DMI intact after TLR: dmstatus=0x%08h (CDC clear + FIFO flush)", $time, dmstatus);
 
         // Ayni senaryo jtag_trst_n darbesiyle (asenkron TAP reseti)
         dmi_scan_raw(DM_DMSTATUS, 32'd0, 2'b01, 0, data_raw, op_raw, addr_raw);
         tap_reset();
         dr_shift(32, 64'd0, dr_out);
         if (dr_out[31:0] !== EXP_IDCODE) begin
-            ok_all = 1'b0; $display("      TRST sonrasi IDCODE=0x%08h", dr_out[31:0]);
-        end else $display("[%0t]       trafik ortasinda TRST darbesi -> IDCODE=0x%08h", $time, dr_out[31:0]);
+            ok_all = 1'b0; $display("      IDCODE after TRST=0x%08h", dr_out[31:0]);
+        end else $display("[%0t]       TRST pulse mid-traffic -> IDCODE=0x%08h", $time, dr_out[31:0]);
         ir_write(IR_DMI);
         dmi_read(DM_DMSTATUS, dmstatus);
         if (!dmstatus[9] || (dut.i_cpu.core_i.debug_halted_o !== 1'b1)) begin
-            ok_all = 1'b0; $display("      TRST sonrasi DMI: dmstatus=0x%08h", dmstatus);
+            ok_all = 1'b0; $display("      DMI after TRST: dmstatus=0x%08h", dmstatus);
         end else
-            $display("[%0t]       TRST sonrasi DMI saglam, cekirdek hala halt'ta (dmstatus=0x%08h)", $time, dmstatus);
+            $display("[%0t]       DMI intact after TRST, core still halted (dmstatus=0x%08h)", $time, dmstatus);
 
         if (ok_all) begin
-            $display("[%0t] [15/%0d] TAP OK: IR capture 0b00101 + BYPASS/tanimsiz IR + Pause/Exit2 + Idle'siz tarama + TLR/TRST kurtarma",
+            $display("[%0t] [15/%0d] TAP OK: IR capture 0b00101 + BYPASS/undefined IR + Pause/Exit2 + scan without Idle + TLR/TRST recovery",
                      $time, NSTAGE); stage_ok++;
         end else $error("[15/%0d] TAP FAIL", NSTAGE);
 
@@ -1311,19 +1311,19 @@ module jtag_smoke_tb;
         base_addr = dpc_cur & 32'hFFFF_FFFC;             // 4-bayt hizali sozcuk
         base_idx  = int'(base_addr[12:2]);
         orig_w    = dut.i_instr_sram.mem[base_idx];
-        $display("[%0t]       ISRAM yamasi: dpc=0x%08h -> hedef sozcuk 0x%08h (mem[%0d]=0x%08h)",
+        $display("[%0t]       ISRAM patch: dpc=0x%08h -> target word 0x%08h (mem[%0d]=0x%08h)",
                  $time, dpc_cur, base_addr, base_idx, orig_w);
 
         mem_write32(base_addr, INSN_EBREAK, ok); ok_all &= ok;
         if (dut.i_instr_sram.mem[base_idx] !== INSN_EBREAK) begin
             ok_all = 1'b0;
-            $display("      ISRAM yazma yolu: mem[%0d]=0x%08h (0x%08h beklenir)",
+            $display("      ISRAM write path: mem[%0d]=0x%08h (expected 0x%08h)",
                      base_idx, dut.i_instr_sram.mem[base_idx], INSN_EBREAK);
         end else
-            $display("[%0t]       ISRAM yazma yolu OK: mem[%0d]=0x%08h (wr_dest=11 crossbar bacagi)",
+            $display("[%0t]       ISRAM write path OK: mem[%0d]=0x%08h (wr_dest=11 crossbar leg)",
                      $time, base_idx, INSN_EBREAK);
         mem_read32(base_addr, isram_rd, ok);
-        $display("[%0t]       ayni adresten okuma=0x%08h != 0x%08h -> DSRAM alias (ISRAM veri portundan OKUNAMAZ, belgelendi)",
+        $display("[%0t]       read from same address=0x%08h != 0x%08h -> DSRAM alias (ISRAM is NOT readable via the data port, documented)",
                  $time, isram_rd, INSN_EBREAK);
 
         // dcsr.ebreakm: firmware'in ebreak'i debug moduna girsin (OpenOCD varsayilani)
@@ -1340,32 +1340,32 @@ module jtag_smoke_tb;
         if (!(dmstatus[17] && dmstatus[9]) || (rd !== base_addr) || (dcsr[8:6] != CAUSE_EBREAK) ||
             (dut.i_cpu.core_i.debug_halted_o !== 1'b1)) begin
             ok_all = 1'b0;
-            $display("      ebreak girisi: dmstatus=0x%08h dpc=0x%08h (0x%08h) dcsr=0x%08h cause=%0d (1 beklenir)",
+            $display("      ebreak entry: dmstatus=0x%08h dpc=0x%08h (0x%08h) dcsr=0x%08h cause=%0d (expected 1)",
                      dmstatus, rd, base_addr, dcsr, dcsr[8:6]);
         end else
-            $display("[%0t]       firmware ebreak -> debug modu: dpc=0x%08h, dcsr.cause=%0d (ebreak), %0d poll OK",
+            $display("[%0t]       firmware ebreak -> debug mode: dpc=0x%08h, dcsr.cause=%0d (ebreak), %0d poll OK",
                      $time, rd, dcsr[8:6], polls);
         reg_write(REG_DCSR, dcsr & ~DCSR_EBREAKM, ok);    ok_all &= ok;   // ebreakm temizle
         mem_write32(base_addr, orig_w, ok);               ok_all &= ok;   // ISRAM'i geri yukle
         if (dut.i_instr_sram.mem[base_idx] !== orig_w) begin
-            ok_all = 1'b0; $display("      ISRAM geri yuklenemedi: mem[%0d]=0x%08h", base_idx, dut.i_instr_sram.mem[base_idx]);
+            ok_all = 1'b0; $display("      ISRAM could not be restored: mem[%0d]=0x%08h", base_idx, dut.i_instr_sram.mem[base_idx]);
         end
         reg_write(REG_DPC, dpc_cur, ok);                  ok_all &= ok;
         resume_core(ok, dmstatus);                        ok_all &= ok;
         repeat (40) @(posedge clk);
         if ((dut.i_cpu.core_i.debug_running_o !== 1'b1) || (dut.i_cpu.core_i.pc_id[31:16] !== 16'h0001)) begin
             ok_all = 1'b0;
-            $display("      ISRAM geri yukleme sonrasi: running=%0b pc_id=0x%08h",
+            $display("      after ISRAM restore: running=%0b pc_id=0x%08h",
                      dut.i_cpu.core_i.debug_running_o, dut.i_cpu.core_i.pc_id);
         end else
-            $display("[%0t]       ISRAM geri yuklendi, firmware normal kosuyor (pc_id=0x%08h)",
+            $display("[%0t]       ISRAM restored, firmware running normally (pc_id=0x%08h)",
                      $time, dut.i_cpu.core_i.pc_id);
         halt_core(ok, dmstatus); ok_all &= ok;
 
         if (ok_all) begin
-            $display("[%0t] [16/%0d] ISRAM YAZMA + EBREAK OK: kod bolgesi yamasi kosturularak kanitlandi, dcsr.ebreakm cause=1",
+            $display("[%0t] [16/%0d] ISRAM WRITE + EBREAK OK: code region patch proven by execution, dcsr.ebreakm cause=1",
                      $time, NSTAGE); stage_ok++;
-        end else $error("[16/%0d] ISRAM YAZMA + EBREAK FAIL", NSTAGE);
+        end else $error("[16/%0d] ISRAM WRITE + EBREAK FAIL", NSTAGE);
 
         // ============================================================
         // 17) DM bolgesi korumasiz / sessiz dekod  [bosluk G-04]
@@ -1384,23 +1384,23 @@ module jtag_smoke_tb;
         mem_write32(DM_ALIAS_A, 32'hBEEF_0001, ok); ok_all &= ok;
         if (dut.i_data_sram.mem[TEST_IDX] !== 32'hBEEF_0001) begin
             ok_all = 1'b0;
-            $display("      yansima: DSRAM[0x%08h]=0x%08h (0xBEEF0001 beklenir)",
+            $display("      alias: DSRAM[0x%08h]=0x%08h (expected 0xBEEF0001)",
                      TEST_ADDR, dut.i_data_sram.mem[TEST_IDX]);
         end else
-            $display("[%0t]       (a) 0x%08h yazmasi SESSIZCE DSRAM 0x%08h'a dustu (hata YOK) - bilinen sinir",
+            $display("[%0t]       (a) write to 0x%08h SILENTLY landed in DSRAM 0x%08h (no fault reported), known limitation",
                      $time, DM_ALIAS_A, TEST_ADDR);
         mem_read32(DM_ALIAS_A, rd, ok);
-        if (rd !== 32'hBEEF_0001) begin ok_all = 1'b0; $display("      yansima okumasi=0x%08h", rd); end
-        else $display("[%0t]       (a) ayni adresten okuma da 0x%08h (alias okumada da gecerli)", $time, rd);
+        if (rd !== 32'hBEEF_0001) begin ok_all = 1'b0; $display("      alias read=0x%08h", rd); end
+        else $display("[%0t]       (a) read from same address also 0x%08h (alias applies to reads too)", $time, rd);
 
         // (b) dm_mem eslenmemis ofset: rdata_q tutulur -> bayat deger
         // NOT: mem_read32 adresi data0 uzerinden x10'a yukler, bu yuzden
         // 0x0004_0380 okumasi o anki data0 icerigini (= x10 kurulum degeri) dondurur.
         mem_read32(DM_DATA0_A,   rd,  ok);                // bellek-esli data0 (gecerli ofset)
         mem_read32(DM_UNMAPPED_A, rd2, ok);               // eslenmemis ofset
-        $display("[%0t]       (b) gecerli ofset 0x%08h -> 0x%08h ; eslenmemis ofset 0x%08h -> 0x%08h",
+        $display("[%0t]       (b) valid offset 0x%08h -> 0x%08h ; unmapped offset 0x%08h -> 0x%08h",
                  $time, DM_DATA0_A, rd, DM_UNMAPPED_A, rd2);
-        $display("[%0t]       (b) eslenmemis DM ofseti HATA URETMEZ: dm_mem son kayitli sozcugunu dondurur (bilinen sinir)",
+        $display("[%0t]       (b) unmapped DM offset raises NO bus fault: dm_mem returns its last registered word (known limitation)",
                  $time);
         // KARAKTERIZASYON DENETIMI (3 Eylul gozden gecirme bulgusu): yalniz
         // $display iceren bir alt-asama HER KOSULDA gecer, yani kapi degildir.
@@ -1412,8 +1412,8 @@ module jtag_smoke_tb;
         // "bilinen sinir" maddesiyle birlikte guncelleyin.
         if (rd2 !== 32'h0010_0073) begin
             ok_all = 1'b0;
-            $display("      (b) BEKLENEN DEGER DEGISTI: eslenmemis ofset=0x%08h (beklenen 0x00100073 = ebreak)", rd2);
-            $display("      (b) -> DM dekodu degismis olabilir (koruma/SLVERR eklendi mi?); README 10.10'u guncelleyin");
+            $display("      (b) EXPECTED VALUE CHANGED: unmapped offset=0x%08h (expected 0x00100073 = ebreak)", rd2);
+            $display("      (b) -> DM decode may have changed (protection/SLVERR added?); update README 10.10");
         end
 
         // (c) debug modu DISINDA HALTED bayragina yazma: DM'i "halted" sanmaya zorlar
@@ -1427,7 +1427,7 @@ module jtag_smoke_tb;
         dmi_write(DM_DMCONTROL, 32'h4000_0001);          // resumereq
         repeat (1000) @(posedge clk);                    // 20 us
         dmi_write(DM_DMCONTROL, 32'h0000_0001);
-        $display("[%0t]       (c) yama kosuyor: pc_id=0x%08h, DM+0x100 yazmasi=%0d, ISRAM=[%08h %08h %08h]",
+        $display("[%0t]       (c) patch running: pc_id=0x%08h, DM+0x100 writes=%0d, ISRAM=[%08h %08h %08h]",
                  $time, dut.i_cpu.core_i.pc_id, dm_halted_writes - exc0,
                  dut.i_instr_sram.mem[base_idx], dut.i_instr_sram.mem[base_idx+1],
                  dut.i_instr_sram.mem[base_idx+2]);
@@ -1438,23 +1438,23 @@ module jtag_smoke_tb;
         // anlamsizlasir. Koruma (to_dm'i debug_mode ile nitelendirme) eklenirse
         // burasi KASTEN FAIL verir -> testi ve README maddesini guncelleyin.
         if (dmstatus[9] && (dut.i_cpu.core_i.debug_halted_o === 1'b0)) begin
-            $display("[%0t]       (c) SAHTE HALTED: dmstatus.allhalted=1 ama core debug_halted_o=0 -> normal kod DM'i kandirdi (BUGUNKU RTL: BEKLENEN, bilinen sinir)",
+            $display("[%0t]       (c) FALSE HALTED: dmstatus.allhalted=1 but core debug_halted_o=0 -> normal code fooled the DM (CURRENT RTL: EXPECTED, known limitation)",
                      $time);
         end else begin
             ok_all = 1'b0;
-            $display("      (c) SAHTE HALTED GOZLENMEDI: dmstatus=0x%08h core_halted=%0b",
+            $display("      (c) FALSE HALTED NOT OBSERVED: dmstatus=0x%08h core_halted=%0b",
                      dmstatus, dut.i_cpu.core_i.debug_halted_o);
-            $display("      (c) -> DM bolgesi korumasi eklenmis olabilir; README 10.10 'bilinen sinir' maddesini ve bu asamayi guncelleyin");
+            $display("      (c) -> DM region protection may have been added; update the README 10.10 'known limitation' item and this stage");
         end
         // sahte halted'a komut verilirse dm_mem Go'da sonsuz busy kalir
         dmi_raw_write(DM_COMMAND, CMD_AAR32 | CMD_TRANSFER | {16'd0, REG_X10}, op_raw);
         polls = 0;
         do begin dmi_read(DM_ABSTRACTCS, acs); polls++; end while (acs[12] && polls < 50);
         if (acs[12])
-            $display("[%0t]       (c) sahte halted'a komut -> abstractcs busy TAKILI (%0d poll), yalniz ndmreset kurtarir",
+            $display("[%0t]       (c) command to false halted -> abstractcs busy STUCK (%0d poll), only ndmreset recovers",
                      $time, polls);
         else
-            $display("[%0t]       (c) abstractcs=0x%08h busy takilmadi (%0d poll)", $time, acs, polls);
+            $display("[%0t]       (c) abstractcs=0x%08h busy did not stick (%0d poll)", $time, acs, polls);
         // kurtarma: ndmreset + haltreq
         dmi_write(DM_DMCONTROL, 32'h8000_0003);          // haltreq | ndmreset | dmactive
         idle_ticks(32);
@@ -1465,10 +1465,10 @@ module jtag_smoke_tb;
         cmderr_clear(cmderr_after);
         if (!dmstatus[9] || (dut.i_cpu.core_i.debug_halted_o !== 1'b1)) begin
             ok_all = 1'b0;
-            $display("      (c) ndmreset kurtarmasi basarisiz: dmstatus=0x%08h halted=%0b",
+            $display("      (c) ndmreset recovery failed: dmstatus=0x%08h halted=%0b",
                      dmstatus, dut.i_cpu.core_i.debug_halted_o);
         end else
-            $display("[%0t]       (c) ndmreset kurtarmasi OK: allhalted=1 && core debug_halted_o=1 (%0d poll)",
+            $display("[%0t]       (c) ndmreset recovery OK: allhalted=1 && core debug_halted_o=1 (%0d poll)",
                      $time, polls);
         for (int w = 0; w < 4; w++) begin
             mem_write32(base_addr + 32'(4*w), orig4[w], ok); ok_all &= ok;
@@ -1476,10 +1476,10 @@ module jtag_smoke_tb;
         for (int w = 0; w < 4; w++) begin
             if (dut.i_instr_sram.mem[base_idx + w] !== orig4[w]) begin
                 ok_all = 1'b0;
-                $display("      (c) ISRAM sozcuk %0d geri yuklenemedi: 0x%08h", w, dut.i_instr_sram.mem[base_idx + w]);
+                $display("      (c) ISRAM word %0d could not be restored: 0x%08h", w, dut.i_instr_sram.mem[base_idx + w]);
             end
         end
-        $display("[%0t]       (c) ISRAM 4 sozcuk geri yuklendi", $time);
+        $display("[%0t]       (c) ISRAM 4 words restored", $time);
 
         // (d) dmactive 1 -> 0 -> 1 (OpenOCD baslangicta yapar): DM tam sifirlanir
         dmi_write(DM_PROGBUF0, 32'hA5A5_A5A5);
@@ -1491,7 +1491,7 @@ module jtag_smoke_tb;
             ok_all = 1'b0;
             $display("      (d) dmactive=0: dmcontrol=0x%08h progbuf0=0x%08h abstractcs=0x%08h", dmc_v, rd, acs);
         end else
-            $display("[%0t]       (d) dmactive=0 -> dmcontrol=0, progbuf0=0, cmderr=0 (DM senkron reseti)", $time);
+            $display("[%0t]       (d) dmactive=0 -> dmcontrol=0, progbuf0=0, cmderr=0 (DM synchronous reset)", $time);
         dmi_write(DM_DMCONTROL, 32'h0000_0001);          // dmactive=1
         dmi_write(DM_DMCONTROL, 32'h8000_0003);          // haltreq | ndmreset (yeniden kesif)
         idle_ticks(32);
@@ -1502,21 +1502,21 @@ module jtag_smoke_tb;
         reg_read(REG_DPC, rd, ok); ok_all &= ok;
         if (!dmstatus[9] || (dut.i_cpu.core_i.debug_halted_o !== 1'b1) || (rd !== RESET_VEC)) begin
             ok_all = 1'b0;
-            $display("      (d) dmactive=1 sonrasi: dmstatus=0x%08h halted=%0b dpc=0x%08h",
+            $display("      (d) after dmactive=1: dmstatus=0x%08h halted=%0b dpc=0x%08h",
                      dmstatus, dut.i_cpu.core_i.debug_halted_o, rd);
         end else
-            $display("[%0t]       (d) dmactive=1 -> halt/reset yeniden calisiyor: dpc=0x%08h == BOOT_ADDR", $time, rd);
+            $display("[%0t]       (d) dmactive=1 -> halt/reset working again: dpc=0x%08h == BOOT_ADDR", $time, rd);
 
         if (ok_all) begin
-            $display("[%0t] [17/%0d] DM BOLGESI OK: 0x0004_1000+ yansimasi, bayat rdata, sahte HALTED ve dmactive=0 belgelendi",
+            $display("[%0t] [17/%0d] DM REGION OK: 0x0004_1000+ alias, stale rdata, false HALTED and dmactive=0 documented",
                      $time, NSTAGE); stage_ok++;
-        end else $error("[17/%0d] DM BOLGESI FAIL", NSTAGE);
+        end else $error("[17/%0d] DM REGION FAIL", NSTAGE);
 
         if (stage_ok == NSTAGE)
-            $display("[%0t] *** TEST SUCCESS *** JTAG: UART+IDCODE+DTMCS+DMI+halt+abstract/progbuf+resume+step/trigger+ndmreset+dmi-busy+cmderr2/3/4+SBA+DM-kesif+TAP+ISRAM-ebreak+DM-bolgesi (%0d/%0d)",
+            $display("[%0t] *** TEST SUCCESS *** JTAG: UART+IDCODE+DTMCS+DMI+halt+abstract/progbuf+resume+step/trigger+ndmreset+dmi-busy+cmderr2/3/4+SBA+DM-discovery+TAP+ISRAM-ebreak+DM-region (%0d/%0d)",
                      $time, stage_ok, NSTAGE);
         else
-            $error("JTAG SMOKE FAIL: %0d/%0d asama gecti", stage_ok, NSTAGE);
+            $error("JTAG SMOKE FAIL: %0d/%0d stages completed", stage_ok, NSTAGE);
         $finish;
     end
 

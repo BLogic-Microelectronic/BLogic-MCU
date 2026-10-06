@@ -72,8 +72,8 @@ INCDIRS="+incdir+rtl/bus/axi/include +incdir+rtl/asic \
 
 log() { echo "[JTAG-EQUIV] $*"; }
 
-command -v verilator >/dev/null 2>&1 || { log "HATA: verilator bulunamadi"; exit 1; }
-[ -f "$SEDRULES" ] || { log "HATA: $SEDRULES yok"; exit 1; }
+command -v verilator >/dev/null 2>&1 || { log "ERROR: verilator was not found"; exit 1; }
+[ -f "$SEDRULES" ] || { log "ERROR: $SEDRULES does not exist"; exit 1; }
 mkdir -p "$EXPDIR"
 
 rm -rf "$OUT"; mkdir -p "$MAIN"
@@ -95,19 +95,19 @@ elif [ -f .git ]; then
     fi
 fi
 [ -n "$SRC_DESC" ] || {
-    log "HATA: referans kaynaklari alinamadi (git yok ve JTAG_MAIN_DIR tanimsiz)"
+    log "ERROR: cannot get the reference sources (no git and JTAG_MAIN_DIR is not set)"
     exit 1
 }
-log "referans kaynagi: $SRC_DESC"
+log "Reference sources: $SRC_DESC"
 
 for f in $FILES; do
     mkdir -p "$MAIN/$(dirname "$f")"
     if [ "${SRC_DESC#JTAG_MAIN_DIR}" != "$SRC_DESC" ]; then
-        cp "$JTAG_MAIN_DIR/$f" "$MAIN/$f" || { log "HATA: $f alinamadi"; exit 1; }
+        cp "$JTAG_MAIN_DIR/$f" "$MAIN/$f" || { log "ERROR: cannot get $f"; exit 1; }
     else
         # shellcheck disable=SC2086
         git $GITARGS show "$EQUIV_REF:$f" > "$MAIN/$f" 2>/dev/null || {
-            log "HATA: 'git show $EQUIV_REF:$f' basarisiz"; exit 1; }
+            log "ERROR: 'git show $EQUIV_REF:$f' failed"; exit 1; }
     fi
 done
 
@@ -115,17 +115,17 @@ done
 overall=0
 total_exp=0
 echo "----------------------------------------------------------------------"
-printf '%-42s %10s %10s %10s\n' "dosya" "ham-fark" "beklenen" "sapma"
+printf '%-42s %10s %10s %10s\n' "file" "raw-diff" "expected" "deviation"
 echo "----------------------------------------------------------------------"
 for f in $FILES; do
     b=$(echo "$f" | tr '/' '_')
     exp="$EXPDIR/$b.diff"
     # shellcheck disable=SC2086
     verilator -E -P $INCDIRS "$f"        > "$OUT/cur_$b"  2> "$OUT/err_cur_$b"  || {
-        log "HATA: onisleme basarisiz (calisma agaci): $f"; cat "$OUT/err_cur_$b"; exit 1; }
+        log "ERROR: preprocessing failed (working tree): $f"; cat "$OUT/err_cur_$b"; exit 1; }
     # shellcheck disable=SC2086
     verilator -E -P $INCDIRS "$MAIN/$f"  > "$OUT/main_$b" 2> "$OUT/err_main_$b" || {
-        log "HATA: onisleme basarisiz (referans): $f"; cat "$OUT/err_main_$b"; exit 1; }
+        log "ERROR: preprocessing failed (reference): $f"; cat "$OUT/err_main_$b"; exit 1; }
 
     raw=$(diff "$OUT/main_$b" "$OUT/cur_$b" | grep -c '^[<>]')
     sed -f "$SEDRULES" "$OUT/cur_$b" > "$OUT/norm_$b"
@@ -134,15 +134,15 @@ for f in $FILES; do
 
     if [ "$SAVE" = "1" ]; then
         cp "$OUT/diff_$b" "$exp"
-        printf '%-42s %10s %10s %10s\n' "$f" "$raw" "$nexp" "KAYDEDILDI"
+        printf '%-42s %10s %10s %10s\n' "$f" "$raw" "$nexp" "SAVED"
         total_exp=$((total_exp + nexp))
         continue
     fi
 
     if [ ! -f "$exp" ]; then
-        log "HATA: beklenen diff yok: $exp  ('--kaydet' ile bilerek olusturun)"
+        log "ERROR: expected diff missing: $exp  (create it on purpose with '--kaydet')"
         overall=1
-        printf '%-42s %10s %10s %10s\n' "$f" "$raw" "?" "DOSYA YOK"
+        printf '%-42s %10s %10s %10s\n' "$f" "$raw" "?" "NO FILE"
         continue
     fi
 
@@ -151,25 +151,25 @@ for f in $FILES; do
         total_exp=$((total_exp + nexp))
     else
         overall=1
-        printf '%-42s %10s %10s %10s\n' "$f" "$raw" "$nexp" "SAPMA"
-        echo "  -- BEKLENEN DIFF'TEN SAPMA ($f) --"
-        echo "     (- = beklenen ama artik yok, + = yeni ya da degismis fark)"
+        printf '%-42s %10s %10s %10s\n' "$f" "$raw" "$nexp" "DEVIATES"
+        echo "  -- DEVIATION FROM THE EXPECTED DIFF ($f) --"
+        echo "     (- = expected but no longer present, + = new or changed difference)"
         sed -n '3,40p' "$OUT/sapma_$b" | sed 's/^/     /'
     fi
 done
 echo "----------------------------------------------------------------------"
 
-log "normalizasyon kurallari: $SEDRULES"
-log "beklenen diff'ler: $EXPDIR/  (gerekce: $RATIONALE)"
-log "ara ciktilar: $OUT/ (cur_*, main_*, norm_*, diff_*, sapma_*)"
+log "Normalisation rules: $SEDRULES"
+log "Expected diffs: $EXPDIR/  (reasons: $RATIONALE)"
+log "Intermediate files: $OUT/ (cur_*, main_*, norm_*, diff_*, sapma_*)"
 
 if [ "$SAVE" = "1" ]; then
-    log "KAYDEDILDI: $total_exp diff satiri $EXPDIR/ altina yazildi - GOZDEN GECIRIP commit'leyin"
+    log "SAVED: $total_exp diff lines written to $EXPDIR/; review them before committing"
     exit 0
 fi
 if [ "$overall" = "0" ]; then
-    log "VERDICT: PASS - JTAG_DEBUG TANIMSIZ derleme, sabit katlama + $total_exp satirlik BILEREK fark disinda referans ($SRC_DESC = imzali kosunun RTL'i) ile birebir AYNI"
+    log "VERDICT: PASS: with JTAG_DEBUG undefined, the RTL equals the reference ($SRC_DESC, the RTL of the signed run) apart from constant folding and $total_exp intended diff lines"
     exit 0
 fi
-log "VERDICT: FAIL - beklenen diff ile sapma var (yukarida)"
+log "VERDICT: FAIL: the RTL deviates from the expected diff (see above)"
 exit 1

@@ -10,6 +10,9 @@
 `timescale 1ns/1ps
 
 module ai_accel_tb;
+  import tb_log_pkg::*;
+  BusLog blog;                        // bus_trace.log, bus_summary.tsv
+  longint unsigned mem_rd_n = 0, mem_wr_n = 0;   // accelerator accesses to the AI SRAM model
 
   // Saat / reset
   logic clk   = 1'b0;
@@ -181,11 +184,13 @@ module ai_accel_tb;
               perf_t_first    <= perf_cyc;
             end
             saved_arid   <= m_arid;
+            mem_rd_n     <= mem_rd_n + 1;
             m_arready    <= 1'b1;
             slv          <= S_R_DRIVE;
           end else if (m_awvalid) begin
             saved_awaddr <= m_awaddr;
             saved_awid   <= m_awid;
+            mem_wr_n     <= mem_wr_n + 1;
             m_awready    <= 1'b1;
             slv          <= S_W_DATA;
           end
@@ -248,6 +253,7 @@ module ai_accel_tb;
     s_wvalid  <= 1'b0;
     s_bready  <= 1'b1;
     while (!s_bvalid) @(negedge clk);
+    blog.access(perf_cyc, 1'b1, 32'h4000_0600 + {27'd0, addr}, "", data, 4'hF, s_bresp);
     @(posedge clk);
     @(negedge clk);
     s_bready  <= 1'b0;
@@ -265,6 +271,7 @@ module ai_accel_tb;
     s_arvalid <= 1'b0;
     while (!s_rvalid) @(negedge clk);
     data = s_rdata;
+    blog.access(perf_cyc, 1'b0, 32'h4000_0600 + {27'd0, addr}, "", data, 4'hF, s_rresp);
     @(posedge clk);
     @(negedge clk);
     s_rready  <= 1'b0;
@@ -291,7 +298,7 @@ module ai_accel_tb;
     $readmemh("sw/ai_model/golden_vectors/bias_fc.hex",
               ai_mem, base, base + 4 - 1);
 
-    $display("[PRELOAD] statik agirliklar yuklendi (conv_w@17A8, conv_bias@1BA8, fc_w@1BC8, fc_bias@5A48)");
+    $display("[PRELOAD] static weights loaded (conv_w at 0x17A8, conv_bias at 0x1BA8, fc_w at 0x1BC8, fc_bias at 0x5A48)");
   endtask
 
   // Senaryo girisini yukle. 0x0000 ofsetinden 490 word.
@@ -314,10 +321,10 @@ module ai_accel_tb;
                            ai_mem, base, base + 490 - 1);
       "no_real":  $readmemh("sw/ai_model/golden_vectors/input_no_real.hex",
                            ai_mem, base, base + 490 - 1);
-      default:   $fatal(1, "[PRELOAD] bilinmeyen senaryo: %s", scenario);
+      default:   $fatal(1, "[PRELOAD] unknown scenario: %s", scenario);
     endcase
 
-    $display("[PRELOAD] %s input'u yüklendi (0x30000'den 1960 byte)",
+    $display("[PRELOAD] input of %s loaded (1960 bytes at 0x30000)",
              scenario);
   endtask
 
@@ -336,7 +343,7 @@ module ai_accel_tb;
       "silence": $readmemh("sw/ai_model/golden_vectors/output_silence.hex", tmp_mem);
       "yes_real": $readmemh("sw/ai_model/golden_vectors/output_yes_real.hex", tmp_mem);
       "no_real":  $readmemh("sw/ai_model/golden_vectors/output_no_real.hex",  tmp_mem);
-      default:   $fatal(1, "[GOLDEN] bilinmeyen senaryo: %s", scenario);
+      default:   $fatal(1, "[GOLDEN] unknown scenario: %s", scenario);
     endcase
 
     b[0] = tmp_mem[0][ 7: 0];   // silence
@@ -353,7 +360,7 @@ module ai_accel_tb;
       end
     end
 
-    $display("[GOLDEN-%s] fc_out = [%0d, %0d, %0d, %0d] → argmax=%0d",
+    $display("[GOLDEN-%s] fc_out = [%0d, %0d, %0d, %0d], argmax=%0d",
              scenario,
              $signed(b[0]), $signed(b[1]), $signed(b[2]), $signed(b[3]),
              argmax);
@@ -372,7 +379,8 @@ module ai_accel_tb;
 
     local_errors = 0;
 
-    $display("\n========== SENARYO: %s ==========", scenario);
+    $display("\n========== SCENARIO: %s ==========", scenario);
+    blog.note(perf_cyc, {"scenario ", scenario, ": load the input, set DATA_ADDR and OUT_ADDR, START, wait for the interrupt, compare"});
 
     preload_input(scenario);
 
@@ -385,7 +393,7 @@ module ai_accel_tb;
     perf_armed   = 1'b1;
 
     // START pulse'u
-    $display("[%s] CTRL.START yazılıyor...", scenario);
+    $display("[%s] writing CTRL.START", scenario);
     csr_write(5'h00, 32'h0000_0001);
 
     // IRQ bekle, 10 ms watchdog
@@ -402,26 +410,29 @@ module ai_accel_tb;
     disable fork;
 
     if (!irq_seen) begin
-      $display("[%s] FAIL: IRQ 10ms içinde gelmedi (timeout)", scenario);
+      $display("[%s] FAIL: no interrupt within 10 ms (timeout)", scenario);
+      blog.check(perf_cyc, {"[", scenario, "] interrupt within 10 ms of START"}, 1'b0);
       local_errors++;
       return;
     end
 
-    $display("[%s] IRQ alındı, sonuç okunuyor...", scenario);
+    $display("[%s] interrupt received, reading the result", scenario);
+    blog.check(perf_cyc, {"[", scenario, "] interrupt within 10 ms of START"}, 1'b1);
 
     // STATUS oku, DONE=1 ve RESULT alaninda argmax bekliyoruz
     csr_read(5'h04, st);
     $display("[%s] STATUS = 0x%08h (BUSY=%0d DONE=%0d RESULT=%0d)",
              scenario, st, st[0], st[1], st[7:4]);
+    blog.check(perf_cyc, {"[", scenario, "] STATUS.DONE is 1"}, st[1] === 1'b1, $sformatf("STATUS = 0x%08h", st));
     if (st[1] !== 1'b1) begin
-      $display("[%s] FAIL: STATUS.DONE 1 değil", scenario);
+      $display("[%s] FAIL: STATUS.DONE is not 1", scenario);
       local_errors++;
     end
     rtl_argmax = st[7:4];
 
     // perf penceresi raporu
     perf_armed = 1'b0;
-    $display("[PERF-HW] %s: ilk-okuma -> son-yazma = %0d cycle | START -> olcum = %0d cycle",
+    $display("[PERF-HW] %s: first read to last write = %0d cycles | START to this point = %0d cycles",
              scenario, perf_t_last - perf_t_first, perf_cyc - perf_t_start);
 
     // Bellege yazilan RESULT word'unu oku (cross-check)
@@ -430,8 +441,10 @@ module ai_accel_tb;
     $display("[%s] mem[0x35A58] = 0x%08h (argmax byte=%0d)",
              scenario, result_word, mem_argmax);
 
+    blog.check(perf_cyc, {"[", scenario, "] class in STATUS.RESULT equals the class written to memory at OUT_ADDR"},
+               mem_argmax === rtl_argmax, $sformatf("STATUS %0d, memory %0d", rtl_argmax, mem_argmax));
     if (mem_argmax !== rtl_argmax) begin
-      $display("[%s] FAIL: STATUS.RESULT (%0d) ile mem.RESULT (%0d) uyuşmuyor",
+      $display("[%s] FAIL: STATUS.RESULT (%0d) and the result in memory (%0d) differ",
                scenario, rtl_argmax, mem_argmax);
       local_errors++;
     end
@@ -439,11 +452,13 @@ module ai_accel_tb;
     // Golden referans
     expected_argmax = read_expected_argmax(scenario);
 
+    blog.check(perf_cyc, {"[", scenario, "] class equals the golden reference"},
+               rtl_argmax === expected_argmax, $sformatf("RTL %0d, expected %0d", rtl_argmax, expected_argmax));
     if (rtl_argmax === expected_argmax) begin
-      $display("[%s] PASS: rtl_argmax=%0d, expected=%0d ✓",
+      $display("[%s] PASS: rtl_argmax=%0d, expected=%0d",
                scenario, rtl_argmax, expected_argmax);
     end else begin
-      $display("[%s] FAIL: rtl_argmax=%0d, expected=%0d ✗",
+      $display("[%s] FAIL: rtl_argmax=%0d, expected=%0d",
                scenario, rtl_argmax, expected_argmax);
       local_errors++;
     end
@@ -476,7 +491,7 @@ module ai_accel_tb;
       "silence": $readmemh("sw/ai_model/golden_vectors/conv_out_silence.hex", golden_conv);
       "yes_real": $readmemh("sw/ai_model/golden_vectors/conv_out_yes_real.hex", golden_conv);
       "no_real":  $readmemh("sw/ai_model/golden_vectors/conv_out_no_real.hex",  golden_conv);
-      default:   $fatal(1, "[CONVDIFF] bilinmeyen senaryo: %s", scenario);
+      default:   $fatal(1, "[CONVDIFF] unknown scenario: %s", scenario);
     endcase
 
     base = word_idx(AI_SRAM_BASE + 32'h07A8);
@@ -488,10 +503,12 @@ module ai_accel_tb;
       end
     end
 
+    blog.check(perf_cyc, {"[", scenario, "] convolution output (1000 words at 0x307A8) equals the golden tensor"},
+               conv_errors == 0, $sformatf("%0d of 1000 words differ", conv_errors));
     if (conv_errors == 0)
-      $display("[%s] CONV_OUT tensor diff: PASS (1000/1000 word eslesti)", scenario);
+      $display("[%s] CONV_OUT tensor diff: PASS (1000 of 1000 words equal)", scenario);
     else
-      $display("[%s] CONV_OUT tensor diff: FAIL (%0d/1000 farkli, ilk fark word[%0d] got=0x%08h exp=0x%08h)",
+      $display("[%s] CONV_OUT tensor diff: FAIL (%0d of 1000 words differ, first at word[%0d] got=0x%08h exp=0x%08h)",
                scenario, conv_errors, first_mismatch,
                ai_mem[base+first_mismatch], golden_conv[first_mismatch]);
   endtask
@@ -506,22 +523,25 @@ module ai_accel_tb;
 
     got = ai_mem[word_idx(AI_SRAM_BASE + 32'h17A8)];
     if (got !== expected_first_conv_w) begin
-      $display("[SPOT] FAIL conv_w ilk word: got=0x%08h exp=0x%08h",
+      $display("[SPOT] FAIL first conv_w word: got=0x%08h exp=0x%08h",
                got, expected_first_conv_w);
       spot_err++;
     end
 
     got = ai_mem[word_idx(AI_SRAM_BASE + 32'h1BC8)];
     if (got !== expected_first_fc_w) begin
-      $display("[SPOT] FAIL fc_w ilk word: got=0x%08h exp=0x%08h",
+      $display("[SPOT] FAIL first fc_w word: got=0x%08h exp=0x%08h",
                got, expected_first_fc_w);
       spot_err++;
     end
 
-    if (spot_err == 0)
-      $display("[SPOT] PASS preload spot-check'leri tutuyor");
-    else
-      $fatal(1, "[SPOT] Preload verisi yuklenememis, dosya yollarini kontrol et (repo kokunden mi calistiriyorsun?)");
+    if (spot_err == 0) begin
+      $display("[SPOT] PASS: the first weight words are where they should be");
+      blog.check(perf_cyc, "weights loaded: first conv_w and fc_w words match the expected values", 1'b1);
+    end else begin
+      blog.fail(perf_cyc, "weights loaded: first conv_w and fc_w words match the expected values");
+      $fatal(1, "[SPOT] The weight files were not loaded; check the file paths (the simulation must run from the repository root)");
+    end
   endtask
 
   // Dogruluk penceresi: SW(tflite) vs RTL toplu kosu.
@@ -559,7 +579,7 @@ module ai_accel_tb;
     if (fd_i == 0 || fd_e == 0) begin
       if (fd_i != 0) $fclose(fd_i);
       if (fd_e != 0) $fclose(fd_e);
-      $display("\n[BATCH] atlandi: acc_batch_*.hex yok - once python3 sw/ai_model/run_accuracy_window.py");
+      $display("\n[BATCH] skipped: acc_batch_*.hex not found; run python3 sw/ai_model/run_accuracy_window.py first");
       return;
     end
     $fclose(fd_i);
@@ -567,7 +587,8 @@ module ai_accel_tb;
     $readmemh("sw/ai_model/golden_vectors/acc_batch_inputs.hex",   batch_inputs);
     $readmemh("sw/ai_model/golden_vectors/acc_batch_expected.hex", batch_expected);
 
-    $display("\n[BATCH] ADIM F: %0d ornek, SW(tflite) referansina karsi RTL", BATCH_N);
+    $display("\n[BATCH] STEP F: %0d samples, RTL against the software (TFLite) reference", BATCH_N);
+    blog.note(perf_cyc, $sformatf("accuracy batch: %0d samples, RTL class against the TFLite reference class", BATCH_N));
     in_base   = word_idx(AI_SRAM_BASE + 32'h0000);
     match_cnt = 0;
 
@@ -593,6 +614,7 @@ module ai_accel_tb;
 
       if (!irq_seen) begin
         $display("[BATCH-%0d] FAIL: IRQ timeout", i);
+        blog.check(perf_cyc, $sformatf("[batch %0d] interrupt within 10 ms of START", i), 1'b0);
         batch_errors++;
         continue;
       end
@@ -604,19 +626,21 @@ module ai_accel_tb;
       if (rtl_am == sw_am) begin
         match_cnt++;
         $display("[BATCH-%0d] sw=%0d rtl=%0d OK", i, sw_am, rtl_am);
+        blog.check(perf_cyc, $sformatf("[batch %0d] RTL class equals the software class", i), 1'b1, $sformatf("class %0d", rtl_am));
       end else begin
         batch_errors++;
-        $display("[BATCH-%0d] sw=%0d rtl=%0d FARK", i, sw_am, rtl_am);
+        $display("[BATCH-%0d] sw=%0d rtl=%0d DIFF", i, sw_am, rtl_am);
+        blog.check(perf_cyc, $sformatf("[batch %0d] RTL class equals the software class", i), 1'b0, $sformatf("software %0d, RTL %0d", sw_am, rtl_am));
       end
 
       csr_write(5'h00, 32'h0000_0002);                 // DONE clear
     end
 
-    $display("[BATCH] sinif eslesmesi: %0d/%0d", match_cnt, BATCH_N);
+    $display("[BATCH] class match: %0d/%0d", match_cnt, BATCH_N);
     if (match_cnt == BATCH_N)
-      $display("[BATCH] PASS - |acc_SW - acc_RTL| = 0 puan <= 10 puan (EK-1 penceresi)");
+      $display("[BATCH] PASS: |accuracy SW - accuracy RTL| = 0 points, limit 10 points (EK-1 window)");
     else
-      $display("[BATCH] DIKKAT: %0d uyumsuz ornek; |acc farki| ust siniri %0d/%0d",
+      $display("[BATCH] WARNING: %0d samples differ; upper bound of the accuracy difference %0d/%0d",
                BATCH_N - match_cnt, BATCH_N - match_cnt, BATCH_N);
   endtask
 
@@ -639,7 +663,15 @@ module ai_accel_tb;
     rst_n = 1'b1;
     repeat (5) @(posedge clk);
 
-    $display("[INFO] Reset bitti, preload başlıyor...");
+    begin
+      string pfx;
+      pfx = "";
+      void'($value$plusargs("LOGDIR=%s", pfx));
+      blog = new(pfx, "ai_accel_tb register accesses (make ai)",
+                 "testbench AXI-Lite master -> ai_accelerator CSRs (shown at their SoC addresses 0x4000_06xx); accelerator AXI4 master -> AI SRAM model (counted only)",
+                 "cycle");
+    end
+    $display("[INFO] Reset done, loading the weights");
 
     // Statik agirliklari yukle ve spot-check
     preload_static_weights();
@@ -665,10 +697,14 @@ module ai_accel_tb;
       total_errors += be;
     end
 
+    blog.summary_line("", "");
+    blog.summary_line($sformatf("Accelerator accesses to the AI SRAM model: %0d reads, %0d writes", mem_rd_n, mem_wr_n),
+                      $sformatf("mem\tAI SRAM (accelerator AXI4 master)\t%0d\t%0d", mem_rd_n, mem_wr_n));
+    blog.close();
     if (total_errors == 0)
-      $display("\n[ADIM E] PASS - 6/6 senaryo (2 gercek ses oznitelik + 4 sentetik) argmax + conv_out tensor diff TEMIZ. Min #4 ve EK-3 zorunlu YZ testi kapandi.\n");
+      $display("\n[STEP E] PASS: 6 of 6 scenarios (2 recorded audio inputs, 4 synthetic); class and convolution output tensor identical to the reference. Closes minimum requirement 4 and the EK-3 AI test.\n");
     else
-      $display("\n[ADIM E] FAIL: toplam %0d hata\n", total_errors);
+      $display("\n[STEP E] FAIL: %0d errors in total\n", total_errors);
 
     #100;
     $finish;
@@ -677,8 +713,9 @@ module ai_accel_tb;
   // Genel watchdog: tum simulasyon en fazla 250 ms surer
   initial begin
     #(SIM_TIMEOUT_MS * 64'd1_000_000);
-    $display("[WATCHDOG] %0d ms genel timeout - SIMULASYON TAMAMLANMADI", SIM_TIMEOUT_MS);
-    $fatal(1, "[WATCHDOG] genel timeout");
+    $display("[WATCHDOG] overall timeout of %0d ms: THE SIMULATION DID NOT FINISH", SIM_TIMEOUT_MS);
+    blog.fail(perf_cyc, $sformatf("simulation finished within %0d ms", SIM_TIMEOUT_MS));
+    $fatal(1, "[WATCHDOG] overall timeout");
     $finish;
   end
 

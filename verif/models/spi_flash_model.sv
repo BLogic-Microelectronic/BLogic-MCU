@@ -25,7 +25,7 @@ module spi_flash_model #(
         for (int i = 0; i < FLASH_SIZE; i++) memory[i] = 8'hFF;
         if (INIT_FILE != "") begin
             $readmemh(INIT_FILE, memory);
-            $display("[FLASH] %s yuklendi (%0d byte)", INIT_FILE, FLASH_SIZE);
+            $display("[FLASH] %s loaded (%0d bytes)", INIT_FILE, FLASH_SIZE);
         end
     end
 
@@ -66,7 +66,7 @@ module spi_flash_model #(
                             8'h13: begin abytes <= 3'd4; dummy_left <= 4'd0; width <= 3'd1; steps_per_byte <= 4'd8; end
                             default: begin
                                 cmd_err <= 1'b1;
-                                $error("[FLASH] DESTEKSIZ KOMUT 0x%02h - model veri DONDURMEZ (sertlestirilmis)", cmd_new);
+                                $error("[FLASH] UNSUPPORTED COMMAND 0x%02h: the model returns no data (hardened)", cmd_new);
                             end
                         endcase
                     end

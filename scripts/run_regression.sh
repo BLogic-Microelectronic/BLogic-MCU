@@ -25,13 +25,13 @@ ln -sfn "regression/$STAMP" "$PROJ/logs/latest"
 {
     echo "================================================================"
     echo " BLogic MCU — Regression"
-    echo " Tarih  : $(date)"
-    echo " Cikti  : $REG_DIR"
+    echo " Date   : $(date)"
+    echo " Output : $REG_DIR"
     echo "================================================================"
 } | tee "$SUMMARY"
 
 if [ ! -x "$PROJ/obj_dir/blogic_sim" ]; then
-    echo ">>> Verilator binary yok, derleniyor..." | tee -a "$SUMMARY"
+    echo ">>> No simulation model yet, building it..." | tee -a "$SUMMARY"
     make -f Makefile.verilator clean verilate >/dev/null 2>&1
 fi
 
@@ -56,7 +56,7 @@ run_test() {
             EXTRA_CFLAGS="-DCPB_VAL=$cpb_fw" \
             >"$REG_DIR/${test_name}_build.log" 2>&1; then
         FAIL=$((FAIL+1))
-        echo " -> DERLEME HATASI ($REG_DIR/${test_name}_build.log)" | tee -a "$SUMMARY"
+        echo " -> BUILD ERROR (log: $REG_DIR/${test_name}_build.log)" | tee -a "$SUMMARY"
         return
     fi
 
@@ -77,24 +77,25 @@ run_test() {
 
     if [ "$res" = "PASS" ]; then
         PASS=$((PASS+1))
-        echo " -> FONKSIYONEL: PASS  (cycles=$cyc bytes=$byt)" | tee -a "$SUMMARY"
+        echo " -> function  : PASS, expected UART output received ($cyc cycles, $byt bytes; log: $logdir/)" | tee -a "$SUMMARY"
     else
         FAIL=$((FAIL+1))
-        echo " -> FONKSIYONEL: FAIL  (cycles=${cyc:-?} bytes=${byt:-?})" | tee -a "$SUMMARY"
+        echo " -> function  : FAIL (${cyc:-?} cycles, ${byt:-?} bytes; log: $logdir/)" | tee -a "$SUMMARY"
         echo "    diag: $logdir/diag.log" | tee -a "$SUMMARY"
         [ -f "$logdir/diag.log" ] && sed 's/^/      /' "$logdir/diag.log" | tee -a "$SUMMARY"
     fi
+    python3 "$PROJ/scripts/test_report.py" "$test_name" "$logdir" --fw "$fw_file" || true
 
-    if grep -aq "Protocol Check Raporu" "$logdir/stdout.log" 2>/dev/null; then
-        local p_fail=$(grep -ac "PROTOKOL IHLALI" "$logdir/stdout.log" || true)
-        local p_pass=$(grep -ac "PROTOKOL UYUMLU" "$logdir/stdout.log" || true)
+    if grep -aq "Protocol Check Report" "$logdir/stdout.log" 2>/dev/null; then
+        local p_fail=$(grep -ac "PROTOCOL VIOLATION" "$logdir/stdout.log" || true)
+        local p_pass=$(grep -ac "PROTOCOL OK" "$logdir/stdout.log" || true)
         PROTO_TOTAL=$((PROTO_TOTAL + p_pass + p_fail))
         PROTO_PASS=$((PROTO_PASS + p_pass))
         PROTO_FAIL=$((PROTO_FAIL + p_fail))
         if [ "$p_fail" -gt 0 ]; then
-            echo " -> PROTOKOL : IHLAL ($p_fail arayuz)" | tee -a "$SUMMARY"
+            echo " -> protocol  : VIOLATION on $p_fail interface(s)" | tee -a "$SUMMARY"
         else
-            echo " -> PROTOKOL : UYUMLU ($p_pass arayuz)" | tee -a "$SUMMARY"
+            echo " -> protocol  : OK on all $p_pass checked interfaces" | tee -a "$SUMMARY"
         fi
     fi
 }
@@ -134,10 +135,10 @@ spike_lockstep_test() {
 
     if python3 "$PROJ/verif/spike/compare_traces.py" "$spike_log" "$logdir/rtl_trace.log" >"$lock_log" 2>&1; then
         PASS=$((PASS+1))
-        echo " -> LOCKSTEP: PASS  (bkz: $lock_log)" | tee -a "$SUMMARY"
+        echo " -> lockstep  : PASS, every retired instruction matches Spike (log: $lock_log)" | tee -a "$SUMMARY"
     else
         FAIL=$((FAIL+1))
-        echo " -> LOCKSTEP: FAIL  (bkz: $lock_log)" | tee -a "$SUMMARY"
+        echo " -> lockstep  : FAIL (log: $lock_log)" | tee -a "$SUMMARY"
         sed 's/^/      /' "$lock_log" | tee -a "$SUMMARY"
     fi
     cp "$lock_log" "$REG_DIR/${test_name}_lockstep.log" 2>/dev/null || true
@@ -163,27 +164,27 @@ run_test "QSPI_Flash" 434 434 "sw/tests/qspi_test.c"
 {
     echo ""
     echo "======================================================"
-    echo " REGRESSION SONUCU"
+    echo " REGRESSION RESULT"
     echo "------------------------------------------------------"
-    printf " Fonksiyonel : %-2d / %-2d PASS\n" "$PASS" "$TOTAL"
+    printf " Tests passed    : %d of %d\n" "$PASS" "$TOTAL"
     if [ "$PROTO_TOTAL" -gt 0 ]; then
-        printf " Protokol    : %-2d / %-2d UYUMLU\n" "$PROTO_PASS" "$PROTO_TOTAL"
+        printf " Protocol checks : %d of %d interface reports OK\n" "$PROTO_PASS" "$PROTO_TOTAL"
     else
-        echo " Protokol    : (checker stdout'a yazmadi)"
+        echo " Protocol checks : no report in the simulation output"
     fi
     echo "------------------------------------------------------"
-    printf " Toplam Test : %-2d | PASS: %-2d | FAIL: %-2d\n" "$TOTAL" "$PASS" "$FAIL"
+    printf " Total           : %d tests, %d PASS, %d FAIL\n" "$TOTAL" "$PASS" "$FAIL"
     echo "======================================================"
     if [ "$FAIL" -eq 0 ] && [ "$PROTO_FAIL" -eq 0 ]; then
-        echo " >>> TUM TESTLER PASS <<<"
+        echo " >>> ALL TESTS PASSED <<<"
     else
-        echo " >>> BASARISIZ TEST VAR — bkz: $REG_DIR/ <<<"
+        echo " >>> SOME TESTS FAILED, see $REG_DIR/ <<<"
     fi
     echo "======================================================"
     echo ""
-    echo " Detayli loglar : logs/sim/<test>/"
-    echo " Bu kosum       : $REG_DIR/"
-    echo " En son kosum   : logs/latest/"
+    echo " Logs per test : logs/sim/<test>/"
+    echo " This run      : $REG_DIR/"
+    echo " Latest run    : logs/latest/"
 } | tee -a "$SUMMARY"
 
 # Protokol ihlali de kosuyu dusurur (ozet bandi zaten FAIL diyordu)

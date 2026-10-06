@@ -11,7 +11,7 @@
 import sys
 
 if len(sys.argv) != 3:
-    sys.exit(f"kullanim: {sys.argv[0]} <girdi.hex> <cikti.bin>")
+    sys.exit(f"usage: {sys.argv[0]} <input.hex> <output.bin>")
 
 veri = bytearray()
 with open(sys.argv[1]) as fh:
@@ -22,8 +22,8 @@ with open(sys.argv[1]) as fh:
         try:
             veri += bytes.fromhex(s)
         except ValueError:
-            sys.exit(f"HATA: {sys.argv[1]}:{num}: hex degil: {s!r}")
+            sys.exit(f"ERROR: {sys.argv[1]}:{num}: not hex: {s!r}")
 
 with open(sys.argv[2], "wb") as fh:
     fh.write(veri)
-print(f"[flash_hex2bin] {sys.argv[2]}: {len(veri)} bayt")
+print(f"[flash_hex2bin] {sys.argv[2]}: {len(veri)} bytes")

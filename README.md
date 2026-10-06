@@ -99,6 +99,11 @@ make compile && make sim
 "Hello World from BLogic MCU!" received on UART_0. `make regression` runs the main regression suite,
 `make test-all` runs all 18 verification components, and `make help` lists every available target.
 
+After each simulation the test prints a short report and writes two files into its log directory:
+`report.txt`, which states what the test proves, the checks it made and the registers it accessed, and
+`bus_trace.log`, which lists every register access with its cycle, address, register name and value.
+The tests are described in [docs/TESTS.md](docs/TESTS.md).
+
 The `--depth 1` option downloads only the latest version of the repository and is recommended,
 because earlier commits contain large physical design files.
 

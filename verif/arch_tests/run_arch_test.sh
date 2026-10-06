@@ -35,13 +35,14 @@ if ! ${GCC} -march=${MARCH} -mabi=ilp32 -c -x assembler /dev/null -o /dev/null 2
     _march_full="${MARCH}"
     MARCH="rv32imc_zicsr"
     _gccv=$(${GCC} -dumpversion 2>/dev/null || echo "?")
-    echo -e "${YLW}  [UYARI] arac zinciri '${_march_full}' dizgesini reddetti -> '${MARCH}' kullaniliyor${NC}"
-    echo -e "${YLW}          (gcc ${_gccv}: zicsr/zifencei ayri uzanti adi binutils 2.36+ ile geldi)${NC}"
-    echo -e "${YLW}          Imza esdegerligi spike'li makinede dogrulanmalidir.${NC}"
+    echo -e "${YLW}  [WARNING] the toolchain rejected '${_march_full}', using '${MARCH}'${NC}"
+    echo -e "${YLW}          (gcc ${_gccv}: zicsr and zifencei became separate extension names in binutils 2.36)${NC}"
+    echo -e "${YLW}          Check the signatures on a machine with Spike.${NC}"
 fi
 
 echo -e "${YLW}═══ BLogic MCU riscv-arch-test ═══${NC}"
-echo -e "${YLW}  Cikti: ${LOG_ROOT}${NC}"
+echo -e "${YLW}  Each test is built, run on the SoC model and its signature is compared with Spike.${NC}"
+echo -e "${YLW}  Logs: ${LOG_ROOT}${NC}"
 mkdir -p "${LOG_ROOT}"
 
 # Yeniden derleme yalnizca "ikili yok" kosuluna baglanirsa, TB/RTL degistiginde
@@ -63,7 +64,7 @@ P=0; F=0; S=0; T=0; K=0; FL=""; KL=""
 
 for EXT in ${FILT}; do
     SD="${REPO}/rv32i_m/${EXT}/src"
-    [ -d "${SD}" ] || { echo -e "${YLW}[!] ${SD} yok${NC}"; continue; }
+    [ -d "${SD}" ] || { echo -e "${YLW}[!] ${SD} does not exist${NC}"; continue; }
     echo -e "\n${YLW}── RV32${EXT} ──${NC}"
     for TS in "${SD}"/*.S; do
         TN="$(basename "${TS}" .S)"
@@ -102,9 +103,9 @@ for EXT in ${FILT}; do
                     -DTEST_FLEN=0 -DXLEN=32 -DUDB_MXLEN=32 -DTEST_CASE_1=True ${XDEF} -static -Wl,--no-check-sections \
                     -T "${TGT}/link.ld" ${INC} "${SRC_S}" "${TGT}/htif.S" -o "${TW}/test.elf" \
                     2>"${TW}/compile.log"; then
-            echo -e "  [${RED}FAIL${NC}] ${TN} — derleme hatasi"
+            echo -e "  [${RED}FAIL${NC}] ${TN}: build error"
             head -2 "${TW}/compile.log" | sed 's/^/    /'
-            F=$((F+1)); FL="${FL}\n  ${TN}(cc)"
+            F=$((F+1)); FL="${FL}\n  ${TN} (build)"
             echo "result=FAIL_COMPILE"  > "${TW}/result.log"
             echo "test_name=${TN}"     >> "${TW}/result.log"
             continue
@@ -113,7 +114,7 @@ for EXT in ${FILT}; do
         WC=$(${OBJCOPY} -O binary -j .text.init -j .text "${TW}/test.elf" "${TW}/i.bin" \
                 2>/dev/null && wc -c < "${TW}/i.bin")
         if [ "${WC:-0}" -gt 983040 ]; then
-            echo -e "  [${YLW}SKIP${NC}] ${TN} — ${WC}B, 960KB buyruk penceresine sigmiyor"
+            echo -e "  [${YLW}SKIP${NC}] ${TN}: ${WC} bytes do not fit the 960 KB instruction window"
             S=$((S+1))
             { echo "result=SKIP_TOO_LARGE"; echo "test_name=${TN}"; echo "text_bytes=${WC}"; } > "${TW}/result.log"
             continue
@@ -151,14 +152,14 @@ for EXT in ${FILT}; do
             echo "test_name=${TN}"
             echo "text_bytes=${WC}"
             echo "rtl_pc_lines=${PC}"
-            echo "tohost=${TOH_V:-yok}"
+            echo "tohost=${TOH_V:-none}"
             echo "sig_words=${SIGW}"
         } > "${TW}/result.log"
 
         # K4 Kademe 2: spike referans imzasi ile karsilastir.
         # RVMODEL_HALT sonsuz donguye giriyor, HTIF bizim bellek haritamizda
         # devreye girmiyor -> --instructions ile sinirla (testler <5k buyruk).
-        SIGDIFF="atlandi"
+        SIGDIFF="skipped"
         if command -v spike >/dev/null 2>&1 && [ -s "${TW}/dut.sig" ]; then
             # Referans ELF AYRI yerlesimle derlenir (link_spike.ld):
             # SoC Harvard-ayrik oldugu icin link.ld'de INST_RAM (0x10000+960K) ile
@@ -177,26 +178,26 @@ for EXT in ${FILT}; do
                   "${TW}/spike.elf" >"${TW}/spike.log" 2>&1 || true
             if [ -s "${TW}/ref.sig" ]; then
                 if diff -q "${TW}/ref.sig" "${TW}/dut.sig" >/dev/null 2>&1; then
-                    SIGDIFF="ESIT"
+                    SIGDIFF="EQUAL"
                 else
                     ND=$(diff "${TW}/ref.sig" "${TW}/dut.sig" 2>/dev/null | grep -c '^<' || true)
-                    SIGDIFF="FARKLI(${ND:-0} word)"
+                    SIGDIFF="DIFFERENT(${ND:-0} words)"
                     # Bilinen fark yalniz test adi VE diff ciktisinin birebir ozeti
                     # known_diffs.txt ile eslesirse kabul edilir: farkin tek bir sozcugu
                     # degisse ozet tutmaz ve test yine FAIL olur.
                     DH=$( { diff "${TW}/ref.sig" "${TW}/dut.sig" 2>/dev/null || true; } | md5sum | cut -c1-32)
                     echo "${DH}" > "${TW}/sig_diff.md5"
                     if grep -q "^${TN} ${DH}" "${KNOWN}" 2>/dev/null; then
-                        SIGDIFF="BILINEN_FARK(${ND:-0} word)"
+                        SIGDIFF="KNOWN_DIFF(${ND:-0} words)"
                     fi
                 fi
             else
-                SIGDIFF="ref_yok"
+                SIGDIFF="no_reference"
             fi
         fi
         echo "sig_diff=${SIGDIFF}" >> "${TW}/result.log"
         echo "march=${MARCH}" >> "${TW}/result.log"
-        if [ "${SIGDIFF}" = "ESIT" ]; then
+        if [ "${SIGDIFF}" = "EQUAL" ]; then
             echo "gate=tohost+signature" >> "${TW}/result.log"
         else
             echo "gate=tohost_write" >> "${TW}/result.log"
@@ -206,34 +207,34 @@ for EXT in ${FILT}; do
         # dut.sig bos) da PASS sayiliyordu: spike'siz makinede tohost yazan her test,
         # bilinen farki olan cebreak-01 dahil, PASS gorunuyordu.
         if [ -n "${TOH_V}" ] && [ "${TOH_V}" != "0x00000000" ] \
-           && [ "${SIGDIFF}" = "ESIT" ]; then
-            echo -e "  [${GRN}PASS${NC}] ${TN}  (${PC} instr, imza ${SIGW} word, ${SIGDIFF})"
+           && [ "${SIGDIFF}" = "EQUAL" ]; then
+            echo -e "  [${GRN}PASS${NC}] ${TN}  (${PC} instructions, signature of ${SIGW} words equal to Spike)"
             echo "result=PASS" >> "${TW}/result.log"
             P=$((P+1))
         elif [ -n "${TOH_V}" ] && [ "${TOH_V}" != "0x00000000" ] \
-             && [[ "${SIGDIFF}" == BILINEN_FARK* ]]; then
-            echo -e "  [${YLW}BILINEN${NC}] ${TN}  (${SIGDIFF}; aciklama: verif/arch_tests/known_diffs.txt)"
+             && [[ "${SIGDIFF}" == KNOWN_DIFF* ]]; then
+            echo -e "  [${YLW}KNOWN${NC}] ${TN}  (${SIGDIFF}; explained in verif/arch_tests/known_diffs.txt)"
             echo "result=KNOWN_DIFF" >> "${TW}/result.log"
             K=$((K+1)); KL="${KL}\n  ${TN}"
         elif [ -n "${TOH_V}" ] && [ "${TOH_V}" != "0x00000000" ] \
-             && [ "${SIGDIFF}" = "atlandi" ]; then
+             && [ "${SIGDIFF}" = "skipped" ]; then
             if [ "${ARCH_ALLOW_NO_SPIKE:-0}" = "1" ]; then
-                echo -e "  [${YLW}SKIP${NC}] ${TN} — imza karsilastirilmadi (spike yok ya da dut.sig bos; ARCH_ALLOW_NO_SPIKE=1)"
+                echo -e "  [${YLW}SKIP${NC}] ${TN}: signature not compared (no Spike or empty dut.sig; ARCH_ALLOW_NO_SPIKE=1)"
                 echo "result=SKIP_NO_SIGNATURE" >> "${TW}/result.log"
                 S=$((S+1))
             else
-                echo -e "  [${RED}FAIL${NC}] ${TN} — imza karsilastirilamadi (spike PATH'te yok ya da dut.sig bos; yalniz tohost ile SKIP icin ARCH_ALLOW_NO_SPIKE=1)"
+                echo -e "  [${RED}FAIL${NC}] ${TN}: signature could not be compared (Spike is not on PATH or dut.sig is empty; set ARCH_ALLOW_NO_SPIKE=1 to accept tohost only)"
                 echo "result=FAIL_NO_SIGNATURE" >> "${TW}/result.log"
-                F=$((F+1)); FL="${FL}\n  ${TN}(imza yok)"
+                F=$((F+1)); FL="${FL}\n  ${TN} (no signature)"
             fi
         elif [ -n "${TOH_V}" ] && [ "${TOH_V}" != "0x00000000" ]; then
-            echo -e "  [${RED}FAIL${NC}] ${TN} — imza uyusmuyor (${SIGDIFF})"
+            echo -e "  [${RED}FAIL${NC}] ${TN}: signature differs from Spike (${SIGDIFF})"
             echo "result=FAIL_SIGNATURE" >> "${TW}/result.log"
-            F=$((F+1)); FL="${FL}\n  ${TN}(imza)"
+            F=$((F+1)); FL="${FL}\n  ${TN} (signature)"
         else
-            echo -e "  [${RED}FAIL${NC}] ${TN} — test sonuna ulasmadi (${PC} instr, tohost=${TOH_V:-yok})"
+            echo -e "  [${RED}FAIL${NC}] ${TN}: did not reach the end of the test (${PC} instructions, tohost=${TOH_V:-none})"
             echo "result=FAIL_HALT" >> "${TW}/result.log"
-            F=$((F+1)); FL="${FL}\n  ${TN}(halt)"
+            F=$((F+1)); FL="${FL}\n  ${TN} (did not finish)"
         fi
     done
 done
@@ -241,13 +242,13 @@ done
 SUMMARY="${LOG_ROOT}/summary.txt"
 {
     echo "================================================"
-    echo " riscv-arch-test ozeti — $(date)"
+    echo " riscv-arch-test summary, $(date)"
     echo "================================================"
-    printf "  PASS:%-3d  FAIL:%-3d  SKIP:%-3d  BILINEN_FARK:%-3d  TOPLAM:%-3d\n" "$P" "$F" "$S" "$K" "$T"
-    [ "${F}" -gt 0 ] && echo -e "  Basarisiz:${FL}"
-    [ "${K}" -gt 0 ] && echo -e "  Bilinen fark (verif/arch_tests/known_diffs.txt):${KL}"
+    printf "  PASS:%-3d  FAIL:%-3d  SKIP:%-3d  KNOWN_DIFF:%-3d  TOTAL:%-3d\n" "$P" "$F" "$S" "$K" "$T"
+    [ "${F}" -gt 0 ] && echo -e "  Failed:${FL}"
+    [ "${K}" -gt 0 ] && echo -e "  Known differences (explained in verif/arch_tests/known_diffs.txt):${KL}"
     echo "================================================"
 } | tee "${SUMMARY}"
 
-[ "${T}" -eq 0 ] && { echo "HATA: hic test bulunamadi (verif/arch_tests/suite eksik mi?)"; exit 1; }
+[ "${T}" -eq 0 ] && { echo "ERROR: no tests found (is verif/arch_tests/suite missing?)"; exit 1; }
 exit ${F}

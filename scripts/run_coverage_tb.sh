@@ -27,30 +27,30 @@ boot:axi_sram_wrapper.sv:obj_dir_boot"
 
 REPORT="$PROJ/verif/coverage_tb_summary.txt"
 {
-  echo "BLogic MCU - testbench bazli modul kapsamasi (make coverage-tb)"
-  echo "tarih     : $(date +%Y-%m-%d)"
+  echo "BLogic MCU - line coverage per module from the block testbenches (make coverage-tb)"
+  echo "date      : $(date +%Y-%m-%d)"
   echo "verilator : $(verilator --version 2>/dev/null | head -1)"
-  echo "olcum     : her TB kendi top modulu ile kosar; hedef modulun satir kapsamasi"
+  echo "method    : each testbench runs with its own top module; line coverage of the module under test"
   echo "------------------------------------------------------------"
-  printf "%-14s %-24s %8s %8s %7s\n" "TB" "HEDEF MODUL" "KAPSANAN" "TOPLAM" "ORAN"
+  printf "%-14s %-24s %8s %8s %7s\n" "TB" "MODULE" "COVERED" "TOTAL" "PERCENT"
 } > "$REPORT"
 
 for E in $TBS; do
     TB=${E%%:*}; REST=${E#*:}; MOD=${REST%%:*}; MD=${REST#*:}
-    echo ">>> tb: $TB (hedef: $MOD)"
+    echo ">>> Testbench $TB (module under test: $MOD)"
     rm -f "$MD/coverage.dat" coverage.dat
     if ! make $TB TBCOV="--coverage-line verif/coverage_waivers.vlt" \
          >"logs/coverage/tb/${TB}.log" 2>&1; then
-        echo "    ATLANDI - bkz: logs/coverage/tb/${TB}.log"
-        printf "%-14s %-24s %8s %8s %7s\n" "$TB" "$MOD" "-" "-" "ATLANDI" >> "$REPORT"
+        echo "    SKIPPED (log: logs/coverage/tb/${TB}.log)"
+        printf "%-14s %-24s %8s %8s %7s\n" "$TB" "$MOD" "-" "-" "SKIPPED" >> "$REPORT"
         continue
     fi
     CD=""
     [ -f "$MD/coverage.dat" ] && CD="$MD/coverage.dat"
     [ -z "$CD" ] && [ -f coverage.dat ] && CD=coverage.dat
     if [ -z "$CD" ]; then
-        echo "    coverage.dat yok - atlandi"
-        printf "%-14s %-24s %8s %8s %7s\n" "$TB" "$MOD" "-" "-" "VERI YOK" >> "$REPORT"
+        echo "    no coverage.dat, skipped"
+        printf "%-14s %-24s %8s %8s %7s\n" "$TB" "$MOD" "-" "-" "NO DATA" >> "$REPORT"
         continue
     fi
     mv "$CD" "logs/coverage/tb/${TB}.dat"
@@ -67,15 +67,15 @@ for E in $TBS; do
             echo "    $MOD: $COV/$TOT (%$PCT)"
             printf "%-14s %-24s %8s %8s %6s%%\n" "$TB" "$MOD" "$COV" "$TOT" "$PCT" >> "$REPORT"
         else
-            printf "%-14s %-24s %8s %8s %7s\n" "$TB" "$MOD" "-" "-" "OLCULMEDI" >> "$REPORT"
+            printf "%-14s %-24s %8s %8s %7s\n" "$TB" "$MOD" "-" "-" "NOT MEASURED" >> "$REPORT"
         fi
     else
-        echo "    $MOD annotate'te yok"
-        printf "%-14s %-24s %8s %8s %7s\n" "$TB" "$MOD" "-" "-" "YOK" >> "$REPORT"
+        echo "    $MOD is not in the annotated output"
+        printf "%-14s %-24s %8s %8s %7s\n" "$TB" "$MOD" "-" "-" "NONE" >> "$REPORT"
     fi
 done
 
 echo ""
 cat "$REPORT"
 echo ""
-echo "Rapor: verif/coverage_tb_summary.txt"
+echo "Report: verif/coverage_tb_summary.txt"

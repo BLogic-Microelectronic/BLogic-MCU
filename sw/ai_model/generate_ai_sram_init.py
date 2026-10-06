@@ -34,26 +34,26 @@ words = [0] * AI_SRAM_WORDS
 
 def load_hex(path):
     if not os.path.exists(path):
-        sys.exit(f"Bulunamadi: {path}\nOnce 'extract_weights.py' ve 'generate_golden.py' kosulmus olmali.")
+        sys.exit(f"Not found: {path}\nRun 'extract_weights.py' and 'generate_golden.py' first.")
     with open(path) as f:
         return [int(line.strip(), 16) for line in f if line.strip()]
 
 
 def place(label, byte_off, hex_path):
     if byte_off % 4 != 0:
-        sys.exit(f"{label}: ofset 0x{byte_off:04X} 4'e bolunmuyor")
+        sys.exit(f"{label}: offset 0x{byte_off:04X} is not a multiple of 4")
     word_off = byte_off // 4
     src = load_hex(hex_path)
     end_word = word_off + len(src)
     if end_word > AI_SRAM_WORDS:
-        sys.exit(f"{label}: AI SRAM'e sigmiyor ({end_word} > {AI_SRAM_WORDS})")
+        sys.exit(f"{label}: does not fit in the AI SRAM ({end_word} > {AI_SRAM_WORDS})")
     for i, w in enumerate(src):
         words[word_off + i] = w
     print(f"  {label:14s} @0x{byte_off:04X} (word {word_off:4d}..{end_word-1:4d}, {len(src)*4} byte)  <- {os.path.basename(hex_path)}")
 
 
 print(f"AI SRAM preload ({AI_SRAM_BYTES} byte = {AI_SRAM_WORDS} word):")
-print(f"  Test senaryosu  : {TEST_SCENARIO}")
+print(f"  Test scenario   : {TEST_SCENARIO}")
 print()
 
 place("input",     INPUT_OFF,     os.path.join(GOLDEN_DIR, f"input_{TEST_SCENARIO}.hex"))
@@ -73,7 +73,7 @@ expected_argmax = {"silence": 0, "unknown": 1, "yes": 2, "no": 3,
                    "yes_real": 2, "no_real": 3}[TEST_SCENARIO]
 
 print()
-print(f"Yazildi: {OUT_FILE}")
-print(f"  Boyut    : {os.path.getsize(OUT_FILE)} byte")
-print(f"  Satir    : {AI_SRAM_WORDS}")
-print(f"  Beklenen : argmax={expected_argmax} ({TEST_SCENARIO})")
+print(f"Written: {OUT_FILE}")
+print(f"  Size     : {os.path.getsize(OUT_FILE)} byte")
+print(f"  Lines    : {AI_SRAM_WORDS}")
+print(f"  Expected : argmax={expected_argmax} ({TEST_SCENARIO})")

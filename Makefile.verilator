@@ -38,6 +38,8 @@ LINKER_SCRIPT = $(SW_DIR)/common/link.ld
 STARTUP      = $(SW_DIR)/common/crt0.S
 
 FW_SRC       ?= $(SW_DIR)/tests/uart_hello.c
+# MEM_TRACE=1: also write every CPU load and store to <logs>/mem_trace.log (large)
+MEM_TRACE    ?= 0
 # Ek sim plusarg'lari (orn. +SWEEP=434,50,5208)
 SIM_PLUSARGS ?=
 TEST_NAME    := $(basename $(notdir $(FW_SRC)))
@@ -70,15 +72,15 @@ all: sim
 
 help:
 	@echo "═══════════════════════════════════════════"
-	@echo " BLogic MCU - Build Hedefleri"
+	@echo " BLogic MCU - simulation build targets (Makefile.verilator)"
 	@echo "═══════════════════════════════════════════"
-	@echo "  sw       - Yazilimi derle"
-	@echo "  verilate - Verilator ile RTL derle"
-	@echo "  sim      - Tam simulasyon"
+	@echo "  sw       - build the program"
+	@echo "  verilate - build the Verilator model of the SoC"
+	@echo "  sim      - build both and run the simulation"
 	@echo "  sim TRACE=1 / COVERAGE=1"
 	@echo "  sim FW_SRC=sw/tests/gpio_led_test.c"
 	@echo "  clean / logs-clean"
-	@echo " Loglar: logs/  (yapi icin logs/README.md)"
+	@echo " Logs: logs/ (layout described in logs/README.md)"
 
 logs-prep:
 	@mkdir -p $(LOG_BUILD) $(SIM_LOG_DIR)
@@ -97,7 +99,7 @@ FORCE:
 
 $(BUILD_DIR)/test.elf: $(STARTUP) $(FW_SRC) $(LINKER_SCRIPT) $(BUILD_DIR)/fw_src.stamp | logs-prep
 	@mkdir -p $(BUILD_DIR)
-	@echo "[SW] gcc ($(TEST_NAME)) -> $@"
+	@echo "[SW] Compiling $(FW_SRC) -> $@"
 	@$(RV_GCC) $(RV_CFLAGS) -T $(LINKER_SCRIPT) $(STARTUP) $(FW_SRC) -o $@ \
 	    2>&1 | tee $(LOG_BUILD)/sw_build.log
 	@# link.ld .srodata/.sdata/.sbss toplamazsa sessizce kaybolur (9 Agu 2026)
@@ -118,34 +120,37 @@ $(BUILD_DIR)/data_mem.hex: $(BUILD_DIR)/test.elf
 verilate: $(SIM_EXE)
 
 $(SIM_EXE): $(SOC_FILES) $(SIM_MAIN) | logs-prep
-	@echo "[VLT] Verilator -> $(LOG_BUILD)/verilator_build.log"
+	@echo "[VLT] Converting the RTL to C++ with Verilator (log: $(LOG_BUILD)/verilator_build.log)"
 	@$(VERILATOR) $(VERILATOR_FLAGS) $(VLT_EXTRA) --Mdir $(OBJ_DIR) -f $(SOC_FILES) --exe $(SIM_MAIN) -o blogic_sim \
 	    2>&1 | tee $(LOG_BUILD)/verilator_build.log
-	@echo "[VLT] C++ derleniyor..."
+	@echo "[VLT] Compiling the C++ model..."
 	@make -C $(OBJ_DIR) -f V$(TOP_MODULE).mk blogic_sim -j$$(nproc) \
 	    2>&1 | tee -a $(LOG_BUILD)/verilator_build.log
 
 sim: $(BUILD_DIR)/instr_mem.hex $(BUILD_DIR)/data_mem.hex $(SIM_EXE)
 	@mkdir -p $(SIM_LOG_DIR)
-	@rm -f $(SIM_LOG_DIR)/result.log $(SIM_LOG_DIR)/diag.log
+	@rm -f $(SIM_LOG_DIR)/result.log $(SIM_LOG_DIR)/diag.log $(SIM_LOG_DIR)/report.txt \
+	      $(SIM_LOG_DIR)/bus_trace.log $(SIM_LOG_DIR)/bus_summary.tsv $(SIM_LOG_DIR)/mem_trace.log
 	@echo ""
-	@echo "═══ Sim: $(TEST_NAME) (logs: $(SIM_LOG_DIR)) ═══"
+	@echo "═══ Simulation: $(TEST_NAME) (logs: $(SIM_LOG_DIR)) ═══"
 	@mkdir -p $(OBJ_DIR)
 	@cp $(BUILD_DIR)/instr_mem.hex $(OBJ_DIR)/firmware.hex
 	@cp $(BUILD_DIR)/data_mem.hex  $(OBJ_DIR)/data_mem.hex
 	@if [ -f sw/ai_model/golden_vectors/ai_sram_init.hex ]; then cp sw/ai_model/golden_vectors/ai_sram_init.hex $(OBJ_DIR)/ai_sram_init.hex; fi
-	@cd $(OBJ_DIR) && ./blogic_sim +CPB=434 $(SIM_PLUSARGS) +TEST_NAME=$(TEST_NAME) +LOGDIR=$(SIM_LOG_DIR) \
+	@cd $(OBJ_DIR) && ./blogic_sim +CPB=434 +MEM_TRACE=$(MEM_TRACE) $(SIM_PLUSARGS) +TEST_NAME=$(TEST_NAME) +LOGDIR=$(SIM_LOG_DIR) \
 	    2>&1 | tee $(SIM_LOG_DIR)/stdout.log
 	@echo ""
-	@echo "[SIM] Karar:" && grep "^result=" $(SIM_LOG_DIR)/result.log
+	@python3 scripts/test_report.py $(TEST_NAME) $(SIM_LOG_DIR) --fw $(FW_SRC) || true
+	@echo ""
+	@echo "[SIM] Result:" && grep "^result=" $(SIM_LOG_DIR)/result.log
 
 clean:
 	rm -rf $(OBJ_DIR) $(BUILD_DIR)
-	@echo "[CLEAN] obj_dir/ ve build/ silindi (loglar duruyor)"
+	@echo "[CLEAN] Removed obj_dir/ and build/ (logs kept)"
 
 logs-clean:
 	rm -rf $(LOG_ROOT)
-	@echo "[CLEAN] logs/ silindi"
+	@echo "[CLEAN] Removed logs/"
 
 # riscv-arch-test icin buyuk bellekli sim; SoC konfigi (8 KB) degismez
 verilate-arch:

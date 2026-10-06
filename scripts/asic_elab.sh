@@ -49,28 +49,28 @@ YS_CMD="yosys -m slang -p \"read_slang --keep-hierarchy -DSYNTHESIS -DBOOTROM_CO
 #   1) AppImage  (LIBRELANE_APPIMAGE ya da ~/librelane-devshell-x86_64.AppImage)
 #   2) Nix       (LIBRELANE_SHELL ya da ~/librelane icinde nix-shell)
 if [ -x asic/scripts/run_in_env.sh ] && { command -v librelane >/dev/null 2>&1 || command -v nix >/dev/null 2>&1; }; then
-  echo "[ASIC-ELAB] ortam: asic/environment flake (run_in_env.sh)"
+  echo "[ASIC-ELAB] environment: asic/environment flake (run_in_env.sh)"
   asic/scripts/run_in_env.sh bash -c "cd '$REPO' && $YS_CMD"
 elif [ -x "$APPIMG" ]; then
-  echo "[ASIC-ELAB] ortam: AppImage ($APPIMG)"
+  echo "[ASIC-ELAB] environment: AppImage ($APPIMG)"
   "$APPIMG" bash -c "cd '$REPO' && $YS_CMD"
 elif [ -d "$LL" ] && command -v nix-shell >/dev/null 2>&1; then
-  echo "[ASIC-ELAB] ortam: nix-shell ($LL)"
+  echo "[ASIC-ELAB] environment: nix-shell ($LL)"
   cd "$LL" && nix-shell --run "cd '$REPO' && $YS_CMD"
 else
-  echo "[ASIC-ELAB] HATA: LibreLane bulunamadi."
-  echo "  AppImage icin : LIBRELANE_APPIMAGE=/yol/librelane-devshell-x86_64.AppImage"
-  echo "  Nix icin      : LIBRELANE_SHELL=/yol/librelane  (icinde nix-shell calisir)"
+  echo "[ASIC-ELAB] ERROR: LibreLane was not found."
+  echo "  For AppImage : LIBRELANE_APPIMAGE=/path/librelane-devshell-x86_64.AppImage"
+  echo "  For Nix      : LIBRELANE_SHELL=/path/librelane  (nix-shell runs inside it)"
   exit 2
 fi 2>&1 | tee "$REPO/build/asic/elab.log" | tail -35
 if grep -Fq '$memrd' "$REPO/build/asic/elab.log"; then
-  echo "[ASIC-ELAB] elaborasyon tamam - rapor: build/asic/elab.log"
+  echo "[ASIC-ELAB] elaboration complete, report: build/asic/elab.log"
   L=$(grep -F '$dlatch' "$REPO/build/asic/elab.log" | head -1 || true)
-  [ -n "$L" ] && echo "[ASIC-ELAB] latch bulundu:$L  (Blokaj 6: cv32e40p_sim_clock_gate)"
+  [ -n "$L" ] && echo "[ASIC-ELAB] latch found:$L  (blockage 6: cv32e40p_sim_clock_gate)"
   P=$(grep -F '$print' "$REPO/build/asic/elab.log" | head -1 || true)
-  [ -n "$P" ] && echo "[ASIC-ELAB] UYARI: sentezde display kalintisi:$P"
+  [ -n "$P" ] && echo "[ASIC-ELAB] WARNING: display statement left in synthesis:$P"
   exit 0
 else
-  echo "[ASIC-ELAB] FAIL: elaborasyon ciktisinda bellek hucresi yok"
+  echo "[ASIC-ELAB] FAIL: no memory cell in the elaboration output"
   exit 1
 fi

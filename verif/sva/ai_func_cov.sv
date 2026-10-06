@@ -35,10 +35,8 @@ module ai_func_cov (
         automatic int hit = 0;
         if (n_start) hit++; if (n_busy_r) hit++; if (n_busy_f) hit++;
         if (n_done_r) hit++; if (n_done_f) hit++;
-        $display("=== [FUNC-COV] AI-CSR (%m) ===");
-        $display("  start=%0d busy_r=%0d busy_f=%0d done_r=%0d done_f=%0d",
-                 n_start, n_busy_r, n_busy_f, n_done_r, n_done_f);
-        $display("  bin kapsami : %0d/5", hit);
+        $display("[FUNC-COV] AI-CSR (%m): start=%0d busy rise=%0d busy fall=%0d done rise=%0d done fall=%0d; %0d of 5 bins hit",
+                 n_start, n_busy_r, n_busy_f, n_done_r, n_done_f, hit);
     end
 endmodule
 

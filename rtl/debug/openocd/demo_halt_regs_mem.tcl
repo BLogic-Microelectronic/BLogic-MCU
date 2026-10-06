@@ -44,19 +44,19 @@ wait_halt 5000
 echo "== DEMO: registers =="
 echo [string trimright [reg pc]]
 echo [string trimright [reg a0]]
-echo "-- a0 yaz 0x12345678 --"
+echo "-- write a0 = 0x12345678 --"
 echo [string trimright [reg a0 0x12345678]]
-echo "-- a0 geri oku --"
+echo "-- read a0 back --"
 echo [string trimright [reg a0]]
 
 # --- G-09: donanim tek-adimi (dcsr.step). OpenOCD "step" komutu dcsr.step=1
 # yazip resume eder; cekirdek TEK buyruk sonra debug moduna geri doner.
 # Sikistirilmis buyruk bolgesinde pc +2 ilerler (uart_hello bosta dongusu).
 echo "== DEMO: step =="
-echo "-- step oncesi pc --"
+echo "-- pc before step --"
 echo [string trimright [reg pc]]
 step
-echo "-- step sonrasi pc (2 bayt ilerlemis olmali) --"
+echo "-- pc after step (should have advanced by 2 bytes) --"
 echo [string trimright [reg pc]]
 
 # --- G-09: acik CSR erisimi (abstract komut -> csrr) ---
@@ -73,7 +73,7 @@ echo [string trimright [mdw 0x00021000 2]]
 # --- G-09: blok okuma. OpenOCD 1 sozcukten uzun progbuf okumalarinda
 # abstractauto/autoexec yolunu kullanir (dm_csrs autoexecdata/autoexecprogbuf);
 # tek sozcukluk mdw bu yolu hic uyarmiyordu.
-echo "== DEMO: block memory (8 sozcuk) =="
+echo "== DEMO: block memory (8 words) =="
 for {set i 0} {$i < 8} {incr i} {
     mww [expr {0x00021000 + 4 * $i}] [expr {0xB10C0000 + $i}]
 }
@@ -102,10 +102,10 @@ regexp {0x[0-9a-fA-F]+} $pc_line bp_addr
 echo "-- bp $bp_addr 4 hw --"
 set bp_msg [string trimright [bp $bp_addr 4 hw]]
 if {$bp_msg ne ""} { echo $bp_msg }
-echo "-- resume + wait_halt (tetikleyici bekleniyor) --"
+echo "-- resume + wait_halt (waiting for the trigger) --"
 resume
 wait_halt 5000
-echo "-- breakpoint: pc (bp adresi $bp_addr beklenir) --"
+echo "-- breakpoint: pc (expected: bp address $bp_addr) --"
 echo [string trimright [reg pc]]
 echo "-- rbp $bp_addr --"
 rbp $bp_addr
@@ -113,11 +113,11 @@ rbp $bp_addr
 # --- G-09 (negatif): CV32E40P'de TEK tetikleyici var ve yalniz EXECUTE adres
 # eslesmesini destekler -> veri izleme noktasi (watchpoint) KURULAMAZ.
 # Hata metni belgelenir; demo devam eder (bilinen sinir, README 10.10).
-echo "== DEMO: watchpoint (negatif, veri tetikleyici YOK) =="
+echo "== DEMO: watchpoint (negative test, the core has no data trigger) =="
 if {[catch {wp 0x00021000 4 w} wp_msg]} {
-    echo "-- wp hata (beklenen): $wp_msg --"
+    echo "-- wp rejected (expected): $wp_msg --"
 } else {
-    echo "-- wp kuruldu (beklenmiyordu): $wp_msg --"
+    echo "-- wp accepted (NOT expected): $wp_msg --"
     catch {rwp 0x00021000}
 }
 
@@ -130,14 +130,14 @@ echo "== DEMO: reset halt =="
 echo "-- reset halt (ndmreset + haltreq) --"
 reset halt
 wait_halt 5000
-echo "-- reset vektoru: pc (0x00010000 beklenir) --"
+echo "-- reset vector: pc (expected 0x00010000) --"
 echo [string trimright [reg pc]]
-echo "-- resume, 300 ms kos (firmware bastan), halt --"
+echo "-- resume, run 300 ms (firmware restarts), halt --"
 resume
 sleep 300
 halt
 wait_halt 5000
-echo "-- firmware yeniden kosuyor: pc (0x0001xxxx beklenir) --"
+echo "-- firmware running again: pc (expected 0x0001xxxx) --"
 echo [string trimright [reg pc]]
 
 # --- G-09: haltreq'siz ndmreset ("reset run"): cekirdek resetten sonra
@@ -152,7 +152,7 @@ reset run
 sleep 2000
 halt
 wait_halt 5000
-echo "-- reset run sonrasi pc (0x0001xxxx beklenir) --"
+echo "-- pc after reset run (expected 0x0001xxxx) --"
 echo [string trimright [reg pc]]
 
 echo "== DEMO: done =="

@@ -17,14 +17,14 @@ except ImportError:
     try:
         from tflite_runtime.interpreter import Interpreter
     except ImportError:
-        sys.exit("tensorflow veya tflite-runtime kurulu degil.")
+        sys.exit("Neither tensorflow nor tflite-runtime is installed.")
 
 MODEL  = "sw/ai_model/micro_speech_quantized.tflite"
 OUTDIR = "sw/ai_model/golden_vectors"
 os.makedirs(OUTDIR, exist_ok=True)
 
 if not os.path.exists(MODEL):
-    sys.exit(f"Model bulunamadi: {MODEL}")
+    sys.exit(f"Model not found: {MODEL}")
 
 interp = Interpreter(MODEL)
 interp.allocate_tensors()
@@ -35,7 +35,7 @@ def get_t(name):
     for t in interp.get_tensor_details():
         if t['name'] == name:
             return t
-    raise KeyError(f"Tensor bulunamadi: {name}")
+    raise KeyError(f"Tensor not found: {name}")
 
 
 input_t     = get_t("Reshape_1")                          # int8, [1,1960]
@@ -175,7 +175,7 @@ with open(os.path.join(OUTDIR, "quant_params.h"), 'w') as f:
 
 # rapor yazdir
 print("\n" + "=" * 60)
-print("KUANTIZASYON PARAMETRELERI")
+print("QUANTIZATION PARAMETERS")
 print("=" * 60)
 print(f"input_scale     = {input_scale:.6e}    input_zp     = {int(input_zp)}")
 print(f"conv_out_scale  = {conv_out_scale:.6e}    conv_out_zp  = {int(conv_out_zp)}")
@@ -194,14 +194,14 @@ print(f"M_fc_q31   = 0x{M_fc_q31 & 0xFFFFFFFF:08X}")
 print(f"shift_fc   = {shift_fc}")
 
 print("\n" + "=" * 60)
-print("YAZILAN DOSYALAR")
+print("WRITTEN FILES")
 print("=" * 60)
 for fn in sorted(os.listdir(OUTDIR)):
     p = os.path.join(OUTDIR, fn)
     if os.path.isfile(p):
         print(f"  {fn:30s} {os.path.getsize(p):>7d} bytes")
 
-print("\nSatir sayilari (RTL kontrolu icin):")
+print("\nLine counts (for the RTL check):")
 for fn in ["weights_conv.hex", "bias_conv.hex",
            "weights_fc.hex",   "bias_fc.hex",
            "quant_params.hex"]:
@@ -211,5 +211,5 @@ for fn in ["weights_conv.hex", "bias_conv.hex",
     expected = {"weights_conv.hex": 160, "bias_conv.hex": 8,
                 "weights_fc.hex": 4000, "bias_fc.hex": 4,
                 "quant_params.hex": 21}
-    tag = "OK" if lines == expected[fn] else f"BEKLENEN {expected[fn]}"
-    print(f"  {fn:25s} {lines:>5d} satir   [{tag}]")
+    tag = "OK" if lines == expected[fn] else f"EXPECTED {expected[fn]}"
+    print(f"  {fn:25s} {lines:>5d} lines   [{tag}]")

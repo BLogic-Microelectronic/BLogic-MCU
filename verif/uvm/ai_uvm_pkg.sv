@@ -134,7 +134,7 @@ package ai_uvm_pkg;
                             rw -> (addr != 32'h04);
                             (rw && addr == 32'h00) -> (data[0] == 1'b0);
                         }) begin
-                        `uvm_error("SEQ", "Randomization basarisiz (SMT cozucu z3 PATH'te mi?) - constrained-random kosmadi")
+                        `uvm_error("SEQ", "Randomization failed (is the SMT solver z3 on PATH?); constrained-random stimulus did not run")
                     end
                     finish_item(txn);
                     if (txn.rw) begin n_wr++; wr_at[txn.addr[4:2]]++; end
@@ -146,17 +146,17 @@ package ai_uvm_pkg;
                 end
             end
             `uvm_info("SEQ", $sformatf(
-                "rastgele CSR trafigi: %0d WR, %0d RD | ofset W/R: 00=%0d/%0d 04=%0d/%0d 08=%0d/%0d 0C=%0d/%0d 10=%0d/%0d 14=%0d/%0d 18=%0d/%0d 1C=%0d/%0d",
+                "random CSR traffic: %0d WR, %0d RD | offset W/R: 00=%0d/%0d 04=%0d/%0d 08=%0d/%0d 0C=%0d/%0d 10=%0d/%0d 14=%0d/%0d 18=%0d/%0d 1C=%0d/%0d",
                 n_wr, n_rd, wr_at[0], rd_at[0], wr_at[1], rd_at[1], wr_at[2], rd_at[2],
                 wr_at[3], rd_at[3], wr_at[4], rd_at[4], wr_at[5], rd_at[5],
                 wr_at[6], rd_at[6], wr_at[7], rd_at[7]), UVM_LOW)
             for (int k = 0; k < 8; k++)
                 if (wr_at[k] + rd_at[k] == 0)
-                    `uvm_error("SEQ", $sformatf("kapsama: ofset 0x%02h hic erisilmedi", k*4))
-            if (wr_at[0] == 0) `uvm_error("SEQ", "kapsama: CTRL'e (CLEAR_DONE yolu) hic yazilmadi")
-            if (wr_at[2] == 0) `uvm_error("SEQ", "kapsama: DATA_ADDR'a hic yazilmadi")
-            if (wr_at[3] == 0) `uvm_error("SEQ", "kapsama: OUT_ADDR'a hic yazilmadi")
-            if (rd_at[1] == 0) `uvm_error("SEQ", "kapsama: STATUS hic okunmadi")
+                    `uvm_error("SEQ", $sformatf("coverage: offset 0x%02h was never accessed", k*4))
+            if (wr_at[0] == 0) `uvm_error("SEQ", "coverage: CTRL was never written (CLEAR_DONE path)")
+            if (wr_at[2] == 0) `uvm_error("SEQ", "coverage: DATA_ADDR was never written")
+            if (wr_at[3] == 0) `uvm_error("SEQ", "coverage: OUT_ADDR was never written")
+            if (rd_at[1] == 0) `uvm_error("SEQ", "coverage: STATUS was never read")
         endtask
     endclass
 
@@ -179,7 +179,7 @@ package ai_uvm_pkg;
             uvm_config_db #(uvm_active_passive_enum)::set(
                 this, "env.agent", "is_active", UVM_ACTIVE);
             if (!uvm_config_db #(virtual ai_side_if)::get(this, "", "ai_vif", side))
-                `uvm_fatal("NOVIF", "ai_side_if bulunamadi")
+                `uvm_fatal("NOVIF", "ai_side_if not found")
         endfunction
 
         // irq_o yukselene kadar bekle (cevrim sinirli)
@@ -213,41 +213,41 @@ package ai_uvm_pkg;
             rd(32'h04, st);
             if (st[0] !== 1'b1 || side.busy !== 1'b1)
                 `uvm_error(get_type_name(), $sformatf(
-                    "START sonrasi BUSY yok: STATUS=0x%08h busy_o=%0b", st, side.busy))
+                    "BUSY not set after START: STATUS=0x%08h busy_o=%0b", st, side.busy))
 
             wait_irq(seen, cyc);
             if (!seen) begin
-                `uvm_error(get_type_name(), $sformatf("irq_o %0d cevrimde gelmedi", IRQ_TIMEOUT))
+                `uvm_error(get_type_name(), $sformatf("irq_o not asserted within %0d cycles", IRQ_TIMEOUT))
                 return;
             end
             settle();
-            `uvm_info(get_type_name(), $sformatf("irq_o geldi (START'tan ~%0d cevrim)", cyc), UVM_LOW)
+            `uvm_info(get_type_name(), $sformatf("irq_o asserted (~%0d cycles after START)", cyc), UVM_LOW)
 
             rd(32'h04, st);
             res = st[7:4];
             check_eq("STATUS.DONE/BUSY", {30'h0, st[1], st[0]}, 32'h2);
-            check_eq("STATUS.RESULT (argmax, altin model)", res, side.expected_argmax);
-            check_eq("sonuc sozcugu adresi (AXI4 son yazma)", side.last_wr_addr, out_addr);
-            check_eq("sonuc sozcugu verisi", side.last_wr_data, res);
-            check_eq("conv_out altin farki (1000 sozcuk)", side.conv_errors, 0);
-            check_eq("tamamlanan cikarim sayisi", side.done_count, exp_done);
+            check_eq("STATUS.RESULT (argmax, golden model)", res, side.expected_argmax);
+            check_eq("result word address (last AXI4 write)", side.last_wr_addr, out_addr);
+            check_eq("result word data", side.last_wr_data, res);
+            check_eq("conv_out mismatches vs golden (1000 words)", side.conv_errors, 0);
+            check_eq("completed inference count", side.done_count, exp_done);
             // conv_out penceresi cikarimlar arasinda silinmez: geri yazmayi atlayan bir
             // cikarim onceki dogru sozcuklerle conv_out denetimini gecerdi. Sayim yakalar.
-            check_eq("cikarim AXI4 yazma sozcugu (1000 conv_out + 1 sonuc)", side.wr_beats - wr0, 32'd1001);
+            check_eq("inference AXI4 write words (1000 conv_out + 1 result)", side.wr_beats - wr0, 32'd1001);
 
             wr(32'h00, 32'h2);                       // CLEAR_DONE
             settle();
             rd(32'h04, st);
-            check_eq("CLEAR_DONE sonrasi DONE", {31'h0, st[1]}, 32'h0);
-            check_eq("CLEAR_DONE sonrasi irq_o", {31'h0, side.irq}, 32'h0);
+            check_eq("DONE after CLEAR_DONE", {31'h0, st[1]}, 32'h0);
+            check_eq("irq_o after CLEAR_DONE", {31'h0, side.irq}, 32'h0);
         endtask
 
         function void report_phase(uvm_phase phase);
             `uvm_info("AI_RPT", $sformatf(
-                "AXI4 master: %0d okuma, %0d yazma sozcugu; sozlesme ihlali %0d, pencere disi %0d",
+                "AXI4 master: %0d read words, %0d write words; contract violations %0d, out of window %0d",
                 side.rd_beats, side.wr_beats, side.axi4_errs, side.oob_errs), UVM_LOW)
             if (side.axi4_errs != 0 || side.oob_errs != 0)
-                `uvm_error("AI_RPT", "AXI4 master sozlesmesi ihlal edildi")
+                `uvm_error("AI_RPT", "AXI4 master contract violated")
         endfunction
     endclass
 
@@ -279,12 +279,12 @@ package ai_uvm_pkg;
             wr(32'h0C, 32'h1234_5678); rd(32'h0C, v); check_eq("OUT_ADDR readback", v, 32'h1234_5678);
 
             // 3) Haritasiz ofsetler: yazma etkisiz, okuma 0; CTRL okunur 0
-            wr(32'h10, 32'hFFFF_FFFF); rd(32'h10, v); check_eq("0x10 haritasiz", v, 32'h0);
-            wr(32'h1C, 32'hFFFF_FFFF); rd(32'h1C, v); check_eq("0x1C haritasiz", v, 32'h0);
-            rd(32'h04, v); check_eq("haritasiz yazma sonrasi STATUS", v, 32'h0);
+            wr(32'h10, 32'hFFFF_FFFF); rd(32'h10, v); check_eq("0x10 unmapped", v, 32'h0);
+            wr(32'h1C, 32'hFFFF_FFFF); rd(32'h1C, v); check_eq("0x1C unmapped", v, 32'h0);
+            rd(32'h04, v); check_eq("STATUS after unmapped writes", v, 32'h0);
             wr(32'h00, 32'h2);          // DONE yokken CLEAR_DONE: etkisiz
-            rd(32'h04, v); check_eq("bosta CLEAR_DONE sonrasi STATUS", v, 32'h0);
-            check_eq("START oncesi irq_o", {31'h0, side.irq}, 32'h0);
+            rd(32'h04, v); check_eq("STATUS after CLEAR_DONE while idle", v, 32'h0);
+            check_eq("irq_o before START", {31'h0, side.irq}, 32'h0);
 
             // 4) Cikarim #1 (varsayilan sonuc adresi)
             run_inference(AI_OUT_DEF, 1);
@@ -295,22 +295,22 @@ package ai_uvm_pkg;
             wr0 = side.wr_beats;
             wr(32'h00, 32'h1);                       // START
             wr(32'h00, 32'h1);                       // mesgulken START: RTL !status_busy ile dislar
-            rd(32'h00, v); check_eq("CTRL okuma (mesgul)", v, 32'h0);
+            rd(32'h00, v); check_eq("CTRL read (busy)", v, 32'h0);
             wait_irq(seen, cyc);
             settle();
             rd(32'h04, v);
-            check_eq("cikarim #2 STATUS.RESULT", v[7:4], side.expected_argmax);
-            check_eq("cikarim #2 sonuc adresi", side.last_wr_addr, 32'h0003_7F00);
-            check_eq("cikarim #2 conv_out farki", side.conv_errors, 0);
-            check_eq("cikarim #2 AXI4 yazma sozcugu (1000 conv_out + 1 sonuc)", side.wr_beats - wr0, 32'd1001);
+            check_eq("inference #2 STATUS.RESULT", v[7:4], side.expected_argmax);
+            check_eq("inference #2 result address", side.last_wr_addr, 32'h0003_7F00);
+            check_eq("inference #2 conv_out mismatches", side.conv_errors, 0);
+            check_eq("inference #2 AXI4 write words (1000 conv_out + 1 result)", side.wr_beats - wr0, 32'd1001);
             wr(32'h00, 32'h2);
             // mesgulken START ikinci bir cikarim baslatmis olsaydi bir cikarim
             // suresi icinde ucuncu DONE gelirdi: 1,5 cikarim suresi bekle
             `uvm_info(get_type_name(), $sformatf(
-                "mesgulken START denetimi: %0d cevrim ek bekleme", cyc + cyc/2), UVM_LOW)
+                "START while busy check: waiting %0d extra cycles", cyc + cyc/2), UVM_LOW)
             repeat (cyc + cyc/2) @(posedge side.clk);
-            check_eq("mesgulken START yok sayildi (DONE sayisi)", side.done_count, 2);
-            check_eq("son durumda irq_o", {31'h0, side.irq}, 32'h0);
+            check_eq("START while busy ignored (DONE count)", side.done_count, 2);
+            check_eq("irq_o in final state", {31'h0, side.irq}, 32'h0);
 
             #100;
             phase.drop_objection(this, "ai_directed_test");
@@ -334,7 +334,7 @@ package ai_uvm_pkg;
             seq = ai_csr_random_seq::type_id::create("seq");
             seq.num_txns = 80;
             seq.start(env.agent.sequencer);
-            check_eq("rastgele trafik START uretmedi (DONE sayisi)", side.done_count, 0);
+            check_eq("random traffic issued no START (DONE count)", side.done_count, 0);
 
             // rastgele DATA_ADDR/OUT_ADDR degerlerinden sonra gecerli ayarla cikarim
             run_inference(AI_OUT_DEF, 1);

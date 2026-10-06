@@ -1,1 +1,1 @@
-[QSPI-ERR] gecen=25 kalan=0  SONUC: PASS
+[QSPI-ERR] passed=25 failed=0  RESULT: PASS

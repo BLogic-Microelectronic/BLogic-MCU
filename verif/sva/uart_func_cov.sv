@@ -51,7 +51,7 @@ module uart_func_cov (
                 ac_checks++;
                 if (cfg_tx_en !== 1'b0) begin
                     ac_fails++;
-                    $error("[FUNC-COV][UART] auto-clear ihlali: tx_done sonrasi CFG[0]=%b", cfg_tx_en);
+                    $error("[FUNC-COV][UART] auto-clear violation: CFG[0]=%b after tx_done", cfg_tx_en);
                 end
             end
         end
@@ -62,12 +62,9 @@ module uart_func_cov (
         if (cpb_434) hit++; if (cpb_50) hit++; if (cpb_5208) hit++;
         if (stp_cnt[0]) hit++; if (stp_cnt[1]) hit++;
         if (stp_cnt[2]) hit++; if (stp_cnt[3]) hit++;
-        $display("=== [FUNC-COV] UART (%m) ===");
-        $display("  TX start    : %0d", tx_starts);
-        $display("  CPB binleri : 434=%0d 50=%0d 5208=%0d diger=%0d", cpb_434, cpb_50, cpb_5208, cpb_other);
-        $display("  STP binleri : 00=%0d 01=%0d 10=%0d 11=%0d", stp_cnt[0], stp_cnt[1], stp_cnt[2], stp_cnt[3]);
-        $display("  auto-clear  : %0d kontrol, %0d ihlal", ac_checks, ac_fails);
-        $display("  bin kapsami : %0d/7", hit);
+        $display("[FUNC-COV] UART (%m): %0d transmissions; clocks-per-bit bins 434=%0d 50=%0d 5208=%0d other=%0d; stop-bit bins 00=%0d 01=%0d 10=%0d 11=%0d; TX-start auto-clear %0d checks, %0d violations; %0d of 7 bins hit",
+                 tx_starts, cpb_434, cpb_50, cpb_5208, cpb_other,
+                 stp_cnt[0], stp_cnt[1], stp_cnt[2], stp_cnt[3], ac_checks, ac_fails, hit);
     end
 endmodule
 

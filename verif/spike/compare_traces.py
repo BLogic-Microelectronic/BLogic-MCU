@@ -96,60 +96,60 @@ def main():
     ap.add_argument("spike_log")
     ap.add_argument("rtl_log")
     ap.add_argument("--show", type=int, default=0,
-                    help="ilk N kaydi her iki kaynaktan bas ve cik")
+                    help="print the first N records from both sources and exit")
     ap.add_argument("--strict", action="store_true",
-                    help="rd ve mem yazimlarini da kiyasla (RTL rd henuz yok)")
+                    help="also compare rd and memory writes (RTL rd is not logged yet)")
     args = ap.parse_args()
 
     try:
         spike = parse_spike(args.spike_log)
     except FileNotFoundError:
-        print(f"[FAIL] Spike log yok: {args.spike_log}")
+        print(f"[FAIL] Spike log not found: {args.spike_log}")
         return 1
     try:
         rtl = parse_rtl(args.rtl_log)
     except FileNotFoundError:
-        print(f"[FAIL] RTL log yok: {args.rtl_log}")
+        print(f"[FAIL] RTL log not found: {args.rtl_log}")
         return 1
 
-    print(f"[LOCKSTEP] Spike kayit: {len(spike)}, RTL kayit: {len(rtl)}")
+    print(f"[LOCKSTEP] Spike records: {len(spike)}, RTL records: {len(rtl)}")
 
     if args.show:
         n = min(args.show, max(len(spike), len(rtl)))
-        print(f"\n== Spike (ilk {min(n, len(spike))}) ==")
+        print(f"\n== Spike (first {min(n, len(spike))}) ==")
         for r in spike[:n]:
             print(f"  {fmt_spike(r)}")
-        print(f"\n== RTL (ilk {min(n, len(rtl))}) ==")
+        print(f"\n== RTL (first {min(n, len(rtl))}) ==")
         for pc in rtl[:n]:
             print(f"  pc=0x{pc:08x}")
         return 0
 
     if not spike:
-        print("[FAIL] Spike log'undan kayit cikmadi.")
-        print("       Spike `-l --log-commits` ile mi kosturuluyor?")
-        print("       Beklenen satir formati: 'core 0: 3 0xPC (0xINSN) ...'")
+        print("[FAIL] No records were parsed from the Spike log.")
+        print("       Is Spike being run with `-l --log-commits`?")
+        print("       Expected line format: 'core 0: 3 0xPC (0xINSN) ...'")
         return 1
     if not rtl:
-        print("[FAIL] RTL log'undan tek 'RTL_PC: 0x...' satiri yok.")
+        print("[FAIL] The RTL log contains no 'RTL_PC: 0x...' line.")
         return 1
 
     n = min(len(spike), len(rtl))
     for i in range(n):
         s, r_pc = spike[i], rtl[i]
         if s.pc != r_pc:
-            print(f"[FAIL] {i+1}. komutta uyusmazlik")
+            print(f"[FAIL] mismatch at instruction {i+1}")
             print(f"  Spike : 0x{s.pc:08x} (insn 0x{s.insn:08x})")
             print(f"  RTL   : 0x{r_pc:08x}")
             lo = max(0, i - 2); hi = min(n, i + 3)
-            print(f"  --- pencere [{lo}..{hi-1}] ---")
+            print(f"  --- window [{lo}..{hi-1}] ---")
             for j in range(lo, hi):
                 marker = "  >>" if j == i else "    "
                 print(f"  {marker} #{j}: spike=0x{spike[j].pc:08x}  rtl=0x{rtl[j]:08x}")
             return 1
 
-    print(f"[PASS] {n} komutluk PC dizisi eslesti")
+    print(f"[PASS] PC sequence of {n} instructions matches")
     if len(spike) != len(rtl):
-        print(f"[UYARI] iz uzunluklari farkli (spike={len(spike)} rtl={len(rtl)}); ilk {n} kiyaslandi")
+        print(f"[WARNING] trace lengths differ (spike={len(spike)} rtl={len(rtl)}); the first {n} were compared")
     return 0
 
 

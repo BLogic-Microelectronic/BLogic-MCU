@@ -13,12 +13,12 @@ import struct
 
 def main():
     if len(sys.argv) < 3:
-        print("Kullanım: python3 elf2hex.py <input.bin> <output.hex> [base_addr] [mem_size]")
+        print("Usage: python3 elf2hex.py <input.bin> <output.hex> [base_addr] [mem_size]")
         print("")
-        print("Basit mod (tüm dosyayı word'lere böl):")
+        print("Simple mode (split the whole file into words):")
         print("  python3 elf2hex.py build/test.bin build/test_mem.hex")
         print("")
-        print("Gelişmiş mod (belirli adres aralığını çıkar):")
+        print("Advanced mode (extract a given address range):")
         print("  python3 elf2hex.py build/test.bin build/instr.hex 0x10000 8192")
         sys.exit(1)
 
@@ -30,7 +30,7 @@ def main():
     with open(in_file, 'rb') as f:
         data = f.read()
 
-    print(f"Girdi: {in_file} ({len(data)} bytes)")
+    print(f"Input: {in_file} ({len(data)} bytes)")
 
     if mem_size == 0:
         # basit mod: tüm dosyayı çevir
@@ -41,7 +41,7 @@ def main():
                 chunk = chunk.ljust(4, b'\x00')
                 word = struct.unpack('<I', chunk)[0]
                 f.write(f'{word:08X}\n')
-        print(f"Çıktı: {out_file} ({num_words} words)")
+        print(f"Output: {out_file} ({num_words} words)")
     else:
         # gelişmiş mod: bellek boyutu kadar sıfır doldur
         num_words = mem_size // 4
@@ -55,9 +55,9 @@ def main():
                 else:
                     word = 0
                 f.write(f'{word:08X}\n')
-        print(f"Çıktı: {out_file} ({num_words} words, base=0x{base_addr:08X})")
+        print(f"Output: {out_file} ({num_words} words, base=0x{base_addr:08X})")
 
-    print("Tamamlandı!")
+    print("Done.")
 
 if __name__ == '__main__':
     main()

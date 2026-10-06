@@ -29,7 +29,7 @@ jtag_sim_stale() {
     local bin="$1" newer
     JTAG_SIM_STALE_WHY=""
     if [ ! -x "$bin" ]; then
-        JTAG_SIM_STALE_WHY="$bin yok"
+        JTAG_SIM_STALE_WHY="$bin does not exist"
         return 0
     fi
     newer=$(find soc_files.f Makefile.verilator rtl verif/tb/jtag_openocd_tb.sv \
@@ -41,7 +41,7 @@ jtag_sim_stale() {
                             -o -name 'Makefile.verilator' \) \
                  -newer "$bin" -print 2>/dev/null | head -1)
     if [ -n "$newer" ]; then
-        JTAG_SIM_STALE_WHY="$newer, ikiliden ($(date -r "$bin" '+%Y-%m-%d %H:%M')) yeni"
+        JTAG_SIM_STALE_WHY="$newer is newer than the binary ($(date -r "$bin" '+%Y-%m-%d %H:%M'))"
         return 0
     fi
     return 1

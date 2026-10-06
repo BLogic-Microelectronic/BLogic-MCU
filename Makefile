@@ -43,8 +43,8 @@ uart-baud:
 	    EXTRA_CFLAGS="-DSWEEP_CPB0=434 -DSWEEP_CPB1=50 -DSWEEP_CPB2=5208" \
 	    SIM_PLUSARGS="+SWEEP=434,50,5208"
 	@grep -q "^result=PASS" logs/sim/uart_baud_sweep/result.log \
-	    && echo "[UART-BAUD] PASS (CPB 434/115200 + 50/1Mbps + 5208/9600)" \
-	    || { echo "[UART-BAUD] FAIL"; exit 1; }
+	    && echo "[UART-BAUD] PASS: UART_0 at 115200 baud, 1 Mbps and 9600 baud in one run (log: logs/sim/uart_baud_sweep/)" \
+	    || { echo "[UART-BAUD] FAIL (log: logs/sim/uart_baud_sweep/)"; exit 1; }
 
 # stop-bit 1 / 1.5 / 2 dogrulamasi
 UARTSTP_DIR = obj_dir_uart_stp
@@ -55,10 +55,12 @@ uart-stp:
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
 	    rtl/peripherals/uart_axil.sv rtl/peripherals/uart_tx.v rtl/peripherals/uart_rx.v \
-	    verif/tb/uart_stp_tb.sv verif/sva/uart_func_cov.sv
+	    verif/sva/tb_log_pkg.sv verif/tb/uart_stp_tb.sv verif/sva/uart_func_cov.sv
 	cd $(UARTSTP_DIR) && ./uart_stp_sim 2>&1 | tee uart_stp_run.log
+	@python3 scripts/test_report.py uart-stp $(UARTSTP_DIR) --log $(UARTSTP_DIR)/uart_stp_run.log || true
 	@grep -aq "TEST SUCCESS" $(UARTSTP_DIR)/uart_stp_run.log \
-	    && echo "[UART-STP] PASS (stop 1 / 1.5 / 2)" || { echo "[UART-STP] FAIL"; exit 1; }
+	    && echo "[UART-STP] PASS: 1, 1.5 and 2 stop bits (log: $(UARTSTP_DIR)/uart_stp_run.log)" \
+	    || { echo "[UART-STP] FAIL (log: $(UARTSTP_DIR)/uart_stp_run.log)"; exit 1; }
 
 # UART stream: DMA -> AI SRAM dogrulamasi
 UARTSTRM_DIR = obj_dir_uart_stream
@@ -69,10 +71,12 @@ uart-stream:
 	    -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
 	    -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-MODDUP -Wno-PINMISSING -Wno-UNOPTFLAT \
 	    rtl/peripherals/uart_stream_axil.sv rtl/peripherals/uart_tx.v rtl/peripherals/uart_rx.v \
-	    verif/tb/uart_stream_tb.sv
+	    verif/sva/tb_log_pkg.sv verif/tb/uart_stream_tb.sv
 	cd $(UARTSTRM_DIR) && ./uart_stream_sim 2>&1 | tee uart_stream_run.log
+	@python3 scripts/test_report.py uart-stream $(UARTSTRM_DIR) --log $(UARTSTRM_DIR)/uart_stream_run.log || true
 	@grep -aq "TEST SUCCESS" $(UARTSTRM_DIR)/uart_stream_run.log \
-	    && echo "[UART-STREAM] PASS (DMA A-E 5 senaryo)" || { echo "[UART-STREAM] FAIL"; exit 1; }
+	    && echo "[UART-STREAM] PASS: UART_1 stream DMA into the AI SRAM, 5 scenarios (log: $(UARTSTRM_DIR)/uart_stream_run.log)" \
+	    || { echo "[UART-STREAM] FAIL (log: $(UARTSTRM_DIR)/uart_stream_run.log)"; exit 1; }
 
 # QSPI boot akisi (her kosuda temiz build)
 boot:
@@ -89,25 +93,29 @@ boot:
 	echo "00000000" > $(BOOT_DIR)/data_mem.hex
 	echo "00000000" > $(BOOT_DIR)/ai_sram_init.hex
 	cd $(BOOT_DIR) && ./boot_flow_test_sim 2>&1 | tee boot_run.log
+	@python3 scripts/test_report.py boot $(BOOT_DIR) --log $(BOOT_DIR)/boot_run.log || true
 	@grep -aq "TEST SUCCESS" $(BOOT_DIR)/boot_run.log \
-	    && echo "[BOOT] PASS" || { echo "[BOOT] FAIL"; exit 1; }
+	    && echo "[BOOT] PASS: boot ROM loads the program from QSPI flash and runs it (log: $(BOOT_DIR)/boot_run.log)" \
+	    || { echo "[BOOT] FAIL (log: $(BOOT_DIR)/boot_run.log)"; exit 1; }
 
 # AI hizlandirici standalone TB
 ai:
 	@test -f sw/ai_model/golden_vectors/weights_conv.hex -a -f sw/ai_model/golden_vectors/input_yes.hex -a -f sw/ai_model/golden_vectors/input_yes_real.hex \
-	    || { echo "[AI] golden_vectors eksik - once: python3 sw/ai_model/extract_weights.py && python3 sw/ai_model/generate_golden.py && python3 sw/ai_model/fetch_real_features.py"; exit 1; }
+	    || { echo "[AI] Reference vectors are missing. Generate them first: python3 sw/ai_model/extract_weights.py && python3 sw/ai_model/generate_golden.py && python3 sw/ai_model/fetch_real_features.py"; exit 1; }
 	rm -rf $(AI_DIR)
 	verilator --binary $(TBCOV) -j 0 -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-CASEINCOMPLETE \
 	    --top-module ai_accel_tb -Mdir $(AI_DIR) -o ai_accel_tb_sim \
-	    verif/tb/ai_accel_tb.sv rtl/ai_accelerator/ai_accelerator.sv
-	./$(AI_DIR)/ai_accel_tb_sim 2>&1 | tee $(AI_DIR)/ai_run.log
-	@grep -aq "ADIM E] PASS" $(AI_DIR)/ai_run.log \
-	    && echo "[AI] PASS (6/6 senaryo: 2 gercek ses + 4 sentetik)" || { echo "[AI] FAIL"; exit 1; }
+	    verif/sva/tb_log_pkg.sv verif/tb/ai_accel_tb.sv rtl/ai_accelerator/ai_accelerator.sv
+	./$(AI_DIR)/ai_accel_tb_sim +LOGDIR=$(AI_DIR) 2>&1 | tee $(AI_DIR)/ai_run.log
+	@python3 scripts/test_report.py ai $(AI_DIR) --log $(AI_DIR)/ai_run.log || true
+	@grep -aq "STEP E] PASS" $(AI_DIR)/ai_run.log \
+	    && echo "[AI] PASS: 6 of 6 scenarios (2 recorded audio inputs, 4 synthetic), outputs bit-exact (log: $(AI_DIR)/ai_run.log)" \
+	    || { echo "[AI] FAIL (log: $(AI_DIR)/ai_run.log)"; exit 1; }
 	@if [ -f sw/ai_model/golden_vectors/acc_batch_meta.txt ] && grep -aq "BATCH-39" $(AI_DIR)/ai_run.log; then \
 	    python3 sw/ai_model/run_accuracy_window.py --ingest-rtl $(AI_DIR)/ai_run.log \
-	        || echo "[AI] UYARI: dogruluk raporu guncellenemedi (--ingest-rtl elle deneyin)"; \
+	        || echo "[AI] Warning: the accuracy report could not be updated (run run_accuracy_window.py --ingest-rtl by hand)"; \
 	else \
-	    echo "[AI] not: EK-1 dogruluk raporu icin 'make ai-acc' (uretim+sim+rapor)"; \
+	    echo "[AI] Note: 'make ai-acc' regenerates the inputs, simulates them and writes the accuracy report"; \
 	fi
 
 # dogruluk penceresi: uretim + sim + rapor
@@ -117,31 +125,39 @@ ai-acc:
 
 # SoC seviyesi AI C testi
 soc-ai:
-	rm -rf obj_dir build   # RTL degisince model yeniden derlensin
+	# Rebuild the model, so that RTL changes are picked up.
+	rm -rf obj_dir build
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_micro_speech_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/ai_micro_speech_test/result.log \
-	    && echo "[SOC-AI] PASS" || { echo "[SOC-AI] FAIL"; exit 1; }
+	    && echo "[SOC-AI] PASS: one inference started by the CPU, result read by polling (log: logs/sim/ai_micro_speech_test/)" \
+	    || { echo "[SOC-AI] FAIL (log: logs/sim/ai_micro_speech_test/)"; exit 1; }
 
 # AI kesme (ISR) akisi testi
 soc-ai-irq:
-	rm -rf obj_dir build   # RTL degisince model yeniden derlensin
+	# Rebuild the model, so that RTL changes are picked up.
+	rm -rf obj_dir build
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_irq_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/ai_irq_test/result.log \
-	    && echo "[SOC-AI-IRQ] PASS" || { echo "[SOC-AI-IRQ] FAIL"; exit 1; }
+	    && echo "[SOC-AI-IRQ] PASS: inference completion signalled by interrupt 17, handled in the ISR (log: logs/sim/ai_irq_test/)" \
+	    || { echo "[SOC-AI-IRQ] FAIL (log: logs/sim/ai_irq_test/)"; exit 1; }
 
 # Timer cevre birimi: sayma/reload/prescale + irq16 ISR akisi
 soc-timer:
-	rm -rf obj_dir build   # RTL degisince model yeniden derlensin
+	# Rebuild the model, so that RTL changes are picked up.
+	rm -rf obj_dir build
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/timer_irq_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/timer_irq_test/result.log \
-	    && echo "[SOC-TIMER] PASS" || { echo "[SOC-TIMER] FAIL"; exit 1; }
+	    && echo "[SOC-TIMER] PASS: count, reload, prescaler and interrupt 16 (log: logs/sim/timer_irq_test/)" \
+	    || { echo "[SOC-TIMER] FAIL (log: logs/sim/timer_irq_test/)"; exit 1; }
 
 # UART_1 stream DMA: RX -> bellek + irq18 pulse (covergroup bini)
 soc-strm:
-	rm -rf obj_dir build   # RTL degisince model yeniden derlensin
+	# Rebuild the model, so that RTL changes are picked up.
+	rm -rf obj_dir build
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/uart1_strm_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/uart1_strm_test/result.log \
-	    && echo "[SOC-STRM] PASS" || { echo "[SOC-STRM] FAIL"; exit 1; }
+	    && echo "[SOC-STRM] PASS: UART_1 stream into memory and interrupt 18 (log: logs/sim/uart1_strm_test/)" \
+	    || { echo "[SOC-STRM] FAIL (log: logs/sim/uart1_strm_test/)"; exit 1; }
 
 # bootrom.hex -> sentezlenebilir case icerigi
 bootrom:
@@ -183,8 +199,10 @@ boot-real:
 	echo "00000000" > $(BOOT_DIR)/data_mem.hex
 	echo "00000000" > $(BOOT_DIR)/ai_sram_init.hex
 	cd $(BOOT_DIR) && ./boot_flow_test_sim 2>&1 | tee boot_real_run.log
+	@python3 scripts/test_report.py boot-real $(BOOT_DIR) --log $(BOOT_DIR)/boot_real_run.log || true
 	@grep -aq "TEST SUCCESS" $(BOOT_DIR)/boot_real_run.log \
-	    && echo "[BOOT-REAL] PASS - .rodata flash uzerinden geldi" || { echo "[BOOT-REAL] FAIL"; exit 1; }
+	    && echo "[BOOT-REAL] PASS: a C program boots from flash and its .rodata is copied to the data SRAM (log: $(BOOT_DIR)/boot_real_run.log)" \
+	    || { echo "[BOOT-REAL] FAIL (log: $(BOOT_DIR)/boot_real_run.log)"; exit 1; }
 
 # SRAM makrolarinin TESLIM EDILEN Verilog modelleriyle islevsel dogrulama
 # (DDK Bolum 1.3: zorunlu SRAM makrosu fonksiyonel dogrulamada kullanilmali).
@@ -215,9 +233,10 @@ asic-sram-sim:
 	echo "00000000" > $(BOOT_DIR)_macro/data_mem.hex
 	echo "00000000" > $(BOOT_DIR)_macro/ai_sram_init.hex
 	cd $(BOOT_DIR)_macro && ./boot_flow_macro_sim 2>&1 | grep -vaE 'Reading|Writing' | tee macro_boot_run.log
+	@python3 scripts/test_report.py asic-sram-sim $(BOOT_DIR)_macro --log $(BOOT_DIR)_macro/macro_boot_run.log || true
 	@grep -aq "TEST SUCCESS" $(BOOT_DIR)_macro/macro_boot_run.log \
-	    && echo "[ASIC-SRAM-SIM] PASS - boot + Hello World, icerik teslim edilen OpenRAM modellerinden kostu" \
-	    || { echo "[ASIC-SRAM-SIM] FAIL"; exit 1; }
+	    && echo "[ASIC-SRAM-SIM] PASS: flash boot and Hello World running from the delivered OpenRAM SRAM macro models (log: $(BOOT_DIR)_macro/macro_boot_run.log)" \
+	    || { echo "[ASIC-SRAM-SIM] FAIL (log: $(BOOT_DIR)_macro/macro_boot_run.log)"; exit 1; }
 
 # TAM-YIGIN ISLEVSEL SIMULASYON (ASIC ust modulu + teslim edilen SRAM makro
 # modelleri). DIKKAT - kapsam siniri: bu hedef RTL derler (soc_files.f +
@@ -266,9 +285,10 @@ asic-top-sim:
 	echo "00000000" > $(BOOT_DIR)_asictop/data_mem.hex
 	echo "00000000" > $(BOOT_DIR)_asictop/ai_sram_init.hex
 	cd $(BOOT_DIR)_asictop && ./asic_top_boot_sim 2>&1 | grep -vaE 'Reading|Writing' | tee asictop_run.log
+	@python3 scripts/test_report.py asic-top-sim $(BOOT_DIR)_asictop --log $(BOOT_DIR)_asictop/asictop_run.log || true
 	@grep -aq "TEST SUCCESS" $(BOOT_DIR)_asictop/asictop_run.log \
-	    && echo "[ASIC-TOP-SIM] PASS - asic_top + 27 makro (teslim RTL'i: JTAG_DEBUG+FC1_FIX+I2C_SDA_SYNC): flash boot + YZ cikarimi bit-tam, argmax==2 dahil" \
-	    || { echo "[ASIC-TOP-SIM] FAIL"; exit 1; }
+	    && echo "[ASIC-TOP-SIM] PASS: ASIC top level with all 27 SRAM macro models, flash boot and one bit-exact inference, class 2 (log: $(BOOT_DIR)_asictop/asictop_run.log)" \
+	    || { echo "[ASIC-TOP-SIM] FAIL (log: $(BOOT_DIR)_asictop/asictop_run.log)"; exit 1; }
 
 # JTAG debug altsistemi (JTAG_DEBUG; TESLIM YAPILANDIRMASINDA ACIK - soc_files.f
 # ve asic/config.yaml tanimlar; gelistirme gunlugu rtl/debug/JTAG_DENEME_PLANI.md):
@@ -294,9 +314,10 @@ jtag-sim:
 	cp sw/bootloader/bootrom.hex $(JTAG_DIR)/
 	echo "00000000" > $(JTAG_DIR)/ai_sram_init.hex
 	cd $(JTAG_DIR) && ./jtag_smoke_sim 2>&1 | tee jtag_run.log
+	@python3 scripts/test_report.py jtag-sim $(JTAG_DIR) --log $(JTAG_DIR)/jtag_run.log || true
 	@grep -aq "TEST SUCCESS" $(JTAG_DIR)/jtag_run.log \
-	    && echo "[JTAG-SIM] PASS - TAP/DTMCS/DMI/halt/abstract-cmd/progbuf/resume + step/trigger + ndmreset + DMI-busy/dmireset + cmderr 2/3/4 + SBA tie-off + DM kesif + TAP kose durumlari + ISRAM yazma/ebreak + DM bolgesi (17/17)" \
-	    || { echo "[JTAG-SIM] FAIL"; exit 1; }
+	    && echo "[JTAG-SIM] PASS: 17 of 17 debug stages over JTAG (TAP, DMI, halt, resume, step, triggers, abstract commands, program buffer, reset, error paths) (log: $(JTAG_DIR)/jtag_run.log)" \
+	    || { echo "[JTAG-SIM] FAIL (log: $(JTAG_DIR)/jtag_run.log)"; exit 1; }
 
 # OpenOCD koprusu (JTAG_DEBUG secenegi, Gun 2): ayni soc_top+riscv-dbg derlemesi, ama
 # JTAG pinlerini SimJTAG (vendor tb) + rtl/debug/tb/jtag_dpi.cpp (DPI-C,
@@ -321,7 +342,7 @@ jtag-openocd-build:
 	cp build/data_mem.hex $(JTAG_OCD_DIR)/data_mem.hex
 	cp sw/bootloader/bootrom.hex $(JTAG_OCD_DIR)/
 	echo "00000000" > $(JTAG_OCD_DIR)/ai_sram_init.hex
-	@echo "[JTAG-OPENOCD] derleme tamam: cd $(JTAG_OCD_DIR) && ./jtag_openocd_sim ; ayri terminalde: openocd -f rtl/debug/openocd/blogic_sim.cfg"
+	@echo "[JTAG-OPENOCD] Build done. Run: cd $(JTAG_OCD_DIR) && ./jtag_openocd_sim ; in a second terminal: openocd -f rtl/debug/openocd/blogic_sim.cfg"
 
 # OpenOCD ucdan-uca demo (JTAG_DEBUG secenegi, Gun 2): scripts/run_jtag_openocd.sh simi
 # arka planda baslatir (binary yoksa once jtag-openocd-build), TCP 9999 dinlenince
@@ -354,18 +375,19 @@ jtag-board:
 JTAG_COV_DIR = rtl/debug/sim
 jtag-cov:
 	@mkdir -p $(JTAG_COV_DIR)
-	$(MAKE) jtag-sim TBCOV=--coverage-line   # waiver dosyasi jtag-sim komut satirinda zaten var
+	# The waiver file is already on the jtag-sim command line.
+	$(MAKE) jtag-sim TBCOV=--coverage-line
 	verilator_coverage --write-info $(JTAG_COV_DIR)/jtag_cov.info $(JTAG_DIR)/coverage.dat
 	@awk -F'[:,]' '/^SF:/ { f = $$2; next } \
 	    /^DA:/ { tot[f]++; if ($$3 > 0) hit[f]++ } \
-	    END { printf "%-58s %6s %6s %7s\n", "dosya", "vuran", "satir", "yuzde"; \
+	    END { printf "%-58s %6s %6s %7s\n", "file", "hit", "lines", "percent"; \
 	          for (k in tot) printf "%-58s %6d %6d %6.1f%%\n", k, hit[k], tot[k], 100.0*hit[k]/tot[k] }' \
 	    $(JTAG_COV_DIR)/jtag_cov.info | sort > $(JTAG_COV_DIR)/jtag_cov_summary.txt
 	@mkdir -p logs/jtag && cp $(JTAG_DIR)/jtag_run.log logs/jtag/jtag_cov_run_$$(date +%Y-%m-%d).log
-	@echo "--- modul bazli satir kapsamasi ($(JTAG_COV_DIR)/jtag_cov_summary.txt) ---"
+	@echo "--- line coverage per module ($(JTAG_COV_DIR)/jtag_cov_summary.txt) ---"
 	@grep -E 'axi_dm_slave|soc_axi_interconnect|soc_top|dmi_jtag|dmi_cdc|dm_csrs|dm_mem|dm_sba|dm_top' \
 	    $(JTAG_COV_DIR)/jtag_cov_summary.txt || true
-	@echo "[JTAG-COV] RAPOR (kapi degil) - dosya: $(JTAG_COV_DIR)/jtag_cov_summary.txt (kosu logu izlenmez: logs/jtag/jtag_cov_run_*.log)"
+	@echo "[JTAG-COV] Report only, not a pass/fail check: $(JTAG_COV_DIR)/jtag_cov_summary.txt (run log, not committed: logs/jtag/jtag_cov_run_*.log)"
 
 # axi_dm_slave YONLU birim testi (JTAG_DEBUG secenegi, bosluk G-08). Kopru bugune
 # kadar yalniz uctan uca dogrulandi; bugunku master (obi_to_axi) r_ready/
@@ -386,11 +408,12 @@ jtag-bridge-sim:
 	    rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/cf_math_pkg.sv \
 	    rtl/core/cv32e40p/rtl/vendor/pulp_platform_common_cells/src/fifo_v3.sv \
 	    rtl/bus/axi/src/axi_pkg.sv rtl/bus/axi/src/axi_intf.sv \
-	    rtl/debug/axi_dm_slave.sv verif/tb/axi_dm_slave_tb.sv
+	    rtl/debug/axi_dm_slave.sv verif/sva/tb_log_pkg.sv verif/tb/axi_dm_slave_tb.sv
 	cd $(JTAG_BRIDGE_DIR) && ./axi_dm_slave_sim 2>&1 | tee bridge_run.log
+	@python3 scripts/test_report.py jtag-bridge-sim $(JTAG_BRIDGE_DIR) --log $(JTAG_BRIDGE_DIR)/bridge_run.log || true
 	@grep -aq "TEST SUCCESS" $(JTAG_BRIDGE_DIR)/bridge_run.log \
-	    && echo "[JTAG-BRIDGE-SIM] PASS - tahkim (veri>buyruk), R/B kanal tutma (resp_pending), w_strb bayt-enable, ucustaki istekte reset (6/6)" \
-	    || { echo "[JTAG-BRIDGE-SIM] FAIL"; exit 1; }
+	    && echo "[JTAG-BRIDGE-SIM] PASS: 6 of 6 scenarios of the debug module AXI bridge (arbitration, response hold, byte strobes, reset during a request) (log: $(JTAG_BRIDGE_DIR)/bridge_run.log)" \
+	    || { echo "[JTAG-BRIDGE-SIM] FAIL (log: $(JTAG_BRIDGE_DIR)/bridge_run.log)"; exit 1; }
 
 # FPGA ust modulunun lint kapisi. Kartta TAP dmi_bscane_tap.sv'dir (Xilinx
 # BSCANE2); build_genesys2.tcl onu dmi_jtag_tap.sv YERINE okur, bu yuzden
@@ -403,7 +426,7 @@ LINT_DIR = build/lint
 LINT_W = -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
          -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-UNOPTFLAT
 lint-fpga:
-	@command -v verilator >/dev/null 2>&1 || { echo "[LINT-FPGA] FAIL - verilator bulunamadi (PATH)"; exit 1; }
+	@command -v verilator >/dev/null 2>&1 || { echo "[LINT-FPGA] FAIL: verilator was not found on PATH"; exit 1; }
 	@mkdir -p $(LINT_DIR)
 	@grep -v 'dmi_jtag_tap\.sv' soc_files.f > $(LINT_DIR)/soc_files_fpga.f
 	-@verilator --lint-only $(LINT_W) -Wno-DECLFILENAME -Wno-VARHIDDEN \
@@ -412,10 +435,10 @@ lint-fpga:
 	    verif/tb/xilinx_prim_stubs.sv rtl/fpga_top.sv \
 	    > $(LINT_DIR)/lint_fpga.log 2>&1
 	@grep -oE '%(Error|Warning)[-A-Za-z]*' $(LINT_DIR)/lint_fpga.log | sort | uniq -c > $(LINT_DIR)/hist_fpga.txt || true
-	@echo "--- fpga_top (dmi_bscane_tap + BSCANE2 kabugu) uyari profili ---"; cat $(LINT_DIR)/hist_fpga.txt
+	@echo "--- fpga_top lint warnings by type (with the BSCANE2 JTAG TAP) ---"; cat $(LINT_DIR)/hist_fpga.txt
 	@if grep -q "%Error" $(LINT_DIR)/lint_fpga.log; then \
-	    echo "[LINT-FPGA] FAIL - hata:"; grep -m5 "%Error" $(LINT_DIR)/lint_fpga.log; exit 1; \
-	 else echo "[LINT-FPGA] PASS - fpga_top: 0 %Error (MODDUP = soc_files.f'teki cv32e40p_register_file latch/FF ikizi, build_genesys2.tcl latch'i disler; tam cikti: $(LINT_DIR)/lint_fpga.log)"; fi
+	    echo "[LINT-FPGA] FAIL, first errors:"; grep -m5 "%Error" $(LINT_DIR)/lint_fpga.log; exit 1; \
+	 else echo "[LINT-FPGA] PASS: fpga_top has no lint errors (MODDUP is the latch/flip-flop pair of cv32e40p_register_file; the FPGA build uses the flip-flop one) (log: $(LINT_DIR)/lint_fpga.log)"; fi
 
 # "JTAG_DEBUG tanimsizken main ile ozdes" iddiasinin betiklenmis kaniti
 # (JTAG_DEBUG secenegi, bosluk G-13): referans dosyalari 'git show 73d8dcd:<yol>'
@@ -440,15 +463,15 @@ jtag-equiv:
 # gorunmuyordu). Artik tam cikti loga yazilir, kapi %Error aramasidir.
 # verilator yoksa sahte PASS vermez.
 lint:
-	@command -v verilator >/dev/null 2>&1 || { echo "[LINT] FAIL - verilator bulunamadi (PATH)"; exit 1; }
+	@command -v verilator >/dev/null 2>&1 || { echo "[LINT] FAIL: verilator was not found on PATH"; exit 1; }
 	@mkdir -p logs/lint
 	@cd asic && verilator --lint-only -DSYNTHESIS -Wno-fatal -Wno-TIMESCALEMOD -Wno-WIDTHEXPAND \
 	    -Wno-WIDTHTRUNC -Wno-CASEINCOMPLETE -Wno-UNSIGNED -Wno-UNOPTFLAT \
 	    --top-module asic_top -f filelist.f > ../logs/lint/asic_lint.log 2>&1 || true
 	@tail -25 logs/lint/asic_lint.log
 	@if grep -q '%Error' logs/lint/asic_lint.log; then \
-	    echo "[LINT] FAIL - %Error var (tam cikti: logs/lint/asic_lint.log)"; exit 1; \
-	 else echo "[LINT] PASS - 0 %Error (tam cikti: logs/lint/asic_lint.log)"; fi
+	    echo "[LINT] FAIL: lint errors found (log: logs/lint/asic_lint.log)"; exit 1; \
+	 else echo "[LINT] PASS: asic_top, delivered configuration, no lint errors (log: logs/lint/asic_lint.log)"; fi
 
 # sv2v -> yosys elaborasyon kapisi: sentez oncesi erken uyari
 asic-elab:
@@ -456,10 +479,12 @@ asic-elab:
 
 # hizlanma olcumu: HW vs SW referans
 soc-perf:
-	rm -rf obj_dir build   # RTL degisince model yeniden derlensin
+	# Rebuild the model, so that RTL changes are picked up.
+	rm -rf obj_dir build
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_sw_reference.c SIM_PLUSARGS=+MAX_CYCLES=25000000 $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/ai_sw_reference/result.log \
-	    && echo "[SOC-PERF] PASS" || { echo "[SOC-PERF] FAIL"; exit 1; }
+	    && echo "[SOC-PERF] PASS: inference on the accelerator and in software on the same core (summary: verif/perf_summary.txt, log: logs/sim/ai_sw_reference/)" \
+	    || { echo "[SOC-PERF] FAIL (log: logs/sim/ai_sw_reference/)"; exit 1; }
 	@python3 scripts/gen_perf_report.py
 
 # --- KF5: UART demo yolu (sartname bolum 5.2 ilk odul kriteri) ---------------
@@ -471,7 +496,8 @@ AI_UART_CPB   ?= 64
 AI_UART_MAXCYC ?= 6000000
 
 ai-uart-load:
-	rm -rf obj_dir build          # temizlik ONCE: cerceve build/ altinda uretiliyor
+	# Clean first: the frame is generated under build/.
+	rm -rf obj_dir build
 	@python3 sw/ai_model/make_uart_frame.py --index $(AI_UART_INDEX) --outdir build/uart_demo
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/ai_uart_load_test.c \
 	    EXTRA_CFLAGS="-DAI_UART_CPB=$(AI_UART_CPB)" \
@@ -483,8 +509,8 @@ ai-uart-load:
 	@python3 sw/ai_model/check_ai_sram.py build/uart_demo/frame.bin build/uart_demo/ai_sram.hex
 	@grep -E "^result=|^uart_rx_" logs/sim/ai_uart_load_test/result.log
 	@grep -q "^result=PASS" logs/sim/ai_uart_load_test/result.log \
-	    && echo "[UART-DEMO] PASS - gorulmemis vektor UART'tan yuklendi ve dogru siniflandi" \
-	    || { echo "[UART-DEMO] FAIL"; exit 1; }
+	    && echo "[UART-DEMO] PASS: a feature vector not used in training was sent over UART_0 and classified correctly (log: logs/sim/ai_uart_load_test/)" \
+	    || { echo "[UART-DEMO] FAIL (log: logs/sim/ai_uart_load_test/)"; exit 1; }
 
 # Saha zamanlamasiyla ayni kosu (CPB=434). Yavas: ~10 M cevrim.
 # TEKNOFEST demo test harness'inin STREAM yolu (UART1, Pmod JA) simulasyonda:
@@ -501,7 +527,7 @@ ai-uart-load:
 demo-harness-sim:
 	rm -rf obj_dir build logs/sim/demo_main
 	@python3 sw/demo/harness_frames.py sim --outdir build/harness_sim
-	@printf r > build/harness_sim/r.txt   # kosu sonunda 'r': stream sayaclari loga
+	@printf r > build/harness_sim/r.txt   # 'r' at the end of the run writes the stream counters to the log
 	-$(MAKE) -f Makefile.verilator sim FW_SRC=sw/demo/demo_main.c \
 	    EXTRA_CFLAGS="-DDEMO_STREAM_CPB=216" \
 	    SIM_PLUSARGS="+UART1_RX_FILE=../build/harness_sim/uart1_rx.bin +UART1_CPB=216 \
@@ -513,8 +539,8 @@ demo-harness-sim:
 	-$(MAKE) -f Makefile.verilator sim FW_SRC=sw/demo/demo_main.c \
 	    SIM_PLUSARGS="+UART_RX_FILE=../build/harness_sim/l.txt +UART_RX_DELAY=9000000 +MAX_CYCLES=24000000 +RTL_TRACE=0"
 	@grep -q "loopback frame received" logs/sim/demo_main/uart.log && [ "$$(grep -c '^RESULT: yes' logs/sim/demo_main/uart.log)" -ge 2 ] \
-	    && echo "[HARNESS-SIM] loopback self-test PASS (frame sent on UART1 TX came back on RX, RESULT: yes)" \
-	    || { echo "[HARNESS-SIM] loopback self-test FAIL"; exit 1; }
+	    && echo "[HARNESS-SIM] Loopback self-test PASS: a frame sent on UART_1 TX came back on RX and was classified (RESULT: yes) (log: logs/sim/demo_main/uart.log)" \
+	    || { echo "[HARNESS-SIM] Loopback self-test FAIL (log: logs/sim/demo_main/uart.log)"; exit 1; }
 
 # Juri araci biciminde rastgele regresyon seti (manifest.csv + vectors/*.bin + dataset_summary.json):
 # kart_sweep.py / panel RANDOM SWEEP ureteci (40 adli aile + 8 aileli tohumlu uzatma) +
@@ -555,30 +581,32 @@ ai-uart-load-field:
 uart-rx-bisect:
 	rm -rf obj_dir build
 	@mkdir -p build/rxbisect
-	@if [ -n "$(BISECT_FRAME)" ]; then cp $(BISECT_FRAME) build/rxbisect/frame.bin; echo "[BISECT] cerceve: $(BISECT_FRAME)"; else printf 'B' > build/rxbisect/frame.bin; fi
+	@if [ -n "$(BISECT_FRAME)" ]; then cp $(BISECT_FRAME) build/rxbisect/frame.bin; echo "[BISECT] Frame: $(BISECT_FRAME)"; else printf 'B' > build/rxbisect/frame.bin; fi
 	@printf 'B'                 > build/rxbisect/trigger.txt
 	@printf 'LOOPBACK SUCCESS'  > build/rxbisect/golden.txt
-	@echo "[BISECT] 1 bayt ('B') enjekte edilecek, beklenen: LOOPBACK SUCCESS"
+	@echo "[BISECT] Injecting 1 byte ('B'), expected output: LOOPBACK SUCCESS"
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/uart_loopback.c \
 	    SIM_PLUSARGS="+CPB=434 +UART_RX_FILE=../build/rxbisect/frame.bin \
 	                  +UART_RX_TRIGGER_FILE=../build/rxbisect/trigger.txt \
 	                  +UART_RX_DELAY=5000 +GOLDEN_FILE=../build/rxbisect/golden.txt \
 	                  +MAX_CYCLES=600000"
 	@grep -E "^result=|^uart_rx_" logs/sim/uart_loopback/result.log
-	@echo "--- MCU ciktisi ---" && cat logs/sim/uart_loopback/uart.log
+	@echo "--- MCU output ---" && cat logs/sim/uart_loopback/uart.log
 
 # ISA uyumluluk C testi (self-checking, DTR bolum 4)
 isa-compliance:
-	rm -rf obj_dir build   # RTL degisince model yeniden derlensin
+	# Rebuild the model, so that RTL changes are picked up.
+	rm -rf obj_dir build
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/isa_compliance_test.c $(PASSTHROUGH)
 	@grep -q "^result=PASS" logs/sim/isa_compliance_test/result.log \
 	    && grep -q ">>> ISA COMPLIANCE PASSED <<<" logs/sim/isa_compliance_test/uart.log \
-	    && echo "[ISA-C] PASS" || { echo "[ISA-C] FAIL"; exit 1; }
+	    && echo "[ISA-C] PASS: self-checking RV32IMC instruction test (log: logs/sim/isa_compliance_test/)" \
+	    || { echo "[ISA-C] FAIL (log: logs/sim/isa_compliance_test/)"; exit 1; }
 
 # riscv-arch-test (ISA uyumluluk)
 arch-test:
 	@test -d verif/arch_tests/suite/rv32i_m \
-	    || { echo "[ARCH] vendor edilmis arch-test suite eksik: verif/arch_tests/suite/"; \
+	    || { echo "[ARCH] The riscv-arch-test sources are missing: verif/arch_tests/suite/"; \
 	         exit 1; }
 	bash verif/arch_tests/run_arch_test.sh "$(ARCH_EXT)"
 
@@ -589,19 +617,19 @@ ai-batch1000:
 	verilator --binary $(TBCOV) -j 0 -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-CASEINCOMPLETE \
 	    -GBATCH_N=1000 -GSIM_TIMEOUT_MS=20000 --top-module ai_accel_tb \
 	    -Mdir obj_dir_ai -o ai_accel_tb_sim \
-	    verif/tb/ai_accel_tb.sv rtl/ai_accelerator/ai_accelerator.sv
-	./obj_dir_ai/ai_accel_tb_sim > obj_dir_ai/ai_run.log 2>&1 || true
-	@grep -E "sinif eslesmesi|BATCH\] (PASS|FAIL)|WATCHDOG" obj_dir_ai/ai_run.log
+	    verif/sva/tb_log_pkg.sv verif/tb/ai_accel_tb.sv rtl/ai_accelerator/ai_accelerator.sv
+	./obj_dir_ai/ai_accel_tb_sim +LOGDIR=obj_dir_ai > obj_dir_ai/ai_run.log 2>&1 || true
+	@grep -E "class match|BATCH\] (PASS|FAIL)|WATCHDOG" obj_dir_ai/ai_run.log
 	python3 sw/ai_model/run_accuracy_window.py --n=1000 --ingest-rtl obj_dir_ai/ai_run.log
 	@cp sw/ai_model/accuracy_report.txt sw/ai_model/accuracy_report_n1000.txt
-	@echo "[YAZ] sw/ai_model/accuracy_report_n1000.txt (1000 ornekli kanit)"
-	@echo "[TEMIZLIK] 40'lik set geri yaziliyor (make ai bunu bekler)"
+	@echo "[AI-BATCH1000] Written: sw/ai_model/accuracy_report_n1000.txt (1000 samples)"
+	@echo "[AI-BATCH1000] Restoring the 40-sample set that make ai expects"
 	@python3 sw/ai_model/run_accuracy_window.py > /dev/null
 	@rm -rf obj_dir_ai && $(MAKE) ai > /dev/null 2>&1 || true
-	@echo "[TEMIZLIK] accuracy_report.txt 40 ornekli haline dondu"
-	@grep -q "^SW-RTL sinif eslesmesi : 1000/1000" sw/ai_model/accuracy_report_n1000.txt \
-	    || { echo "[AI-BATCH1000] FAIL: SW-RTL sinif uyumsuzlugu (sw/ai_model/accuracy_report_n1000.txt)"; exit 1; }
-	@echo "[AI-BATCH1000] PASS: SW-RTL sinif eslesmesi 1000/1000"
+	@echo "[AI-BATCH1000] accuracy_report.txt is back to 40 samples"
+	@grep -q "^SW-RTL class match *: 1000/1000" sw/ai_model/accuracy_report_n1000.txt \
+	    || { echo "[AI-BATCH1000] FAIL: software and RTL classes differ (sw/ai_model/accuracy_report_n1000.txt)"; exit 1; }
+	@echo "[AI-BATCH1000] PASS: software and RTL give the same class for 1000 of 1000 inputs"
 
 # line coverage: test seti + rapor
 coverage:
@@ -614,7 +642,7 @@ QSPI_ERR_CPB ?= 64
 qspi-err:
 	rm -rf obj_dir build
 	@mkdir -p build/qspi_err
-	@printf '[QSPI-ERR] gecen=25 kalan=0  SONUC: PASS' > build/qspi_err/golden.txt
+	@printf '[QSPI-ERR] passed=25 failed=0  RESULT: PASS' > build/qspi_err/golden.txt
 	$(MAKE) -f Makefile.verilator sim FW_SRC=sw/tests/qspi_fifo_err_test.c \
 	    EXTRA_CFLAGS="-DQSPI_ERR_CPB=$(QSPI_ERR_CPB)" \
 	    SIM_PLUSARGS="+CPB=$(QSPI_ERR_CPB) \
@@ -639,8 +667,10 @@ qspi-modes:
 	echo "00000000" > $(MODES_DIR)/ai_sram_init.hex
 	python3 -c "print(chr(10).join(format(i%256,'02x') for i in range(8192)))" > $(MODES_DIR)/flash.hex
 	cd $(MODES_DIR) && ./qspi_modes_sim 2>&1 | tee modes_run.log
+	@python3 scripts/test_report.py qspi-modes $(MODES_DIR) --log $(MODES_DIR)/modes_run.log || true
 	@grep -aq "TEST SUCCESS" $(MODES_DIR)/modes_run.log \
-	    && echo "[QSPI-MODES] PASS" || { echo "[QSPI-MODES] FAIL"; exit 1; }
+	    && echo "[QSPI-MODES] PASS: x1, x2 and x4 data phases and 4-byte addressing against a flash model (log: $(MODES_DIR)/modes_run.log)" \
+	    || { echo "[QSPI-MODES] FAIL (log: $(MODES_DIR)/modes_run.log)"; exit 1; }
 
 # I2C sistem testi: CPU -> AXI -> i2c_master + echo slave
 I2C_DIR = obj_dir_i2c_sys
@@ -658,8 +688,10 @@ i2c-sys:
 	cp sw/bootloader/bootrom.hex $(I2C_DIR)/
 	echo "00000000" > $(I2C_DIR)/ai_sram_init.hex
 	cd $(I2C_DIR) && ./i2c_sys_sim 2>&1 | tee i2c_run.log
+	@python3 scripts/test_report.py i2c-sys $(I2C_DIR) --log $(I2C_DIR)/i2c_run.log || true
 	@grep -aq "TEST SUCCESS" $(I2C_DIR)/i2c_run.log \
-	    && echo "[I2C-SYS] PASS" || { echo "[I2C-SYS] FAIL"; exit 1; }
+	    && echo "[I2C-SYS] PASS: CPU drives the I2C master against an echo slave (write, read, NACK) (log: $(I2C_DIR)/i2c_run.log)" \
+	    || { echo "[I2C-SYS] FAIL (log: $(I2C_DIR)/i2c_run.log)"; exit 1; }
 
 # UVM testleri: GPIO + Timer + UART_0 + I2C + YZ hizlandirici (10 test).
 # Kisitli rastgele testler z3 ister (Makefile.uvm check_solver kapisi).
@@ -668,7 +700,7 @@ uvm:
 
 # hepsi: ilk hatada durmaz, sonda ozet basar
 test-all:
-	@overall=0; \
+	@overall=0; rm -f logs/report_index.txt; \
 	r=PASS; $(MAKE) regression || { r=FAIL; overall=1; }; \
 	ub=PASS; $(MAKE) uart-baud || { ub=FAIL; overall=1; }; \
 	us=PASS; $(MAKE) uart-stp  || { us=FAIL; overall=1; }; \
@@ -689,27 +721,30 @@ test-all:
 	jb=PASS; $(MAKE) jtag-bridge-sim || { jb=FAIL; overall=1; }; \
 	echo ""; \
 	echo "====================================================="; \
-	echo " TEST-ALL OZETI"; \
+	echo " TEST-ALL SUMMARY"; \
 	echo "-----------------------------------------------------"; \
-	echo "  regression (UARTx3+lockstep+QSPI) : $$r"; \
-	echo "  uart-baud  (115200/1Mbps/9600)     : $$ub"; \
-	echo "  uart-stp   (stop 1/1.5/2)          : $$us"; \
-	echo "  uart-stream (DMA → AI SRAM)        : $$ut"; \
-	echo "  boot       (QSPI boot akisi)      : $$b"; \
-	echo "  qspi-modes (x1/x2/x4 + 4B adres)   : $$q"; \
-	echo "  qspi-err  (FIFO/flush/status)      : $$qe"; \
-	echo "  i2c-sys    (NBY/ADR+TX/RX echo)    : $$i2"; \
-	echo "  ai         (standalone 6 senaryo) : $$a"; \
-	echo "  soc-ai     (SoC AI C testi)       : $$s"; \
-	echo "  soc-perf   (HW vs SW hizlanma)    : $$p"; \
-	echo "  soc-ai-irq (kesme/ISR akisi)      : $$ir"; \
-	echo "  soc-timer  (Timer cevre birimi)   : $$st"; \
-	echo "  soc-strm   (UART_1 stream SoC yolu): $$ss"; \
-	echo "  arch-test  (riscv-arch-test $(ARCH_EXT))   : $$c"; \
-	echo "  uvm        (5 blok, 10 test / 20 kosu: GPIO+Timer+UART_0+I2C+YZ): $$u"; \
-	echo "  jtag-sim   (riscv-dbg JTAG 17 asama)  : $$js"; \
-	echo "  jtag-bridge-sim (axi_dm_slave 6 senaryo): $$jb"; \
-	echo "  (OpenOCD/gdb demolari ve lint kapilari: make jtag-gates, make lint, make lint-fpga)"; \
+	echo "  regression       UART x3, Spike lockstep, QSPI boot     : $$r"; \
+	echo "  uart-baud        115200 / 1M / 9600 baud               : $$ub"; \
+	echo "  uart-stp         1 / 1.5 / 2 stop bits                 : $$us"; \
+	echo "  uart-stream      UART_1 DMA into AI SRAM               : $$ut"; \
+	echo "  boot             boot from QSPI flash                  : $$b"; \
+	echo "  qspi-modes       x1/x2/x4, 4-byte addresses            : $$q"; \
+	echo "  qspi-err         FIFO, flush and status errors         : $$qe"; \
+	echo "  i2c-sys          I2C write/read against a slave        : $$i2"; \
+	echo "  ai               accelerator alone, 6 scenarios        : $$a"; \
+	echo "  soc-ai           inference from C, polling             : $$s"; \
+	echo "  soc-perf         accelerator vs software speed-up      : $$p"; \
+	echo "  soc-ai-irq       inference with interrupt              : $$ir"; \
+	echo "  soc-timer        timer and interrupt                   : $$st"; \
+	echo "  soc-strm         UART_1 stream in the SoC              : $$ss"; \
+	echo "  arch-test        riscv-arch-test $(ARCH_EXT) vs Spike         : $$c"; \
+	echo "  uvm              5 blocks, 10 tests, 20 seeded runs    : $$u"; \
+	echo "  jtag-sim         JTAG debug, 17 stages                 : $$js"; \
+	echo "  jtag-bridge-sim  debug module bus bridge, 6 scenarios  : $$jb"; \
+	echo "  OpenOCD/gdb demos and lint: make jtag-gates, make lint, make lint-fpga"; \
+	echo "-----------------------------------------------------"; \
+	echo "  What each test checked and which registers it accessed:"; \
+	echo "  see logs/report_index.txt (bus_trace.log is next to each report.txt)"; \
 	echo "====================================================="; \
 	exit $$overall
 
@@ -730,18 +765,18 @@ test-full:
 	au=PASS; $(MAKE) ai-uart-load  || { au=FAIL; overall=1; }; \
 	echo ""; \
 	echo "====================================================="; \
-	echo " TEST-FULL OZETI"; \
+	echo " TEST-FULL SUMMARY"; \
 	echo "-----------------------------------------------------"; \
-	echo "  test-all      (18 bilesen, ozeti yukarida) : $$ta"; \
-	echo "  lint          (asic_top, teslim listesi)   : $$l"; \
-	echo "  lint-fpga     (fpga_top + BSCANE2)         : $$lf"; \
-	echo "  jtag-gates    (equiv + OpenOCD/gdb demolari): $$jg"; \
-	echo "  asic-sram-sim (OpenRAM makro modelleri)    : $$as"; \
-	echo "  asic-top-sim  (asic_top + 27 makro, argmax): $$at"; \
-	echo "  boot-real     (gercek C firmware flash boot): $$br"; \
-	echo "  isa-compliance (ISA uyumluluk C testi)     : $$ic"; \
-	echo "  ai-uart-load  (KF5 UART demo yolu simi)    : $$au"; \
-	echo "  (kart: make jtag-board; VM: make -C asic asic_run)"; \
+	echo "  test-all         18 components, summary above          : $$ta"; \
+	echo "  lint             asic_top, delivered configuration     : $$l"; \
+	echo "  lint-fpga        fpga_top with the BSCANE2 TAP         : $$lf"; \
+	echo "  jtag-gates       JTAG package, OpenOCD and gdb demos   : $$jg"; \
+	echo "  asic-sram-sim    boot with the OpenRAM macro models    : $$as"; \
+	echo "  asic-top-sim     ASIC top level, 27 macros, inference  : $$at"; \
+	echo "  boot-real        C program booted from flash           : $$br"; \
+	echo "  isa-compliance   self-checking instruction test        : $$ic"; \
+	echo "  ai-uart-load     feature vector over UART, classified  : $$au"; \
+	echo "  Not included: make jtag-board (needs the FPGA board), make -C asic asic_run (ASIC flow)"; \
 	echo "====================================================="; \
 	exit $$overall
 
@@ -756,20 +791,20 @@ jtag-gates:
 	je=PASS; $(MAKE) jtag-equiv || { je=FAIL; overall=1; }; \
 	if command -v openocd >/dev/null 2>&1; then \
 	    jo=PASS; $(MAKE) jtag-openocd || { jo=FAIL; overall=1; }; \
-	else jo="SKIP (openocd yok)"; fi; \
+	else jo="SKIP (openocd not installed)"; fi; \
 	if command -v openocd >/dev/null 2>&1 && command -v $${GDB:-gdb-multiarch} >/dev/null 2>&1; then \
 	    jg=PASS; $(MAKE) jtag-gdb || { jg=FAIL; overall=1; }; \
-	else jg="SKIP (openocd / $${GDB:-gdb-multiarch} yok)"; fi; \
+	else jg="SKIP (openocd or $${GDB:-gdb-multiarch} not installed)"; fi; \
 	echo ""; \
 	echo "====================================================="; \
-	echo " JTAG-GATES OZETI"; \
+	echo " JTAG-GATES SUMMARY"; \
 	echo "-----------------------------------------------------"; \
-	echo "  jtag-sim   (riscv-dbg 17 asama, SV bit-bang): $$js"; \
-	echo "  jtag-bridge-sim (axi_dm_slave birim TB)     : $$jb"; \
-	echo "  lint-fpga  (fpga_top, BSCANE2 TAP)          : $$jlf"; \
-	echo "  jtag-equiv (define YOK == 73d8dcd RTL)      : $$je"; \
-	echo "  jtag-openocd (OpenOCD ucdan-uca demo)      : $$jo"; \
-	echo "  jtag-gdb   ($${GDB:-gdb-multiarch}, buyruk seviyesi): $$jg"; \
+	echo "  jtag-sim         17 debug stages, SystemVerilog TAP driver : $$js"; \
+	echo "  jtag-bridge-sim  debug module bus bridge                  : $$jb"; \
+	echo "  lint-fpga        fpga_top with the BSCANE2 TAP             : $$jlf"; \
+	echo "  jtag-equiv       JTAG disabled == RTL of commit 73d8dcd    : $$je"; \
+	echo "  jtag-openocd     OpenOCD end-to-end demo                   : $$jo"; \
+	echo "  jtag-gdb         $${GDB:-gdb-multiarch} source-level demo        : $$jg"; \
 	echo "====================================================="; \
 	exit $$overall
 
@@ -787,60 +822,85 @@ logs-clean:
 	$(MAKE) -f Makefile.verilator logs-clean
 
 help:
-	@echo "=== Test hedefleri (ana Makefile) ==="
-	@echo "  make test-all    - TUM suit, 18 bilesen (JTAG dahil); sonda ozet tablo (tek komutluk kanit)"
-	@echo "  make test-full   - test-all + lint/lint-fpga + jtag-gates + asic-sram-sim/asic-top-sim + boot-real + isa-compliance + ai-uart-load (~40 dk)"
-	@echo "  make regression  - fonksiyonel+protokol regresyonu (UARTx3 + lockstep minimal/deep + QSPI)"
-	@echo "  make uart-baud   - EK-2 cok-baud kaniti (115200 -> 1 Mbps -> 9600)"
-	@echo "  make uart-stp    - EK-2 stop-bit 1/1.5/2 dogrulamasi (uart_axil TB)"
-	@echo "  make uart-stream - UART_1 YZ stream DMA → AI SRAM (uart_stream_axil TB)"
-	@echo "  make boot        - QSPI boot akisi (flash_helloworld imaji)"
-	@echo "  make boot-real   - GERCEK C firmware ile flash boot (.rodata/.data DSRAM kaniti)"
-	@echo "                     negatif kontrol: make boot-real FLASH_DATA=/dev/null -> FAIL beklenir"
-	@echo "  make asic-sram-sim - boot akisi TESLIM EDILEN SRAM makro Verilog modelleriyle (DDK 1.3 kaniti)"
-	@echo "  make asic-top-sim  - tam-yigin: asic_top (GDS ust modulu) + 27 makro, boot + YZ cikarimi bit-tam, argmax==2 (teslim RTL'i)"
-	@echo "  make lint          - asic_top lint, teslim yapilandirmasi (asic/filelist.f; MODDUP/PINMISSING ACIK)"
-	@echo "  make lint-fpga     - fpga_top lint (dmi_bscane_tap + BSCANE2 kabugu)"
-	@echo "  make jtag-gates    - JTAG paketi: jtag-sim, jtag-bridge-sim, lint-fpga, jtag-equiv + openocd/gdb varsa demolar"
-	@echo "  make jtag-sim      - riscv-dbg JTAG 17 asama: IDCODE/DTMCS/DMI/halt/resume/step/trigger/"
-	@echo "                       ndmreset + DMI busy(dmireset/dmihardreset) + cmderr 2/3/4 + SBA + DM kesif +"
-	@echo "                       TAP kose durumlari + ISRAM yazma/ebreak + DM bolgesi (bilinen sinirlar)"
-	@echo "  make jtag-bridge-sim - axi_dm_slave birim TB: tahkim, R/B tutma, w_strb, reset"
-	@echo "  make jtag-equiv    - izolasyon kaniti: JTAG_DEBUG/FC1_FIX/I2C_SDA_SYNC tanimsizken RTL == 73d8dcd (14 Agu imzali kosunun RTL'i)"
-	@echo "  make jtag-cov      - JTAG satir kapsamasi: rapor rtl/debug/sim/ (izlenir), kosu logu logs/jtag/ (izlenmez)"
-	@echo "  make jtag-openocd-build - OpenOCD koprusu: SimJTAG + DPI remote_bitbang :9999 simi DERLE"
-	@echo "                     kosum: cd obj_dir_jtag_ocd && ./jtag_openocd_sim ; openocd -f rtl/debug/openocd/blogic_sim.cfg"
-	@echo "  make jtag-openocd  - OpenOCD ucdan-uca demo: sim + openocd (halt/reg/mem/resume), logs/jtag/, PASS/FAIL"
-	@echo "                     + donanim breakpoint (bp <pc> 4 hw -> tetikleyici, pc==bp) + reset halt (ndmreset, pc==0x00010000)"
-	@echo "  make jtag-gdb      - gdb-multiarch demo: OpenOCD :3333 uzerinden reset halt, break main, stepi, reg/mem yaz-oku, PASS/FAIL"
-	@echo "  make jtag-board    - GERCEK KARTTA OpenOCD demosu: fpga_top.bit + FT2232H (usbipd -> WSL), rtl/debug/openocd/demo_run_board_*.log"
-	@echo "  make qspi-modes  - QSPI x1/x2/x4 veri fazi + 4-bayt adres testi"
-	@echo "  make qspi-err    - QSPI FIFO/flush/status hata yollari"
-	@echo "  make i2c-sys     - I2C sistem testi (echo slave: TX/RX/latch/NACK)"
-	@echo "  make soc-timer   - Timer cevre birimi SoC testi (zorunlu ister kaniti)"
-	@echo "  make soc-strm    - UART_1 stream SoC yolu testi"
-	@echo "  make ai          - AI accel standalone TB (6 senaryo: 2 gercek ses + 4 sentetik)"
-	@echo "  make soc-ai      - SoC seviyesi AI C testi"
-	@echo "  make soc-perf    - HW vs SW hizlanma olcumu (verif/perf_summary.txt)"
-	@echo "  make soc-ai-irq  - AI kesme (ISR) akisi testi"
-	@echo "  make arch-test   - riscv-arch-test (varsayilan ARCH_EXT=\"I M C\", spike imzasi)"
-	@echo "  make uvm         - UVM testleri: GPIO+Timer+UART_0+I2C+YZ hizlandirici (directed + random, 10 test; z3 gerekir)"
-	@echo "  make spike       - etkilesimli spike; HTIF yok -> KENDI KENDINE CIKMAZ (Ctrl+C)"
-	@echo "  make coverage    - line coverage raporu (logs/coverage/)"
-	@echo "  make coverage-tb - modul kapsama kosusu (satir/dal)"
-	@echo "  make isa-compliance - ISA uyumluluk C testi (self-checking, DTR bolum 4)"
-	@echo "  make demo-harness-sim - TEKNOFEST demo harness stream yolu (UART1, team_icd.json cercevesi) + saglamlik senaryolari sim; [HARNESS-SIM] PASS"
-	@echo "  make demo-harness-dataset - juri araci biciminde rastgele regresyon seti (DS_N=200 DS_SEED=31082026 DS_OUT=build/harness_dataset); -sim-dataset: DS_K=10 vektorunu stream yolundan simde dogrular"
-	@echo "  make ai-uart-load - KF5: gorulmemis vektor UART0'dan surulur, sinif dogrulanir (sim); -field: saha zamanlamasi CPB=434 (~10 M cevrim)"
-	@echo "  make ai-acc      - EK-1 dogruluk penceresi: uretim + sim + rapor (40 ornek); ai-batch1000: 1000 ornek (~4 dk)"
-	@echo "  make asic-elab   - sv2v + yosys elaborasyon kapisi (sentez oncesi erken uyari; sv2v/yosys gerekir)"
-	@echo "  make questa-pack - Questa dalga-formu akisi icin firmware paketleri (verif/questa/README.md; verif/questa/wave.bat <test>)"
-	@echo "=== Imaj / kart hedefleri ==="
-	@echo "  make flash-image - tam imaj: fw@0x0 + veri@0x8000 + YZ@0x10000 (FW_SRC=..., FLASH_DATA=...)"
-	@echo "  make flash-bin   - kart icin imaj .bin (flash_firmware.tcl ile yazilir)"
-	@echo "  Demo firmware    : make flash-image FW_SRC=sw/demo/demo_main.c (acilis cikarim + h/v/r menu)"
-	@echo ""
-	$(MAKE) -f Makefile.verilator help
+	@printf '%s\n' 'BLogic MCU: make targets'
+	@printf '%s\n' 'Logs are written under logs/ and next to each build directory; every test prints the path of its log.'
+	@printf '%s\n' 'After a test, its log directory holds:'
+	@printf '%s\n' '  report.txt     what the test proves, the checks it made, the registers it accessed, the result'
+	@printf '%s\n' '  bus_trace.log  every register access (cycle, address, register, value) and every check, in order'
+	@printf '%s\n' 'make sim MEM_TRACE=1 also writes mem_trace.log with every CPU load and store. Test list: docs/TESTS.md'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Getting started'
+	@printf '%s\n' '  make sim                 Build a program (FW_SRC, default sw/tests/uart_hello.c) and run it on the SoC model'
+	@printf '%s\n' '  make sim TRACE=1         Same, and write a waveform (VCD) of the run'
+	@printf '%s\n' '  make compile             Build the program only'
+	@printf '%s\n' '  make verilate            Build the Verilator model of the SoC only'
+	@printf '%s\n' '  make test-all            Run the 18 main verification components and print a summary   (about 1 hour)'
+	@printf '%s\n' '  make test-full           test-all plus lint, JTAG, ASIC-model and extra SoC tests        (about 1.5 hours)'
+	@printf '%s\n' ''
+	@printf '%s\n' 'SoC regression'
+	@printf '%s\n' '  make regression          UART output at 3 baud rates, Spike lockstep (2 programs), boot from QSPI flash'
+	@printf '%s\n' '  make uart-baud           UART_0 at 115200 baud, 1 Mbps and 9600 baud in one run'
+	@printf '%s\n' '  make isa-compliance      Self-checking RV32IMC instruction test running on the SoC'
+	@printf '%s\n' '  make arch-test           Official riscv-arch-test (RV32I, M, C), signatures compared with Spike   (needs Spike)'
+	@printf '%s\n' '  make spike               Run FW_SRC on the Spike ISS (interactive, stop with Ctrl+C)'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Peripherals'
+	@printf '%s\n' '  make uart-stp            UART with 1, 1.5 and 2 stop bits (UART testbench)'
+	@printf '%s\n' '  make uart-stream         UART_1 stream DMA into the AI SRAM, 5 scenarios (UART_1 testbench)'
+	@printf '%s\n' '  make soc-strm            UART_1 stream in the SoC, with interrupt 18'
+	@printf '%s\n' '  make soc-timer           Timer count, reload, prescaler and interrupt 16'
+	@printf '%s\n' '  make i2c-sys             I2C master against an echo slave (write, read, NACK)'
+	@printf '%s\n' '  make qspi-modes          QSPI x1, x2 and x4 data phases and 4-byte addressing against a flash model'
+	@printf '%s\n' '  make qspi-err            QSPI FIFO overflow, flush and status error paths'
+	@printf '%s\n' '  make boot                Boot ROM loads a program from QSPI flash and runs it'
+	@printf '%s\n' '  make boot-real           Same with a C program whose read-only data is copied from flash'
+	@printf '%s\n' ''
+	@printf '%s\n' 'AI accelerator'
+	@printf '%s\n' '  make ai                  Accelerator alone: 6 scenarios (2 recorded audio inputs, 4 synthetic), bit-exact'
+	@printf '%s\n' '  make soc-ai              One inference started from C, result read by polling'
+	@printf '%s\n' '  make soc-ai-irq          One inference, completion signalled by interrupt 17'
+	@printf '%s\n' '  make soc-perf            Same inference on the accelerator and in software; writes verif/perf_summary.txt'
+	@printf '%s\n' '  make ai-uart-load        A feature vector sent over UART_0 is loaded and classified'
+	@printf '%s\n' '  make ai-acc              Regenerate the 40-sample accuracy check and report   (needs TensorFlow)'
+	@printf '%s\n' '  make ai-batch1000        The same check with 1000 samples   (needs TensorFlow, about 4 minutes)'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Competition demo (UART_1 stream path used by the jury tool)'
+	@printf '%s\n' '  make demo-harness-sim          Jury frame format in simulation: 13 stream scenarios and a loopback test'
+	@printf '%s\n' '  make demo-harness-dataset      Generate a test set in the jury tool format (DS_N, DS_SEED, DS_OUT)'
+	@printf '%s\n' '  make demo-harness-sim-dataset  Stream DS_K vectors of that set through the simulation and check the results'
+	@printf '%s\n' ''
+	@printf '%s\n' 'UVM'
+	@printf '%s\n' '  make uvm                 GPIO, timer, UART_0, I2C and AI accelerator: 10 tests, 20 seeded runs   (needs z3)'
+	@printf '%s\n' ''
+	@printf '%s\n' 'JTAG debug'
+	@printf '%s\n' '  make jtag-sim            17 debug stages driven over the JTAG TAP from SystemVerilog'
+	@printf '%s\n' '  make jtag-bridge-sim     Bus bridge of the debug module, 6 scenarios'
+	@printf '%s\n' '  make jtag-openocd        OpenOCD connected to the simulation: halt, registers, memory, breakpoint, reset   (needs OpenOCD)'
+	@printf '%s\n' '  make jtag-gdb            gdb over OpenOCD: breakpoint on main, step, registers, memory   (needs OpenOCD, gdb-multiarch)'
+	@printf '%s\n' '  make jtag-gates          jtag-sim, jtag-bridge-sim, lint-fpga, jtag-equiv and, if installed, the OpenOCD and gdb demos'
+	@printf '%s\n' '  make jtag-equiv          With the JTAG option disabled, the RTL equals that of the August 14 signed run (commit 73d8dcd)'
+	@printf '%s\n' '  make jtag-cov            Line coverage of jtag-sim; report in rtl/debug/sim/'
+	@printf '%s\n' '  make jtag-openocd-build  Only build the OpenOCD-connected simulation'
+	@printf '%s\n' '  make jtag-board          OpenOCD on the Genesys 2 board over its USB-JTAG   (needs the board)'
+	@printf '%s\n' ''
+	@printf '%s\n' 'ASIC'
+	@printf '%s\n' '  make lint                Lint of the ASIC top level in the delivered configuration'
+	@printf '%s\n' '  make lint-fpga           Lint of the FPGA top level'
+	@printf '%s\n' '  make asic-sram-sim       Boot from flash with the delivered OpenRAM SRAM macro models'
+	@printf '%s\n' '  make asic-top-sim        ASIC top level with all 27 SRAM macro models: boot and one inference'
+	@printf '%s\n' '  make asic-elab           Elaboration check with sv2v and yosys   (needs sv2v, yosys)'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Coverage'
+	@printf '%s\n' '  make coverage            Line and branch coverage of the SoC tests; report in logs/coverage/'
+	@printf '%s\n' '  make coverage-tb         Line coverage of the block testbenches'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Images and utilities'
+	@printf '%s\n' '  make flash-image         Flash image: program at 0x0, data at 0x8000, AI weights at 0x10000 (FW_SRC, FLASH_DATA)'
+	@printf '%s\n' '  make flash-bin           The same image as a binary for programming the board'
+	@printf '%s\n' '  make bootrom             Regenerate the boot ROM contents from bootrom.hex'
+	@printf '%s\n' '  make questa-pack         Program bundles for the Questa waveform flow (verif/questa/README.md)'
+	@printf '%s\n' '  make clean               Remove obj_dir/ and build/'
+	@printf '%s\n' '  make logs-clean          Remove logs/'
 
 # Questa / ModelSim dalga-formu akisi (verif/questa/README.md): her testin
 # firmware/hex paketini verif/questa/fw/<test>/ altina uretir (WSL/Linux,

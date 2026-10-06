@@ -59,7 +59,7 @@ pack_fw uart_hello_9600 sw/tests/uart_hello.c          -DCPB_VAL=5208
 pack_fw qspi_flash      sw/tests/qspi_test.c           -DCPB_VAL=434
 pack_fw uart_baud_sweep sw/tests/uart_baud_sweep.c     "-DSWEEP_CPB0=434 -DSWEEP_CPB1=50 -DSWEEP_CPB2=5208"
 pack_fw qspi_fifo_err   sw/tests/qspi_fifo_err_test.c  -DQSPI_ERR_CPB=64
-printf '[QSPI-ERR] gecen=25 kalan=0  SONUC: PASS' > "$OUT/qspi_fifo_err/golden.txt"
+printf '[QSPI-ERR] passed=25 failed=0  RESULT: PASS' > "$OUT/qspi_fifo_err/golden.txt"
 pack_fw ai_micro_speech sw/tests/ai_micro_speech_test.c
 pack_fw ai_sw_reference sw/tests/ai_sw_reference.c
 pack_fw ai_irq          sw/tests/ai_irq_test.c

@@ -51,24 +51,24 @@ echo == GDB: connect (target extended-remote :3333) ==\n
 target extended-remote :3333
 monitor gdb_breakpoint_override hard
 
-echo == GDB: reset halt (pc 0x00010000 beklenir) ==\n
+echo == GDB: reset halt (expected pc 0x00010000) ==\n
 monitor reset halt
 maintenance flush register-cache
 info registers pc
 printf "pc = 0x%08x\n", $pc
 
-echo == GDB: break *main + continue (main 0x000100e8 beklenir) ==\n
+echo == GDB: break *main + continue (expected main 0x000100e8) ==\n
 break *main
 continue
 info registers pc ra sp a0
 printf "pc = 0x%08x\n", $pc
 
-echo == GDB: x/8i $pc (kod ELF .text'ten; ISRAM veri portundan okunamaz) ==\n
+echo == GDB: x/8i $pc (code from the ELF .text; ISRAM is not readable over the data port) ==\n
 x/8i $pc
-echo -- ayni adres hedeften (progbuf lw): DSRAM alias, kod DEGIL --\n
+echo -- same address read from the target (progbuf lw): DSRAM alias, NOT code --\n
 monitor mdw 0x000100e8 2
 
-echo == GDB: delete 1 (tek donanim tetikleyicisi stepi icin bosaltilir) ==\n
+echo == GDB: delete 1 (frees the single hardware trigger for stepi) ==\n
 delete 1
 echo == GDB: stepi x3 ==\n
 stepi
@@ -95,7 +95,7 @@ maintenance flush register-cache
 info registers pc
 printf "pc = 0x%08x\n", $pc
 
-echo == GDB: mstatus/misa (CSR abstract komutlari) ==\n
+echo == GDB: mstatus/misa (CSR abstract commands) ==\n
 p/x $mstatus
 p/x $misa
 

@@ -78,11 +78,11 @@ module asic_top_boot_tb;
     logic [7:0] ch;
     initial begin
         wait(resetn===1); @(posedge clk);
-        $display("[%0t] === ASIC-TOP BOOT+YZ TESTI: asic_top @ 0x00000000 ===", $time);
+        $display("[%0t] === ASIC-TOP BOOT AND AI TEST: asic_top @ 0x00000000 ===", $time);
 
         uart_read(ch);
-        if (ch !== "R") begin $error("'R' bekleniyordu, 0x%02h alindi", ch); $finish; end
-        $display("[%0t] 'R' alindi -> bootloader+firmware calisti", $time);
+        if (ch !== "R") begin $error("expected 'R', received 0x%02h", ch); $finish; end
+        $display("[%0t] 'R' received: bootloader and firmware are running", $time);
 
         // alici 'A' gonderiminden once arm edilmeli, yoksa ilk karakterin
         // start kenari kaciriliyor
@@ -98,12 +98,12 @@ module asic_top_boot_tb;
 
         if (received == "Hello World!")
 `ifdef CHECK_ARGMAX
-            $display("[%0t] *** TEST SUCCESS *** asic_top + makro modeli: boot + YZ cikarimi bit-tam, argmax dahil ('%s')", $time, received);
+            $display("[%0t] *** TEST SUCCESS *** asic_top with macro model: boot and AI inference bit-exact, argmax included ('%s')", $time, received);
 `else
-            $display("[%0t] *** TEST SUCCESS *** asic_top + makro modeli: boot + conv katmani bit-tam ('%s')", $time, received);
+            $display("[%0t] *** TEST SUCCESS *** asic_top with macro model: boot and conv layer bit-exact ('%s')", $time, received);
 `endif
         else
-            $error("FAIL: alinan='%s'", received);
+            $error("FAIL: received='%s'", received);
         $finish;
     end
 

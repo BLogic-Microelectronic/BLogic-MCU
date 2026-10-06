@@ -57,9 +57,9 @@ static void kontrol(const char *ad, uint32_t beklenen, uint32_t gercek) {
     uart_puts(UART0, ad);
     if (beklenen == gercek) { uart_puts(UART0, " PASS\n"); gecen++; }
     else {
-        uart_puts(UART0, " FAIL beklenen=");
+        uart_puts(UART0, " FAIL expected=");
         puth(beklenen);
-        uart_puts(UART0, " gercek=");
+        uart_puts(UART0, " got=");
         puth(gercek);
         uart_puts(UART0, "\n");
         kalan++;
@@ -99,36 +99,36 @@ int main(void) {
        haritasiz 0x14 sifir okur (RTL:156) */
     uart_puts(UART0, "[4] negatif erisimler\n");
     *(volatile uint32_t *)(I2C_BASE + 0x08U) = 0x12345678U;
-    kontrol("RDR yazma yutuldu", 0x0U, I2C->RDR);
+    kontrol("RDR write ignored", 0x0U, I2C->RDR);
     kontrol("haritasiz 0x14", 0x0U, *(volatile uint32_t *)(I2C_BASE + 0x14U));
 
     /* [5] TX NBY=4: motor tam yol - START/BITS/ACK/STOP + coklu bayt +
        tdr_byte idx 0..3 (RTL:196-201,237-345). sda=0 -> hep ACK */
-    uart_puts(UART0, "[5] TX 4 bayt (hep-ACK)\n");
+    uart_puts(UART0, "[5] TX 4 bytes (all ACK)\n");
     I2C->NBY = 4U;
     I2C->ADR = 0x2AU;
     I2C->TDR = 0xA1B2C3D4U;
     I2C->CFG = CFG_TX_EN;
     kontrol("tx_done geldi", 1U, bekle(CFG_TX_DONE) != 0U ? 1U : 0U);
-    kontrol("nack yok", 0U, I2C->CFG & CFG_NACK);
+    kontrol("no nack", 0U, I2C->CFG & CFG_NACK);
 
     /* [6] bayrak temizleme (RTL:113-115): CFG=0 hepsini dusurur */
-    uart_puts(UART0, "[6] bayrak temizleme\n");
+    uart_puts(UART0, "[6] flag clearing\n");
     I2C->CFG = 0U;
     kontrol("CFG=0", 0x0U, I2C->CFG);
 
     /* [7] RX NBY=4: giris orneklemesi (RTL:271) + RDR bayt mux
        (RTL:287-292) + RX'te RDR on-sifirlama (RTL:245).
        sda=0 -> tum bitler 0 -> RDR kesin 0 */
-    uart_puts(UART0, "[7] RX 4 bayt (veri=0)\n");
+    uart_puts(UART0, "[7] RX 4 bytes (data=0)\n");
     I2C->NBY = 4U;
     I2C->CFG = CFG_RX_EN;
     kontrol("rx_done geldi", 1U, bekle(CFG_RX_DONE) != 0U ? 1U : 0U);
-    kontrol("nack yok", 0U, I2C->CFG & CFG_NACK);
+    kontrol("no nack", 0U, I2C->CFG & CFG_NACK);
     kontrol("RDR=0", 0x00000000U, I2C->RDR);
 
     /* [8] tek baytlik TX (last_byt ilk baytta - RTL:316-317) */
-    uart_puts(UART0, "[8] TX 1 bayt\n");
+    uart_puts(UART0, "[8] TX 1 byte\n");
     I2C->CFG = 0U;
     I2C->NBY = 1U;
     I2C->TDR = 0x000000E7U;
@@ -136,11 +136,11 @@ int main(void) {
     kontrol("tx_done geldi", 1U, bekle(CFG_TX_DONE) != 0U ? 1U : 0U);
     I2C->CFG = 0U;
 
-    uart_puts(UART0, "\n[I2C-SOC] gecen=");
+    uart_puts(UART0, "\n[I2C-SOC] passed=");
     putu(gecen);
-    uart_puts(UART0, " kalan=");
+    uart_puts(UART0, " failed=");
     putu(kalan);
-    uart_puts(UART0, (kalan == 0U) ? "  SONUC: PASS\n" : "  SONUC: FAIL\n");
+    uart_puts(UART0, (kalan == 0U) ? "  RESULT: PASS\n" : "  RESULT: FAIL\n");
     if (kalan == 0U)
         uart_puts(UART0, "Hello World from BLogic MCU!\n");
 

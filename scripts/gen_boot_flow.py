@@ -150,4 +150,4 @@ for col, lab in [(C_PROC, "İşlem"), (C_DEC, "Karar"), (C_LOOP, "Döngü gövde
 
 out = img.resize((W//SCALE, H//SCALE), Image.LANCZOS)
 out.save("images/boot_flow.png", dpi=(200, 200))
-print("YAZILDI: images/boot_flow.png", out.size)
+print("WRITTEN: images/boot_flow.png", out.size)

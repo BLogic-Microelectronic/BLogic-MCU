@@ -40,7 +40,7 @@ int main(void) {
     int toplam = sayi1 + sayi2;
     
     // sonuclari UART'a bas
-    uart_puts(UART0, "[MCU] Toplama Islemi Baslatiliyor...\n");
+    uart_puts(UART0, "[MCU] Starting the addition...\n");
     uart_puts(UART0, "Denklem: ");
     uart_put_int(sayi1);
     uart_puts(UART0, " + ");
@@ -54,7 +54,7 @@ int main(void) {
         uart_puts(UART0, "[ADD] PASS\n");
         uart_puts(UART0, "Hello World from BLogic MCU!\n");
     } else {
-        uart_puts(UART0, "[ADD] FAIL: toplam yanlis\n");
+        uart_puts(UART0, "[ADD] FAIL: wrong sum\n");
     }
 
     while (1) {

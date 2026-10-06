@@ -89,8 +89,8 @@ int main(void) {
     volatile int8_t        *sco =
         (volatile int8_t *)(AI_SRAM_BASE + AI_SW_SCRATCH_OFF);
 
-    uart_puts(U, "\n[PERF] BLogic MCU - HW vs SW referans olcumu\n");
-    uart_puts(U, "[PERF] Girdi: yes_real (gercek ses ozniteligi)\n");
+    uart_puts(U, "\n[PERF] BLogic MCU - hardware vs software measurement\n");
+    uart_puts(U, "[PERF] Input: yes_real (features of a recorded \"yes\")\n");
     mcycle_enable();
 
     /* HW inference: START -> DONE */
@@ -178,7 +178,7 @@ int main(void) {
     }
     uart_puts(U, "[PERF] conv_out HW vs SW: ");
     uart_putu(U, 1000U - diff);
-    uart_puts(U, "/1000 word esit\n");
+    uart_puts(U, "/1000 words equal\n");
 
     /* Tablo */
     uint32_t sp_x10 = (hw_cyc != 0U) ? (sw_cyc * 10U) / hw_cyc : 0U;
@@ -186,7 +186,7 @@ int main(void) {
     uart_putu(U, sp_x10 / 10U);
     uart_putc(U, '.');
     uart_putu(U, sp_x10 % 10U);
-    uart_puts(U, "x  (SW/HW cycle orani)\n");
+    uart_puts(U, "x  (SW/HW cycle ratio)\n");
     {
         const uint32_t fr[2] = {50000000U, 100000000U};
         const char *fn[2] = {"50", "100"};
@@ -210,7 +210,7 @@ int main(void) {
     /* Self-check + golden */
     if (hw_arg == EXPECTED_ARGMAX && sw_arg == EXPECTED_ARGMAX
         && diff == 0U && sw_cyc > hw_cyc) {
-        uart_puts(U, "[PERF] PASS - speedup > 1.0x, sonuclar birebir\n");
+        uart_puts(U, "[PERF] PASS - speedup > 1.0x, results identical\n");
         uart_puts(U, "Hello World from BLogic MCU!\n");
     } else {
         uart_puts(U, "[PERF] FAIL: hw_arg=");

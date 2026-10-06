@@ -86,9 +86,9 @@ static void load_input(uint32_t src_off) {
 
 /* Bir senaryoyu kostur. Donen: 1 = gecti, 0 = kaldi */
 static uint32_t run_scenario(const scenario_t *s) {
-    uart_puts(UART0, "\n[AI] --- senaryo: ");
+    uart_puts(UART0, "\n[AI] --- scenario: ");
     uart_puts(UART0, s->name);
-    uart_puts(UART0, " (beklenen argmax=");
+    uart_puts(UART0, " (expected argmax=");
     uart_putu(UART0, s->expected);
     uart_puts(UART0, ") ---\n");
 
@@ -114,7 +114,7 @@ static uint32_t run_scenario(const scenario_t *s) {
     } while (((st & STATUS_DONE) == 0U) && (timeout != 0U));
 
     if (timeout == 0U) {
-        uart_puts(UART0, "[AI]     FAIL: TIMEOUT - DONE bit gelmedi\n");
+        uart_puts(UART0, "[AI]     FAIL: TIMEOUT, the DONE bit never came\n");
         return 0U;
     }
 
@@ -135,7 +135,7 @@ static uint32_t run_scenario(const scenario_t *s) {
     AI_ACC->CTRL = CTRL_CLEAR_DONE;
 
     if (result_word == 0xDEADBEEFU) {
-        uart_puts(UART0, "[AI]     FAIL: hizlandirici sonuc yazmadi (sentinel duruyor)\n");
+        uart_puts(UART0, "[AI]     FAIL: the accelerator wrote no result (sentinel still there)\n");
         return 0U;
     }
     if ((argmax == s->expected) && ((result_word & 0xFU) == s->expected)) {
@@ -143,9 +143,9 @@ static uint32_t run_scenario(const scenario_t *s) {
         return 1U;
     }
 
-    uart_puts(UART0, "[AI]     FAIL: beklenen=");
+    uart_puts(UART0, "[AI]     FAIL: expected=");
     uart_putu(UART0, s->expected);
-    uart_puts(UART0, " alinan=");
+    uart_puts(UART0, " got=");
     uart_putu(UART0, argmax);
     uart_puts(UART0, "\n");
     return 0U;
@@ -157,7 +157,7 @@ int main(void) {
 
     uart_puts(UART0, "\n");
     uart_puts(UART0, "========================================\n");
-    uart_puts(UART0, " BLogic MCU - 4 Sinifli Konusma Tanima\n");
+    uart_puts(UART0, " BLogic MCU - 4-class keyword spotting\n");
     uart_puts(UART0, "========================================\n");
 
     uint32_t st0 = AI_ACC->STATUS;
@@ -171,15 +171,15 @@ int main(void) {
     }
 
     uart_puts(UART0, "\n----------------------------------------\n");
-    uart_puts(UART0, "[AI] SONUC: ");
+    uart_puts(UART0, "[AI] RESULT: ");
     uart_putu(UART0, passed);
-    uart_puts(UART0, " / 4 sinif dogru\n");
+    uart_puts(UART0, " of 4 classes correct\n");
     if (passed == 4U) {
-        uart_puts(UART0, "[AI] TUM SINIFLAR PASS\n");
+        uart_puts(UART0, "[AI] ALL CLASSES PASS\n");
     } else {
-        uart_puts(UART0, "[AI] EKSIK: ");
+        uart_puts(UART0, "[AI] MISSING: ");
         uart_putu(UART0, 4U - passed);
-        uart_puts(UART0, " sinif hatali\n");
+        uart_puts(UART0, " classes wrong\n");
     }
     uart_puts(UART0, "----------------------------------------\n");
 

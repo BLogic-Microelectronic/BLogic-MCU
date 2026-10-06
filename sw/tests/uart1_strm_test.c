@@ -33,7 +33,7 @@ int main(void) {
     UART1->CPB = 50;    // stream kanali 1 Mbps (sim hizli)
     uint32_t ok = 1U;
 
-    uart_puts(UART0, "\n[STRM] UART_1 stream DMA testi\n");
+    uart_puts(UART0, "\n[STRM] UART_1 stream DMA test\n");
 
     // ---- Faz A: DMA disi yollar - STP yaz/oku, readback'ler, RDR ----
     UART1->STP = 1U;
@@ -77,10 +77,10 @@ int main(void) {
     } else {
         uint32_t sta = STRM_SSTA;
         if ((sta >> 16) != 8U)          { uart_puts(UART0, "[STRM] FAIL: rxcnt != 8\n");   ok = 0U; }
-        if ((sta & SSTA_BUSY) != 0U)    { uart_puts(UART0, "[STRM] FAIL: busy kaldi\n");   ok = 0U; }
-        if (dma_buf[0] != 0xA3A2A1A0U)  { uart_puts(UART0, "[STRM] FAIL: word0 yanlis\n"); ok = 0U; }
-        if (dma_buf[1] != 0xA7A6A5A4U)  { uart_puts(UART0, "[STRM] FAIL: word1 yanlis\n"); ok = 0U; }
-        if (ok != 0U) uart_puts(UART0, "[STRM] DMA 8 bayt -> 2 word dogru, irq18 pulse uretildi\n");
+        if ((sta & SSTA_BUSY) != 0U)    { uart_puts(UART0, "[STRM] FAIL: busy stuck\n");   ok = 0U; }
+        if (dma_buf[0] != 0xA3A2A1A0U)  { uart_puts(UART0, "[STRM] FAIL: word0 wrong\n"); ok = 0U; }
+        if (dma_buf[1] != 0xA7A6A5A4U)  { uart_puts(UART0, "[STRM] FAIL: word1 wrong\n"); ok = 0U; }
+        if (ok != 0U) uart_puts(UART0, "[STRM] DMA 8 bytes -> 2 words correct, irq18 pulse generated\n");
     }
 
     // ---- Faz C: abort yolu (SCTL[1]) - veri kontrollerinden SONRA ----
@@ -90,9 +90,9 @@ int main(void) {
     STRM_SCTL = 2U;    // abort
     { uint32_t tmo = 200000U;
       while (((STRM_SSTA & SSTA_BUSY) != 0U) && (tmo != 0U)) { tmo--; }
-      if (tmo == 0U) { uart_puts(UART0, "[STRM] FAIL: abort sonrasi busy dusmedi\n"); ok = 0U; }
-      else if ((STRM_SSTA & SSTA_DONE) != 0U) { uart_puts(UART0, "[STRM] FAIL: abort'ta done set\n"); ok = 0U; }
-      else { uart_puts(UART0, "[STRM] abort: busy dustu, done=0, kesme yok\n"); }
+      if (tmo == 0U) { uart_puts(UART0, "[STRM] FAIL: busy did not drop after abort\n"); ok = 0U; }
+      else if ((STRM_SSTA & SSTA_DONE) != 0U) { uart_puts(UART0, "[STRM] FAIL: done set on abort\n"); ok = 0U; }
+      else { uart_puts(UART0, "[STRM] abort: busy dropped, done=0, no interrupt\n"); }
     }
 
     if (ok != 0U) {

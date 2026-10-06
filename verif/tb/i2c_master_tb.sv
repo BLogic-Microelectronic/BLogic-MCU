@@ -229,7 +229,7 @@ module i2c_master_tb;
     task automatic check32(input logic [31:0] got, input logic [31:0] exp,
                            input string what);
         if (got !== exp) begin
-            $display("[HATA] %s: got=0x%08x exp=0x%08x", what, got, exp);
+            $display("[FAIL] %s: got=0x%08x exp=0x%08x", what, got, exp);
             errors++;
         end else begin
             $display("[ OK ] %s = 0x%08x", what, got);
@@ -239,7 +239,7 @@ module i2c_master_tb;
     task automatic check8(input logic [7:0] got, input logic [7:0] exp,
                           input string what);
         if (got !== exp) begin
-            $display("[HATA] %s: got=0x%02x exp=0x%02x", what, got, exp);
+            $display("[FAIL] %s: got=0x%02x exp=0x%02x", what, got, exp);
             errors++;
         end else begin
             $display("[ OK ] %s = 0x%02x", what, got);
@@ -258,7 +258,7 @@ module i2c_master_tb;
             end
             n++;
             if (n > 20000) begin
-                $display("[HATA] %s TIMEOUT", name);
+                $display("[FAIL] %s TIMEOUT", name);
                 errors++;
                 return;
             end
@@ -299,19 +299,19 @@ module i2c_master_tb;
         axil_write(A_CFG, 32'h1);                 // TXEN (done'lar temizlenir)
         wait_done(1, "T2 TXDONE (4B)");
         axil_read(A_CFG, v);
-        check32(v & 32'h10, 32'h0, "T2 NACK yok");
-        check8(sl_rx_q[0], 8'hAA, "T2 slave bayt0 (LSB once)");
-        check8(sl_rx_q[1], 8'hBB, "T2 slave bayt1");
-        check8(sl_rx_q[2], 8'hCC, "T2 slave bayt2");
-        check8(sl_rx_q[3], 8'hDD, "T2 slave bayt3");
-        check32({28'd0, sl_rx_n}, 32'd4, "T2 slave bayt sayisi");
+        check32(v & 32'h10, 32'h0, "T2 no NACK");
+        check8(sl_rx_q[0], 8'hAA, "T2 slave byte 0 (LSB first)");
+        check8(sl_rx_q[1], 8'hBB, "T2 slave byte 1");
+        check8(sl_rx_q[2], 8'hCC, "T2 slave byte 2");
+        check8(sl_rx_q[3], 8'hDD, "T2 slave byte 3");
+        check32({28'd0, sl_rx_n}, 32'd4, "T2 slave byte count");
 
         // T2b: SCL ~400 kHz (50MHz'de periyot = 4*31 = 124 clk)
         if (scl_per < 110 || scl_per > 140) begin
-            $display("[HATA] T2b SCL periyodu %0d clk (110-140 bekleniyordu)", scl_per);
+            $display("[FAIL] T2b SCL period %0d clk (expected 110 to 140)", scl_per);
             errors++;
         end else begin
-            $display("[ OK ] T2b SCL periyodu %0d clk (~%0d kHz)",
+            $display("[ OK ] T2b SCL period %0d clk (about %0d kHz)",
                      scl_per, 50_000_000 / scl_per / 1000);
         end
 
@@ -320,50 +320,50 @@ module i2c_master_tb;
         axil_write(A_CFG, 32'h4);                 // RXEN (TXDONE temizlenir)
         wait_done(3, "T3 RXDONE (4B)");
         axil_read(A_RDR, v);
-        check32(v, 32'h44332211, "T3 RDR paketleme");
+        check32(v, 32'h44332211, "T3 RDR packing");
 
         // T4: 1 bayt TX
         axil_write(A_NBY, 32'd1);
         axil_write(A_TDR, 32'h0000005A);
         axil_write(A_CFG, 32'h1);                 // TXEN (RXDONE temizlenir)
         wait_done(1, "T4 TXDONE (1B)");
-        check8(sl_rx_q[4], 8'h5A, "T4 slave bayt4");
+        check8(sl_rx_q[4], 8'h5A, "T4 slave byte 4");
 
         // T5: NACK (eşleşmeyen adres)
         axil_write(A_ADR, 32'h23);
         axil_write(A_CFG, 32'h1);
-        wait_done(1, "T5 TXDONE (NACK'te de set)");
+        wait_done(1, "T5 TXDONE (also set on NACK)");
         axil_read(A_CFG, v);
-        check32((v >> 4) & 32'h1, 32'h1, "T5 NACK bayragi");
+        check32((v >> 4) & 32'h1, 32'h1, "T5 NACK flag");
         axil_write(A_CFG, 32'h0);                 // hepsini temizle
         axil_read(A_CFG, v);
-        check32(v & 32'h0000_001F, 32'd0, "T5 status temiz");
+        check32(v & 32'h0000_001F, 32'd0, "T5 status clear");
 
         // T6: TX+RX birlikte, önce TX sonra zincirleme RX
         axil_write(A_ADR, {25'd0, SLAVE_ADDR});
         axil_write(A_NBY, 32'd1);
         axil_write(A_TDR, 32'h00000077);
         axil_write(A_CFG, 32'h5);                 // TXEN | RXEN
-        wait_done(1, "T6 TXDONE (TX oncelikli)");
+        wait_done(1, "T6 TXDONE (TX has priority)");
         axil_read(A_CFG, v);
-        check32((v >> 3) & 32'h1, 32'h0, "T6 RXDONE henuz set degil");
-        check8(sl_rx_q[5], 8'h77, "T6 slave bayt5");
-        wait_done(3, "T6 RXDONE (zincirleme RX)");
+        check32((v >> 3) & 32'h1, 32'h0, "T6 RXDONE not set yet");
+        check8(sl_rx_q[5], 8'h77, "T6 slave byte 5");
+        wait_done(3, "T6 RXDONE (chained RX)");
         axil_read(A_RDR, v);
-        check32(v, 32'h00000044, "T6 zincir RX verisi");
+        check32(v, 32'h00000044, "T6 chained RX data");
         axil_write(A_CFG, 32'h0);
 
         // Sonuç
         repeat (10) @(posedge clk);
-        if (errors == 0) $display("[I2C] PASS — tum testler gecti");
-        else             $display("[I2C] FAIL — %0d hata", errors);
+        if (errors == 0) $display("[I2C] PASS: all tests passed");
+        else             $display("[I2C] FAIL: %0d errors", errors);
         $finish;
     end
 
     // Genel emniyet timeout
     initial begin
         #10_000_000;   // 10 ms
-        $display("[HATA] Genel TB timeout!");
+        $display("[FAIL] Global testbench timeout");
         $display("[I2C] FAIL");
         $finish;
     end

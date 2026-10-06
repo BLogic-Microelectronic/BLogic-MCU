@@ -80,6 +80,6 @@ int main(void) {
     I2C->ADR = 0x42U;
 
     if (fail == 0) uart_puts(UART0, "I2C SYS OK\n");
-    else           uart_puts(UART0, "FAIL toplam\n");
+    else           uart_puts(UART0, "FAIL total\n");
     while (1) { }
 }

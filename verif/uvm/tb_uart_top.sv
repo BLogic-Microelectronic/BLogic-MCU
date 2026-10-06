@@ -79,7 +79,7 @@ module tb_uart_top;
     // simulasyon zaman asimi korumasi
     initial begin
         #5_000_000;
-        `uvm_fatal("TIMEOUT", "Simulasyon zaman asimina ugradi")
+        `uvm_fatal("TIMEOUT", "Simulation timed out")
     end
 
 endmodule

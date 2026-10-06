@@ -31,10 +31,8 @@ module irq_func_cov (
     final begin
         automatic int hit = 0;
         if (n_timer) hit++; if (n_ai) hit++; if (n_strm) hit++;
-        $display("=== [FUNC-COV] IRQ (%m) ===");
-        $display("  yukselme sayisi: timer(irq16)=%0d ai(irq17)=%0d strm(irq18)=%0d",
-                 n_timer, n_ai, n_strm);
-        $display("  bin kapsami    : %0d/3", hit);
+        $display("[FUNC-COV] IRQ (%m): rising edges timer(irq16)=%0d ai(irq17)=%0d strm(irq18)=%0d; %0d of 3 bins hit",
+                 n_timer, n_ai, n_strm, hit);
     end
 endmodule
 

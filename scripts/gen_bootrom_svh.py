@@ -16,7 +16,7 @@ src = pathlib.Path("bootrom.hex")
 dst = pathlib.Path("rtl/asic/bootrom_content.svh")
 words = [l.strip() for l in src.read_text().split() if l.strip()]
 if not words:
-    sys.exit("bootrom.hex bos")
+    sys.exit("bootrom.hex is empty")
 
 lines = ["// SPDX-FileCopyrightText: 2026 BLogic Mikroelektronik - Berk Muammer Kuzu and Berkin Demircan",
          "// SPDX-License-Identifier: GPL-3.0-only",

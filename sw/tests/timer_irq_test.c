@@ -44,7 +44,7 @@ int main(void) {
     UART0->CPB = 434;
     uint32_t ok = 1U;
 
-    uart_puts(UART0, "\n[TIMER] BLogic MCU - timer testi\n");
+    uart_puts(UART0, "\n[TIMER] BLogic MCU - timer test\n");
 
     // ---- Faz 1: yukari mod, PRE=0, ARE=9 -> reload x2 + readback'ler ----
     TIMER->ENA = 0U;
@@ -54,26 +54,26 @@ int main(void) {
     TIMER->CNT = 0xDEADBEEFU;   // RO: yazma yok sayilmali (decoder default kolu)
     TIMER->CLR = 1U;
     TIMER->ENA = 1U;
-    if (wait_evn(2U) == 0U) { uart_puts(UART0, "[TIMER] FAIL: faz1 timeout\n"); ok = 0U; }
-    else                    { uart_puts(UART0, "[TIMER] faz1: up mod, 2x reload - tamam\n"); }
+    if (wait_evn(2U) == 0U) { uart_puts(UART0, "[TIMER] FAIL: phase 1 timeout\n"); ok = 0U; }
+    else                    { uart_puts(UART0, "[TIMER] phase 1: up mode, 2 reloads - ok\n"); }
     (void)TIMER->CNT;                       // RO sayac okuma yolu
     if (TIMER->PRE != 0U)  { uart_puts(UART0, "[TIMER] FAIL: PRE readback\n"); ok = 0U; }
     if (TIMER->ARE != 9U)  { uart_puts(UART0, "[TIMER] FAIL: ARE readback\n"); ok = 0U; }
     if (TIMER->MOD != 1U)  { uart_puts(UART0, "[TIMER] FAIL: MOD readback\n"); ok = 0U; }
     if (TIMER->ENA != 1U)  { uart_puts(UART0, "[TIMER] FAIL: ENA readback\n"); ok = 0U; }
-    if (TIMER->CLR != 0U)  { uart_puts(UART0, "[TIMER] FAIL: CLR 0 okunmali\n"); ok = 0U; }
-    if (TIMER->EVC != 0U)  { uart_puts(UART0, "[TIMER] FAIL: EVC 0 okunmali\n"); ok = 0U; }
+    if (TIMER->CLR != 0U)  { uart_puts(UART0, "[TIMER] FAIL: CLR must read 0\n"); ok = 0U; }
+    if (TIMER->EVC != 0U)  { uart_puts(UART0, "[TIMER] FAIL: EVC must read 0\n"); ok = 0U; }
     TIMER->ENA = 0U;
     TIMER->EVC = 1U;                        // event clear yolu
-    if (TIMER->EVN != 0U)  { uart_puts(UART0, "[TIMER] FAIL: EVC sonrasi EVN != 0\n"); ok = 0U; }
+    if (TIMER->EVN != 0U)  { uart_puts(UART0, "[TIMER] FAIL: EVN != 0 after EVC\n"); ok = 0U; }
 
     // ---- Faz 2: prescale PRE=4 (5 cevrimde 1 tik) ----
     TIMER->PRE = 4U;
     TIMER->ARE = 3U;
     TIMER->CLR = 1U;
     TIMER->ENA = 1U;
-    if (wait_evn(1U) == 0U) { uart_puts(UART0, "[TIMER] FAIL: faz2 timeout\n"); ok = 0U; }
-    else                    { uart_puts(UART0, "[TIMER] faz2: prescale=4 - tamam\n"); }
+    if (wait_evn(1U) == 0U) { uart_puts(UART0, "[TIMER] FAIL: phase 2 timeout\n"); ok = 0U; }
+    else                    { uart_puts(UART0, "[TIMER] phase 2: prescale=4 - ok\n"); }
     TIMER->ENA = 0U;
     TIMER->EVC = 1U;
 
@@ -83,8 +83,8 @@ int main(void) {
     TIMER->ARE = 0xFFFFFFFFU;
     TIMER->CLR = 1U;
     TIMER->ENA = 1U;
-    if (wait_evn(1U) == 0U) { uart_puts(UART0, "[TIMER] FAIL: faz3 timeout\n"); ok = 0U; }
-    else                    { uart_puts(UART0, "[TIMER] faz3: down mod wrap - tamam\n"); }
+    if (wait_evn(1U) == 0U) { uart_puts(UART0, "[TIMER] FAIL: phase 3 timeout\n"); ok = 0U; }
+    else                    { uart_puts(UART0, "[TIMER] phase 3: down mode wrap - ok\n"); }
     TIMER->ENA = 0U;
     TIMER->EVC = 1U;
     TIMER->MOD = 1U;
@@ -109,17 +109,17 @@ int main(void) {
         __asm__ volatile("nop");
     }
     if (g_tim_fired == 0U) {
-        uart_puts(UART0, "[TIMER] FAIL: faz4 timeout - ISR hic calismadi\n");
+        uart_puts(UART0, "[TIMER] FAIL: phase 4 timeout, the ISR never ran\n");
         ok = 0U;
     } else {
-        uart_puts(UART0, "[TIMER] faz4: ISR calisma sayisi = ");
+        uart_puts(UART0, "[TIMER] phase 4: ISR call count = ");
         uart_putu(UART0, g_tim_fired);
-        uart_puts(UART0, ", ISR'de EVN = ");
+        uart_puts(UART0, ", EVN in the ISR = ");
         uart_putu(UART0, g_tim_evn);
         uart_puts(UART0, "\n");
-        if (g_tim_fired != 1U) { uart_puts(UART0, "[TIMER] FAIL: birden fazla ISR (EVC yolu?)\n"); ok = 0U; }
-        if (g_tim_evn == 0U)   { uart_puts(UART0, "[TIMER] FAIL: ISR'de EVN 0 okundu\n");          ok = 0U; }
-        if (TIMER->EVN != 0U)  { uart_puts(UART0, "[TIMER] FAIL: kesme sonrasi EVN != 0\n");       ok = 0U; }
+        if (g_tim_fired != 1U) { uart_puts(UART0, "[TIMER] FAIL: more than one ISR call (EVC path?)\n"); ok = 0U; }
+        if (g_tim_evn == 0U)   { uart_puts(UART0, "[TIMER] FAIL: EVN read 0 in the ISR\n");          ok = 0U; }
+        if (TIMER->EVN != 0U)  { uart_puts(UART0, "[TIMER] FAIL: EVN != 0 after the interrupt\n");       ok = 0U; }
     }
 
     if (ok != 0U) {

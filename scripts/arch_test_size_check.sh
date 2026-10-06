@@ -21,14 +21,14 @@ HTIF="$TGT/htif.S"
 # env: artik riscv-test-suite/env (eski stil)
 ENV_DIR="$REPO/riscv-test-suite/env"
 [ -d "$ENV_DIR" ] || ENV_DIR=$(find "$REPO" -type d -name env 2>/dev/null | head -1)
-[ -z "$ENV_DIR" ] && { echo "[HATA] env dizini yok"; exit 1; }
+[ -z "$ENV_DIR" ] && { echo "[ERROR] env directory not found"; exit 1; }
 echo "[INFO] env: $ENV_DIR"
 
 # rv32 test toplama (riscv-test-suite/rv32i_m/<EXT>/src/*.S)
 mapfile -t TESTS < <(find "$REPO/riscv-test-suite" -path "*rv32*" -name "*.S" 2>/dev/null \
                         | grep -vE "(env|common|aux|references)" | sort)
-[ "${#TESTS[@]}" -eq 0 ] && { echo "[HATA] test bulunamadi"; exit 1; }
-echo "[INFO] ${#TESTS[@]} test bulundu"
+[ "${#TESTS[@]}" -eq 0 ] && { echo "[ERROR] no tests found"; exit 1; }
+echo "[INFO] ${#TESTS[@]} tests found"
 
 TMP=/tmp/arch_size_check
 rm -rf "$TMP" && mkdir -p "$TMP"
@@ -75,34 +75,34 @@ done
 
 echo ""
 echo "================================================"
-echo " arch-test 8KB envanteri (eski API + HTIF)"
+echo " arch-test 8KB inventory (old API + HTIF)"
 echo "================================================"
-printf " Sigan         : %4d\n" "$FITS"
-printf " Tasanlar      : %4d\n" "$OVER"
-printf " Derlemeyenler : %4d\n" "$FAIL"
-printf " Toplam        : %4d\n" "${#TESTS[@]}"
+printf " Fit           : %4d\n" "$FITS"
+printf " Overflow      : %4d\n" "$OVER"
+printf " Build failed  : %4d\n" "$FAIL"
+printf " Total         : %4d\n" "${#TESTS[@]}"
 echo "------------------------------------------------"
 echo " CSV: $SUMMARY"
 echo ""
-echo "===== Extension bazinda dagilim ====="
+echo "===== Breakdown by extension ====="
 awk -F, 'NR>1 && $2!="" {
     counts[$2","$8]++; total[$2]++;
 } END {
     for (k in total) {
         fits = counts[k",Y"]+0;
         over = counts[k",N"]+0;
-        printf "  %-25s  toplam=%-3d sigan=%-3d tasan=%-3d\n", k, total[k], fits, over;
+        printf "  %-25s  total=%-3d fit=%-3d overflow=%-3d\n", k, total[k], fits, over;
     }
 }' "$SUMMARY" | sort
 
 echo ""
-echo "===== Sigan testlerden ilk 10 ornek ====="
+echo "===== First 10 tests that fit ====="
 awk -F, 'NR>1 && $8=="Y" {print "  "$3" ("$4"B text + "$5"B data)"}' "$SUMMARY" | head -10
 
 echo ""
-echo "===== Tasan testlerden ilk 10 ornek ====="
+echo "===== First 10 tests that overflow ====="
 awk -F, 'NR>1 && $8=="N" {print "  "$3"  ["$9"]"}' "$SUMMARY" | head -10
 
 echo ""
-echo "===== Derleme hatasi ornekleri (varsa) ====="
+echo "===== Build failure examples (if any) ====="
 awk -F, 'NR>1 && $9=="COMPILE_FAIL" {print "  "$1}' "$SUMMARY" | head -5
