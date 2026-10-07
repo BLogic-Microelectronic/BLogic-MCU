@@ -28,7 +28,7 @@ Slowed down 1.6 times.</sub>
 
 ## Overview
 
-BLogic MCU was designed by Berk Muammer Kuzu and Berkin Demircan (Ostim Technical University) for the
+BLogic MCU was designed by BLogic Microelectronic team (Ostim Technical University) for the
 Microcontroller Design category of the TEKNOFEST 2026 Chip Design Competition.
 
 The processor is the OpenHW Group CV32E40P (RV32IMC). It is connected through two OBI-to-AXI4 bridges
