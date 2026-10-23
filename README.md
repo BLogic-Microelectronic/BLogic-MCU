@@ -14,6 +14,7 @@ implemented on FPGA and signed off as a sky130 ASIC.
 
 [![CI](https://github.com/BLogic-Microelectronic/BLogic-MCU/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/BLogic-Microelectronic/BLogic-MCU/actions/workflows/ci.yml)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
+[![OSHWA certified: TR000011](https://img.shields.io/badge/OSHWA%20certified-TR000011-ff4444)](https://certification.oshwa.org/tr000011.html)
 [![ISA: RV32IMC](https://img.shields.io/badge/ISA-RV32IMC-orange)](docs/DOCUMENTATION.md#103-isa-compliance-rv32imc-directed-test-3131-pass-riscv-arch-test-7273--1-analysed-known-difference)
 [![ASIC: sky130](https://img.shields.io/badge/ASIC-sky130%2C%20DRC%2FLVS%20clean-success)](docs/DOCUMENTATION.md#137-final-signoff-results--run_hold035_2026-09-09)
 [![FPGA: 50 MHz](https://img.shields.io/badge/FPGA-Genesys%202%2C%2050%20MHz-success)](docs/DOCUMENTATION.md#12-fpga-prototyping)
@@ -175,6 +176,14 @@ Frequently used sections:
 - [FPGA prototyping](docs/DOCUMENTATION.md#12-fpga-prototyping)
 - [ASIC flow](docs/DOCUMENTATION.md#13-asic-flow-sky130) and the [ASIC README](asic/README.md)
 - [Verification and test plan](docs/verification_and_test_plan.md)
+
+## Open source hardware certification
+
+<a href="https://certification.oshwa.org/tr000011.html"><img src="https://raw.githubusercontent.com/BLogic-Microelectronic/BLogic-MCU/main/images/oshwa_tr000011.png" width="200" alt="OSHW certification mark with the UID TR000011"></a>
+
+BLogic MCU is certified as open source hardware by the
+[Open Source Hardware Association](https://www.oshwa.org/) (OSHWA). Version 1.1 was certified on
+22 October 2026 under the UID [TR000011](https://certification.oshwa.org/tr000011.html).
 
 ## License
 
